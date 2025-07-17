@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/database';
+import { prisma } from '@/lib/prisma';
 import { SUPPORTED_FILE_TYPES } from '@/lib/s3';
+import { notifyNewContent } from '@/lib/notifications';
 import { z } from 'zod';
 
 const createContentSchema = z.object({
@@ -88,6 +89,18 @@ export async function POST(request: NextRequest) {
         },
       },
     });
+
+    // Get artist name for notification
+    const artist = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { displayName: true },
+    });
+
+    // Send notifications to subscribers (async, don't await)
+    if (validatedData.tierIds.length > 0) {
+      notifyNewContent(content, artist?.displayName || 'Artist')
+        .catch(error => console.error('Failed to send content notifications:', error));
+    }
 
     return NextResponse.json({
       success: true,

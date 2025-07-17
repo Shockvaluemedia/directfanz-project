@@ -10,7 +10,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  return withStreamingAccess(request, params.id, async (req) => {
+  return withStreamingAccess(request, params.id, async () => {
     try {
       // Get content information
       const content = await prisma.content.findUnique({

@@ -9,18 +9,38 @@ import type {
   PaginatedResponse
 } from '../types/database'
 import type { User, Artist, Tier, Content, Subscription, Comment } from '@prisma/client'
+import { 
+  CACHE_KEYS, 
+  CACHE_TTL, 
+  getCachedData, 
+  setCachedData, 
+  deleteCachedData, 
+  deleteCachedPattern,
+  withCache
+} from './redis'
+import { logger } from './logger'
 
 // User operations
 export async function getUserById(id: string) {
-  return await prisma.user.findUnique({
-    where: { id },
-    include: {
-      artistProfile: true
-    }
-  })
+  const cacheKey = `${CACHE_KEYS.USER}${id}`;
+  
+  return await withCache(
+    cacheKey,
+    async () => {
+      return await prisma.user.findUnique({
+        where: { id },
+        include: {
+          artistProfile: true
+        }
+      });
+    },
+    CACHE_TTL.MEDIUM
+  );
 }
 
 export async function getUserByEmail(email: string) {
+  // We don't cache by email for security reasons
+  // Email lookups are typically for authentication, which should always hit the database
   return await prisma.user.findUnique({
     where: { email },
     include: {
@@ -38,7 +58,7 @@ export async function createUser(data: {
   avatar?: string
   socialLinks?: Record<string, string>
 }) {
-  return await prisma.user.create({
+  const user = await prisma.user.create({
     data: {
       ...data,
       artistProfile: data.role === UserRole.ARTIST ? {
@@ -52,28 +72,43 @@ export async function createUser(data: {
     include: {
       artistProfile: true
     }
-  })
+  });
+  
+  // Cache the new user
+  if (user) {
+    await setCachedData(`${CACHE_KEYS.USER}${user.id}`, user, CACHE_TTL.MEDIUM);
+  }
+  
+  return user;
 }
 
 // Artist operations
 export async function getArtistById(id: string): Promise<ArtistWithUser | null> {
-  const artist = await prisma.user.findUnique({
-    where: { 
-      id,
-      role: UserRole.ARTIST
+  const cacheKey = `${CACHE_KEYS.ARTIST}${id}`;
+  
+  return await withCache(
+    cacheKey,
+    async () => {
+      const artist = await prisma.user.findUnique({
+        where: { 
+          id,
+          role: UserRole.ARTIST
+        },
+        include: {
+          artistProfile: true
+        }
+      });
+
+      if (!artist || !artist.artistProfile) return null;
+
+      return {
+        ...artist.artistProfile,
+        totalEarnings: Number(artist.artistProfile.totalEarnings),
+        user: artist
+      } as ArtistWithUser;
     },
-    include: {
-      artistProfile: true
-    }
-  })
-
-  if (!artist || !artist.artistProfile) return null
-
-  return {
-    ...artist.artistProfile,
-    totalEarnings: Number(artist.artistProfile.totalEarnings),
-    user: artist
-  } as ArtistWithUser
+    CACHE_TTL.MEDIUM
+  );
 }
 
 export async function getArtists(options: {
@@ -83,94 +118,120 @@ export async function getArtists(options: {
   sortOrder?: 'asc' | 'desc'
 } = {}): Promise<PaginatedResponse<ArtistWithUser>> {
   const { page = 1, limit = 20, sortBy = 'name', sortOrder = 'asc' } = options
-  const skip = (page - 1) * limit
+  
+  // Create a cache key based on the query parameters
+  const cacheKey = `${CACHE_KEYS.ARTISTS_LIST}${page}_${limit}_${sortBy}_${sortOrder}`;
+  
+  return await withCache(
+    cacheKey,
+    async () => {
+      const skip = (page - 1) * limit;
 
-  const orderBy = sortBy === 'name' 
-    ? { displayName: sortOrder }
-    : sortBy === 'subscribers'
-    ? { artistProfile: { totalSubscribers: sortOrder } }
-    : { createdAt: sortOrder }
+      const orderBy = sortBy === 'name' 
+        ? { displayName: sortOrder }
+        : sortBy === 'subscribers'
+        ? { artistProfile: { totalSubscribers: sortOrder } }
+        : { createdAt: sortOrder };
 
-  const [artists, total] = await Promise.all([
-    prisma.user.findMany({
-      where: { role: UserRole.ARTIST },
-      include: { artistProfile: true },
-      orderBy,
-      skip,
-      take: limit
-    }),
-    prisma.user.count({
-      where: { role: UserRole.ARTIST }
-    })
-  ])
+      const [artists, total] = await Promise.all([
+        prisma.user.findMany({
+          where: { role: UserRole.ARTIST },
+          include: { artistProfile: true },
+          orderBy,
+          skip,
+          take: limit
+        }),
+        prisma.user.count({
+          where: { role: UserRole.ARTIST }
+        })
+      ]);
 
-  const data = artists
-    .filter(artist => artist.artistProfile)
-    .map(artist => ({
-      ...artist.artistProfile!,
-      totalEarnings: Number(artist.artistProfile!.totalEarnings),
-      user: artist
-    })) as ArtistWithUser[]
+      const data = artists
+        .filter(artist => artist.artistProfile)
+        .map(artist => ({
+          ...artist.artistProfile!,
+          totalEarnings: Number(artist.artistProfile!.totalEarnings),
+          user: artist
+        })) as ArtistWithUser[];
 
-  return {
-    data,
-    pagination: {
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-      hasNext: page < Math.ceil(total / limit),
-      hasPrev: page > 1
-    }
-  }
+      return {
+        data,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+          hasNext: page < Math.ceil(total / limit),
+          hasPrev: page > 1
+        }
+      };
+    },
+    CACHE_TTL.SHORT // Short TTL since artist list changes frequently
+  );
 }
 
 // Tier operations
 export async function getTiersByArtistId(artistId: string) {
-  const tiers = await prisma.tier.findMany({
-    where: { artistId },
-    include: {
-      _count: {
-        select: {
-          subscriptions: {
-            where: { status: SubscriptionStatus.ACTIVE }
-          }
-        }
-      }
-    },
-    orderBy: { minimumPrice: 'asc' }
-  })
+  const cacheKey = `${CACHE_KEYS.TIERS_BY_ARTIST}${artistId}`;
   
-  return tiers.map(tier => ({
-    ...tier,
-    minimumPrice: Number(tier.minimumPrice),
-    subscriberCount: tier._count.subscriptions
-  }))
+  return await withCache(
+    cacheKey,
+    async () => {
+      const tiers = await prisma.tier.findMany({
+        where: { artistId },
+        include: {
+          _count: {
+            select: {
+              subscriptions: {
+                where: { status: SubscriptionStatus.ACTIVE }
+              }
+            }
+          }
+        },
+        orderBy: { minimumPrice: 'asc' }
+      });
+      
+      return tiers.map(tier => ({
+        ...tier,
+        minimumPrice: Number(tier.minimumPrice),
+        subscriberCount: tier._count.subscriptions
+      }));
+    },
+    CACHE_TTL.SHORT
+  );
 }
 
 export async function getTierById(id: string, artistId?: string) {
-  const where = artistId ? { id, artistId } : { id }
+  const cacheKey = `${CACHE_KEYS.TIER}${id}${artistId ? '_' + artistId : ''}`;
   
-  const tier = await prisma.tier.findFirst({
-    where,
-    include: {
-      _count: {
-        select: {
-          subscriptions: {
-            where: { status: SubscriptionStatus.ACTIVE }
+  return await withCache(
+    cacheKey,
+    async () => {
+      const where = artistId ? { id, artistId } : { id };
+      
+      const tier = await prisma.tier.findFirst({
+        where,
+        include: {
+          _count: {
+            select: {
+              subscriptions: {
+                where: { status: SubscriptionStatus.ACTIVE }
+              }
+            }
           }
         }
-      }
-    }
-  })
-  
-  if (!tier) return null
-  
-  return {
-    ...tier,
-    minimumPrice: Number(tier.minimumPrice),
-    subscriberCount: tier._count.subscriptions
-  }
+      });
+      
+      if (!tier) return null;
+      
+      return {
+        ...tier,
+        minimumPrice: Number(tier.minimumPrice),
+        subscriberCount: tier._count.subscriptions
+      };
+    },
+    CACHE_TTL.SHORT
+  );
 }
 
 export async function createTier(data: {
@@ -193,13 +254,21 @@ export async function createTier(data: {
         }
       }
     }
-  })
+  });
   
-  return {
+  const result = {
     ...tier,
     minimumPrice: Number(tier.minimumPrice),
     subscriberCount: tier._count.subscriptions
-  }
+  };
+  
+  // Cache the new tier
+  await setCachedData(`${CACHE_KEYS.TIER}${tier.id}`, result, CACHE_TTL.SHORT);
+  
+  // Invalidate artist tiers cache
+  await deleteCachedData(`${CACHE_KEYS.TIERS_BY_ARTIST}${data.artistId}`);
+  
+  return result;
 }
 
 export async function updateTier(id: string, data: {
@@ -253,11 +322,19 @@ export async function updateTier(id: string, data: {
     }
   })
   
-  return {
+  const result = {
     ...tier,
     minimumPrice: Number(tier.minimumPrice),
     subscriberCount: tier._count.subscriptions
-  }
+  };
+  
+  // Update cache
+  await setCachedData(`${CACHE_KEYS.TIER}${tier.id}`, result, CACHE_TTL.SHORT);
+  
+  // Invalidate related caches
+  await deleteCachedData(`${CACHE_KEYS.TIERS_BY_ARTIST}${tier.artistId}`);
+  
+  return result;
 }
 
 export async function deleteTier(id: string): Promise<void> {
@@ -286,9 +363,23 @@ export async function deleteTier(id: string): Promise<void> {
     throw new Error('Cannot delete tier with associated content. Please reassign content to other tiers first.')
   }
 
+  // Get tier info for cache invalidation
+  const tier = await prisma.tier.findUnique({
+    where: { id },
+    select: { artistId: true }
+  });
+
   await prisma.tier.delete({
     where: { id }
-  })
+  });
+
+  // Invalidate caches
+  if (tier) {
+    await deleteCachedData(`${CACHE_KEYS.TIER}${id}`);
+    await deleteCachedData(`${CACHE_KEYS.TIERS_BY_ARTIST}${tier.artistId}`);
+    // Invalidate any cache keys that might contain this tier ID
+    await deleteCachedPattern(`*${id}*`);
+  }
 }
 
 // Tier validation helper functions
@@ -369,46 +460,56 @@ export async function getContentByArtistId(
   } = {}
 ): Promise<PaginatedResponse<ContentWithTiers>> {
   const { page = 1, limit = 20, type, isPublic } = options
-  const skip = (page - 1) * limit
+  
+  // Create a cache key based on the query parameters
+  const cacheKey = `${CACHE_KEYS.CONTENT_BY_ARTIST}${artistId}_${page}_${limit}_${type || 'all'}_${isPublic === undefined ? 'all' : isPublic}`;
+  
+  return await withCache(
+    cacheKey,
+    async () => {
+      const skip = (page - 1) * limit;
 
-  const where = {
-    artistId,
-    ...(type && { type }),
-    ...(isPublic !== undefined && { isPublic })
-  }
+      const where = {
+        artistId,
+        ...(type && { type }),
+        ...(isPublic !== undefined && { isPublic })
+      };
 
-  const [content, total] = await Promise.all([
-    prisma.content.findMany({
-      where,
-      include: {
-        tiers: true
-      },
-      orderBy: { createdAt: 'desc' },
-      skip,
-      take: limit
-    }),
-    prisma.content.count({ where })
-  ])
+      const [content, total] = await Promise.all([
+        prisma.content.findMany({
+          where,
+          include: {
+            tiers: true
+          },
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take: limit
+        }),
+        prisma.content.count({ where })
+      ]);
 
-  const transformedContent = content.map(item => ({
-    ...item,
-    tiers: item.tiers.map(tier => ({
-      ...tier,
-      minimumPrice: Number(tier.minimumPrice)
-    }))
-  }))
+      const transformedContent = content.map(item => ({
+        ...item,
+        tiers: item.tiers.map(tier => ({
+          ...tier,
+          minimumPrice: Number(tier.minimumPrice)
+        }))
+      }));
 
-  return {
-    data: transformedContent as ContentWithTiers[],
-    pagination: {
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-      hasNext: page < Math.ceil(total / limit),
-      hasPrev: page > 1
-    }
-  }
+      return {
+        data: transformedContent as ContentWithTiers[],
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+          hasNext: page < Math.ceil(total / limit),
+          hasPrev: page > 1
+        }
+      };
+    },
+    CACHE_TTL.SHORT
+  );
 }
 
 export async function createContent(data: {
@@ -427,45 +528,71 @@ export async function createContent(data: {
 }): Promise<Content> {
   const { tierIds, ...contentData } = data
   
-  return await prisma.content.create({
+  const content = await prisma.content.create({
     data: {
       ...contentData,
       tiers: {
         connect: tierIds.map(id => ({ id }))
       }
     }
-  })
+  });
+  
+  // Invalidate related caches
+  await deleteCachedPattern(`${CACHE_KEYS.CONTENT_BY_ARTIST}${data.artistId}*`);
+  
+  // Invalidate tier caches since content-tier relationships changed
+  for (const tierId of tierIds) {
+    await deleteCachedData(`${CACHE_KEYS.TIER}${tierId}`);
+  }
+  
+  return content;
 }
 
 // Subscription operations
 export async function getSubscriptionsByFanId(fanId: string) {
-  const subscriptions = await prisma.subscription.findMany({
-    where: { fanId },
-    include: {
-      tier: {
-        include: {
-          artist: true
-        }
-      }
-    },
-    orderBy: { createdAt: 'desc' }
-  })
+  const cacheKey = `${CACHE_KEYS.SUBSCRIPTIONS_BY_FAN}${fanId}`;
   
-  return subscriptions.map(sub => ({
-    ...sub,
-    amount: Number(sub.amount),
-    tier: {
-      ...sub.tier,
-      minimumPrice: Number(sub.tier.minimumPrice)
-    }
-  }))
+  return await withCache(
+    cacheKey,
+    async () => {
+      const subscriptions = await prisma.subscription.findMany({
+        where: { fanId },
+        include: {
+          tier: {
+            include: {
+              artist: true
+            }
+          }
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+      
+      return subscriptions.map(sub => ({
+        ...sub,
+        amount: Number(sub.amount),
+        tier: {
+          ...sub.tier,
+          minimumPrice: Number(sub.tier.minimumPrice)
+        }
+      }));
+    },
+    CACHE_TTL.SHORT
+  );
 }
 
 export async function getSubscriptionsByArtistId(artistId: string): Promise<Subscription[]> {
-  return await prisma.subscription.findMany({
-    where: { artistId },
-    orderBy: { createdAt: 'desc' }
-  })
+  const cacheKey = `${CACHE_KEYS.SUBSCRIPTIONS_BY_ARTIST}${artistId}`;
+  
+  return await withCache(
+    cacheKey,
+    async () => {
+      return await prisma.subscription.findMany({
+        where: { artistId },
+        orderBy: { createdAt: 'desc' }
+      });
+    },
+    CACHE_TTL.SHORT
+  );
 }
 
 export async function createSubscription(data: {
@@ -478,9 +605,20 @@ export async function createSubscription(data: {
   currentPeriodStart: Date
   currentPeriodEnd: Date
 }): Promise<Subscription> {
-  return await prisma.subscription.create({
+  const subscription = await prisma.subscription.create({
     data
-  })
+  });
+  
+  // Invalidate related caches
+  await deleteCachedData(`${CACHE_KEYS.SUBSCRIPTIONS_BY_FAN}${data.fanId}`);
+  await deleteCachedData(`${CACHE_KEYS.SUBSCRIPTIONS_BY_ARTIST}${data.artistId}`);
+  await deleteCachedData(`${CACHE_KEYS.TIER}${data.tierId}`);
+  await deleteCachedData(`${CACHE_KEYS.TIERS_BY_ARTIST}${data.artistId}`);
+  
+  // Invalidate analytics cache
+  await deleteCachedData(`${CACHE_KEYS.ANALYTICS}${data.artistId}`);
+  
+  return subscription;
 }
 
 export async function updateSubscription(id: string, data: {
@@ -489,10 +627,27 @@ export async function updateSubscription(id: string, data: {
   currentPeriodStart?: Date
   currentPeriodEnd?: Date
 }): Promise<Subscription> {
-  return await prisma.subscription.update({
+  // Get subscription info for cache invalidation
+  const subscription = await prisma.subscription.findUnique({
+    where: { id },
+    select: { fanId: true, artistId: true, tierId: true }
+  });
+  
+  const updatedSubscription = await prisma.subscription.update({
     where: { id },
     data
-  })
+  });
+  
+  // Invalidate related caches
+  if (subscription) {
+    await deleteCachedData(`${CACHE_KEYS.SUBSCRIPTIONS_BY_FAN}${subscription.fanId}`);
+    await deleteCachedData(`${CACHE_KEYS.SUBSCRIPTIONS_BY_ARTIST}${subscription.artistId}`);
+    await deleteCachedData(`${CACHE_KEYS.TIER}${subscription.tierId}`);
+    await deleteCachedData(`${CACHE_KEYS.TIERS_BY_ARTIST}${subscription.artistId}`);
+    await deleteCachedData(`${CACHE_KEYS.ANALYTICS}${subscription.artistId}`);
+  }
+  
+  return updatedSubscription;
 }
 
 // Comment operations
@@ -524,86 +679,94 @@ export async function createComment(data: {
 
 // Analytics operations
 export async function getArtistAnalytics(artistId: string) {
-  const [
-    totalEarnings,
-    totalSubscribers,
-    monthlyEarnings,
-    monthlySubscribers,
-    tierStats
-  ] = await Promise.all([
-    // Total earnings
-    prisma.subscription.aggregate({
-      where: { 
-        artistId,
-        status: SubscriptionStatus.ACTIVE
-      },
-      _sum: { amount: true }
-    }),
-    
-    // Total subscribers
-    prisma.subscription.count({
-      where: { 
-        artistId,
-        status: SubscriptionStatus.ACTIVE
-      }
-    }),
-    
-    // Monthly earnings (last 30 days)
-    prisma.subscription.aggregate({
-      where: { 
-        artistId,
-        status: SubscriptionStatus.ACTIVE,
-        createdAt: {
-          gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-        }
-      },
-      _sum: { amount: true }
-    }),
-    
-    // Monthly subscribers (last 30 days)
-    prisma.subscription.count({
-      where: { 
-        artistId,
-        status: SubscriptionStatus.ACTIVE,
-        createdAt: {
-          gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-        }
-      }
-    }),
-    
-    // Tier statistics
-    prisma.tier.findMany({
-      where: { artistId },
-      include: {
-        _count: {
-          select: {
-            subscriptions: {
-              where: { status: SubscriptionStatus.ACTIVE }
+  const cacheKey = `${CACHE_KEYS.ANALYTICS}${artistId}`;
+  
+  return await withCache(
+    cacheKey,
+    async () => {
+      const [
+        totalEarnings,
+        totalSubscribers,
+        monthlyEarnings,
+        monthlySubscribers,
+        tierStats
+      ] = await Promise.all([
+        // Total earnings
+        prisma.subscription.aggregate({
+          where: { 
+            artistId,
+            status: SubscriptionStatus.ACTIVE
+          },
+          _sum: { amount: true }
+        }),
+        
+        // Total subscribers
+        prisma.subscription.count({
+          where: { 
+            artistId,
+            status: SubscriptionStatus.ACTIVE
+          }
+        }),
+        
+        // Monthly earnings (last 30 days)
+        prisma.subscription.aggregate({
+          where: { 
+            artistId,
+            status: SubscriptionStatus.ACTIVE,
+            createdAt: {
+              gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+            }
+          },
+          _sum: { amount: true }
+        }),
+        
+        // Monthly subscribers (last 30 days)
+        prisma.subscription.count({
+          where: { 
+            artistId,
+            status: SubscriptionStatus.ACTIVE,
+            createdAt: {
+              gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
             }
           }
-        },
-        subscriptions: {
-          where: { status: SubscriptionStatus.ACTIVE },
-          select: { amount: true }
-        }
-      }
-    })
-  ])
+        }),
+        
+        // Tier statistics
+        prisma.tier.findMany({
+          where: { artistId },
+          include: {
+            _count: {
+              select: {
+                subscriptions: {
+                  where: { status: SubscriptionStatus.ACTIVE }
+                }
+              }
+            },
+            subscriptions: {
+              where: { status: SubscriptionStatus.ACTIVE },
+              select: { amount: true }
+            }
+          }
+        })
+      ]);
 
-  const topTiers = tierStats.map(tier => ({
-    tier,
-    subscriberCount: tier._count.subscriptions,
-    revenue: tier.subscriptions.reduce((sum, sub) => sum + Number(sub.amount), 0)
-  })).sort((a, b) => b.revenue - a.revenue)
+      const topTiers = tierStats.map(tier => ({
+        tier,
+        subscriberCount: tier._count.subscriptions,
+        revenue: tier.subscriptions.reduce((sum, sub) => sum + Number(sub.amount), 0)
+      })).sort((a, b) => b.revenue - a.revenue);
 
-  return {
-    totalEarnings: Number(totalEarnings._sum.amount || 0),
-    totalSubscribers,
-    monthlyEarnings: Number(monthlyEarnings._sum.amount || 0),
-    monthlySubscribers,
-    churnRate: 0, // TODO: Calculate churn rate
-    topTiers
-  }
+      return {
+        totalEarnings: Number(totalEarnings._sum.amount || 0),
+        totalSubscribers,
+        monthlyEarnings: Number(monthlyEarnings._sum.amount || 0),
+        monthlySubscribers,
+        churnRate: 0, // TODO: Calculate churn rate
+        topTiers
+      };
+    },
+    CACHE_TTL.SHORT // Analytics should refresh frequently
+  );
 }
 
 // Utility functions

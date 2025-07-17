@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { stripe } from '@/lib/stripe';
 import { prisma } from '@/lib/prisma';
+import { sendEmail } from '@/lib/notifications';
 import Stripe from 'stripe';
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -115,6 +116,27 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
       },
     });
 
+    // Send welcome notification to fan
+    const [fan, artist, tier] = await Promise.all([
+      prisma.user.findUnique({ where: { id: fanId } }),
+      prisma.user.findUnique({ where: { id: artistId } }),
+      prisma.tier.findUnique({ where: { id: tierId } })
+    ]);
+
+    if (fan?.email && artist && tier) {
+      await sendEmail({
+        to: fan.email,
+        subject: `Welcome to ${artist.displayName}'s ${tier.name} Tier!`,
+        html: `
+          <h1>Thank you for subscribing!</h1>
+          <p>You are now subscribed to ${artist.displayName}'s ${tier.name} tier.</p>
+          <p>You now have access to exclusive content from ${artist.displayName}.</p>
+          <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/artist/${artistId}">Visit ${artist.displayName}'s page</a></p>
+        `,
+        text: `Thank you for subscribing!\n\nYou are now subscribed to ${artist.displayName}'s ${tier.name} tier.\n\nYou now have access to exclusive content from ${artist.displayName}.\n\nVisit ${artist.displayName}'s page: ${process.env.NEXT_PUBLIC_APP_URL}/artist/${artistId}`
+      });
+    }
+
     console.log(`Subscription created for fan ${fanId} to tier ${tierId}`);
   } catch (error) {
     console.error('Error handling checkout session completed:', error);
@@ -206,7 +228,32 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
         },
       });
 
-      // TODO: Send notification email to fan about payment failure
+      // Send notification email to fan about payment failure
+      if (subscription.fan.email) {
+        await sendEmail({
+          to: subscription.fan.email,
+          subject: `Payment Failed for ${subscription.tier.artist?.user?.displayName || 'Artist'} Subscription`,
+          html: `
+            <h1>Payment Failed</h1>
+            <p>We were unable to process your payment for your subscription to ${subscription.tier.name}.</p>
+            <p>This was attempt ${invoice.attempt_count} of 3. ${
+              invoice.next_payment_attempt 
+                ? `We'll try again on ${new Date(invoice.next_payment_attempt * 1000).toLocaleDateString()}.` 
+                : 'Please update your payment method to continue your subscription.'
+            }</p>
+            <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions">Manage your subscriptions</a></p>
+          `,
+          text: `Payment Failed for ${subscription.tier.artist?.user?.displayName || 'Artist'} Subscription\n\n` +
+            `We were unable to process your payment for your subscription to ${subscription.tier.name}.\n\n` +
+            `This was attempt ${invoice.attempt_count} of 3. ${
+              invoice.next_payment_attempt 
+                ? `We'll try again on ${new Date(invoice.next_payment_attempt * 1000).toLocaleDateString()}.` 
+                : 'Please update your payment method to continue your subscription.'
+            }\n\n` +
+            `Manage your subscriptions: ${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions`
+        });
+      }
+      
       console.log(`Payment failed for subscription ${subscriptionId}, attempt ${invoice.attempt_count}`);
     }
   } catch (error) {

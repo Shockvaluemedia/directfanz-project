@@ -23,6 +23,9 @@ model User {
   avatar      String?
   socialLinks Json?   // Store as JSON object
   
+  // Notification preferences
+  notificationPreferences Json? // Store as JSON object
+  
   // OAuth fields for NextAuth
   emailVerified DateTime?
   image         String?
@@ -183,6 +186,7 @@ model Subscription {
   fan             User             @relation(fields: [fanId], references: [id], onDelete: Cascade)
   tier            Tier             @relation(fields: [tierId], references: [id], onDelete: Cascade)
   paymentFailures PaymentFailure[]
+  invoices        Invoice[]
   
   @@unique([fanId, tierId]) // A fan can only have one subscription per tier
   @@map("subscriptions")
@@ -227,6 +231,30 @@ model PaymentFailure {
   @@map("payment_failures")
 }
 
+// Invoice tracking
+model Invoice {
+  id                String          @id @default(cuid())
+  subscriptionId    String
+  stripeInvoiceId   String          @unique
+  amount            Decimal         @db.Decimal(10, 2)
+  status            InvoiceStatus
+  dueDate           DateTime
+  paidAt            DateTime?
+  periodStart       DateTime
+  periodEnd         DateTime
+  prorationAmount   Decimal?        @db.Decimal(10, 2)
+  items             Json            // Store line items as JSON
+  
+  // Timestamps
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  
+  // Relations
+  subscription      Subscription    @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  
+  @@map("invoices")
+}
+
 // Enums
 enum UserRole {
   ARTIST
@@ -248,4 +276,12 @@ enum SubscriptionStatus {
   INCOMPLETE_EXPIRED
   TRIALING
   UNPAID
+}
+
+enum InvoiceStatus {
+  DRAFT
+  OPEN
+  PAID
+  VOID
+  UNCOLLECTIBLE
 }
