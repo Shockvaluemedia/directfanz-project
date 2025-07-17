@@ -1,0 +1,251 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model - base for both artists and fans
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String?  // Optional for OAuth users
+  role      UserRole @default(FAN)
+  
+  // Profile information
+  displayName String
+  bio         String?
+  avatar      String?
+  socialLinks Json?   // Store as JSON object
+  
+  // OAuth fields for NextAuth
+  emailVerified DateTime?
+  image         String?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  accounts      Account[]
+  sessions      Session[]
+  
+  // Artist-specific relations (only populated if role is ARTIST)
+  artistProfile Artist?
+  tiers         Tier[]
+  content       Content[]
+  
+  // Fan-specific relations (only populated if role is FAN)
+  subscriptions Subscription[]
+  comments      Comment[]
+  
+  @@map("users")
+}
+
+// NextAuth Account model
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+// NextAuth Session model
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+// NextAuth VerificationToken model
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verificationtokens")
+}
+
+// Artist-specific profile information
+model Artist {
+  id                  String  @id @default(cuid())
+  userId              String  @unique
+  stripeAccountId     String? @unique
+  isStripeOnboarded   Boolean @default(false)
+  
+  // Analytics data
+  totalEarnings       Decimal @default(0) @db.Decimal(10, 2)
+  totalSubscribers    Int     @default(0)
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("artists")
+}
+
+// Subscription tiers created by artists
+model Tier {
+  id              String  @id @default(cuid())
+  artistId        String
+  name            String
+  description     String
+  minimumPrice    Decimal @db.Decimal(10, 2)
+  isActive        Boolean @default(true)
+  subscriberCount Int     @default(0)
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  artist        User           @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  subscriptions Subscription[]
+  content       Content[]      @relation("TierContent")
+  
+  @@map("tiers")
+}
+
+// Content uploaded by artists
+model Content {
+  id           String      @id @default(cuid())
+  artistId     String
+  title        String
+  description  String?
+  type         ContentType
+  fileUrl      String
+  thumbnailUrl String?
+  isPublic     Boolean     @default(false)
+  
+  // File metadata
+  fileSize Int
+  duration Int? // For audio/video content in seconds
+  format   String
+  tags     String[] // Array of tags
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  artist   User      @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  tiers    Tier[]    @relation("TierContent")
+  comments Comment[]
+  
+  @@map("content")
+}
+
+// Fan subscriptions to artist tiers
+model Subscription {
+  id                    String           @id @default(cuid())
+  fanId                 String
+  artistId              String
+  tierId                String
+  stripeSubscriptionId  String           @unique
+  amount                Decimal          @db.Decimal(10, 2)
+  status                SubscriptionStatus
+  
+  // Billing period
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  fan             User             @relation(fields: [fanId], references: [id], onDelete: Cascade)
+  tier            Tier             @relation(fields: [tierId], references: [id], onDelete: Cascade)
+  paymentFailures PaymentFailure[]
+  
+  @@unique([fanId, tierId]) // A fan can only have one subscription per tier
+  @@map("subscriptions")
+}
+
+// Comments on content
+model Comment {
+  id        String @id @default(cuid())
+  contentId String
+  fanId     String
+  text      String @db.Text
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  content Content @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  fan     User    @relation(fields: [fanId], references: [id], onDelete: Cascade)
+  
+  @@map("comments")
+}
+
+// Payment failure tracking
+model PaymentFailure {
+  id                String    @id @default(cuid())
+  subscriptionId    String
+  stripeInvoiceId   String    @unique
+  amount            Decimal   @db.Decimal(10, 2)
+  attemptCount      Int       @default(1)
+  nextRetryAt       DateTime?
+  failureReason     String
+  isResolved        Boolean   @default(false)
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  
+  @@map("payment_failures")
+}
+
+// Enums
+enum UserRole {
+  ARTIST
+  FAN
+}
+
+enum ContentType {
+  AUDIO
+  VIDEO
+  IMAGE
+  DOCUMENT
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  PAST_DUE
+  INCOMPLETE
+  INCOMPLETE_EXPIRED
+  TRIALING
+  UNPAID
+}
