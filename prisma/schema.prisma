@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -47,6 +47,8 @@ model User {
   subscriptions Subscription[]
   comments      Comment[]
   
+
+  
   @@map("users")
 }
 
@@ -57,12 +59,12 @@ model Account {
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
+  refresh_token     String?
+  access_token      String?
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String? @db.Text
+  id_token          String?
   session_state     String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -100,8 +102,8 @@ model Artist {
   isStripeOnboarded   Boolean @default(false)
   
   // Analytics data
-  totalEarnings       Decimal @default(0) @db.Decimal(10, 2)
-  totalSubscribers    Int     @default(0)
+  totalEarnings       Float @default(0) // Using Float instead of Decimal for SQLite
+  totalSubscribers    Int   @default(0)
   
   // Timestamps
   createdAt DateTime @default(now())
@@ -119,7 +121,7 @@ model Tier {
   artistId        String
   name            String
   description     String
-  minimumPrice    Decimal @db.Decimal(10, 2)
+  minimumPrice    Float // Using Float instead of Decimal for SQLite
   isActive        Boolean @default(true)
   subscriberCount Int     @default(0)
   
@@ -150,7 +152,7 @@ model Content {
   fileSize Int
   duration Int? // For audio/video content in seconds
   format   String
-  tags     String[] // Array of tags
+  tags     String // Store as comma-separated values for SQLite compatibility
   
   // Timestamps
   createdAt DateTime @default(now())
@@ -171,7 +173,7 @@ model Subscription {
   artistId              String
   tierId                String
   stripeSubscriptionId  String           @unique
-  amount                Decimal          @db.Decimal(10, 2)
+  amount                Float          // Using Float instead of Decimal for SQLite
   status                SubscriptionStatus
   
   // Billing period
@@ -197,7 +199,7 @@ model Comment {
   id        String @id @default(cuid())
   contentId String
   fanId     String
-  text      String @db.Text
+  text      String
   
   // Timestamps
   createdAt DateTime @default(now())
@@ -215,7 +217,7 @@ model PaymentFailure {
   id                String    @id @default(cuid())
   subscriptionId    String
   stripeInvoiceId   String    @unique
-  amount            Decimal   @db.Decimal(10, 2)
+  amount            Float   // Using Float instead of Decimal for SQLite
   attemptCount      Int       @default(1)
   nextRetryAt       DateTime?
   failureReason     String
@@ -236,13 +238,13 @@ model Invoice {
   id                String          @id @default(cuid())
   subscriptionId    String
   stripeInvoiceId   String          @unique
-  amount            Decimal         @db.Decimal(10, 2)
+  amount            Float         // Using Float instead of Decimal for SQLite
   status            InvoiceStatus
   dueDate           DateTime
   paidAt            DateTime?
   periodStart       DateTime
   periodEnd         DateTime
-  prorationAmount   Decimal?        @db.Decimal(10, 2)
+  prorationAmount   Float?        // Using Float instead of Decimal for SQLite
   items             Json            // Store line items as JSON
   
   // Timestamps
@@ -254,6 +256,8 @@ model Invoice {
   
   @@map("invoices")
 }
+
+
 
 // Enums
 enum UserRole {
@@ -285,3 +289,4 @@ enum InvoiceStatus {
   VOID
   UNCOLLECTIBLE
 }
+

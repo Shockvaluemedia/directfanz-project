@@ -259,17 +259,24 @@ export const logUnhandledError = (error: Error, context?: LogContext) => {
 };
 
 // Process error handlers
-if (typeof process !== 'undefined') {
-  process.on('uncaughtException', (error) => {
-    logUnhandledError(error, { type: 'uncaught_exception' });
-    process.exit(1);
-  });
-
-  process.on('unhandledRejection', (reason, promise) => {
-    const error = reason instanceof Error ? reason : new Error(String(reason));
-    logUnhandledError(error, { 
-      type: 'unhandled_rejection',
-      promise: promise.toString(),
+if (typeof process !== 'undefined' && process.on && typeof process.on === 'function') {
+  try {
+    process.on('uncaughtException', (error) => {
+      logUnhandledError(error, { type: 'uncaught_exception' });
+      // Don't exit the process in development to allow for hot reloading
+      if (process.env.NODE_ENV === 'production') {
+        process.exit(1);
+      }
     });
-  });
+
+    process.on('unhandledRejection', (reason, promise) => {
+      const error = reason instanceof Error ? reason : new Error(String(reason));
+      logUnhandledError(error, { 
+        type: 'unhandled_rejection',
+        promise: String(promise),
+      });
+    });
+  } catch (err) {
+    console.error('Failed to attach process error handlers:', err);
+  }
 }
