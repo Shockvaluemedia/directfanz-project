@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, act } from '@testing-library/react'
 import ContentPlayer from '../content-player'
 
 // Mock the MediaPlaylist component
@@ -42,16 +42,24 @@ const mockVideoContent = {
 }
 
 describe('ContentPlayer', () => {
-  it('renders loading state initially', () => {
+  it('renders loading state initially', async () => {
+    // Render the component
     render(<ContentPlayer content={mockAudioContent} />)
     
-    // Should show loading spinner
+    // Should show loading spinner initially before async operations complete
     const spinner = document.querySelector('.animate-spin')
     expect(spinner).toBeInTheDocument()
+    
+    // Wait for async operations to complete to avoid act warnings
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 0))
+    })
   })
 
   it('renders media playlist with single content item', async () => {
-    render(<ContentPlayer content={mockAudioContent} />)
+    await act(async () => {
+      render(<ContentPlayer content={mockAudioContent} />)
+    })
     
     await waitFor(() => {
       expect(screen.getByTestId('media-playlist')).toBeInTheDocument()
@@ -64,7 +72,9 @@ describe('ContentPlayer', () => {
 
   it('renders media playlist with multiple content items', async () => {
     const contentArray = [mockAudioContent, mockVideoContent]
-    render(<ContentPlayer content={contentArray} />)
+    await act(async () => {
+      render(<ContentPlayer content={contentArray} />)
+    })
     
     await waitFor(() => {
       expect(screen.getByTestId('media-playlist')).toBeInTheDocument()
@@ -80,7 +90,9 @@ describe('ContentPlayer', () => {
       metadata: null
     }
     
-    render(<ContentPlayer content={contentWithoutMetadata} />)
+    await act(async () => {
+      render(<ContentPlayer content={contentWithoutMetadata} />)
+    })
     
     await waitFor(() => {
       expect(screen.getByTestId('media-playlist')).toBeInTheDocument()
@@ -93,7 +105,9 @@ describe('ContentPlayer', () => {
       artistName: null
     }
     
-    render(<ContentPlayer content={contentWithoutArtist} />)
+    await act(async () => {
+      render(<ContentPlayer content={contentWithoutArtist} />)
+    })
     
     await waitFor(() => {
       expect(screen.getByTestId('media-playlist')).toBeInTheDocument()

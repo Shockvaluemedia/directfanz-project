@@ -93,14 +93,14 @@ SelectScrollDownButton.displayName =
 // Enhanced SelectContent with improved keyboard navigation
 const SelectContent = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content>
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content> & { "data-state"?: "open" | "closed" }
 >(({ className, children, position = "popper", ...props }, ref) => {
   // Announce when dropdown opens for screen readers
   React.useEffect(() => {
-    if (props["data-state"] === "open") {
+    if ((props as any)["data-state"] === "open") {
       announceToScreenReader("Dropdown menu expanded");
     }
-  }, [props["data-state"]]);
+  }, [(props as any)["data-state"]]);
 
   return (
     <SelectPrimitive.Portal>

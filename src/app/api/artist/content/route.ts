@@ -15,7 +15,7 @@ const createContentSchema = z.object({
   duration: z.number().optional(),
   tags: z.array(z.string()).default([]),
   tierIds: z.array(z.string()).default([]),
-  isPublic: z.boolean().default(false),
+  visibility: z.enum(['PUBLIC', 'PRIVATE', 'TIER_LOCKED']).default('PRIVATE'),
   thumbnailUrl: z.string().url().optional(),
 });
 
@@ -73,8 +73,8 @@ export async function POST(request: NextRequest) {
         fileSize: validatedData.fileSize,
         duration: validatedData.duration,
         format: validatedData.format,
-        tags: validatedData.tags,
-        isPublic: validatedData.isPublic,
+        tags: JSON.stringify(validatedData.tags),
+        visibility: validatedData.visibility,
         artistId: session.user.id,
         tiers: {
           connect: validatedData.tierIds.map(id => ({ id })),
@@ -162,7 +162,7 @@ export async function GET(request: NextRequest) {
       where.OR = [
         { title: { contains: search, mode: 'insensitive' } },
         { description: { contains: search, mode: 'insensitive' } },
-        { tags: { has: search } },
+        { tags: { contains: search, mode: 'insensitive' } },
       ];
     }
 

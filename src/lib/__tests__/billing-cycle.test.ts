@@ -12,6 +12,8 @@ jest.mock('@/lib/prisma', () => ({
       update: jest.fn(),
       count: jest.fn(),
     },
+    $queryRaw: jest.fn().mockResolvedValue([]),
+    $executeRaw: jest.fn().mockResolvedValue(1),
   },
 }));
 
@@ -158,11 +160,12 @@ describe('Billing Cycle Functions', () => {
 
   describe('processBillingRenewals', () => {
     it('should process renewals for subscriptions due in next 24 hours', async () => {
-      const now = new Date('2022-01-31T12:00:00Z');
-      const tomorrow = new Date('2022-02-01T12:00:00Z');
+      const OriginalDate = Date;
+      const now = new OriginalDate('2022-01-31T12:00:00Z');
+      const tomorrow = new OriginalDate('2022-02-01T12:00:00Z');
       
       jest.spyOn(global, 'Date').mockImplementation((dateString?: string) => {
-        if (dateString) return new Date(dateString) as any;
+        if (dateString) return new OriginalDate(dateString) as any;
         return now as any;
       });
 
@@ -220,10 +223,11 @@ describe('Billing Cycle Functions', () => {
     });
 
     it('should skip email notification if billing notifications disabled', async () => {
-      const now = new Date('2022-01-31T12:00:00Z');
+      const OriginalDate = Date;
+      const now = new OriginalDate('2022-01-31T12:00:00Z');
       
       jest.spyOn(global, 'Date').mockImplementation((dateString?: string) => {
-        if (dateString) return new Date(dateString) as any;
+        if (dateString) return new OriginalDate(dateString) as any;
         return now as any;
       });
 
@@ -263,12 +267,8 @@ describe('Billing Cycle Functions', () => {
 
   describe('processFailedPaymentRetries', () => {
     it('should mark resolved failures as resolved', async () => {
-      const now = new Date('2022-01-31T12:00:00Z');
-      
-      jest.spyOn(global, 'Date').mockImplementation((dateString?: string) => {
-        if (dateString) return new Date(dateString) as any;
-        return now as any;
-      });
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2022-01-31T12:00:00Z'));
 
       const mockFailures = [
         {
@@ -277,13 +277,9 @@ describe('Billing Cycle Functions', () => {
           stripeInvoiceId: 'in_test123',
           amount: new Decimal(10.00),
           attemptCount: 2,
-          subscription: {
-            fan: { email: 'fan@example.com' },
-            tier: {
-              name: 'Premium',
-              artist: { displayName: 'Test Artist' },
-            },
-          },
+          fanEmail: 'fan@example.com',
+          tierName: 'Premium',
+          artistDisplayName: 'Test Artist',
         },
       ];
 
@@ -292,9 +288,10 @@ describe('Billing Cycle Functions', () => {
         attempt_count: 2,
       };
 
-      mockPrisma.paymentFailure.findMany.mockResolvedValue(mockFailures as any);
+      // Mock $queryRaw to return failures
+      mockPrisma.$queryRaw.mockResolvedValue(mockFailures as any);
       mockStripe.invoices.retrieve.mockResolvedValue(mockInvoice as any);
-      mockPrisma.paymentFailure.update.mockResolvedValue({} as any);
+      mockPrisma.$executeRaw.mockResolvedValue(1);
       mockPrisma.subscription.update.mockResolvedValue({} as any);
 
       const result = await processFailedPaymentRetries();
@@ -303,43 +300,36 @@ describe('Billing Cycle Functions', () => {
       expect(result[0].type).toBe('retry');
       expect(result[0].metadata?.resolved).toBe(true);
 
-      expect(mockPrisma.paymentFailure.update).toHaveBeenCalledWith({
-        where: { id: 'failure1' },
-        data: { isResolved: true },
-      });
+      // The $executeRaw is called with template literals
+      expect(mockPrisma.$executeRaw).toHaveBeenCalled();
+      const sqlTemplate = mockPrisma.$executeRaw.mock.calls[0][0];
+      expect(sqlTemplate.join('')).toContain('UPDATE "payment_failures"');
+      expect(mockPrisma.$executeRaw.mock.calls[0][2]).toBe('failure1');
 
       expect(mockPrisma.subscription.update).toHaveBeenCalledWith({
         where: { id: 'sub1' },
         data: { status: 'ACTIVE' },
       });
 
-      jest.restoreAllMocks();
+      jest.useRealTimers();
     });
 
     it('should cancel subscription after max attempts', async () => {
-      const now = new Date('2022-01-31T12:00:00Z');
-      
-      jest.spyOn(global, 'Date').mockImplementation((dateString?: string) => {
-        if (dateString) return new Date(dateString) as any;
-        return now as any;
-      });
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2022-01-31T12:00:00Z'));
 
       const mockFailures = [
         {
           id: 'failure1',
           subscriptionId: 'sub1',
+          stripeSubscriptionId: 'stripe_sub1',
           stripeInvoiceId: 'in_test123',
           amount: new Decimal(10.00),
           attemptCount: 3,
-          subscription: {
-            stripeSubscriptionId: 'stripe_sub1',
-            artistId: 'artist1',
-            fan: { email: 'fan@example.com' },
-            tier: {
-              name: 'Premium',
-              artist: { displayName: 'Test Artist' },
-            },
-          },
+          artistId: 'artist1',
+          fanEmail: 'fan@example.com',
+          tierName: 'Premium',
+          artistDisplayName: 'Test Artist',
         },
       ];
 
@@ -348,7 +338,8 @@ describe('Billing Cycle Functions', () => {
         attempt_count: 3,
       };
 
-      mockPrisma.paymentFailure.findMany.mockResolvedValue(mockFailures as any);
+      // Mock $queryRaw to return failures
+      mockPrisma.$queryRaw.mockResolvedValue(mockFailures as any);
       mockStripe.invoices.retrieve.mockResolvedValue(mockInvoice as any);
       mockStripe.subscriptions.cancel.mockResolvedValue({} as any);
       mockPrisma.subscription.update.mockResolvedValue({} as any);
@@ -373,17 +364,14 @@ describe('Billing Cycle Functions', () => {
         text: expect.stringContaining('Subscription Canceled'),
       });
 
-      jest.restoreAllMocks();
+      jest.useRealTimers();
     });
 
     it('should update retry information for ongoing failures', async () => {
+      jest.useFakeTimers();
       const now = new Date('2022-01-31T12:00:00Z');
       const nextRetry = new Date('2022-02-01T12:00:00Z');
-      
-      jest.spyOn(global, 'Date').mockImplementation((dateString?: string) => {
-        if (dateString) return new Date(dateString) as any;
-        return now as any;
-      });
+      jest.setSystemTime(now);
 
       const mockFailures = [
         {
@@ -392,13 +380,9 @@ describe('Billing Cycle Functions', () => {
           stripeInvoiceId: 'in_test123',
           amount: new Decimal(10.00),
           attemptCount: 1,
-          subscription: {
-            fan: { email: 'fan@example.com' },
-            tier: {
-              name: 'Premium',
-              artist: { displayName: 'Test Artist' },
-            },
-          },
+          fanEmail: 'fan@example.com',
+          tierName: 'Premium',
+          artistDisplayName: 'Test Artist',
         },
       ];
 
@@ -408,9 +392,10 @@ describe('Billing Cycle Functions', () => {
         next_payment_attempt: Math.floor(nextRetry.getTime() / 1000),
       };
 
-      mockPrisma.paymentFailure.findMany.mockResolvedValue(mockFailures as any);
+      // Mock $queryRaw to return failures
+      mockPrisma.$queryRaw.mockResolvedValue(mockFailures as any);
       mockStripe.invoices.retrieve.mockResolvedValue(mockInvoice as any);
-      mockPrisma.paymentFailure.update.mockResolvedValue({} as any);
+      mockPrisma.$executeRaw.mockResolvedValue(1);
 
       const result = await processFailedPaymentRetries();
 
@@ -418,27 +403,22 @@ describe('Billing Cycle Functions', () => {
       expect(result[0].type).toBe('retry');
       expect(result[0].metadata?.resolved).toBe(false);
 
-      expect(mockPrisma.paymentFailure.update).toHaveBeenCalledWith({
-        where: { id: 'failure1' },
-        data: {
-          attemptCount: 2,
-          nextRetryAt: nextRetry,
-        },
-      });
+      // The $executeRaw is called with template literals
+      expect(mockPrisma.$executeRaw).toHaveBeenCalled();
+      const sqlTemplate = mockPrisma.$executeRaw.mock.calls[0][0];
+      expect(sqlTemplate.join('')).toContain('UPDATE "payment_failures"');
+      expect(mockPrisma.$executeRaw.mock.calls[0][4]).toBe('failure1');
 
-      jest.restoreAllMocks();
+      jest.useRealTimers();
     });
   });
 
   describe('sendBillingReminders', () => {
     it('should send reminders for subscriptions renewing in 3 days', async () => {
+      jest.useFakeTimers();
       const now = new Date('2022-01-29T12:00:00Z');
       const renewalDate = new Date('2022-02-01T12:00:00Z');
-      
-      jest.spyOn(global, 'Date').mockImplementation((dateString?: string) => {
-        if (dateString) return new Date(dateString) as any;
-        return now as any;
-      });
+      jest.setSystemTime(now);
 
       const mockSubscriptions = [
         {
@@ -483,24 +463,21 @@ describe('Billing Cycle Functions', () => {
         text: expect.stringContaining('Upcoming Subscription Renewal'),
       });
 
-      jest.restoreAllMocks();
+      jest.useRealTimers();
     });
   });
 
   describe('getBillingCycleStats', () => {
     it('should return billing cycle statistics', async () => {
-      const now = new Date('2022-01-29T12:00:00Z');
-      
-      jest.spyOn(global, 'Date').mockImplementation((dateString?: string) => {
-        if (dateString) return new Date(dateString) as any;
-        return now as any;
-      });
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2022-01-29T12:00:00Z'));
 
       mockPrisma.subscription.count
         .mockResolvedValueOnce(100) // Active subscriptions
         .mockResolvedValueOnce(15); // Upcoming renewals
 
-      mockPrisma.paymentFailure.count.mockResolvedValue(5); // Failed payments
+      // Mock $queryRaw for payment failures count
+      mockPrisma.$queryRaw.mockResolvedValue([{ count: '5' }]);
 
       mockPrisma.subscription.aggregate.mockResolvedValue({
         _sum: { amount: new Decimal(2500.00) },
@@ -515,22 +492,19 @@ describe('Billing Cycle Functions', () => {
         totalMonthlyRevenue: 2500.00,
       });
 
-      jest.restoreAllMocks();
+      jest.useRealTimers();
     });
 
     it('should handle null revenue sum', async () => {
-      const now = new Date('2022-01-29T12:00:00Z');
-      
-      jest.spyOn(global, 'Date').mockImplementation((dateString?: string) => {
-        if (dateString) return new Date(dateString) as any;
-        return now as any;
-      });
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2022-01-29T12:00:00Z'));
 
       mockPrisma.subscription.count
         .mockResolvedValueOnce(0)
         .mockResolvedValueOnce(0);
 
-      mockPrisma.paymentFailure.count.mockResolvedValue(0);
+      // Mock $queryRaw for payment failures count
+      mockPrisma.$queryRaw.mockResolvedValue([{ count: '0' }]);
 
       mockPrisma.subscription.aggregate.mockResolvedValue({
         _sum: { amount: null },
@@ -540,7 +514,7 @@ describe('Billing Cycle Functions', () => {
 
       expect(result.totalMonthlyRevenue).toBe(0);
 
-      jest.restoreAllMocks();
+      jest.useRealTimers();
     });
   });
 });

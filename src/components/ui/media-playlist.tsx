@@ -46,9 +46,11 @@ export default function MediaPlaylist({
       // Create a shuffled array of indices
       const indices = Array.from({ length: items.length }, (_, i) => i)
       
-      // Fisher-Yates shuffle algorithm
+      // Fisher-Yates shuffle algorithm using crypto.getRandomValues
       for (let i = indices.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1))
+        const randomArray = new Uint32Array(1)
+        crypto.getRandomValues(randomArray)
+        const j = Math.floor((randomArray[0] / (0xFFFFFFFF + 1)) * (i + 1))
         ;[indices[i], indices[j]] = [indices[j], indices[i]]
       }
       

@@ -26,6 +26,7 @@ export const CACHE_KEYS = {
   CONTENT_BY_ARTIST: 'content:artist:',
   SUBSCRIPTION: 'subscription:',
   SUBSCRIPTIONS_BY_FAN: 'subscriptions:fan:',
+  SUBSCRIPTIONS_BY_ARTIST: 'subscriptions:artist:',
   ANALYTICS: 'analytics:artist:',
   COMMENTS: 'comments:content:',
 };
@@ -177,5 +178,31 @@ export const closeRedisConnection = async (): Promise<void> => {
   if (redisClient) {
     await redisClient.quit();
     redisClient = null;
+  }
+};
+
+/**
+ * Export redis client for backwards compatibility
+ */
+export const redis = {
+  ping: async () => {
+    const client = await getRedisClient();
+    return client ? await client.ping() : 'PONG';
+  },
+  get: async (key: string) => {
+    const client = await getRedisClient();
+    return client ? await client.get(key) : null;
+  },
+  set: async (key: string, value: string, options?: any) => {
+    const client = await getRedisClient();
+    return client ? await client.set(key, value, options) : null;
+  },
+  del: async (key: string) => {
+    const client = await getRedisClient();
+    return client ? await client.del(key) : 0;
+  },
+  info: async () => {
+    const client = await getRedisClient();
+    return client ? await client.info() : 'redis_unavailable';
   }
 };

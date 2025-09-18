@@ -31,7 +31,7 @@ export function AccessibleFormField({
   // Clone the child element to add accessibility attributes
   const childrenWithProps = React.Children.map(children, (child) => {
     if (React.isValidElement(child)) {
-      return React.cloneElement(child, {
+      return React.cloneElement(child as React.ReactElement<any>, {
         id,
         'aria-invalid': error ? 'true' : 'false',
         'aria-required': required,

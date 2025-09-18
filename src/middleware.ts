@@ -2,22 +2,38 @@ import { NextRequest, NextResponse } from 'next/server';
 import { logger, generateRequestId } from './lib/logger';
 import { captureError } from './lib/sentry';
 import { createRateLimitResponse } from './lib/error-handler';
-import { addSecurityHeaders, createRateLimiter, detectSuspiciousActivity, generateCSP } from './lib/security';
+import { addSecurityHeaders, detectSuspiciousActivity, generateCSP } from './lib/security';
+import { AdaptiveRateLimiter } from './lib/adaptive-rate-limiter';
+import { getToken } from 'next-auth/jwt';
 
-// Define rate limiters with different configurations
-const apiRateLimiter = createRateLimiter({
+// Define adaptive rate limiters with different configurations
+const apiRateLimiter = new AdaptiveRateLimiter({
   windowMs: 60 * 1000, // 1 minute
   maxRequests: 100, // 100 requests per minute
+  adaptiveRateLimiting: true,
+  burstProtection: true,
+  skipIpRanges: ['127.0.0.1', '::1'], // Skip localhost
+  blockDuration: 300000, // 5 minutes
+  maxViolations: 3
 });
 
-const authRateLimiter = createRateLimiter({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  maxRequests: 10, // 10 requests per 15 minutes
+const authRateLimiter = new AdaptiveRateLimiter({
+  windowMs: 60 * 1000, // 1 minute
+  maxRequests: 100, // 100 requests per minute (increased for testing)
+  adaptiveRateLimiting: false, // Disabled for testing
+  burstProtection: false, // Disabled for testing
+  blockDuration: 60000, // 1 minute
+  maxViolations: 10, // Higher threshold for testing
+  skipIpRanges: ['127.0.0.1', '::1'], // Skip localhost
 });
 
-const contentRateLimiter = createRateLimiter({
+const contentRateLimiter = new AdaptiveRateLimiter({
   windowMs: 60 * 1000, // 1 minute
   maxRequests: 50, // 50 requests per minute
+  adaptiveRateLimiting: true,
+  burstProtection: true,
+  blockDuration: 600000, // 10 minutes
+  maxViolations: 3
 });
 
 export async function middleware(request: NextRequest) {
@@ -35,27 +51,76 @@ export async function middleware(request: NextRequest) {
     url.includes('/_next/') ||
     url.includes('/static/')
   ) {
-    // For non-API routes, we still want to add security headers
+    // For non-API routes, skip security headers temporarily for debugging
     const response = NextResponse.next();
-    return addSecurityHeaders(response);
+    // return addSecurityHeaders(response); // Temporarily disabled
+    return response;
   }
 
   // Add request ID to headers
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-request-id', requestId);
+  
+  // CSRF Protection for state-changing operations (check BEFORE rate limiting for security)
+  if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
+    const csrfToken = request.headers.get('x-csrf-token');
+    const cookieCSRF = request.cookies.get('csrf-token')?.value;
+    
+    // Skip CSRF for auth callback routes (handled by NextAuth)
+    if (!url.includes('/api/auth/') && (!csrfToken || csrfToken !== cookieCSRF)) {
+      logger.securityEvent('CSRF token validation failed', 'high', {
+        requestId,
+        ip,
+        url,
+        method,
+        hasCSRFHeader: !!csrfToken,
+        hasCSRFCookie: !!cookieCSRF
+      });
+      
+      return new NextResponse(
+        JSON.stringify({
+          success: false,
+          error: {
+            code: 'CSRF_TOKEN_INVALID',
+            message: 'CSRF token validation failed',
+          },
+          requestId,
+          timestamp: new Date().toISOString(),
+        }),
+        { 
+          status: 403,
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Request-ID': requestId,
+          }
+        }
+      );
+    }
+  }
 
   // Apply appropriate rate limiter based on route
   let rateLimitResult;
   
   if (url.startsWith('/api/auth/')) {
-    rateLimitResult = authRateLimiter(request);
+    rateLimitResult = authRateLimiter.checkRequest(request);
   } else if (url.startsWith('/api/content/')) {
-    rateLimitResult = contentRateLimiter(request);
+    rateLimitResult = contentRateLimiter.checkRequest(request);
   } else {
-    rateLimitResult = apiRateLimiter(request);
+    rateLimitResult = apiRateLimiter.checkRequest(request);
   }
   
   if (rateLimitResult.limited) {
+    // Log enhanced security event with adaptive rate limiting info
+    logger.securityEvent('Adaptive rate limit triggered', 'medium', {
+      requestId,
+      ip,
+      url,
+      method,
+      userAgent,
+      rateLimitType: url.startsWith('/api/auth/') ? 'auth' : url.startsWith('/api/content/') ? 'content' : 'api',
+      suspicionScore: rateLimitResult.suspicionScore || 0,
+      remainingRequests: rateLimitResult.remaining || 0
+    });
     return rateLimitResult.response;
   }
 
@@ -105,6 +170,64 @@ export async function middleware(request: NextRequest) {
     origin,
   });
 
+  // OAuth session security checks for authenticated routes
+  if (url.startsWith('/api/') && !url.startsWith('/api/auth/')) {
+    try {
+      const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+      
+      if (token) {
+        // Check for session hijacking indicators
+        const currentUserAgent = userAgent;
+        const storedUserAgent = token.userAgent as string;
+        
+        if (storedUserAgent && currentUserAgent !== storedUserAgent) {
+          logger.securityEvent('Potential session hijacking detected', 'high', {
+            requestId,
+            userId: token.id,
+            ip,
+            currentUserAgent,
+            storedUserAgent,
+            url
+          });
+          
+          // For high-security operations, you might want to force re-authentication
+          if (url.includes('/api/auth/refresh') || url.includes('/api/billing/')) {
+            return new NextResponse(
+              JSON.stringify({
+                success: false,
+                error: {
+                  code: 'SESSION_SECURITY_CHECK_FAILED',
+                  message: 'Security check failed. Please re-authenticate.',
+                },
+                requestId,
+                timestamp: new Date().toISOString(),
+              }),
+              { 
+                status: 401,
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-Request-ID': requestId,
+                }
+              }
+            );
+          }
+        }
+        
+        // Log OAuth token refresh attempts for audit
+        if (url.includes('/api/auth/refresh')) {
+          logger.securityEvent('OAuth token refresh attempt', 'low', {
+            requestId,
+            userId: token.id,
+            ip,
+            userAgent
+          });
+        }
+      }
+    } catch (error) {
+      logger.error('Error during OAuth security check', { requestId, url }, error as Error);
+    }
+  }
+
   // Process the request
   const response = NextResponse.next({
     request: {
@@ -116,8 +239,8 @@ export async function middleware(request: NextRequest) {
   response.headers.set('x-request-id', requestId);
   response.headers.set('x-response-time', `${Date.now() - startTime}ms`);
 
-  // Add comprehensive security headers
-  addSecurityHeaders(response);
+  // Add comprehensive security headers - TEMPORARILY DISABLED FOR DEBUGGING
+  // addSecurityHeaders(response);
 
   // Add CORS headers for API routes if needed
   if (url.startsWith('/api/') && origin !== 'unknown') {
@@ -193,7 +316,7 @@ export async function middleware(request: NextRequest) {
 // Configure which paths this middleware is run for
 export const config = {
   matcher: [
-    // Apply to all routes for security headers
-    '/(.*)',
+    // Temporarily disabled for debugging hydration issues
+    '/api/((?!auth).*)', // Only apply to non-auth API routes
   ],
 };

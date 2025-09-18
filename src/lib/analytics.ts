@@ -231,12 +231,15 @@ export async function getRecentActivity(artistId: string, limit: number = 10): P
   });
 
   for (const sub of recentSubscriptions) {
+    const fanName = sub.fan?.displayName || 'Anonymous Fan';
+    const tierName = sub.tier?.name || 'Unknown Tier';
+    
     activities.push({
       id: sub.id,
       type: sub.status === 'CANCELED' ? 'cancellation' : 'subscription',
       description: sub.status === 'CANCELED' 
-        ? `${sub.fan.displayName} canceled subscription to ${sub.tier.name}`
-        : `${sub.fan.displayName} subscribed to ${sub.tier.name}`,
+        ? `${fanName} canceled subscription to ${tierName}`
+        : `${fanName} subscribed to ${tierName}`,
       amount: parseFloat(sub.amount.toString()),
       timestamp: sub.createdAt,
     });

@@ -60,7 +60,7 @@ export async function GET(
           orderBy: { minimumPrice: 'asc' },
         },
         content: {
-          where: { isPublic: true },
+          where: { visibility: 'PUBLIC' },
           select: {
             id: true,
             title: true,

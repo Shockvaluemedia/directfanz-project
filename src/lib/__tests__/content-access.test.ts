@@ -50,7 +50,7 @@ describe('Content Access Control', () => {
       const mockContent = {
         id: 'content-1',
         artistId: 'artist-1',
-        isPublic: true,
+        visibility: 'PUBLIC',
         tiers: [],
         artist: { id: 'artist-1', role: UserRole.ARTIST }
       }
@@ -67,7 +67,7 @@ describe('Content Access Control', () => {
       const mockContent = {
         id: 'content-1',
         artistId: 'user-1',
-        isPublic: false,
+        visibility: 'PRIVATE',
         tiers: [{ id: 'tier-1', minimumPrice: 10, isActive: true }],
         artist: { id: 'user-1', role: UserRole.ARTIST }
       }
@@ -93,7 +93,7 @@ describe('Content Access Control', () => {
       const mockContent = {
         id: 'content-1',
         artistId: 'artist-1',
-        isPublic: false,
+        visibility: 'PRIVATE',
         tiers: [{ id: 'tier-1', minimumPrice: 10, isActive: true }],
         artist: { id: 'artist-1', role: UserRole.ARTIST }
       }
@@ -128,7 +128,7 @@ describe('Content Access Control', () => {
       const mockContent = {
         id: 'content-1',
         artistId: 'artist-1',
-        isPublic: false,
+        visibility: 'PRIVATE',
         tiers: [{ id: 'tier-1', minimumPrice: 10, isActive: true }],
         artist: { id: 'artist-1', role: UserRole.ARTIST }
       }
@@ -146,7 +146,7 @@ describe('Content Access Control', () => {
       const mockContent = {
         id: 'content-1',
         artistId: 'artist-1',
-        isPublic: false,
+        visibility: 'PRIVATE',
         tiers: [],
         artist: { id: 'artist-1', role: UserRole.ARTIST }
       }
@@ -163,7 +163,7 @@ describe('Content Access Control', () => {
       const mockContent = {
         id: 'content-1',
         artistId: 'artist-1',
-        isPublic: false,
+        visibility: 'PRIVATE',
         tiers: [{ id: 'tier-1', minimumPrice: 10, isActive: false }],
         artist: { id: 'artist-1', role: UserRole.ARTIST }
       }

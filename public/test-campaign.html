@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Campaign Creator</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        form { max-width: 600px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input, textarea, select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+        textarea { height: 100px; }
+        button { background: #007bff; color: white; padding: 12px 20px; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .result { margin-top: 20px; padding: 10px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <h1>Campaign Creator Test</h1>
+    <form id="campaignForm">
+        <div class="form-group">
+            <label for="title">Campaign Title *</label>
+            <input type="text" id="title" name="title" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="description">Description *</label>
+            <textarea id="description" name="description" required></textarea>
+        </div>
+        
+        <div class="form-group">
+            <label for="type">Campaign Type *</label>
+            <select id="type" name="type" required>
+                <option value="">Select a type</option>
+                <option value="PROMOTIONAL">Promotional</option>
+                <option value="CHALLENGE">Challenge</option>
+                <option value="ENGAGEMENT">Engagement</option>
+                <option value="LAUNCH">Launch</option>
+                <option value="COMMUNITY">Community</option>
+                <option value="SEASONAL">Seasonal</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="startDate">Start Date *</label>
+            <input type="datetime-local" id="startDate" name="startDate" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="endDate">End Date *</label>
+            <input type="datetime-local" id="endDate" name="endDate" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="targetMetric">Target Metric</label>
+            <select id="targetMetric" name="targetMetric">
+                <option value="PARTICIPANTS">Participants</option>
+                <option value="SUBMISSIONS">Submissions</option>
+                <option value="ENGAGEMENT">Engagement</option>
+                <option value="VIEWS">Views</option>
+                <option value="SHARES">Shares</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="targetValue">Target Value</label>
+            <input type="number" id="targetValue" name="targetValue" min="1" value="100">
+        </div>
+        
+        <button type="submit">Create Campaign</button>
+    </form>
+    
+    <div id="result" class="result" style="display: none;"></div>
+    
+    <script>
+        document.getElementById('campaignForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const campaignData = Object.fromEntries(formData);
+            campaignData.targetValue = parseInt(campaignData.targetValue) || 100;
+            
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = 'Creating campaign...';
+            
+            try {
+                const response = await fetch('/api/campaigns', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(campaignData)
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `<strong>Success!</strong><br><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                    resultDiv.style.background = '#d4edda';
+                    resultDiv.style.borderColor = '#c3e6cb';
+                } else {
+                    resultDiv.innerHTML = `<strong>Error:</strong><br><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                    resultDiv.style.background = '#f8d7da';
+                    resultDiv.style.borderColor = '#f5c6cb';
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<strong>Network Error:</strong><br>${error.message}`;
+                resultDiv.style.background = '#f8d7da';
+                resultDiv.style.borderColor = '#f5c6cb';
+            }
+        });
+    </script>
+</body>
+</html>

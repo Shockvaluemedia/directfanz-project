@@ -1,31 +1,27 @@
 import { render, screen } from '@testing-library/react'
-import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
 import { RoleGuard, ArtistGuard, FanGuard } from '@/components/auth/role-guard'
 import { UserRole } from '@/types/database'
 
-// Mock next-auth
-jest.mock('next-auth/react')
-const mockUseSession = useSession as jest.MockedFunction<typeof useSession>
-
-// Mock next/navigation
-jest.mock('next/navigation')
-const mockUseRouter = useRouter as jest.MockedFunction<typeof useRouter>
-const mockPush = jest.fn()
+// Use global mocks
+const mockUseRoleAuth = (global as any).__mockUseRoleAuth
+const mockPush = (global as any).__mockNavigationPush
 
 describe('Role Guard Components', () => {
   beforeEach(() => {
-    mockUseRouter.mockReturnValue({
-      push: mockPush,
-    } as any)
-    mockPush.mockClear()
+    jest.clearAllMocks()
   })
 
   describe('RoleGuard', () => {
     it('should show loading component when session is loading', () => {
-      mockUseSession.mockReturnValue({
-        data: null,
-        status: 'loading'
+      mockUseRoleAuth.mockReturnValue({
+        session: null,
+        user: null,
+        userRole: null,
+        isLoading: true,
+        isAuthenticated: false,
+        hasRequiredRole: false,
+        isArtist: false,
+        isFan: false,
       })
 
       render(
@@ -39,9 +35,15 @@ describe('Role Guard Components', () => {
     })
 
     it('should show fallback when user is not authenticated', () => {
-      mockUseSession.mockReturnValue({
-        data: null,
-        status: 'unauthenticated'
+      mockUseRoleAuth.mockReturnValue({
+        session: null,
+        user: null,
+        userRole: null,
+        isLoading: false,
+        isAuthenticated: false,
+        hasRequiredRole: false,
+        isArtist: false,
+        isFan: false,
       })
 
       render(
@@ -55,15 +57,25 @@ describe('Role Guard Components', () => {
     })
 
     it('should show content when user is authenticated and has required role', () => {
-      mockUseSession.mockReturnValue({
-        data: {
+      mockUseRoleAuth.mockReturnValue({
+        session: {
           user: {
             id: '1',
             email: 'artist@example.com',
             role: UserRole.ARTIST
           }
         },
-        status: 'authenticated'
+        user: {
+          id: '1',
+          email: 'artist@example.com',
+          role: UserRole.ARTIST
+        },
+        userRole: UserRole.ARTIST,
+        isLoading: false,
+        isAuthenticated: true,
+        hasRequiredRole: true,
+        isArtist: true,
+        isFan: false,
       })
 
       render(
@@ -76,15 +88,25 @@ describe('Role Guard Components', () => {
     })
 
     it('should show fallback when user does not have required role', () => {
-      mockUseSession.mockReturnValue({
-        data: {
+      mockUseRoleAuth.mockReturnValue({
+        session: {
           user: {
             id: '1',
             email: 'fan@example.com',
             role: UserRole.FAN
           }
         },
-        status: 'authenticated'
+        user: {
+          id: '1',
+          email: 'fan@example.com',
+          role: UserRole.FAN
+        },
+        userRole: UserRole.FAN,
+        isLoading: false,
+        isAuthenticated: true,
+        hasRequiredRole: false,
+        isArtist: false,
+        isFan: true,
       })
 
       render(
@@ -103,15 +125,25 @@ describe('Role Guard Components', () => {
 
   describe('ArtistGuard', () => {
     it('should show content for artist users', () => {
-      mockUseSession.mockReturnValue({
-        data: {
+      mockUseRoleAuth.mockReturnValue({
+        session: {
           user: {
             id: '1',
             email: 'artist@example.com',
             role: UserRole.ARTIST
           }
         },
-        status: 'authenticated'
+        user: {
+          id: '1',
+          email: 'artist@example.com',
+          role: UserRole.ARTIST
+        },
+        userRole: UserRole.ARTIST,
+        isLoading: false,
+        isAuthenticated: true,
+        hasRequiredRole: true,
+        isArtist: true,
+        isFan: false,
       })
 
       render(
@@ -124,15 +156,25 @@ describe('Role Guard Components', () => {
     })
 
     it('should not show content for fan users', () => {
-      mockUseSession.mockReturnValue({
-        data: {
+      mockUseRoleAuth.mockReturnValue({
+        session: {
           user: {
             id: '1',
             email: 'fan@example.com',
             role: UserRole.FAN
           }
         },
-        status: 'authenticated'
+        user: {
+          id: '1',
+          email: 'fan@example.com',
+          role: UserRole.FAN
+        },
+        userRole: UserRole.FAN,
+        isLoading: false,
+        isAuthenticated: true,
+        hasRequiredRole: false,
+        isArtist: false,
+        isFan: true,
       })
 
       render(
@@ -148,15 +190,25 @@ describe('Role Guard Components', () => {
 
   describe('FanGuard', () => {
     it('should show content for fan users', () => {
-      mockUseSession.mockReturnValue({
-        data: {
+      mockUseRoleAuth.mockReturnValue({
+        session: {
           user: {
             id: '1',
             email: 'fan@example.com',
             role: UserRole.FAN
           }
         },
-        status: 'authenticated'
+        user: {
+          id: '1',
+          email: 'fan@example.com',
+          role: UserRole.FAN
+        },
+        userRole: UserRole.FAN,
+        isLoading: false,
+        isAuthenticated: true,
+        hasRequiredRole: true,
+        isArtist: false,
+        isFan: true,
       })
 
       render(
@@ -169,15 +221,25 @@ describe('Role Guard Components', () => {
     })
 
     it('should not show content for artist users', () => {
-      mockUseSession.mockReturnValue({
-        data: {
+      mockUseRoleAuth.mockReturnValue({
+        session: {
           user: {
             id: '1',
             email: 'artist@example.com',
             role: UserRole.ARTIST
           }
         },
-        status: 'authenticated'
+        user: {
+          id: '1',
+          email: 'artist@example.com',
+          role: UserRole.ARTIST
+        },
+        userRole: UserRole.ARTIST,
+        isLoading: false,
+        isAuthenticated: true,
+        hasRequiredRole: false,
+        isArtist: true,
+        isFan: false,
       })
 
       render(

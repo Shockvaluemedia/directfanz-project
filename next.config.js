@@ -1,7 +1,26 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Optimize React Fast Refresh
+  reactStrictMode: true,
+  
   experimental: {
-    serverComponentsExternalPackages: ['@prisma/client', 'bcryptjs']
+    serverComponentsExternalPackages: ['@prisma/client', 'bcryptjs'],
+    // Enable debugging for development issues
+    optimizePackageImports: ['@heroicons/react']
+  },
+  
+  // Configure webpack to handle Node.js built-ins
+  webpack: (config, { isServer }) => {
+    // For client-side builds, provide fallbacks for Node.js modules
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        crypto: 'crypto-browserify',
+        stream: 'stream-browserify',
+        buffer: 'buffer',
+      };
+    }
+    return config;
   },
   
   // Enable CDN caching for static assets

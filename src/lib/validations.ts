@@ -1,6 +1,28 @@
 import { z } from 'zod'
 import { UserRole, ContentType, SubscriptionStatus } from '@prisma/client'
 
+// Authentication validation schemas
+export const registerSchema = z.object({
+  email: z.string().email('Please enter a valid email address'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+  displayName: z.string().min(2, 'Display name must be at least 2 characters').max(50, 'Display name must be less than 50 characters'),
+  role: z.enum(['ARTIST', 'FAN']).optional().default('FAN')
+})
+
+export const loginSchema = z.object({
+  email: z.string().email('Please enter a valid email address'),
+  password: z.string().min(1, 'Password is required')
+})
+
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, 'Current password is required'),
+  newPassword: z.string().min(8, 'New password must be at least 8 characters'),
+  confirmPassword: z.string().min(1, 'Please confirm your new password')
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"]
+})
+
 // User validation schemas
 export const userProfileSchema = z.object({
   displayName: z.string().min(1, 'Display name is required').max(100, 'Display name too long'),
@@ -112,6 +134,9 @@ export const paginationSchema = z.object({
 })
 
 // Export type inference helpers
+export type RegisterInput = z.infer<typeof registerSchema>
+export type LoginInput = z.infer<typeof loginSchema>
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>
 export type UserProfileInput = z.infer<typeof userProfileSchema>
 export type CreateUserInput = z.infer<typeof createUserSchema>
 export type CreateTierInput = z.infer<typeof createTierSchema>

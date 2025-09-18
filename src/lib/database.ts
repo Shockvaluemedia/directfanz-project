@@ -1,5 +1,8 @@
 import { prisma } from './prisma'
 import { UserRole, ContentType, SubscriptionStatus } from '@prisma/client'
+
+// Export prisma for use in API routes
+export { prisma }
 import type {
   ArtistWithUser,
   TierWithArtist,
@@ -490,6 +493,8 @@ export async function getContentByArtistId(
 
       const transformedContent = content.map(item => ({
         ...item,
+        tags: typeof item.tags === 'string' ? JSON.parse(item.tags || '[]') : item.tags,
+        fileSize: Number(item.fileSize),
         tiers: item.tiers.map(tier => ({
           ...tier,
           minimumPrice: Number(tier.minimumPrice)
@@ -531,6 +536,7 @@ export async function createContent(data: {
   const content = await prisma.content.create({
     data: {
       ...contentData,
+      tags: JSON.stringify(contentData.tags), // Convert array to JSON string for storage
       tiers: {
         connect: tierIds.map(id => ({ id }))
       }

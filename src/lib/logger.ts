@@ -207,9 +207,16 @@ class Logger {
 // Create singleton instance
 export const logger = new Logger();
 
-// Request ID generator
+// Edge Runtime compatible request ID generator
 export const generateRequestId = (): string => {
-  return `req_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+  // Use Web Crypto API which is available in Edge Runtime
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return `req_${Date.now()}_${crypto.randomUUID().replace(/-/g, '').substring(0, 13)}`;
+  }
+  
+  // Fallback for environments without Web Crypto API
+  const randomStr = crypto.getRandomValues(new Uint32Array(1))[0] / (0xffffffff + 1).toString(36).substring(2, 15);
+  return `req_${Date.now()}_${randomStr}`;
 };
 
 // Performance monitoring

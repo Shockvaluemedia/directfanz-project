@@ -1,0 +1,165 @@
+name: Production Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to rollback to (commit SHA or tag)'
+        required: true
+        type: string
+      reason:
+        description: 'Reason for rollback'
+        required: true
+        type: string
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  rollback-production:
+    name: Rollback Production
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://your-domain.com
+    steps:
+      - name: Checkout target version
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.version }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Create rollback issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🚨 Production Rollback: ${new Date().toISOString()}`,
+              body: `
+              ## Rollback Information
+              - **Target Version**: ${context.payload.inputs.version}
+              - **Reason**: ${context.payload.inputs.reason}
+              - **Initiated by**: @${context.actor}
+              - **Time**: ${new Date().toISOString()}
+              
+              ## Actions Taken
+              - [ ] Application rolled back
+              - [ ] Database migrations checked
+              - [ ] Health checks passed
+              - [ ] Monitoring alerts cleared
+              
+              ## Post-Rollback Tasks
+              - [ ] Investigate root cause
+              - [ ] Update incident report
+              - [ ] Plan forward fix
+              `,
+              labels: ['incident', 'rollback', 'production']
+            });
+
+      - name: Pre-rollback health check
+        run: |
+          echo "Checking current production health..."
+          curl -f ${{ secrets.PRODUCTION_URL }}/api/health || echo "Current production is unhealthy"
+
+      - name: Check database migration compatibility
+        run: |
+          # Check if we need to rollback any database migrations
+          echo "Checking migration compatibility..."
+          npx prisma migrate status
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Deploy rollback version
+        id: rollback-deploy
+        uses: amondnet/vercel-action@v20
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: ./
+          vercel-args: '--prod'
+          scope: ${{ secrets.VERCEL_SCOPE }}
+
+      - name: Wait for rollback deployment
+        run: sleep 30
+
+      - name: Post-rollback health check
+        run: |
+          echo "Verifying rollback deployment..."
+          for i in {1..10}; do
+            if curl -f ${{ secrets.PRODUCTION_URL }}/api/health; then
+              echo "Rollback health check passed"
+              exit 0
+            fi
+            echo "Health check failed, retrying in 10s..."
+            sleep 10
+          done
+          echo "Rollback failed health checks"
+          exit 1
+
+      - name: Run smoke tests on rollback
+        run: |
+          npm run test:smoke
+        env:
+          TEST_URL: ${{ secrets.PRODUCTION_URL }}
+
+      - name: Notify team of successful rollback
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: process.env.ISSUE_NUMBER,
+              body: `✅ **Rollback Successful**
+              
+              Production has been successfully rolled back to version \`${context.payload.inputs.version}\`.
+              
+              - ✅ Health checks passed
+              - ✅ Smoke tests passed
+              - ✅ Application is responding normally
+              
+              Next steps: Investigate the root cause and prepare a forward fix.`
+            });
+
+      - name: Notify team of rollback failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: process.env.ISSUE_NUMBER,
+              body: `❌ **Rollback Failed**
+              
+              The rollback to version \`${context.payload.inputs.version}\` has failed.
+              
+              This requires immediate manual intervention. Please:
+              1. Check the workflow logs for details
+              2. Manually investigate the production environment
+              3. Consider emergency procedures if the service is down
+              
+              @here - **URGENT**: Production rollback has failed!`
+            });
+
+      - name: Update monitoring dashboards
+        if: success()
+        run: |
+          echo "Rollback completed successfully"
+          echo "Version: ${{ github.event.inputs.version }}"
+          echo "Reason: ${{ github.event.inputs.reason }}"
+          # Here you would typically update monitoring annotations
+          # or send notifications to your monitoring system

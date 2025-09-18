@@ -11,7 +11,7 @@ interface Props {
 
 export default function AuthSessionProvider({ children, session }: Props) {
   return (
-    <SessionProvider session={session}>
+    <SessionProvider session={session} refetchInterval={0}>
       {children}
     </SessionProvider>
   )

@@ -59,7 +59,7 @@ export async function createInvoice(params: InvoiceCreateParams): Promise<any> {
 
     return invoice;
   } catch (error) {
-    logger.error('Error creating invoice:', error);
+    logger.error('Error creating invoice:', {}, error as Error);
     throw new Error('Failed to create invoice');
   }
 }
@@ -83,7 +83,7 @@ export async function updateInvoice(id: string, params: InvoiceUpdateParams): Pr
 
     return invoice;
   } catch (error) {
-    logger.error(`Error updating invoice ${id}:`, error);
+    logger.error(`Error updating invoice ${id}:`, { invoiceId: id }, error as Error);
     throw new Error('Failed to update invoice');
   }
 }
@@ -158,7 +158,7 @@ export async function getInvoices(filters: InvoiceFilterParams): Promise<any[]> 
     
     return invoices;
   } catch (error) {
-    logger.error('Error getting invoices:', error);
+    logger.error('Error getting invoices:', {}, error as Error);
     throw new Error('Failed to get invoices');
   }
 }
@@ -197,7 +197,7 @@ export async function getInvoiceById(id: string): Promise<any> {
     
     return invoice;
   } catch (error) {
-    logger.error(`Error getting invoice ${id}:`, error);
+    logger.error(`Error getting invoice ${id}:`, { invoiceId: id }, error as Error);
     throw new Error('Failed to get invoice');
   }
 }
@@ -256,7 +256,7 @@ export async function generateAndStoreInvoice(stripeInvoiceId: string): Promise<
       });
     }
   } catch (error) {
-    logger.error(`Error generating and storing invoice ${stripeInvoiceId}:`, error);
+    logger.error(`Error generating and storing invoice ${stripeInvoiceId}:`, { stripeInvoiceId }, error as Error);
     throw new Error('Failed to generate and store invoice');
   }
 }
@@ -298,7 +298,7 @@ export async function sendInvoiceNotification(invoiceId: string): Promise<void> 
       text: `Invoice ${invoiceStatus === 'paid' ? 'Receipt' : ''}\n\nYour ${tierName} subscription invoice is ${invoiceStatus === 'paid' ? 'paid' : 'due'}.\n\nAmount: $${formattedAmount}\nDue date: ${formattedDate}\n${invoice.prorationAmount ? `Includes proration amount: $${parseFloat(invoice.prorationAmount.toString()).toFixed(2)}\n` : ''}Manage your subscriptions: ${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions`
     });
   } catch (error) {
-    logger.error(`Error sending invoice notification for ${invoiceId}:`, error);
+    logger.error(`Error sending invoice notification for ${invoiceId}:`, { invoiceId }, error as Error);
     throw new Error('Failed to send invoice notification');
   }
 }
@@ -328,7 +328,7 @@ export async function processInvoicePayment(invoiceId: string): Promise<any> {
     
     return { success: true, invoice: updatedInvoice };
   } catch (error) {
-    logger.error(`Error processing payment for invoice ${invoiceId}:`, error);
+    logger.error(`Error processing payment for invoice ${invoiceId}:`, { invoiceId }, error as Error);
     throw new Error('Failed to process invoice payment');
   }
 }
@@ -369,7 +369,7 @@ export async function getUpcomingInvoice(subscriptionId: string): Promise<Invoic
     
     return invoiceData;
   } catch (error) {
-    logger.error(`Error getting upcoming invoice for subscription ${subscriptionId}:`, error);
+    logger.error(`Error getting upcoming invoice for subscription ${subscriptionId}:`, { subscriptionId }, error as Error);
     throw new Error('Failed to get upcoming invoice');
   }
 }

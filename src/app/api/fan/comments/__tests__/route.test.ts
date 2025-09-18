@@ -64,7 +64,12 @@ describe('/api/fan/comments', () => {
       const data = await response.json();
 
       expect(response.status).toBe(200);
-      expect(data.comments).toEqual(mockComments);
+      // Dates get serialized to strings in JSON response
+      expect(data.comments).toHaveLength(1);
+      expect(data.comments[0].id).toBe('comment-1');
+      expect(data.comments[0].text).toBe('Great content!');
+      expect(data.comments[0].createdAt).toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/);
+      expect(data.comments[0].updatedAt).toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/);
       expect(mockGetCommentsByContentId).toHaveBeenCalledWith('content-1');
     });
 
@@ -131,7 +136,11 @@ describe('/api/fan/comments', () => {
       const data = await response.json();
 
       expect(response.status).toBe(201);
-      expect(data.comment).toEqual(mockComment);
+      // Dates get serialized to strings in JSON response
+      expect(data.comment.id).toBe('comment-1');
+      expect(data.comment.text).toBe('Great content!');
+      expect(data.comment.createdAt).toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/);
+      expect(data.comment.updatedAt).toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/);
       expect(mockCreateComment).toHaveBeenCalledWith({
         contentId: 'content-1',
         fanId: 'user-1',
@@ -184,6 +193,7 @@ describe('/api/fan/comments', () => {
         user: { id: 'user-1', role: 'FAN' },
       } as any);
       mockCheckPermission.mockResolvedValue(true);
+      // Don't call mockCreateComment since validation should fail before it's called
 
       const request = new NextRequest('http://localhost/api/fan/comments', {
         method: 'POST',
@@ -194,8 +204,11 @@ describe('/api/fan/comments', () => {
       });
 
       const response = await POST(request);
+      const data = await response.json();
 
       expect(response.status).toBe(400);
+      expect(data.error).toBeDefined(); // Should contain validation errors
+      expect(mockCreateComment).not.toHaveBeenCalled(); // Should not reach createComment
     });
   });
 });

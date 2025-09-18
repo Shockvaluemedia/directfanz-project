@@ -82,6 +82,14 @@ describe('/api/billing/cycle', () => {
         daysInCurrentPeriod: 31,
         daysRemaining: 15,
       };
+      
+      const expectedBillingInfo = {
+        currentPeriodStart: '2022-01-01T00:00:00.000Z',
+        currentPeriodEnd: '2022-02-01T00:00:00.000Z',
+        nextBillingDate: '2022-02-01T00:00:00.000Z',
+        daysInCurrentPeriod: 31,
+        daysRemaining: 15,
+      };
 
       mockGetServerSession.mockResolvedValue(mockSession as any);
       mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
@@ -92,7 +100,7 @@ describe('/api/billing/cycle', () => {
       const data = await response.json();
 
       expect(response.status).toBe(200);
-      expect(data.billingInfo).toEqual(mockBillingInfo);
+      expect(data.billingInfo).toEqual(expectedBillingInfo);
       expect(mockGetBillingCycleInfo).toHaveBeenCalledWith('sub123');
     });
 
@@ -254,12 +262,22 @@ describe('/api/billing/cycle', () => {
         user: { id: 'artist123', role: 'ARTIST' },
       };
 
+      const fixedTimestamp = new Date('2025-09-14T23:33:14.309Z');
       const mockEvents = [
         {
           type: 'renewal' as const,
           subscriptionId: 'sub1',
           amount: 10.00,
-          timestamp: new Date(),
+          timestamp: fixedTimestamp,
+        },
+      ];
+      
+      const expectedEvents = [
+        {
+          type: 'renewal',
+          subscriptionId: 'sub1',
+          amount: 10.00,
+          timestamp: '2025-09-14T23:33:14.309Z',
         },
       ];
 
@@ -274,7 +292,7 @@ describe('/api/billing/cycle', () => {
 
       expect(response.status).toBe(200);
       expect(data.message).toBe('Billing renewals processed');
-      expect(data.events).toEqual(mockEvents);
+      expect(data.events).toEqual(expectedEvents);
     });
 
     it('should process payment retries', async () => {
@@ -282,12 +300,23 @@ describe('/api/billing/cycle', () => {
         user: { id: 'artist123', role: 'ARTIST' },
       };
 
+      const fixedTimestamp = new Date('2025-09-14T23:33:14.310Z');
       const mockEvents = [
         {
           type: 'retry' as const,
           subscriptionId: 'sub1',
           amount: 10.00,
-          timestamp: new Date(),
+          timestamp: fixedTimestamp,
+          metadata: { resolved: true },
+        },
+      ];
+      
+      const expectedEvents = [
+        {
+          type: 'retry',
+          subscriptionId: 'sub1',
+          amount: 10.00,
+          timestamp: '2025-09-14T23:33:14.310Z',
           metadata: { resolved: true },
         },
       ];
@@ -303,7 +332,7 @@ describe('/api/billing/cycle', () => {
 
       expect(response.status).toBe(200);
       expect(data.message).toBe('Payment retries processed');
-      expect(data.events).toEqual(mockEvents);
+      expect(data.events).toEqual(expectedEvents);
     });
 
     it('should send billing reminders', async () => {

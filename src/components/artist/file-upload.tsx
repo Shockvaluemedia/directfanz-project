@@ -2,6 +2,9 @@
 
 import { useState, useRef, useCallback } from 'react';
 import { CloudArrowUpIcon, XMarkIcon, DocumentIcon, MusicalNoteIcon, VideoCameraIcon, PhotoIcon } from '@heroicons/react/24/outline';
+import { useFileUpload } from '@/hooks/use-file-upload';
+import { secureUUID } from '@/lib/crypto-utils';
+import { toast } from 'react-hot-toast';
 
 export interface FileUploadItem {
   id: string;
@@ -44,16 +47,15 @@ const SUPPORTED_TYPES = {
 };
 
 export default function FileUpload({
-  onFilesUploaded,
+  onFilesUploaded = () => {},
   maxFiles = 10,
   acceptedTypes = Object.keys(SUPPORTED_TYPES),
   className = '',
-}: FileUploadProps) {
-  const [files, setFiles] = useState<FileUploadItem[]>([]);
+}: Partial<FileUploadProps>) {
   const [isDragOver, setIsDragOver] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<FileUploadItem[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const generateFileId = () => Math.random().toString(36).substr(2, 9);
+  const { uploads, uploadFile, uploadMultipleFiles, clearUpload } = useFileUpload();
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
@@ -98,82 +100,15 @@ export default function FileUpload({
     return null;
   };
 
-  const uploadFile = async (fileItem: FileUploadItem): Promise<void> => {
-    try {
-      // Update status to uploading
-      setFiles(prev => prev.map(f => 
-        f.id === fileItem.id ? { ...f, status: 'uploading' as const, progress: 0 } : f
-      ));
-
-      // Get presigned URL
-      const response = await fetch('/api/artist/content/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fileName: fileItem.file.name,
-          fileType: fileItem.file.type,
-          fileSize: fileItem.file.size,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'Failed to get upload URL');
-      }
-
-      const { data } = await response.json();
-      const { uploadUrl, fileUrl } = data;
-
-      // Upload file to S3 with progress tracking
-      const xhr = new XMLHttpRequest();
-      
-      return new Promise((resolve, reject) => {
-        xhr.upload.addEventListener('progress', (event) => {
-          if (event.lengthComputable) {
-            const progress = Math.round((event.loaded / event.total) * 100);
-            setFiles(prev => prev.map(f => 
-              f.id === fileItem.id ? { ...f, progress } : f
-            ));
-          }
-        });
-
-        xhr.addEventListener('load', () => {
-          if (xhr.status === 200) {
-            setFiles(prev => prev.map(f => 
-              f.id === fileItem.id 
-                ? { ...f, status: 'completed' as const, progress: 100, fileUrl, uploadUrl }
-                : f
-            ));
-            resolve();
-          } else {
-            reject(new Error(`Upload failed with status ${xhr.status}`));
-          }
-        });
-
-        xhr.addEventListener('error', () => {
-          reject(new Error('Upload failed'));
-        });
-
-        xhr.open('PUT', uploadUrl);
-        xhr.setRequestHeader('Content-Type', fileItem.file.type);
-        xhr.send(fileItem.file);
-      });
-
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Upload failed';
-      setFiles(prev => prev.map(f => 
-        f.id === fileItem.id 
-          ? { ...f, status: 'error' as const, error: errorMessage }
-          : f
-      ));
-      throw error;
-    }
+  const generateFileId = () => {
+    return secureUUID();
   };
 
   const handleFiles = useCallback(async (fileList: FileList) => {
     const newFiles: FileUploadItem[] = [];
+    const filesToUpload: File[] = [];
     
-    for (let i = 0; i < fileList.length && newFiles.length + files.length < maxFiles; i++) {
+    for (let i = 0; i < fileList.length && newFiles.length + selectedFiles.length < maxFiles; i++) {
       const file = fileList[i];
       const validationError = validateFile(file);
       
@@ -186,26 +121,33 @@ export default function FileUpload({
       };
       
       newFiles.push(fileItem);
-    }
-
-    setFiles(prev => [...prev, ...newFiles]);
-
-    // Start uploading valid files
-    const validFiles = newFiles.filter(f => f.status === 'pending');
-    for (const fileItem of validFiles) {
-      try {
-        await uploadFile(fileItem);
-      } catch (error) {
-        console.error('Upload error:', error);
+      if (!validationError) {
+        filesToUpload.push(file);
       }
     }
 
-    // Notify parent component of completed uploads
-    const completedFiles = files.concat(newFiles).filter(f => f.status === 'completed');
-    if (completedFiles.length > 0) {
-      onFilesUploaded(completedFiles);
+    setSelectedFiles(prev => [...prev, ...newFiles]);
+
+    // Start uploading valid files using the hook
+    if (filesToUpload.length > 0) {
+      try {
+        const uploadedFiles = await uploadMultipleFiles(filesToUpload);
+        // Convert UploadedFile to FileUploadItem
+        const uploadedItems: FileUploadItem[] = uploadedFiles.map((uploaded, index) => ({
+          id: generateFileId(),
+          file: filesToUpload[index], // Use the original file
+          progress: 100,
+          status: 'completed',
+          fileUrl: uploaded.fileUrl,
+        }));
+        onFilesUploaded(uploadedItems);
+        toast.success(`Successfully uploaded ${uploadedFiles.length} files`);
+      } catch (error) {
+        console.error('Upload error:', error);
+        toast.error('Some files failed to upload');
+      }
     }
-  }, [files, maxFiles, onFilesUploaded]);
+  }, [selectedFiles, maxFiles, onFilesUploaded, uploadMultipleFiles]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -239,20 +181,27 @@ export default function FileUpload({
   }, [handleFiles]);
 
   const removeFile = (fileId: string) => {
-    setFiles(prev => prev.filter(f => f.id !== fileId));
+    setSelectedFiles(prev => prev.filter(f => f.id !== fileId));
   };
 
   const retryUpload = async (fileId: string) => {
-    const fileItem = files.find(f => f.id === fileId);
+    const fileItem = selectedFiles.find(f => f.id === fileId);
     if (fileItem && fileItem.status === 'error') {
       try {
-        await uploadFile(fileItem);
-        const completedFiles = files.filter(f => f.status === 'completed');
-        if (completedFiles.length > 0) {
-          onFilesUploaded(completedFiles);
-        }
+        const uploadedFile = await uploadFile(fileItem.file);
+        // Convert UploadedFile to FileUploadItem
+        const uploadedItem: FileUploadItem = {
+          id: fileId,
+          file: fileItem.file,
+          progress: 100,
+          status: 'completed',
+          fileUrl: uploadedFile.fileUrl,
+        };
+        onFilesUploaded([uploadedItem]);
+        toast.success(`Successfully uploaded ${fileItem.file.name}`);
       } catch (error) {
         console.error('Retry upload error:', error);
+        toast.error(`Failed to retry upload: ${fileItem.file.name}`);
       }
     }
   };
@@ -292,14 +241,14 @@ export default function FileUpload({
       </div>
 
       {/* File List */}
-      {files.length > 0 && (
+      {selectedFiles.length > 0 && (
         <div className="space-y-2">
           <h4 className="text-sm font-medium text-gray-900">
-            Files ({files.length}/{maxFiles})
+            Files ({selectedFiles.length}/{maxFiles})
           </h4>
           
           <div className="space-y-2">
-            {files.map((fileItem) => {
+            {selectedFiles.map((fileItem) => {
               const FileIcon = getFileIcon(fileItem.file.type);
               
               return (

@@ -2,6 +2,8 @@
  * Accessibility utilities for implementing WCAG AA compliance
  */
 
+import React from 'react';
+
 /**
  * Keyboard navigation helper for handling keyboard events
  * @param event Keyboard event

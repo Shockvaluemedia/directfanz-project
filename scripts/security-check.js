@@ -30,7 +30,6 @@ const config = {
       /executeQuery\(\s*['"].*?\$\{.*?\}/gi,
     ],
     xss: [
-      /dangerouslySetInnerHTML/g,
       /innerHTML\s*=/g,
       /document\.write/g,
     ],

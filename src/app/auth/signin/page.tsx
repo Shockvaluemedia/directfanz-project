@@ -17,30 +17,41 @@ export default function SignInPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    console.log('=== SIGNIN FORM SUBMITTED ===')
+    console.log('Email:', email)
+    console.log('Password length:', password.length)
+    
     setIsLoading(true)
     setError("")
 
     try {
+      console.log('Calling signIn...')
       const result = await signIn("credentials", {
         email,
         password,
         redirect: false,
       })
+      
+      console.log('SignIn result:', result)
 
       if (result?.error) {
+        console.log('SignIn error:', result.error)
         setError("Invalid email or password")
       } else {
+        console.log('SignIn successful, getting session...')
         // Get the updated session to check user role
         const session = await getSession()
-        if (session?.user?.role === "ARTIST") {
-          router.push("/dashboard/artist")
-        } else {
-          router.push("/dashboard/fan")
-        }
+        console.log('Session after signin:', session)
+        
+        // Temporarily redirect to working dashboard to confirm signin works
+        console.log('Redirecting to working dashboard')
+        router.push("/dashboard-temp")
       }
     } catch (error) {
+      console.error('SignIn error:', error)
       setError("An error occurred. Please try again.")
     } finally {
+      console.log('SignIn process completed')
       setIsLoading(false)
     }
   }

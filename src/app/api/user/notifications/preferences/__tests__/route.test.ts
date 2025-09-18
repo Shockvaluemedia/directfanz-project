@@ -12,11 +12,7 @@ jest.mock('next-auth', () => ({
   getServerSession: jest.fn(),
 }));
 
-jest.mock('@/lib/notifications', () => ({
-  getUserNotificationPreferences: jest.fn(),
-  updateUserNotificationPreferences: jest.fn(),
-}));
-
+// Use the globally mocked functions
 const mockGetServerSession = getServerSession as jest.MockedFunction<typeof getServerSession>;
 const mockGetUserNotificationPreferences = getUserNotificationPreferences as jest.MockedFunction<typeof getUserNotificationPreferences>;
 const mockUpdateUserNotificationPreferences = updateUserNotificationPreferences as jest.MockedFunction<typeof updateUserNotificationPreferences>;

@@ -219,45 +219,48 @@ export default function VideoPlayer({
 
   // Auto-play handling with optimized loading
   useEffect(() => {
-    if (videoRef.current) {
-      // Set optimal loading attributes
-      videoRef.current.preload = "auto"
-      
-      // Enable playsinline for mobile devices
-      videoRef.current.setAttribute('playsinline', '')
-      
-      // Initialize duration from video prop if available
-      if (video.duration && !duration) {
-        setDuration(video.duration)
-      }
-      
-      // Set optimal buffering strategy
-      if ('buffered' in videoRef.current) {
-        // Try to load enough of the video to ensure smooth playback
-        const loadProgress = () => {
-          if (videoRef.current && videoRef.current.buffered.length > 0) {
-            const bufferedEnd = videoRef.current.buffered.end(0)
-            const duration = videoRef.current.duration
-            
-            // If we've buffered less than 15 seconds ahead or less than 25% of short videos
-            if (bufferedEnd < videoRef.current.currentTime + 15 && bufferedEnd / duration < 0.25) {
-              // This would be where we'd adjust quality if we had an adaptive streaming setup
-            }
+    const videoElement = videoRef.current;
+    if (!videoElement) return;
+    
+    // Set optimal loading attributes
+    videoElement.preload = "auto"
+    
+    // Enable playsinline for mobile devices
+    videoElement.setAttribute('playsinline', '')
+    
+    // Initialize duration from video prop if available
+    if (video.duration && !duration) {
+      setDuration(video.duration)
+    }
+    
+    // Set optimal buffering strategy
+    if ('buffered' in videoElement) {
+      // Try to load enough of the video to ensure smooth playback
+      const loadProgress = () => {
+        if (videoElement && videoElement.buffered.length > 0) {
+          const bufferedEnd = videoElement.buffered.end(0)
+          const duration = videoElement.duration
+          
+          // If we've buffered less than 15 seconds ahead or less than 25% of short videos
+          if (bufferedEnd < videoElement.currentTime + 15 && bufferedEnd / duration < 0.25) {
+            // This would be where we'd adjust quality if we had adaptive streaming setup
           }
         }
-        
-        videoRef.current.addEventListener('progress', loadProgress)
-        return () => {
-          videoRef.current?.removeEventListener('progress', loadProgress)
-        }
       }
       
-      // Attempt autoplay if requested
-      if (autoPlay) {
-        videoRef.current.play().catch(() => {
-          // Auto-play failed, which is expected in many browsers
-        })
+      videoElement.addEventListener('progress', loadProgress)
+      
+      // Cleanup function
+      return () => {
+        videoElement.removeEventListener('progress', loadProgress)
       }
+    }
+    
+    // Attempt autoplay if requested
+    if (autoPlay) {
+      (videoElement as HTMLVideoElement).play().catch(() => {
+        // Auto-play failed, which is expected in many browsers
+      })
     }
   }, [autoPlay, video.duration, duration])
 

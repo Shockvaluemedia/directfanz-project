@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { redis } from '@/lib/redis';
 import { logger } from '@/lib/logger';
 import { captureMessage } from '@/lib/sentry';
+import { SubscriptionStatus } from '@prisma/client';
 
 /**
  * Cron health check endpoint for scheduled monitoring
@@ -15,10 +16,10 @@ export async function GET() {
 
   // Check database connection and get some metrics
   try {
-    // Check active users in the last 24 hours
+    // Check active users in the last 24 hours (using updatedAt as proxy)
     const activeUsers = await prisma.user.count({
       where: {
-        lastLoginAt: {
+        updatedAt: {
           gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
         }
       }
@@ -27,7 +28,7 @@ export async function GET() {
     // Check active subscriptions
     const activeSubscriptions = await prisma.subscription.count({
       where: {
-        status: 'active'
+        status: SubscriptionStatus.ACTIVE
       }
     });
     

@@ -1,0 +1,301 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Direct Fan Platform - Infrastructure",
+    "tags": ["direct-fan-platform", "infrastructure"],
+    "style": "dark",
+    "timezone": "browser",
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "CPU Usage",
+        "type": "graph",
+        "gridPos": {"h": 6, "w": 12, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "100 - (avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+            "legendFormat": "{{instance}} CPU Usage",
+            "refId": "A"
+          }
+        ],
+        "yAxes": [
+          {
+            "unit": "percent",
+            "min": 0,
+            "max": 100
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Memory Usage",
+        "type": "graph",
+        "gridPos": {"h": 6, "w": 12, "x": 12, "y": 0},
+        "targets": [
+          {
+            "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
+            "legendFormat": "{{instance}} Memory Usage",
+            "refId": "A"
+          }
+        ],
+        "yAxes": [
+          {
+            "unit": "percent",
+            "min": 0,
+            "max": 100
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Disk Usage",
+        "type": "graph",
+        "gridPos": {"h": 6, "w": 12, "x": 0, "y": 6},
+        "targets": [
+          {
+            "expr": "100 - ((node_filesystem_avail_bytes{mountpoint=\"/\"} * 100) / node_filesystem_size_bytes{mountpoint=\"/\"})",
+            "legendFormat": "{{instance}} Disk Usage",
+            "refId": "A"
+          }
+        ],
+        "yAxes": [
+          {
+            "unit": "percent",
+            "min": 0,
+            "max": 100
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Network I/O",
+        "type": "graph",
+        "gridPos": {"h": 6, "w": 12, "x": 12, "y": 6},
+        "targets": [
+          {
+            "expr": "rate(node_network_receive_bytes_total{device!=\"lo\"}[5m])",
+            "legendFormat": "{{instance}} {{device}} RX",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(node_network_transmit_bytes_total{device!=\"lo\"}[5m])",
+            "legendFormat": "{{instance}} {{device}} TX",
+            "refId": "B"
+          }
+        ],
+        "yAxes": [
+          {
+            "unit": "Bps",
+            "min": 0
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Load Average",
+        "type": "graph",
+        "gridPos": {"h": 6, "w": 8, "x": 0, "y": 12},
+        "targets": [
+          {
+            "expr": "node_load1",
+            "legendFormat": "{{instance}} 1m",
+            "refId": "A"
+          },
+          {
+            "expr": "node_load5",
+            "legendFormat": "{{instance}} 5m",
+            "refId": "B"
+          },
+          {
+            "expr": "node_load15",
+            "legendFormat": "{{instance}} 15m",
+            "refId": "C"
+          }
+        ],
+        "yAxes": [
+          {
+            "unit": "none",
+            "min": 0
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Container Status",
+        "type": "table",
+        "gridPos": {"h": 6, "w": 8, "x": 8, "y": 12},
+        "targets": [
+          {
+            "expr": "container_last_seen",
+            "legendFormat": "{{name}}",
+            "refId": "A",
+            "format": "table"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {
+                "Time": true,
+                "__name__": true,
+                "job": true
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Docker Container Memory",
+        "type": "graph",
+        "gridPos": {"h": 6, "w": 8, "x": 16, "y": 12},
+        "targets": [
+          {
+            "expr": "container_memory_usage_bytes{name=~\"direct-fan-platform.*\"}",
+            "legendFormat": "{{name}}",
+            "refId": "A"
+          }
+        ],
+        "yAxes": [
+          {
+            "unit": "bytes",
+            "min": 0
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "PostgreSQL Connections",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 18},
+        "targets": [
+          {
+            "expr": "pg_stat_database_numbackends{datname=\"direct_fan_platform\"}",
+            "legendFormat": "Active Connections",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 50},
+                {"color": "red", "value": 80}
+              ]
+            },
+            "unit": "none"
+          }
+        }
+      },
+      {
+        "id": 9,
+        "title": "PostgreSQL Query Rate",
+        "type": "graph",
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 18},
+        "targets": [
+          {
+            "expr": "rate(pg_stat_database_tup_inserted{datname=\"direct_fan_platform\"}[5m])",
+            "legendFormat": "Inserts/sec",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(pg_stat_database_tup_updated{datname=\"direct_fan_platform\"}[5m])",
+            "legendFormat": "Updates/sec",
+            "refId": "B"
+          },
+          {
+            "expr": "rate(pg_stat_database_tup_deleted{datname=\"direct_fan_platform\"}[5m])",
+            "legendFormat": "Deletes/sec",
+            "refId": "C"
+          }
+        ],
+        "yAxes": [
+          {
+            "unit": "ops",
+            "min": 0
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Redis Memory Usage",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 18},
+        "targets": [
+          {
+            "expr": "redis_memory_used_bytes",
+            "legendFormat": "Memory Used",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 500000000},
+                {"color": "red", "value": 1000000000}
+              ]
+            },
+            "unit": "bytes"
+          }
+        }
+      },
+      {
+        "id": 11,
+        "title": "Redis Operations/sec",
+        "type": "graph",
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 18},
+        "targets": [
+          {
+            "expr": "rate(redis_commands_processed_total[5m])",
+            "legendFormat": "Commands/sec",
+            "refId": "A"
+          }
+        ],
+        "yAxes": [
+          {
+            "unit": "ops",
+            "min": 0
+          }
+        ]
+      }
+    ],
+    "templating": {
+      "list": [
+        {
+          "name": "instance",
+          "type": "query",
+          "query": "label_values(up, instance)",
+          "refresh": 1,
+          "includeAll": true,
+          "multi": true
+        }
+      ]
+    },
+    "annotations": {
+      "list": [
+        {
+          "name": "System Alerts",
+          "datasource": "Prometheus",
+          "enable": true,
+          "iconColor": "red",
+          "query": "ALERTS{alertname=~\".*High.*|.*Down.*|.*Critical.*\"}"
+        }
+      ]
+    }
+  }
+}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { useRouter } from 'next/navigation';
 import ArtistDiscovery from '../artist-discovery';
 
@@ -235,14 +235,8 @@ describe('ArtistDiscovery', () => {
     });
   });
 
-  it('shows empty state when no artists found', () => {
-    render(<ArtistDiscovery initialArtists={[]} />);
-    
-    expect(screen.getByText('No artists found')).toBeInTheDocument();
-    expect(screen.getByText('Check back later for new artists')).toBeInTheDocument();
-  });
-
-  it('shows search-specific empty state when search returns no results', async () => {
+  it('shows empty state when no artists found', async () => {
+    // Mock fetch to return empty result
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
@@ -251,13 +245,50 @@ describe('ArtistDiscovery', () => {
       }),
     } as Response);
 
+    await act(async () => {
+      render(<ArtistDiscovery />);
+    });
+    
+    // Wait for the async fetch to complete and loading to finish
+    await waitFor(() => {
+      expect(screen.getByText('No artists found')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Check back later for new artists')).toBeInTheDocument();
+  });
+
+  it('shows search-specific empty state when search returns no results', async () => {
+    // First call for initial load, second call for search
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          artists: mockArtists, // Initial load has artists
+          pagination: { hasMore: false },
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          artists: [], // Search returns empty
+          pagination: { hasMore: false },
+        }),
+      } as Response);
+
     render(<ArtistDiscovery />);
+    
+    // Wait for initial load
+    await waitFor(() => {
+      expect(screen.getByText('Search')).toBeInTheDocument();
+    });
     
     const searchInput = screen.getByPlaceholderText('Search artists by name or description...');
     const searchButton = screen.getByText('Search');
     
     fireEvent.change(searchInput, { target: { value: 'nonexistent' } });
-    fireEvent.click(searchButton);
+    
+    await act(async () => {
+      fireEvent.click(searchButton);
+    });
 
     await waitFor(() => {
       expect(screen.getByText('Try adjusting your search terms')).toBeInTheDocument();
@@ -279,9 +310,28 @@ describe('ArtistDiscovery', () => {
   });
 
   it('displays loading state during search', async () => {
-    mockFetch.mockImplementationOnce(() => new Promise(resolve => setTimeout(resolve, 100)));
+    // Mock initial load first, then slow search
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          artists: [],
+          pagination: { hasMore: false },
+        }),
+      } as Response)
+      .mockImplementationOnce(() => new Promise(resolve => 
+        setTimeout(() => resolve({
+          ok: true,
+          json: async () => ({ artists: [], pagination: { hasMore: false } })
+        } as Response), 100)
+      ));
 
-    render(<ArtistDiscovery initialArtists={[]} />);
+    render(<ArtistDiscovery />);
+    
+    // Wait for initial load to complete
+    await waitFor(() => {
+      expect(screen.getByText('Search')).toBeInTheDocument();
+    });
     
     const searchInput = screen.getByPlaceholderText('Search artists by name or description...');
     const searchButton = screen.getByText('Search');

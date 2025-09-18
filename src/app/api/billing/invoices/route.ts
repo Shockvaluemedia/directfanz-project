@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { stripe } from '@/lib/stripe';
 import { generateInvoiceData } from '@/lib/billing';
+import { randomUUID } from 'crypto';
 
 export async function GET(request: NextRequest) {
   try {
@@ -137,7 +138,7 @@ export async function POST(request: NextRequest) {
         "items", "createdAt", "updatedAt"
       ) 
       VALUES (
-        ${`inv_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`}, 
+        ${`inv_${Date.now()}_${randomUUID().replace(/-/g, '').substring(0, 13)}`},
         ${subscription.id}, 
         ${stripeInvoiceId}, 
         ${invoiceData.amount}, 

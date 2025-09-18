@@ -153,7 +153,9 @@ if (isMainThread) {
   // Select scenarios based on weight
   function selectScenario() {
     const totalWeight = scenarios.reduce((sum, scenario) => sum + scenario.weight, 0);
-    let random = Math.random() * totalWeight;
+    const randomArray = new Uint32Array(1);
+    require('crypto').getRandomValues(randomArray);
+    let random = (randomArray[0] / (0xFFFFFFFF + 1)) * totalWeight;
     
     for (const scenario of scenarios) {
       random -= scenario.weight;
@@ -174,7 +176,10 @@ if (isMainThread) {
         await makeRequest(scenario);
         
         // Random pause between 1-5 seconds to simulate user behavior
-        await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 4000));
+        const randomArray = new Uint32Array(1);
+        require('crypto').getRandomValues(randomArray);
+        const delay = 1000 + (randomArray[0] / (0xFFFFFFFF + 1)) * 4000;
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
       
       parentPort.postMessage({ type: 'complete', userId });

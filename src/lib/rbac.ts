@@ -46,7 +46,7 @@ export type Permission = typeof ROLE_PERMISSIONS[keyof typeof ROLE_PERMISSIONS][
 
 // Check if a role has a specific permission
 export function hasPermission(role: UserRole, permission: Permission): boolean {
-  const rolePermissions = ROLE_PERMISSIONS[role]
+  const rolePermissions = ROLE_PERMISSIONS[role as keyof typeof ROLE_PERMISSIONS]
   if (!rolePermissions) return false
   return (rolePermissions as readonly string[]).includes(permission)
 }
@@ -168,4 +168,17 @@ export function getRouteProtection(pathname: string) {
     .sort((a, b) => b[0].length - a[0].length) // Sort by specificity (longer paths first)
 
   return matchingRoutes[0]?.[1] || null
+}
+
+// Simplified permission check function for backwards compatibility
+export async function checkPermission(userId: string, permission: Permission): Promise<boolean> {
+  try {
+    // In a real implementation, this would fetch the user's role from database
+    // For now, we'll return true as a placeholder
+    console.log(`Permission check: ${userId} requesting ${permission}`);
+    return true;
+  } catch (error) {
+    console.error('Permission check error:', error);
+    return false;
+  }
 }

@@ -5,6 +5,7 @@ import { generateInvoiceData } from './billing';
 import { logger } from './logger';
 import type Stripe from 'stripe';
 import { Decimal } from '@prisma/client/runtime/library';
+import { randomUUID } from 'crypto';
 
 export interface BillingCycleEvent {
   type: 'renewal' | 'failure' | 'retry' | 'cancellation';
@@ -230,7 +231,7 @@ export async function processFailedPaymentRetries(): Promise<BillingCycleEvent[]
       JOIN "users" a ON t."artistId" = a.id
       WHERE pf."isResolved" = false
       AND pf."nextRetryAt" <= ${now}
-    `;
+    ` as any[];
 
     for (const failure of failuresToRetry) {
       try {
@@ -465,7 +466,7 @@ export async function processScheduledTierChanges(): Promise<BillingCycleEvent[]
       WHERE i.status = 'PAID'
       AND i."periodEnd" <= ${now}
       AND i.items::jsonb ? 'scheduledTierChange'
-    `;
+    ` as any[];
 
     for (const invoice of scheduledChanges) {
       try {
@@ -586,7 +587,7 @@ export async function recordPaymentFailure(
     // Check if there's already a payment failure record for this invoice
     const existingFailure = await prisma.$queryRaw`
       SELECT * FROM "payment_failures" WHERE "stripeInvoiceId" = ${stripeInvoiceId}
-    `;
+    ` as any[];
     
     if (existingFailure && existingFailure.length > 0) {
       // Update existing record
@@ -606,7 +607,7 @@ export async function recordPaymentFailure(
           "nextRetryAt", "createdAt", "updatedAt"
         )
         VALUES (
-          ${`pf_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`},
+          ${`pf_${Date.now()}_${randomUUID().replace(/-/g, '').substring(0, 13)}`},
           ${subscriptionId},
           ${stripeInvoiceId},
           ${amount},
@@ -706,7 +707,7 @@ export async function syncSubscriptionInvoices(subscriptionId: string): Promise<
           // Check if invoice already exists
           const existingInvoice = await prisma.$queryRaw`
             SELECT * FROM "invoices" WHERE "stripeInvoiceId" = ${invoice.id}
-          `;
+          ` as any[];
 
           if (existingInvoice && existingInvoice.length > 0) {
             // Update existing invoice
@@ -736,7 +737,7 @@ export async function syncSubscriptionInvoices(subscriptionId: string): Promise<
                 "items", "createdAt", "updatedAt"
               ) 
               VALUES (
-                ${`inv_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`}, 
+                ${`inv_${Date.now()}_${randomUUID().replace(/-/g, '').substring(0, 13)}`},
                 ${subscription.id}, 
                 ${invoice.id}, 
                 ${invoiceData.amount}, 
@@ -891,53 +892,6 @@ export async function getArtistBillingSummary(artistId: string): Promise<{
           }
         }))._avg.amount?.toNumber() || 0
       : 0;
-    
-    // Get top performing tiers
-    const tiers = await prisma.tier.findMany({
-      where: {
-        artistId
-      },
-      include: {
-        subscriptions: {
-          where: {
-            status: 'ACTIVE'
-          },
-          select: {
-            amount: true
-          }
-        }
-      },
-      orderBy: {
-        subscriberCount: 'desc'
-      },
-      take: 5
-    });
-    
-    const topTiers = tiers.map(tier => ({
-      tierId: tier.id,
-      tierName: tier.name,
-      subscriberCount: tier.subscriberCount,
-      revenue: tier.subscriptions.reduce(
-        (sum, sub) => sum + parseFloat(sub.amount.toString()),
-        0
-      )
-    }));
-    
-    return {
-      currentMonthRevenue,
-      previousMonthRevenue,
-      revenueChange,
-      activeSubscriptions,
-      upcomingRenewals,
-      failedPayments,
-      averageSubscriptionValue,
-      topTiers
-    };
-  } catch (error) {
-    console.error('Error getting artist billing summary:', error);
-    throw new Error('Failed to get artist billing summary');
-  }
-} 0;
     
     // Get top performing tiers
     const tiers = await prisma.tier.findMany({

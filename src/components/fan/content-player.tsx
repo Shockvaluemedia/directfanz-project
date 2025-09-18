@@ -5,8 +5,18 @@ import { LazyMediaPlaylist, preloadMediaComponents } from '@/components/ui/lazy-
 import type { MediaItem } from '@/components/ui/media-playlist'
 import { Content } from '@prisma/client'
 
+// Extended content type that includes artist info and ensures metadata access
+type ContentWithArtist = Content & {
+  artist?: {
+    displayName: string;
+  };
+  metadata?: {
+    duration?: number;
+  } | null;
+}
+
 interface ContentPlayerProps {
-  content: Content | Content[]
+  content: ContentWithArtist | ContentWithArtist[]
   className?: string
 }
 
@@ -32,10 +42,10 @@ export default function ContentPlayer({ content, className = '' }: ContentPlayer
             return {
               id: item.id,
               title: item.title,
-              artist: item.artistName || 'Unknown Artist',
+              artist: 'Unknown Artist', // Would need to join with User table to get artist name
               type: item.type as 'AUDIO' | 'VIDEO',
               url: streamUrl,
-              duration: item.metadata?.duration,
+              duration: item.duration || undefined,
               thumbnailUrl: item.thumbnailUrl || undefined
             }
           })
@@ -52,6 +62,14 @@ export default function ContentPlayer({ content, className = '' }: ContentPlayer
     
     fetchMediaItems()
   }, [content])
+
+  // Preload media components when content is available
+  // This must come before any early returns to follow Rules of Hooks
+  useEffect(() => {
+    if (mediaItems.length > 0) {
+      preloadMediaComponents();
+    }
+  }, [mediaItems]);
 
   if (isLoading) {
     return (
@@ -83,13 +101,6 @@ export default function ContentPlayer({ content, className = '' }: ContentPlayer
       </div>
     )
   }
-
-  // Preload media components when content is available
-  useEffect(() => {
-    if (mediaItems.length > 0) {
-      preloadMediaComponents();
-    }
-  }, [mediaItems]);
 
   return (
     <LazyMediaPlaylist 

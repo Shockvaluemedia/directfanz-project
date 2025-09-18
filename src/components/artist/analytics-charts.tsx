@@ -334,7 +334,7 @@ export function ChurnRateChart({ data }: { data: { tierId: string; tierName: str
           tooltip: {
             callbacks: {
               label: function(context) {
-                return `${context.raw.toFixed(1)}%`;
+                return `${(context.raw as number).toFixed(1)}%`;
               }
             }
           }

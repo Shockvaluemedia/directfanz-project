@@ -114,9 +114,10 @@ describe('/api/fan/subscriptions', () => {
 
       expect(response.status).toBe(200);
       const data = await response.json();
-      expect(data.subscriptions).toHaveLength(1);
-      expect(data.subscriptions[0].id).toBe('sub-1');
-      expect(data.subscriptions[0].tier.artist.displayName).toBe('Test Artist');
+      expect(data.success).toBe(true);
+      expect(data.data.subscriptions).toHaveLength(1);
+      expect(data.data.subscriptions[0].id).toBe('sub-1');
+      expect(data.data.subscriptions[0].artist.displayName).toBe('Test Artist');
     });
 
     it('should return empty array if fan has no subscriptions', async () => {
@@ -144,7 +145,8 @@ describe('/api/fan/subscriptions', () => {
 
       expect(response.status).toBe(200);
       const data = await response.json();
-      expect(data.subscriptions).toHaveLength(0);
+      expect(data.success).toBe(true);
+      expect(data.data.subscriptions).toHaveLength(0);
     });
 
     it('should handle database errors gracefully', async () => {

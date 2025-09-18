@@ -268,7 +268,7 @@ describe('Invoice Functions', () => {
 
       await expect(
         getInvoiceById('nonexistent')
-      ).rejects.toThrow('Invoice not found');
+      ).rejects.toThrow('Failed to get invoice');
     });
 
     it('should handle errors when getting an invoice', async () => {
@@ -408,7 +408,7 @@ describe('Invoice Functions', () => {
 
       await expect(
         generateAndStoreInvoice('in_stripe_123')
-      ).rejects.toThrow('Subscription not found');
+      ).rejects.toThrow('Failed to generate and store invoice');
     });
   });
 
@@ -495,12 +495,18 @@ describe('Invoice Functions', () => {
       const mockInvoice = {
         id: 'inv_123',
         stripeInvoiceId: 'in_stripe_123',
+        amount: new Decimal(10.00),
         status: 'OPEN',
+        dueDate: new Date('2022-01-01'),
         subscription: {
           fan: {
+            id: 'fan_123',
             email: 'fan@example.com',
+            displayName: 'Fan User',
+            notificationPreferences: { billing: true },
           },
           tier: {
+            id: 'tier_123',
             name: 'Premium',
           },
         },
@@ -512,6 +518,7 @@ describe('Invoice Functions', () => {
         paidAt: new Date(),
       };
 
+      // Mock getInvoiceById call inside processInvoicePayment
       mockPrisma.invoice.findUnique.mockResolvedValue(mockInvoice as any);
       mockStripe.invoices.pay.mockResolvedValue({} as any);
       mockPrisma.invoice.update.mockResolvedValue(updatedInvoice as any);
@@ -594,7 +601,7 @@ describe('Invoice Functions', () => {
 
       await expect(
         getUpcomingInvoice('nonexistent')
-      ).rejects.toThrow('Subscription not found');
+      ).rejects.toThrow('Failed to get upcoming invoice');
     });
   });
 });

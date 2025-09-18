@@ -145,7 +145,7 @@ export async function getUserNotificationPreferences(
     return DEFAULT_NOTIFICATION_PREFERENCES;
   }
 
-  return user.notificationPreferences as NotificationPreferences;
+  return user.notificationPreferences as unknown as NotificationPreferences;
 }
 
 /**
@@ -166,4 +166,24 @@ export async function updateUserNotificationPreferences(
   });
 
   return updatedPreferences;
+}
+
+/**
+ * Generic notification sender (placeholder implementation)
+ */
+export async function sendNotification(notification: {
+  userId: string;
+  type: string;
+  title: string;
+  message: string;
+  data?: any;
+}): Promise<boolean> {
+  try {
+    // In a real implementation, this would send push notifications, emails, etc.
+    console.log('Notification sent:', notification);
+    return true;
+  } catch (error) {
+    console.error('Failed to send notification:', error);
+    return false;
+  }
 }

@@ -2,7 +2,9 @@ import { Decimal } from '@prisma/client/runtime/library';
 import { stripe } from './stripe';
 import { prisma } from './prisma';
 import { sendEmail } from './notifications';
+import { generateSecureId } from './crypto-utils';
 import type Stripe from 'stripe';
+import { randomUUID } from 'crypto';
 
 export interface ProrationCalculation {
   currentAmount: number;
@@ -79,12 +81,17 @@ export async function calculateTierChangeProration(
     
     // Calculate time-based proration
     const effectiveDate = options?.effectiveDate || new Date();
-    const totalDaysInPeriod = Math.ceil(
+    const totalDaysInPeriod = Math.max(1, Math.ceil(
       (currentPeriodEnd.getTime() - currentPeriodStart.getTime()) / (1000 * 60 * 60 * 24)
-    );
-    const daysRemaining = Math.ceil(
+    ));
+    const daysRemaining = Math.max(0, Math.ceil(
       (currentPeriodEnd.getTime() - effectiveDate.getTime()) / (1000 * 60 * 60 * 24)
-    );
+    ));
+
+    // Prevent division by zero
+    if (totalDaysInPeriod <= 0) {
+      throw new Error('Invalid billing period - period end must be after period start');
+    }
 
     // Calculate proration amounts
     const dailyCurrentRate = currentAmount / totalDaysInPeriod;
@@ -93,7 +100,7 @@ export async function calculateTierChangeProration(
     const unusedCurrentAmount = dailyCurrentRate * daysRemaining;
     const newAmountForRemainingPeriod = dailyNewRate * daysRemaining;
     
-    const prorationAmount = newAmountForRemainingPeriod - unusedCurrentAmount;
+    const prorationAmount = Number((newAmountForRemainingPeriod - unusedCurrentAmount).toFixed(2));
     const nextInvoiceAmount = newAmount; // Full amount for next period
 
     return {
@@ -133,12 +140,17 @@ export async function getBillingCycleInfo(subscriptionId: string): Promise<Billi
     const nextBillingDate = currentPeriodEnd;
 
     const now = new Date();
-    const daysInCurrentPeriod = Math.ceil(
+    const daysInCurrentPeriod = Math.max(1, Math.ceil(
       (currentPeriodEnd.getTime() - currentPeriodStart.getTime()) / (1000 * 60 * 60 * 24)
-    );
+    ));
     const daysRemaining = Math.max(0, Math.ceil(
       (currentPeriodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
     ));
+
+    // Validate billing period
+    if (daysInCurrentPeriod <= 0) {
+      throw new Error('Invalid billing period - current period end must be after start');
+    }
 
     return {
       currentPeriodStart,
@@ -268,7 +280,7 @@ export async function changeTier(
           "items", "createdAt", "updatedAt"
         ) 
         VALUES (
-          ${`inv_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`}, 
+          ${generateSecureId('inv', 15)},
           ${subscription.id}, 
           ${latestInvoice}, 
           ${invoiceData.amount}, 
@@ -283,9 +295,9 @@ export async function changeTier(
           NOW()
         )
         RETURNING "id"
-      `;
+      ` as any[];
       
-      invoiceId = invoice.id;
+      invoiceId = invoice[0]?.id;
     }
 
     // Update local database
@@ -312,9 +324,9 @@ export async function changeTier(
     });
 
     // Send notification if requested
-    if (options.sendNotification && subscription.fan.email) {
+    if (options.sendNotification && subscription.fan?.email) {
       await sendEmail({
-        to: subscription.fan.email,
+        to: subscription.fan.email!,
         subject: `Subscription ${isUpgrade ? 'Upgraded' : 'Changed'} - ${newTier.artist?.displayName}`,
         html: `
           <h1>Subscription ${isUpgrade ? 'Upgraded' : 'Changed'}</h1>
@@ -399,17 +411,19 @@ export async function generateInvoiceData(stripeInvoiceId: string): Promise<Invo
       }
     }));
 
-    return {
+    const result: InvoiceData = {
       id: invoice.id,
       subscriptionId: invoice.subscription as string,
       amount: (invoice.amount_paid || invoice.amount_due || 0) / 100,
       status: invoice.status || 'draft',
       dueDate: new Date((invoice.due_date || invoice.created) * 1000),
-      paidAt: invoice.status_transitions?.paid_at 
-        ? new Date(invoice.status_transitions.paid_at * 1000) 
-        : undefined,
-      items
+      items,
+      paidAt: (invoice.status_transitions && typeof invoice.status_transitions.paid_at === 'number')
+        ? new Date(invoice.status_transitions.paid_at * 1000)
+        : undefined
     };
+    
+    return result;
   } catch (error) {
     console.error('Error generating invoice data:', error);
     throw new Error('Failed to generate invoice data');
@@ -526,7 +540,7 @@ export async function scheduleTierChange(
         "items", "createdAt", "updatedAt"
       ) 
       VALUES (
-        ${`inv_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`}, 
+        ${`inv_${Date.now()}_${randomUUID().replace(/-/g, '').substring(0, 13)}`},
         ${subscription.id}, 
         ${invoiceData.stripeInvoiceId}, 
         ${invoiceData.amount}, 
@@ -541,10 +555,10 @@ export async function scheduleTierChange(
         NOW()
       )
       RETURNING "id"
-    `;
+    ` as any[];
 
     // Send notification if requested
-    if (subscription.fan.email) {
+    if (subscription.fan?.email) {
       await sendEmail({
         to: subscription.fan.email,
         subject: `Subscription Change Scheduled - ${newTier.artist?.displayName}`,
@@ -565,7 +579,7 @@ export async function scheduleTierChange(
     return {
       success: true,
       scheduledDate: effectiveDate,
-      invoiceId: invoice.id
+      invoiceId: invoice[0]?.id
     };
   } catch (error) {
     console.error('Error scheduling tier change:', error);
@@ -661,7 +675,7 @@ export async function syncInvoices(
           // Check if invoice already exists
           const existingInvoice = await prisma.$queryRaw`
             SELECT * FROM "invoices" WHERE "stripeInvoiceId" = ${invoice.id}
-          `;
+          ` as any[];
 
           if (existingInvoice && existingInvoice.length > 0) {
             // Update existing invoice
@@ -691,7 +705,7 @@ export async function syncInvoices(
                 "items", "createdAt", "updatedAt"
               ) 
               VALUES (
-                ${`inv_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`}, 
+                ${`inv_${Date.now()}_${randomUUID().replace(/-/g, '').substring(0, 13)}`},
                 ${subscription.id}, 
                 ${invoice.id}, 
                 ${invoiceData.amount}, 

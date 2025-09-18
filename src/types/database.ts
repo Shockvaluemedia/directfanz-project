@@ -2,7 +2,8 @@
 
 export enum UserRole {
   ARTIST = 'ARTIST',
-  FAN = 'FAN'
+  FAN = 'FAN',
+  ADMIN = 'ADMIN'
 }
 
 export enum ContentType {

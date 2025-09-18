@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
           orderBy: { minimumPrice: 'asc' },
         },
         content: {
-          where: { isPublic: true },
+          where: { visibility: 'PUBLIC' },
           select: {
             id: true,
             title: true,

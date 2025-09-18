@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,51 +7,8 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// User model - base for both artists and fans
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String?  // Optional for OAuth users
-  role      UserRole @default(FAN)
-  
-  // Profile information
-  displayName String
-  bio         String?
-  avatar      String?
-  socialLinks Json?   // Store as JSON object
-  
-  // Notification preferences
-  notificationPreferences Json? // Store as JSON object
-  
-  // OAuth fields for NextAuth
-  emailVerified DateTime?
-  image         String?
-  
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  // Relations
-  accounts      Account[]
-  sessions      Session[]
-  
-  // Artist-specific relations (only populated if role is ARTIST)
-  artistProfile Artist?
-  tiers         Tier[]
-  content       Content[]
-  
-  // Fan-specific relations (only populated if role is FAN)
-  subscriptions Subscription[]
-  comments      Comment[]
-  
-
-  
-  @@map("users")
-}
-
-// NextAuth Account model
-model Account {
-  id                String  @id @default(cuid())
+model accounts {
+  id                String  @id
   userId            String
   type              String
   provider          String
@@ -66,227 +20,647 @@ model Account {
   scope             String?
   id_token          String?
   session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  users             users   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
-  @@map("accounts")
 }
 
-// NextAuth Session model
-model Session {
-  id           String   @id @default(cuid())
+model artists {
+  id                String   @id
+  userId            String   @unique
+  stripeAccountId   String?  @unique
+  isStripeOnboarded Boolean  @default(false)
+  totalEarnings     Decimal  @default(0)
+  totalSubscribers  Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime
+  users             users    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model campaign_analytics {
+  id                 String    @id
+  campaignId         String
+  date               DateTime
+  dailySignups       Int       @default(0)
+  totalParticipants  Int       @default(0)
+  activeParticipants Int       @default(0)
+  dailySubmissions   Int       @default(0)
+  totalSubmissions   Int       @default(0)
+  dailyViews         Int       @default(0)
+  totalViews         Int       @default(0)
+  sharesCount        Int       @default(0)
+  mentionsCount      Int       @default(0)
+  hashtagUse         Int       @default(0)
+  dailyRevenue       Decimal   @default(0)
+  totalRevenue       Decimal   @default(0)
+  conversionRate     Decimal   @default(0)
+  engagementRate     Decimal   @default(0)
+  retentionRate      Decimal   @default(0)
+  completionRate     Decimal   @default(0)
+  campaigns          campaigns @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, date])
+  @@index([campaignId, date])
+}
+
+model campaign_rewards {
+  id                       String                 @id
+  campaignId               String
+  title                    String
+  description              String?
+  type                     String
+  value                    Decimal?
+  currency                 String                 @default("USD")
+  quantity                 Int                    @default(1)
+  contentId                String?
+  accessDays               Int?
+  tierAccess               String?
+  shippingRequired         Boolean                @default(false)
+  estimatedValue           Decimal?
+  supplier                 String?
+  rankRequirement          Int?
+  scoreRequirement         Int?
+  participationRequirement Boolean                @default(false)
+  isActive                 Boolean                @default(true)
+  totalAwarded             Int                    @default(0)
+  remainingQuantity        Int?
+  createdAt                DateTime               @default(now())
+  updatedAt                DateTime
+  content                  content?               @relation(fields: [contentId], references: [id])
+  campaigns                campaigns              @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  reward_distributions     reward_distributions[]
+}
+
+model campaigns {
+  id                 String               @id
+  artistId           String
+  title              String
+  description        String?
+  type               String
+  status             String               @default("DRAFT")
+  startDate          DateTime
+  endDate            DateTime
+  maxParticipants    Int?
+  entryFee           Decimal?
+  currency           String               @default("USD")
+  targetMetric       String
+  targetValue        Int
+  currentValue       Int                  @default(0)
+  totalPrizePool     Decimal              @default(0)
+  hasDigitalPrizes   Boolean              @default(false)
+  hasPhysicalPrizes  Boolean              @default(false)
+  bannerImage        String?
+  brandColor         String?              @default("#6366f1")
+  tags               String?
+  totalParticipants  Int                  @default(0)
+  totalEngagement    Int                  @default(0)
+  totalRevenue       Decimal              @default(0)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime
+  campaign_analytics campaign_analytics[]
+  campaign_rewards   campaign_rewards[]
+  users              users                @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  challenges         challenges[]
+}
+
+model challenge_leaderboards {
+  id               String     @id
+  challengeId      String
+  userId           String
+  rank             Int
+  score            Int
+  submissions      Int
+  lastSubmissionAt DateTime?
+  baseScore        Int        @default(0)
+  bonusScore       Int        @default(0)
+  penaltyScore     Int        @default(0)
+  updatedAt        DateTime
+  createdAt        DateTime   @default(now())
+  users            users      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  challenges       challenges @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+
+  @@unique([challengeId, userId])
+  @@index([challengeId, rank])
+}
+
+model challenge_participations {
+  id                    String                  @id
+  challengeId           String
+  participantId         String
+  status                String                  @default("ACTIVE")
+  joinedAt              DateTime                @default(now())
+  lastActiveAt          DateTime                @default(now())
+  currentScore          Int                     @default(0)
+  submissionCount       Int                     @default(0)
+  rank                  Int?
+  notifications         Boolean                 @default(true)
+  isAnonymous           Boolean                 @default(false)
+  users                 users                   @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  challenges            challenges              @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  challenge_submissions challenge_submissions[]
+
+  @@unique([challengeId, participantId])
+}
+
+model challenge_submissions {
+  id                       String                   @id
+  challengeId              String
+  participationId          String
+  submitterId              String
+  title                    String
+  description              String?
+  contentType              String
+  contentUrl               String
+  thumbnailUrl             String?
+  metadata                 String?
+  status                   String                   @default("PENDING")
+  reviewStatus             String                   @default("PENDING")
+  totalScore               Int                      @default(0)
+  judgeScores              String?
+  publicVotes              Int                      @default(0)
+  isFlagged                Boolean                  @default(false)
+  flagReason               String?
+  moderatedBy              String?
+  moderatedAt              DateTime?
+  viewCount                Int                      @default(0)
+  likeCount                Int                      @default(0)
+  commentCount             Int                      @default(0)
+  shareCount               Int                      @default(0)
+  submittedAt              DateTime                 @default(now())
+  updatedAt                DateTime
+  users                    users                    @relation(fields: [submitterId], references: [id], onDelete: Cascade)
+  challenge_participations challenge_participations @relation(fields: [participationId], references: [id], onDelete: Cascade)
+  challenges               challenges               @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+}
+
+model challenges {
+  id                       String                     @id
+  campaignId               String
+  title                    String
+  description              String
+  type                     String
+  status                   String                     @default("ACTIVE")
+  rules                    String
+  requirements             String?
+  submissionTypes          String
+  scoringCriteria          String
+  maxScore                 Int                        @default(100)
+  autoJudging              Boolean                    @default(false)
+  startDate                DateTime?
+  endDate                  DateTime?
+  submissionDeadline       DateTime?
+  maxSubmissions           Int?
+  maxParticipants          Int?
+  isPublic                 Boolean                    @default(true)
+  featuredOrder            Int?
+  participantCount         Int                        @default(0)
+  submissionCount          Int                        @default(0)
+  engagementScore          Int                        @default(0)
+  createdAt                DateTime                   @default(now())
+  updatedAt                DateTime
+  challenge_leaderboards   challenge_leaderboards[]
+  challenge_participations challenge_participations[]
+  challenge_submissions    challenge_submissions[]
+  campaigns                campaigns                  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+}
+
+model comments {
+  id        String   @id
+  contentId String
+  fanId     String
+  text      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+  users     users    @relation(fields: [fanId], references: [id], onDelete: Cascade)
+  content   content  @relation(fields: [contentId], references: [id], onDelete: Cascade)
+}
+
+model content {
+  id               String             @id
+  artistId         String
+  title            String
+  description      String?
+  type             String
+  fileUrl          String
+  thumbnailUrl     String?
+  visibility       String             @default("PUBLIC")
+  fileSize         Int
+  duration         Int?
+  format           String
+  tags             String
+  totalViews       Int                @default(0)
+  uniqueViews      Int                @default(0)
+  totalLikes       Int                @default(0)
+  lastViewedAt     DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime
+  campaign_rewards campaign_rewards[]
+  comments         comments[]
+  users            users              @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  content_likes    content_likes[]
+  content_views    content_views[]
+  playlist_items   playlist_items[]
+  tiers            tiers[]            @relation("TierContent")
+}
+
+model content_likes {
+  id        String   @id
+  userId    String
+  contentId String
+  createdAt DateTime @default(now())
+  content   content  @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  users     users    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, contentId])
+}
+
+model content_views {
+  id            String   @id
+  contentId     String
+  viewerId      String
+  viewCount     Int      @default(1)
+  totalDuration Int      @default(0)
+  maxPercentage Int      @default(0)
+  lastViewedAt  DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime
+  users         users    @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+  content       content  @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  @@unique([contentId, viewerId, createdAt])
+}
+
+model invoices {
+  id              String        @id
+  subscriptionId  String
+  stripeInvoiceId String        @unique
+  amount          Decimal
+  status          String
+  dueDate         DateTime
+  paidAt          DateTime?
+  periodStart     DateTime
+  periodEnd       DateTime
+  prorationAmount Decimal?
+  items           Json
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime
+  subscriptions   subscriptions @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+}
+
+model live_streams {
+  id                   String                 @id
+  artistId             String
+  title                String
+  description          String?
+  status               String                 @default("SCHEDULED")
+  streamKey            String                 @unique
+  maxViewers           Int?                   @default(1000)
+  isRecorded           Boolean                @default(false)
+  recordingUrl         String?
+  thumbnailUrl         String?
+  scheduledAt          DateTime?
+  startedAt            DateTime?
+  endedAt              DateTime?
+  peakViewers          Int                    @default(0)
+  totalViewers         Int                    @default(0)
+  totalTips            Decimal                @default(0)
+  totalMessages        Int                    @default(0)
+  tierIds              String
+  isPublic             Boolean                @default(false)
+  requiresPayment      Boolean                @default(false)
+  paymentAmount        Decimal?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime
+  users                users                  @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  stream_chat_messages stream_chat_messages[]
+  stream_polls         stream_polls[]
+  stream_recordings    stream_recordings[]
+  stream_tips          stream_tips[]
+  stream_viewers       stream_viewers[]
+}
+
+model messages {
+  id                                String    @id
+  senderId                          String
+  recipientId                       String
+  content                           String
+  type                              String    @default("TEXT")
+  attachmentUrl                     String?
+  readAt                            DateTime?
+  deliveredAt                       DateTime?
+  createdAt                         DateTime  @default(now())
+  updatedAt                         DateTime
+  users_messages_recipientIdTousers users     @relation("messages_recipientIdTousers", fields: [recipientId], references: [id], onDelete: Cascade)
+  users_messages_senderIdTousers    users     @relation("messages_senderIdTousers", fields: [senderId], references: [id], onDelete: Cascade)
+}
+
+model oauth_tokens {
+  id                    String    @id
+  userId                String
+  provider              String
+  encryptedAccessToken  String
+  encryptedRefreshToken String?
+  expiresAt             DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime
+  users                 users     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+}
+
+model payment_failures {
+  id              String        @id
+  subscriptionId  String
+  stripeInvoiceId String        @unique
+  amount          Decimal
+  attemptCount    Int           @default(1)
+  nextRetryAt     DateTime?
+  failureReason   String
+  isResolved      Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime
+  subscriptions   subscriptions @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+}
+
+model playlist_items {
+  id         String    @id
+  playlistId String
+  contentId  String
+  position   Int
+  addedAt    DateTime  @default(now())
+  content    content   @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  playlists  playlists @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+
+  @@unique([playlistId, contentId])
+  @@unique([playlistId, position])
+}
+
+model playlist_likes {
+  id         String    @id
+  userId     String
+  playlistId String
+  createdAt  DateTime  @default(now())
+  playlists  playlists @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  users      users     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, playlistId])
+}
+
+model playlists {
+  id             String           @id
+  userId         String
+  title          String
+  description    String?
+  isPublic       Boolean          @default(false)
+  coverImage     String?
+  playCount      Int              @default(0)
+  likeCount      Int              @default(0)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime
+  playlist_items playlist_items[]
+  playlist_likes playlist_likes[]
+  users          users            @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model refresh_tokens {
+  id                String   @id
+  userId            String
+  tokenHash         String   @unique
+  expiresAt         DateTime
+  userAgent         String
+  ipAddress         String
+  deviceFingerprint String?
+  isRevoked         Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime
+  users             users    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRevoked])
+}
+
+model reports {
+  id                              String    @id
+  reporterId                      String
+  targetType                      String
+  targetId                        String
+  reason                          String
+  description                     String
+  evidence                        String
+  status                          String    @default("PENDING")
+  priority                        String    @default("MEDIUM")
+  resolution                      String?
+  action                          String?
+  reviewedBy                      String?
+  reviewedAt                      DateTime?
+  createdAt                       DateTime  @default(now())
+  updatedAt                       DateTime
+  users_reports_reviewedByTousers users?    @relation("reports_reviewedByTousers", fields: [reviewedBy], references: [id])
+  users_reports_reporterIdTousers users     @relation("reports_reporterIdTousers", fields: [reporterId], references: [id], onDelete: Cascade)
+}
+
+model reward_distributions {
+  id               String           @id
+  rewardId         String
+  userId           String
+  status           String           @default("PENDING")
+  reason           String?
+  metadata         String?
+  fulfilledAt      DateTime?
+  trackingNumber   String?
+  shippingAddress  String?
+  awardedAt        DateTime         @default(now())
+  updatedAt        DateTime
+  users            users            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaign_rewards campaign_rewards @relation(fields: [rewardId], references: [id], onDelete: Cascade)
+
+  @@unique([rewardId, userId])
+}
+
+model sessions {
+  id           String   @id
   sessionToken String   @unique
   userId       String
   expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("sessions")
+  users        users    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-// NextAuth VerificationToken model
-model VerificationToken {
+model stream_chat_messages {
+  id               String       @id
+  streamId         String
+  senderId         String?
+  senderName       String
+  message          String
+  type             String       @default("MESSAGE")
+  isHighlighted    Boolean      @default(false)
+  isModerated      Boolean      @default(false)
+  moderatedBy      String?
+  moderationReason String?
+  createdAt        DateTime     @default(now())
+  users            users?       @relation(fields: [senderId], references: [id])
+  live_streams     live_streams @relation(fields: [streamId], references: [id], onDelete: Cascade)
+}
+
+model stream_poll_votes {
+  id           String       @id
+  pollId       String
+  voterId      String?
+  sessionId    String
+  optionIndex  Int
+  createdAt    DateTime     @default(now())
+  users        users?       @relation(fields: [voterId], references: [id])
+  stream_polls stream_polls @relation(fields: [pollId], references: [id], onDelete: Cascade)
+
+  @@unique([pollId, sessionId])
+}
+
+model stream_polls {
+  id                String              @id
+  streamId          String
+  question          String
+  options           String
+  isActive          Boolean             @default(true)
+  allowMultiple     Boolean             @default(false)
+  createdAt         DateTime            @default(now())
+  endedAt           DateTime?
+  stream_poll_votes stream_poll_votes[]
+  live_streams      live_streams        @relation(fields: [streamId], references: [id], onDelete: Cascade)
+}
+
+model stream_recordings {
+  id           String       @id
+  streamId     String
+  videoUrl     String
+  audioUrl     String?
+  thumbnailUrl String?
+  duration     Int
+  fileSize     Int
+  quality      String
+  format       String
+  status       String       @default("PROCESSING")
+  processedAt  DateTime?
+  isPublic     Boolean      @default(false)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime
+  live_streams live_streams @relation(fields: [streamId], references: [id], onDelete: Cascade)
+}
+
+model stream_tips {
+  id                    String       @id
+  streamId              String
+  tipperId              String?
+  tipperName            String
+  amount                Decimal
+  message               String?
+  currency              String       @default("USD")
+  stripePaymentIntentId String?      @unique
+  status                String       @default("PENDING")
+  processedAt           DateTime?
+  isAnonymous           Boolean      @default(false)
+  showOnStream          Boolean      @default(true)
+  createdAt             DateTime     @default(now())
+  users                 users?       @relation(fields: [tipperId], references: [id])
+  live_streams          live_streams @relation(fields: [streamId], references: [id], onDelete: Cascade)
+}
+
+model stream_viewers {
+  id           String       @id
+  streamId     String
+  viewerId     String?
+  sessionId    String       @unique
+  displayName  String?
+  isAnonymous  Boolean      @default(false)
+  ipAddress    String
+  userAgent    String
+  joinedAt     DateTime     @default(now())
+  leftAt       DateTime?
+  watchTime    Int          @default(0)
+  users        users?       @relation(fields: [viewerId], references: [id])
+  live_streams live_streams @relation(fields: [streamId], references: [id], onDelete: Cascade)
+}
+
+model subscriptions {
+  id                   String             @id
+  fanId                String
+  artistId             String
+  tierId               String
+  stripeSubscriptionId String             @unique
+  amount               Decimal
+  status               String
+  currentPeriodStart   DateTime
+  currentPeriodEnd     DateTime
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime
+  invoices             invoices[]
+  payment_failures     payment_failures[]
+  tiers                tiers              @relation(fields: [tierId], references: [id], onDelete: Cascade)
+  users                users              @relation(fields: [fanId], references: [id], onDelete: Cascade)
+
+  @@unique([fanId, tierId])
+}
+
+model tiers {
+  id              String          @id
+  artistId        String
+  name            String
+  description     String
+  minimumPrice    Decimal
+  isActive        Boolean         @default(true)
+  subscriberCount Int             @default(0)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime
+  subscriptions   subscriptions[]
+  users           users           @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  content         content[]       @relation("TierContent")
+}
+
+model users {
+  id                                   String                     @id
+  email                                String                     @unique
+  password                             String?
+  role                                 String                     @default("FAN")
+  displayName                          String
+  bio                                  String?
+  avatar                               String?
+  socialLinks                          Json?
+  notificationPreferences              Json?
+  lastSeenAt                           DateTime?
+  emailVerified                        DateTime?
+  image                                String?
+  createdAt                            DateTime                   @default(now())
+  updatedAt                            DateTime
+  accounts                             accounts[]
+  artists                              artists?
+  campaigns                            campaigns[]
+  challenge_leaderboards               challenge_leaderboards[]
+  challenge_participations             challenge_participations[]
+  challenge_submissions                challenge_submissions[]
+  comments                             comments[]
+  content                              content[]
+  content_likes                        content_likes[]
+  content_views                        content_views[]
+  live_streams                         live_streams[]
+  messages_messages_recipientIdTousers messages[]                 @relation("messages_recipientIdTousers")
+  messages_messages_senderIdTousers    messages[]                 @relation("messages_senderIdTousers")
+  oauth_tokens                         oauth_tokens[]
+  playlist_likes                       playlist_likes[]
+  playlists                            playlists[]
+  refresh_tokens                       refresh_tokens[]
+  reports_reports_reviewedByTousers    reports[]                  @relation("reports_reviewedByTousers")
+  reports_reports_reporterIdTousers    reports[]                  @relation("reports_reporterIdTousers")
+  reward_distributions                 reward_distributions[]
+  sessions                             sessions[]
+  stream_chat_messages                 stream_chat_messages[]
+  stream_poll_votes                    stream_poll_votes[]
+  stream_tips                          stream_tips[]
+  stream_viewers                       stream_viewers[]
+  subscriptions                        subscriptions[]
+  tiers                                tiers[]
+}
+
+model verificationtokens {
   identifier String
   token      String   @unique
   expires    DateTime
 
   @@unique([identifier, token])
-  @@map("verificationtokens")
 }
-
-// Artist-specific profile information
-model Artist {
-  id                  String  @id @default(cuid())
-  userId              String  @unique
-  stripeAccountId     String? @unique
-  isStripeOnboarded   Boolean @default(false)
-  
-  // Analytics data
-  totalEarnings       Float @default(0) // Using Float instead of Decimal for SQLite
-  totalSubscribers    Int   @default(0)
-  
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  // Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@map("artists")
-}
-
-// Subscription tiers created by artists
-model Tier {
-  id              String  @id @default(cuid())
-  artistId        String
-  name            String
-  description     String
-  minimumPrice    Float // Using Float instead of Decimal for SQLite
-  isActive        Boolean @default(true)
-  subscriberCount Int     @default(0)
-  
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  // Relations
-  artist        User           @relation(fields: [artistId], references: [id], onDelete: Cascade)
-  subscriptions Subscription[]
-  content       Content[]      @relation("TierContent")
-  
-  @@map("tiers")
-}
-
-// Content uploaded by artists
-model Content {
-  id           String      @id @default(cuid())
-  artistId     String
-  title        String
-  description  String?
-  type         ContentType
-  fileUrl      String
-  thumbnailUrl String?
-  isPublic     Boolean     @default(false)
-  
-  // File metadata
-  fileSize Int
-  duration Int? // For audio/video content in seconds
-  format   String
-  tags     String // Store as comma-separated values for SQLite compatibility
-  
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  // Relations
-  artist   User      @relation(fields: [artistId], references: [id], onDelete: Cascade)
-  tiers    Tier[]    @relation("TierContent")
-  comments Comment[]
-  
-  @@map("content")
-}
-
-// Fan subscriptions to artist tiers
-model Subscription {
-  id                    String           @id @default(cuid())
-  fanId                 String
-  artistId              String
-  tierId                String
-  stripeSubscriptionId  String           @unique
-  amount                Float          // Using Float instead of Decimal for SQLite
-  status                SubscriptionStatus
-  
-  // Billing period
-  currentPeriodStart DateTime
-  currentPeriodEnd   DateTime
-  
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  // Relations
-  fan             User             @relation(fields: [fanId], references: [id], onDelete: Cascade)
-  tier            Tier             @relation(fields: [tierId], references: [id], onDelete: Cascade)
-  paymentFailures PaymentFailure[]
-  invoices        Invoice[]
-  
-  @@unique([fanId, tierId]) // A fan can only have one subscription per tier
-  @@map("subscriptions")
-}
-
-// Comments on content
-model Comment {
-  id        String @id @default(cuid())
-  contentId String
-  fanId     String
-  text      String
-  
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  // Relations
-  content Content @relation(fields: [contentId], references: [id], onDelete: Cascade)
-  fan     User    @relation(fields: [fanId], references: [id], onDelete: Cascade)
-  
-  @@map("comments")
-}
-
-// Payment failure tracking
-model PaymentFailure {
-  id                String    @id @default(cuid())
-  subscriptionId    String
-  stripeInvoiceId   String    @unique
-  amount            Float   // Using Float instead of Decimal for SQLite
-  attemptCount      Int       @default(1)
-  nextRetryAt       DateTime?
-  failureReason     String
-  isResolved        Boolean   @default(false)
-  
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  // Relations
-  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
-  
-  @@map("payment_failures")
-}
-
-// Invoice tracking
-model Invoice {
-  id                String          @id @default(cuid())
-  subscriptionId    String
-  stripeInvoiceId   String          @unique
-  amount            Float         // Using Float instead of Decimal for SQLite
-  status            InvoiceStatus
-  dueDate           DateTime
-  paidAt            DateTime?
-  periodStart       DateTime
-  periodEnd         DateTime
-  prorationAmount   Float?        // Using Float instead of Decimal for SQLite
-  items             Json            // Store line items as JSON
-  
-  // Timestamps
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-  
-  // Relations
-  subscription      Subscription    @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
-  
-  @@map("invoices")
-}
-
-
-
-// Enums
-enum UserRole {
-  ARTIST
-  FAN
-}
-
-enum ContentType {
-  AUDIO
-  VIDEO
-  IMAGE
-  DOCUMENT
-}
-
-enum SubscriptionStatus {
-  ACTIVE
-  CANCELED
-  PAST_DUE
-  INCOMPLETE
-  INCOMPLETE_EXPIRED
-  TRIALING
-  UNPAID
-}
-
-enum InvoiceStatus {
-  DRAFT
-  OPEN
-  PAID
-  VOID
-  UNCOLLECTIBLE
-}
-

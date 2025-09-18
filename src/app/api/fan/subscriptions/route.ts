@@ -26,9 +26,18 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get all subscriptions for this fan
+    const { searchParams } = new URL(request.url);
+    const status = searchParams.get('status'); // Filter by status if provided
+
+    // Build where clause
+    const whereClause: any = { fanId: user.id };
+    if (status && status !== 'all') {
+      whereClause.status = status.toUpperCase();
+    }
+
+    // Get subscriptions for this fan
     const subscriptions = await prisma.subscription.findMany({
-      where: { fanId: user.id },
+      where: whereClause,
       include: {
         tier: {
           include: {
@@ -45,7 +54,29 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' },
     });
 
-    return NextResponse.json({ subscriptions });
+    // Format subscriptions for dashboard consistency
+    const formattedSubscriptions = subscriptions.map(sub => ({
+      id: sub.id,
+      artist: {
+        id: sub.tier.artist.id,
+        displayName: sub.tier.artist.displayName,
+        avatar: sub.tier.artist.avatar
+      },
+      tier: {
+        name: sub.tier.name,
+        price: Number(sub.amount)
+      },
+      status: sub.status.toLowerCase(),
+      nextBillingDate: sub.currentPeriodEnd.toISOString(),
+      createdAt: sub.createdAt.toISOString()
+    }));
+
+    return NextResponse.json({ 
+      success: true,
+      data: {
+        subscriptions: formattedSubscriptions
+      }
+    });
   } catch (error) {
     console.error('Get subscriptions error:', error);
     return NextResponse.json(

@@ -1,3 +1,14 @@
+// Mock NextRequest at the top
+global.fetch = jest.fn();
+global.Request = class Request {
+  constructor(public url: string, public init?: RequestInit) {}
+  headers = new Map();
+  method = 'GET';
+  body = null;
+  json = jest.fn();
+  text = jest.fn();
+} as any;
+
 import { NextRequest } from 'next/server';
 import { POST } from '../create-checkout/route';
 import { getServerSession } from 'next-auth';

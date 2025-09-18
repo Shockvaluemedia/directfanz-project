@@ -40,6 +40,65 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
     const type = searchParams.get('type'); // 'daily', 'tiers', 'churn'
+    const summary = searchParams.get('summary'); // 'true' for dashboard summary
+
+    // Handle dashboard summary request
+    if (summary === 'true') {
+      // Get basic artist stats for dashboard
+      const [artistProfile, subscriptions, content, messages] = await Promise.all([
+        prisma.artist.findUnique({
+          where: { userId: session.user.id },
+          select: {
+            totalSubscribers: true,
+            totalEarnings: true
+          }
+        }),
+        prisma.subscription.findMany({
+          where: {
+            artistId: session.user.id,
+            status: 'ACTIVE'
+          },
+          select: {
+            amount: true,
+            currentPeriodStart: true
+          }
+        }),
+        prisma.content.count({
+          where: { artistId: session.user.id }
+        }),
+        prisma.message.count({
+          where: {
+            recipientId: session.user.id,
+            readAt: null
+          }
+        })
+      ]);
+
+      // Calculate monthly revenue from current subscriptions
+      const now = new Date();
+      const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const monthlyRevenue = subscriptions
+        .filter(sub => new Date(sub.currentPeriodStart) >= thisMonth)
+        .reduce((sum, sub) => sum + Number(sub.amount), 0);
+
+      // Calculate engagement rate (simplified - could be more sophisticated)
+      const totalSubscribers = artistProfile?.totalSubscribers || 0;
+      const engagementRate = totalSubscribers > 0 ? Math.min(100, Math.round((subscriptions.length / totalSubscribers) * 100)) : 0;
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          stats: {
+            totalSubscribers,
+            monthlyRevenue,
+            totalContent: content,
+            engagementRate,
+            unreadMessages: messages,
+            pendingNotifications: 0 // TODO: implement notifications system
+          }
+        }
+      });
+    }
 
     // Handle specific analytics types
     if (type === 'daily') {

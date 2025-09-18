@@ -109,6 +109,21 @@ export async function withFanApi(
   return withApiRole(request, UserRole.FAN, handler)
 }
 
+export async function withAdminApi(
+  request: NextRequest,
+  handler: (req: AuthenticatedRequest) => Promise<NextResponse>
+): Promise<NextResponse> {
+  return withApiRole(request, UserRole.ADMIN, handler)
+}
+
+// General API auth (any authenticated user)
+export async function withApi(
+  request: NextRequest,
+  handler: (req: AuthenticatedRequest) => Promise<NextResponse>
+): Promise<NextResponse> {
+  return withApiAuth(request, handler)
+}
+
 // Higher-order function to create protected API handlers
 export function createProtectedApiHandler<T = any>(
   options: {
@@ -137,6 +152,9 @@ export const createArtistApiHandler = <T = any>() =>
 
 export const createFanApiHandler = <T = any>() => 
   createProtectedApiHandler<T>({ role: UserRole.FAN })
+
+export const createAdminApiHandler = <T = any>() => 
+  createProtectedApiHandler<T>({ role: UserRole.ADMIN })
 
 // Error response helpers
 export function unauthorizedResponse(message = "Authentication required") {

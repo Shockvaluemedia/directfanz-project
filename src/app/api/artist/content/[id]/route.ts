@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/database';
+import { prisma } from '@/lib/prisma'
 import { deleteFile, extractKeyFromUrl } from '@/lib/s3';
 import { z } from 'zod';
 

@@ -60,7 +60,7 @@ export async function createPaymentFailure(
       return newFailure;
     }
   } catch (error) {
-    logger.error('Error creating payment failure record:', error);
+    logger.error('Error creating payment failure record:', { subscriptionId }, error as Error);
     throw new Error('Failed to create payment failure record');
   }
 }
@@ -234,7 +234,11 @@ export async function retryPayment(paymentFailureId: string): Promise<RetryResul
       }
     }
   } catch (error) {
-    logger.error(`Error retrying payment ${paymentFailureId}:`, error);
+    logger.error(`Error retrying payment ${paymentFailureId}:`, { paymentFailureId }, error as Error);
+    // Re-throw the original error message if it's a known error
+    if (error instanceof Error && error.message === 'Payment failure record not found') {
+      throw error;
+    }
     throw new Error('Failed to retry payment');
   }
 }
@@ -251,7 +255,7 @@ export async function getPaymentFailures(subscriptionId: string): Promise<any[]>
     
     return failures;
   } catch (error) {
-    logger.error(`Error getting payment failures for subscription ${subscriptionId}:`, error);
+    logger.error(`Error getting payment failures for subscription ${subscriptionId}:`, { subscriptionId }, error as Error);
     throw new Error('Failed to get payment failures');
   }
 }
@@ -287,7 +291,7 @@ export async function getArtistPaymentFailures(artistId: string): Promise<any[]>
     
     return failures;
   } catch (error) {
-    logger.error(`Error getting payment failures for artist ${artistId}:`, error);
+    logger.error(`Error getting payment failures for artist ${artistId}:`, { artistId }, error as Error);
     throw new Error('Failed to get artist payment failures');
   }
 }

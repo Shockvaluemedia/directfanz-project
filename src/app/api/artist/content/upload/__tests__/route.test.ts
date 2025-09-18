@@ -5,17 +5,7 @@ import { NextRequest } from 'next/server';
 import { POST } from '../route';
 import { getServerSession } from 'next-auth';
 import { generatePresignedUrl, validateFileUpload } from '@/lib/s3';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { beforeEach } from 'node:test';
-import { describe } from 'node:test';
+import { describe, it, beforeEach } from '@jest/globals';
 
 // Mock dependencies
 jest.mock('next-auth');
@@ -183,8 +173,8 @@ describe('/api/artist/content/upload', () => {
     const response = await POST(request);
     const data = await response.json();
 
-    expect(response.status).toBe(500);
-    expect(data.error.code).toBe('INTERNAL_ERROR');
+    expect(response.status).toBe(400);
+    expect(data.error.code).toBe('UPLOAD_ERROR');
   });
 
   it('should validate required fields', async () => {

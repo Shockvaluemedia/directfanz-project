@@ -2,9 +2,14 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [main]
+    branches: [main, staging]
   pull_request:
-    branches: [main]
+    branches: [main, staging]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  NODE_VERSION: '18'
 
 jobs:
   lint-and-test:
@@ -125,15 +130,32 @@ jobs:
           scope: ${{ secrets.VERCEL_SCOPE }}
 
   deploy-production:
-    name: Deploy Production
+    name: Deploy Production (Blue-Green)
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [lint-and-test, security-scan]
+    needs: [build-and-push]
     runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://your-domain.com
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Deploy to Vercel Production
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Pre-deployment health check
+        run: |
+          curl -f ${{ secrets.PRODUCTION_URL }}/api/health || exit 1
+
+      - name: Deploy to Vercel Production (Green)
+        id: deploy-green
         uses: amondnet/vercel-action@v20
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
@@ -143,6 +165,38 @@ jobs:
           working-directory: ./
           vercel-args: '--prod'
           scope: ${{ secrets.VERCEL_SCOPE }}
+
+      - name: Wait for deployment
+        run: sleep 30
+
+      - name: Health check new deployment
+        run: |
+          for i in {1..10}; do
+            if curl -f ${{ steps.deploy-green.outputs.preview-url }}/api/health; then
+              echo "Health check passed"
+              exit 0
+            fi
+            echo "Health check failed, retrying in 10s..."
+            sleep 10
+          done
+          exit 1
+
+      - name: Run post-deployment tests
+        run: |
+          npm run test:smoke
+        env:
+          TEST_URL: ${{ steps.deploy-green.outputs.preview-url }}
+
+      - name: Database migration
+        run: |
+          npx prisma migrate deploy
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Promote to production
+        run: |
+          # This would typically involve updating load balancer or DNS
+          echo "Deployment successful: ${{ steps.deploy-green.outputs.preview-url }}"
 
   performance-test:
     name: Performance Test
@@ -166,3 +220,86 @@ jobs:
         run: node scripts/performance-test.js
         env:
           APP_URL: ${{ secrets.PRODUCTION_URL }}
+
+  build-and-push:
+    name: Build and Push Container
+    runs-on: ubuntu-latest
+    needs: [lint-and-test, security-scan]
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.image.outputs.image }}
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.production
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+      - name: Output image
+        id: image
+        run: |
+          echo "image=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}" >> $GITHUB_OUTPUT
+
+  deploy-staging:
+    name: Deploy to Staging
+    if: github.ref == 'refs/heads/staging' || (github.event_name == 'pull_request' && github.base_ref == 'staging')
+    needs: [build-and-push]
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://staging.your-domain.com
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Staging
+        uses: amondnet/vercel-action@v20
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: ./
+          vercel-args: '--target=staging'
+          scope: ${{ secrets.VERCEL_SCOPE }}
+
+      - name: Run smoke tests on staging
+        run: |
+          npm ci
+          npm run test:smoke
+        env:
+          TEST_URL: https://staging.your-domain.com

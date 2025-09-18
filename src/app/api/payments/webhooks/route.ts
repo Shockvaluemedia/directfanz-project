@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     let event: Stripe.Event;
 
     try {
-      event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+      event = stripe.webhooks.constructEvent(body, signature, webhookSecret!);
     } catch (err) {
       console.error('Webhook signature verification failed:', err);
       return NextResponse.json(
@@ -232,7 +232,7 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
       if (subscription.fan.email) {
         await sendEmail({
           to: subscription.fan.email,
-          subject: `Payment Failed for ${subscription.tier.artist?.user?.displayName || 'Artist'} Subscription`,
+          subject: `Payment Failed for ${subscription.tier.artist?.displayName || 'Artist'} Subscription`,
           html: `
             <h1>Payment Failed</h1>
             <p>We were unable to process your payment for your subscription to ${subscription.tier.name}.</p>
@@ -243,7 +243,7 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
             }</p>
             <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions">Manage your subscriptions</a></p>
           `,
-          text: `Payment Failed for ${subscription.tier.artist?.user?.displayName || 'Artist'} Subscription\n\n` +
+          text: `Payment Failed for ${subscription.tier.artist?.displayName || 'Artist'} Subscription\n\n` +
             `We were unable to process your payment for your subscription to ${subscription.tier.name}.\n\n` +
             `This was attempt ${invoice.attempt_count} of 3. ${
               invoice.next_payment_attempt 

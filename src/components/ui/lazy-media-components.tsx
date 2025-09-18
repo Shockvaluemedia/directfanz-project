@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useIntersectionObserver, useLazyImage } from '@/lib/lazy-load';
 import VideoPlayer, { VideoTrack } from './video-player';
 import AudioPlayer, { AudioTrack } from './audio-player';
+import MediaPlaylist, { MediaItem } from './media-playlist';
 
 interface LazyImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   src: string;
@@ -229,4 +230,82 @@ export function LazyAudioPlayer({
       )}
     </div>
   );
+}
+
+interface LazyMediaPlaylistProps {
+  items: MediaItem[];
+  autoPlay?: boolean;
+  className?: string;
+}
+
+/**
+ * LazyMediaPlaylist component that loads media playlist only when it enters the viewport
+ */
+export function LazyMediaPlaylist({
+  items,
+  autoPlay = false,
+  className = '',
+}: LazyMediaPlaylistProps) {
+  const [ref, isVisible] = useIntersectionObserver<HTMLDivElement>();
+  const [isLoaded, setIsLoaded] = useState(false);
+  
+  // Load media playlist when it becomes visible
+  useEffect(() => {
+    if (isVisible && !isLoaded) {
+      setIsLoaded(true);
+    }
+  }, [isVisible, isLoaded]);
+  
+  return (
+    <div 
+      ref={ref} 
+      className={`relative overflow-hidden ${className}`}
+      style={{ minHeight: '150px' }}
+    >
+      {/* Placeholder */}
+      {!isLoaded && (
+        <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
+          <div className="flex items-center justify-center h-32">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-gray-200 rounded-lg mx-auto mb-4 flex items-center justify-center">
+                <svg className="w-8 h-8 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M18 3a1 1 0 00-1.196-.98L7 3.25a1 1 0 00-.804.98V6c-1.036 0-2 .82-2 1.833v2.334C4.196 11.18 5.16 12 6.196 12H7v4a1 1 0 001.196.98l9.804-1.23A1 1 0 0019 14.75V4a1 1 0 00-1-1z"/>
+                </svg>
+              </div>
+              <p className="text-gray-600 font-medium">Media Playlist</p>
+              <p className="text-sm text-gray-500 mt-1">{items.length} items</p>
+              <button 
+                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                onClick={() => setIsLoaded(true)}
+                aria-label="Load media playlist"
+              >
+                Load Playlist
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Media playlist */}
+      {isLoaded && (
+        <MediaPlaylist
+          items={items}
+          autoPlay={autoPlay && isVisible}
+          className={className}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Preload media components to improve performance
+ */
+export function preloadMediaComponents() {
+  // This function can be used to preload heavy media components
+  // Currently just returns a resolved promise, but could be extended to:
+  // - Preload video/audio codecs
+  // - Warm up media processing libraries
+  // - Cache commonly used media assets
+  return Promise.resolve();
 }

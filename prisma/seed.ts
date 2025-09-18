@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole, ContentType, SubscriptionStatus } from '@prisma/client'
+import { PrismaClient, UserRole, ContentType, ContentVisibility, SubscriptionStatus } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient()
@@ -7,6 +7,7 @@ async function main() {
   console.log('🌱 Starting database seed...')
 
   // Clean existing data (in reverse order of dependencies)
+  await prisma.message.deleteMany()
   await prisma.comment.deleteMany()
   await prisma.subscription.deleteMany()
   await prisma.content.deleteMany()
@@ -145,11 +146,11 @@ async function main() {
       type: ContentType.AUDIO,
       fileUrl: 'https://example.com/audio/acoustic-session-1.mp3',
       thumbnailUrl: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=800',
-      isPublic: false,
+      visibility: ContentVisibility.TIER_LOCKED,
       fileSize: 15728640, // ~15MB
       duration: 1800, // 30 minutes
       format: 'mp3',
-      tags: ['acoustic', 'live', 'intimate'],
+      tags: JSON.stringify(['acoustic', 'live', 'intimate']),
       tiers: {
         connect: [{ id: basicTier.id }, { id: premiumTier.id }, { id: vipTier.id }]
       }
@@ -164,11 +165,11 @@ async function main() {
       type: ContentType.VIDEO,
       fileUrl: 'https://example.com/video/studio-setup.mp4',
       thumbnailUrl: 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=800',
-      isPublic: false,
+      visibility: ContentVisibility.TIER_LOCKED,
       fileSize: 52428800, // ~50MB
       duration: 600, // 10 minutes
       format: 'mp4',
-      tags: ['behind-the-scenes', 'studio', 'process'],
+      tags: JSON.stringify(['behind-the-scenes', 'studio', 'process']),
       tiers: {
         connect: [{ id: premiumTier.id }, { id: vipTier.id }]
       }
@@ -183,11 +184,11 @@ async function main() {
       type: ContentType.AUDIO,
       fileUrl: 'https://example.com/audio/midnight-reflections.mp3',
       thumbnailUrl: 'https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=800',
-      isPublic: false,
+      visibility: ContentVisibility.TIER_LOCKED,
       fileSize: 8388608, // ~8MB
       duration: 240, // 4 minutes
       format: 'mp3',
-      tags: ['exclusive', 'personal', 'acoustic'],
+      tags: JSON.stringify(['exclusive', 'personal', 'acoustic']),
       tiers: {
         connect: [{ id: vipTier.id }]
       }
@@ -203,11 +204,11 @@ async function main() {
       type: ContentType.AUDIO,
       fileUrl: 'https://example.com/audio/summer-breeze-preview.mp3',
       thumbnailUrl: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800',
-      isPublic: true,
+      visibility: ContentVisibility.PUBLIC,
       fileSize: 6291456, // ~6MB
       duration: 180, // 3 minutes
       format: 'mp3',
-      tags: ['preview', 'summer', 'free']
+      tags: JSON.stringify(['preview', 'summer', 'free'])
     }
   })
 
@@ -269,6 +270,65 @@ async function main() {
 
   console.log('💬 Created sample comments')
 
+  // Create test messages
+  await prisma.message.create({
+    data: {
+      senderId: fan1.id,
+      recipientId: artist1.id,
+      content: 'Hi! I absolutely love your acoustic sessions. Any chance you\'ll be doing live shows soon?',
+      type: 'TEXT'
+    }
+  })
+
+  await prisma.message.create({
+    data: {
+      senderId: artist1.id,
+      recipientId: fan1.id,
+      content: 'Thank you so much! I\'m planning a small acoustic tour next month. I\'ll announce dates soon!',
+      type: 'TEXT',
+      readAt: new Date()
+    }
+  })
+
+  await prisma.message.create({
+    data: {
+      senderId: fan1.id,
+      recipientId: artist1.id,
+      content: 'That\'s amazing! Count me in for sure. Your coffee shop session was incredible 🎵',
+      type: 'TEXT'
+    }
+  })
+
+  await prisma.message.create({
+    data: {
+      senderId: fan2.id,
+      recipientId: artist1.id,
+      content: 'Hey! Just subscribed to your premium tier. The behind-the-scenes content is exactly what I was hoping for!',
+      type: 'TEXT'
+    }
+  })
+
+  await prisma.message.create({
+    data: {
+      senderId: artist1.id,
+      recipientId: fan2.id,
+      content: 'Welcome to the premium tier! So glad you\'re enjoying the content. More studio sessions coming this week!',
+      type: 'TEXT'
+    }
+  })
+
+  // Create an unread message to test notification badges
+  await prisma.message.create({
+    data: {
+      senderId: fan2.id,
+      recipientId: artist1.id,
+      content: 'Quick question - will VIP members get access to that new song you teased on social media?',
+      type: 'TEXT'
+    }
+  })
+
+  console.log('💌 Created sample messages')
+
   console.log('✅ Database seed completed successfully!')
   console.log('\n📊 Summary:')
   console.log(`- Users: ${await prisma.user.count()}`)
@@ -277,6 +337,7 @@ async function main() {
   console.log(`- Content: ${await prisma.content.count()}`)
   console.log(`- Subscriptions: ${await prisma.subscription.count()}`)
   console.log(`- Comments: ${await prisma.comment.count()}`)
+  console.log(`- Messages: ${await prisma.message.count()}`)
 }
 
 main()

@@ -1,13 +1,12 @@
 import { NextAuthOptions } from "next-auth"
-import { PrismaAdapter } from "@next-auth/prisma-adapter"
 import CredentialsProvider from "next-auth/providers/credentials"
 import GoogleProvider from "next-auth/providers/google"
 import FacebookProvider from "next-auth/providers/facebook"
 import bcrypt from "bcryptjs"
-import { prisma } from "./prisma"
+import { db } from "./db"
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
+  debug: process.env.NODE_ENV === 'development',
   providers: [
     CredentialsProvider({
       name: "credentials",
@@ -20,12 +19,12 @@ export const authOptions: NextAuthOptions = {
           return null
         }
 
-        const user = await prisma.user.findUnique({
+        const user = await db.users.findUnique({
           where: {
             email: credentials.email,
           },
           include: {
-            artistProfile: true,
+            artists: true,
           },
         })
 
@@ -62,51 +61,54 @@ export const authOptions: NextAuthOptions = {
   ],
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    maxAge: 2 * 60 * 60, // 2 hours for better security
+    updateAge: 15 * 60, // Update every 15 minutes
   },
-  jwt: {
-    maxAge: 30 * 24 * 60 * 60, // 30 days
-  },
+  // Use NextAuth's secure cookie defaults
+  // (no custom cookie overrides in development)
   callbacks: {
-    async jwt({ token, user, account }) {
+    async redirect({ url, baseUrl }) {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || baseUrl
+      try {
+        const target = new URL(url, appUrl)
+        const normalizedBase = new URL(appUrl)
+        // Force host/port to appUrl
+        target.host = normalizedBase.host
+        target.protocol = normalizedBase.protocol
+        return target.toString()
+      } catch {
+        return appUrl
+      }
+    },
+    async jwt({ token, user }) {
       if (user) {
-        token.role = user.role
-        token.id = user.id
+        const u: any = user
+        token.id = u.id
+        token.role = u.role
+        token.name = u.name || u.displayName || token.name
+        token.email = u.email || token.email
+        token.picture = u.image || u.avatar || token.picture
       }
-      
-      // Handle refresh token for OAuth providers
-      if (account) {
-        token.accessToken = account.access_token
-        token.refreshToken = account.refresh_token
-        token.accessTokenExpires = account.expires_at
-      }
-
-      // Return previous token if the access token has not expired yet
-      if (Date.now() < (token.accessTokenExpires as number) * 1000) {
-        return token
-      }
-
-      // Access token has expired, try to update it
-      return await refreshAccessToken(token)
+      return token
     },
     async session({ session, token }) {
-      if (token) {
-        session.user.id = token.id as string
-        session.user.role = token.role as string
-        session.accessToken = token.accessToken as string
+      if (token && session?.user) {
+        (session.user as any).id = (token as any).id as string
+        ;(session.user as any).role = (token as any).role as string
+        session.user.name = (token as any).name || session.user.name
+        session.user.email = (token as any).email || session.user.email
+        session.user.image = (token as any).picture || session.user.image
       }
       return session
     },
     async signIn({ user, account }) {
       // For OAuth providers, create user profile if it doesn't exist
       if (account?.provider !== "credentials" && user.email) {
-        const existingUser = await prisma.user.findUnique({
+        const existingUser = await db.users.findUnique({
           where: { email: user.email },
         })
-
         if (!existingUser) {
-          // Create new user with default role as FAN
-          await prisma.user.create({
+          await db.users.create({
             data: {
               email: user.email,
               displayName: user.name || user.email.split("@")[0],
@@ -125,42 +127,72 @@ export const authOptions: NextAuthOptions = {
     error: "/auth/error",
   },
   secret: process.env.NEXTAUTH_SECRET,
+  trustHost: true,
+};
+
+// Securely store OAuth tokens in encrypted database storage
+async function storeOAuthTokens(userId: string, account: any) {
+  try {
+    // Encrypt tokens before storing
+    const encryptedAccessToken = await encryptToken(account.access_token)
+    const encryptedRefreshToken = account.refresh_token ? 
+      await encryptToken(account.refresh_token) : null
+    
+    // Store in database with expiration
+    await db.oauth_tokens.upsert({
+      where: {
+        userId_provider: {
+          userId,
+          provider: account.provider
+        }
+      },
+      update: {
+        encryptedAccessToken,
+        encryptedRefreshToken,
+        expiresAt: account.expires_at ? new Date(account.expires_at * 1000) : null,
+        updatedAt: new Date()
+      },
+      create: {
+        userId,
+        provider: account.provider,
+        encryptedAccessToken,
+        encryptedRefreshToken,
+        expiresAt: account.expires_at ? new Date(account.expires_at * 1000) : null
+      }
+    })
+  } catch (error) {
+    console.error('Error storing OAuth tokens:', error)
+  }
 }
 
-async function refreshAccessToken(token: any) {
-  try {
-    const url = "https://oauth2.googleapis.com/token"
-    
-    const response = await fetch(url, {
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      method: "POST",
-      body: new URLSearchParams({
-        client_id: process.env.GOOGLE_CLIENT_ID!,
-        client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-        grant_type: "refresh_token",
-        refresh_token: token.refreshToken,
-      }),
-    })
+// Token encryption utility
+async function encryptToken(token: string): Promise<string> {
+  const crypto = await import('crypto')
+  const algorithm = 'aes-256-cbc' // Use CBC instead of GCM for broader compatibility
+  const secretKey = crypto.createHash('sha256').update(process.env.TOKEN_ENCRYPTION_KEY!).digest()
+  
+  const iv = crypto.randomBytes(16)
+  const cipher = crypto.createCipher(algorithm, secretKey)
+  
+  let encrypted = cipher.update(token, 'utf8', 'hex')
+  encrypted += cipher.final('hex')
+  
+  return `${iv.toString('hex')}:${encrypted}`
+}
 
-    const refreshedTokens = await response.json()
-
-    if (!response.ok) {
-      throw refreshedTokens
-    }
-
-    return {
-      ...token,
-      accessToken: refreshedTokens.access_token,
-      accessTokenExpires: Date.now() + refreshedTokens.expires_in * 1000,
-      refreshToken: refreshedTokens.refresh_token ?? token.refreshToken,
-    }
-  } catch (error) {
-    console.error("Error refreshing access token:", error)
-    return {
-      ...token,
-      error: "RefreshAccessTokenError",
-    }
-  }
+// Token decryption utility
+async function decryptToken(encryptedToken: string): Promise<string> {
+  const crypto = await import('crypto')
+  const algorithm = 'aes-256-cbc' // Use CBC instead of GCM for broader compatibility
+  const secretKey = crypto.createHash('sha256').update(process.env.TOKEN_ENCRYPTION_KEY!).digest()
+  
+  const [ivHex, encrypted] = encryptedToken.split(':')
+  const iv = Buffer.from(ivHex, 'hex')
+  
+  const decipher = crypto.createDecipher(algorithm, secretKey)
+  
+  let decrypted = decipher.update(encrypted, 'hex', 'utf8')
+  decrypted += decipher.final('utf8')
+  
+  return decrypted
 }

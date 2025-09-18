@@ -92,13 +92,19 @@ describe('MediaPlaylist', () => {
   it('toggles playlist visibility', () => {
     render(<MediaPlaylist items={mockMediaItems} />)
     
-    // Playlist should be visible initially
+    // Playlist should be visible initially (showPlaylist defaults to true)
     expect(screen.getByText('Test Song 1')).toBeInTheDocument()
     
     // Click toggle to hide
     fireEvent.click(screen.getByText('Playlist (3 items)'))
     
-    // Playlist items should still be visible (they don't actually hide in this implementation)
+    // Playlist items should be hidden after toggle
+    expect(screen.queryByText('Test Song 1')).not.toBeInTheDocument()
+    
+    // Click toggle again to show
+    fireEvent.click(screen.getByText('Playlist (3 items)'))
+    
+    // Playlist items should be visible again
     expect(screen.getByText('Test Song 1')).toBeInTheDocument()
   })
 
@@ -140,9 +146,11 @@ describe('MediaPlaylist', () => {
   it('highlights current item', () => {
     render(<MediaPlaylist items={mockMediaItems} />)
     
-    // First item should be highlighted (current)
-    const firstItem = screen.getByText('Test Song 1').closest('div')
-    expect(firstItem).toHaveClass('bg-blue-50')
+    // First item should be highlighted (current) - look for the container div with bg-blue-50 class
+    const firstItemTitle = screen.getByText('Test Song 1')
+    const firstItemContainer = firstItemTitle.closest('div[class*="bg-blue-50"]')
+    expect(firstItemContainer).toBeInTheDocument()
+    expect(firstItemContainer).toHaveClass('bg-blue-50')
   })
 
   it('handles item selection', () => {

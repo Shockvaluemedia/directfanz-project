@@ -1,0 +1,287 @@
+groups:
+  - name: direct-fan-platform-alerts
+    rules:
+      # Application Health Alerts
+      - alert: ApplicationDown
+        expr: up{job="nextjs-app"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: application
+        annotations:
+          summary: "Direct Fan Platform application is down"
+          description: "The application has been unreachable for more than 1 minute."
+          runbook_url: "https://docs.your-domain.com/runbooks/application-down"
+
+      - alert: HighErrorRate
+        expr: |
+          (
+            rate(http_request_total{status=~"5.."}[5m]) /
+            rate(http_request_total[5m])
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          service: application
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} which is above the 5% threshold."
+          runbook_url: "https://docs.your-domain.com/runbooks/high-error-rate"
+
+      - alert: HighResponseTime
+        expr: |
+          histogram_quantile(0.95, rate(http_request_duration_ms_bucket[5m])) > 2000
+        for: 10m
+        labels:
+          severity: warning
+          service: application
+        annotations:
+          summary: "High response time detected"
+          description: "95th percentile response time is {{ $value }}ms which is above the 2000ms threshold."
+          runbook_url: "https://docs.your-domain.com/runbooks/high-response-time"
+
+      # Database Alerts
+      - alert: DatabaseDown
+        expr: direct_fan_platform_database_connection == 0
+        for: 30s
+        labels:
+          severity: critical
+          service: database
+        annotations:
+          summary: "Database connection is down"
+          description: "Cannot connect to the PostgreSQL database."
+          runbook_url: "https://docs.your-domain.com/runbooks/database-down"
+
+      - alert: DatabaseHighConnections
+        expr: pg_stat_database_numbackends{datname="direct_fan_platform"} > 80
+        for: 5m
+        labels:
+          severity: warning
+          service: database
+        annotations:
+          summary: "High number of database connections"
+          description: "Database has {{ $value }} active connections which is above the 80 connection threshold."
+          runbook_url: "https://docs.your-domain.com/runbooks/database-high-connections"
+
+      - alert: DatabaseSlowQueries
+        expr: |
+          histogram_quantile(0.95, rate(database_operation_duration_ms_bucket[5m])) > 5000
+        for: 10m
+        labels:
+          severity: warning
+          service: database
+        annotations:
+          summary: "Slow database queries detected"
+          description: "95th percentile database query time is {{ $value }}ms which is above the 5000ms threshold."
+          runbook_url: "https://docs.your-domain.com/runbooks/database-slow-queries"
+
+      # Redis Alerts
+      - alert: RedisDown
+        expr: direct_fan_platform_redis_connection == 0
+        for: 30s
+        labels:
+          severity: critical
+          service: redis
+        annotations:
+          summary: "Redis connection is down"
+          description: "Cannot connect to Redis cache."
+          runbook_url: "https://docs.your-domain.com/runbooks/redis-down"
+
+      - alert: RedisHighMemoryUsage
+        expr: redis_memory_used_bytes > 500000000  # 500MB
+        for: 5m
+        labels:
+          severity: warning
+          service: redis
+        annotations:
+          summary: "High Redis memory usage"
+          description: "Redis is using {{ $value | humanizeBytes }} of memory which is above the 500MB threshold."
+          runbook_url: "https://docs.your-domain.com/runbooks/redis-high-memory"
+
+      # Infrastructure Alerts
+      - alert: HighCPUUsage
+        expr: |
+          100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+          service: infrastructure
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage is {{ $value }}% on instance {{ $labels.instance }}"
+          runbook_url: "https://docs.your-domain.com/runbooks/high-cpu-usage"
+
+      - alert: HighMemoryUsage
+        expr: |
+          (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          service: infrastructure
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is {{ $value }}% on instance {{ $labels.instance }}"
+          runbook_url: "https://docs.your-domain.com/runbooks/high-memory-usage"
+
+      - alert: DiskSpaceLow
+        expr: |
+          100 - ((node_filesystem_avail_bytes{mountpoint="/"} * 100) / node_filesystem_size_bytes{mountpoint="/"}) > 85
+        for: 5m
+        labels:
+          severity: warning
+          service: infrastructure
+        annotations:
+          summary: "Disk space is running low"
+          description: "Disk usage is {{ $value }}% on instance {{ $labels.instance }}"
+          runbook_url: "https://docs.your-domain.com/runbooks/disk-space-low"
+
+      - alert: DiskSpaceCritical
+        expr: |
+          100 - ((node_filesystem_avail_bytes{mountpoint="/"} * 100) / node_filesystem_size_bytes{mountpoint="/"}) > 95
+        for: 1m
+        labels:
+          severity: critical
+          service: infrastructure
+        annotations:
+          summary: "Disk space is critically low"
+          description: "Disk usage is {{ $value }}% on instance {{ $labels.instance }}"
+          runbook_url: "https://docs.your-domain.com/runbooks/disk-space-critical"
+
+      # Application-specific Business Logic Alerts
+      - alert: LowSignupRate
+        expr: |
+          rate(business_events_total{operation="user_signup"}[1h]) < 0.01
+        for: 2h
+        labels:
+          severity: info
+          service: business
+        annotations:
+          summary: "Low user signup rate"
+          description: "User signup rate is {{ $value }} signups per second over the last hour."
+          runbook_url: "https://docs.your-domain.com/runbooks/low-signup-rate"
+
+      - alert: HighPaymentFailureRate
+        expr: |
+          (
+            rate(business_events_total{operation="payment_failed"}[5m]) /
+            rate(business_events_total{operation=~"payment_.*"}[5m])
+          ) > 0.10
+        for: 10m
+        labels:
+          severity: warning
+          service: business
+        annotations:
+          summary: "High payment failure rate"
+          description: "Payment failure rate is {{ $value | humanizePercentage }} which is above the 10% threshold."
+          runbook_url: "https://docs.your-domain.com/runbooks/high-payment-failure-rate"
+
+      - alert: SubscriptionChurnSpike
+        expr: |
+          rate(business_events_total{operation="subscription_cancelled"}[1h]) > 
+          (rate(business_events_total{operation="subscription_cancelled"}[24h]) * 3)
+        for: 30m
+        labels:
+          severity: warning
+          service: business
+        annotations:
+          summary: "Spike in subscription cancellations"
+          description: "Subscription cancellation rate has increased significantly."
+          runbook_url: "https://docs.your-domain.com/runbooks/subscription-churn-spike"
+
+      # Security Alerts
+      - alert: MultipleFailedLogins
+        expr: |
+          rate(business_events_total{operation="login_failed"}[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+          service: security
+        annotations:
+          summary: "High rate of failed login attempts"
+          description: "Failed login rate is {{ $value }} attempts per second."
+          runbook_url: "https://docs.your-domain.com/runbooks/multiple-failed-logins"
+
+      - alert: UnusualTrafficPattern
+        expr: |
+          rate(http_request_total[5m]) > 
+          (avg_over_time(rate(http_request_total[5m])[1h]) * 5)
+        for: 5m
+        labels:
+          severity: warning
+          service: security
+        annotations:
+          summary: "Unusual traffic pattern detected"
+          description: "Request rate is significantly higher than normal."
+          runbook_url: "https://docs.your-domain.com/runbooks/unusual-traffic-pattern"
+
+      # Container and Deployment Alerts
+      - alert: ContainerRestarting
+        expr: |
+          rate(container_start_time_seconds[5m]) > 0
+        for: 2m
+        labels:
+          severity: warning
+          service: infrastructure
+        annotations:
+          summary: "Container is restarting frequently"
+          description: "Container {{ $labels.name }} is restarting frequently."
+          runbook_url: "https://docs.your-domain.com/runbooks/container-restarting"
+
+      - alert: ContainerHighMemory
+        expr: |
+          container_memory_usage_bytes{name=~"direct-fan-platform.*"} > 1000000000  # 1GB
+        for: 5m
+        labels:
+          severity: warning
+          service: infrastructure
+        annotations:
+          summary: "Container using high memory"
+          description: "Container {{ $labels.name }} is using {{ $value | humanizeBytes }} of memory."
+          runbook_url: "https://docs.your-domain.com/runbooks/container-high-memory"
+
+      # Deployment Health
+      - alert: DeploymentFailed
+        expr: |
+          increase(deployment_status{status="failed"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          service: deployment
+        annotations:
+          summary: "Deployment failed"
+          description: "A deployment has failed."
+          runbook_url: "https://docs.your-domain.com/runbooks/deployment-failed"
+
+  - name: slo-alerts
+    rules:
+      # SLI/SLO based alerts
+      - alert: SLOErrorRateBreach
+        expr: |
+          (
+            1 - (
+              rate(http_request_total{status=~"2.."}[30d]) /
+              rate(http_request_total[30d])
+            )
+          ) > 0.01  # 99% SLO
+        for: 5m
+        labels:
+          severity: critical
+          service: slo
+          slo_type: error_rate
+        annotations:
+          summary: "SLO breach: Error rate is above 1%"
+          description: "Error rate SLO has been breached. Current error rate: {{ $value | humanizePercentage }}"
+          runbook_url: "https://docs.your-domain.com/runbooks/slo-error-rate-breach"
+
+      - alert: SLOLatencyBreach
+        expr: |
+          histogram_quantile(0.95, rate(http_request_duration_ms_bucket[30d])) > 1000  # 95% of requests under 1s
+        for: 5m
+        labels:
+          severity: critical
+          service: slo
+          slo_type: latency
+        annotations:
+          summary: "SLO breach: 95th percentile latency is above 1s"
+          description: "Latency SLO has been breached. Current 95th percentile: {{ $value }}ms"
+          runbook_url: "https://docs.your-domain.com/runbooks/slo-latency-breach"

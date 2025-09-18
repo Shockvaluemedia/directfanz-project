@@ -102,7 +102,7 @@ export async function GET(
         id: true,
         title: true,
         type: true,
-        isPublic: true,
+        visibility: true,
         tiers: {
           select: {
             id: true,

@@ -1,24 +1,12 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import AudioPlayer, { AudioTrack } from '../audio-player'
 
-// Mock HTMLAudioElement
-const mockAudio = {
-  play: jest.fn().mockResolvedValue(undefined),
-  pause: jest.fn(),
-  load: jest.fn(),
-  addEventListener: jest.fn(),
-  removeEventListener: jest.fn(),
-  currentTime: 0,
-  duration: 180,
-  volume: 1,
-  src: '',
-  paused: true
-}
+// Create a shared mock audio element that will be set up in beforeEach
+let mockAudio: any
 
-Object.defineProperty(window, 'HTMLAudioElement', {
-  writable: true,
-  value: jest.fn().mockImplementation(() => mockAudio)
-})
+// Access the global spies and state
+const getMediaSpies = () => (global as any)._mediaElementSpies || {}
+const getMediaState = () => (global as any)._mediaElementState || {}
 
 const mockTracks: AudioTrack[] = [
   {
@@ -41,196 +29,281 @@ const mockTracks: AudioTrack[] = [
 describe('AudioPlayer', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    // Clear global spies
+    const globalSpies = (global as any)._mediaElementSpies
+    if (globalSpies) {
+      globalSpies.load.mockClear()
+      globalSpies.play.mockClear()
+      globalSpies.pause.mockClear()
+    }
+    // Create a new mock audio instance for each test
+    mockAudio = new (global as any).HTMLAudioElement()
   })
 
-  it('renders with single track', () => {
-    render(<AudioPlayer tracks={[mockTracks[0]]} />)
+  it('renders with single track', async () => {
+    await act(async () => {
+      render(<AudioPlayer tracks={[mockTracks[0]]} />)
+    })
     
     expect(screen.getByText('Test Song 1')).toBeInTheDocument()
     expect(screen.getByText('Test Artist')).toBeInTheDocument()
     expect(screen.getByLabelText('Play')).toBeInTheDocument()
   })
 
-  it('renders with multiple tracks and shows track counter', () => {
-    render(<AudioPlayer tracks={mockTracks} />)
+  it('renders with multiple tracks and shows track counter', async () => {
+    await act(async () => {
+      render(<AudioPlayer tracks={mockTracks} />)
+    })
     
-    expect(screen.getByText('1 of 2')).toBeInTheDocument()
+    // Track counter text is split across elements, check the entire content
+    expect(screen.getByText(/Track\s+1\s+of\s+2/)).toBeInTheDocument()
     expect(screen.getByLabelText('Previous track')).toBeInTheDocument()
     expect(screen.getByLabelText('Next track')).toBeInTheDocument()
   })
 
-  it('displays thumbnail when available', () => {
-    render(<AudioPlayer tracks={[mockTracks[0]]} />)
+  it('displays thumbnail when available', async () => {
+    await act(async () => {
+      render(<AudioPlayer tracks={[mockTracks[0]]} />)
+    })
     
-    const thumbnail = screen.getByAltText('Test Song 1')
+    // The thumbnail should be present with the correct src
+    const thumbnail = document.querySelector('img[src="https://example.com/thumb1.jpg"]')
     expect(thumbnail).toBeInTheDocument()
     expect(thumbnail).toHaveAttribute('src', 'https://example.com/thumb1.jpg')
+    expect(thumbnail).toHaveAttribute('aria-hidden', 'true')
   })
 
   it('handles play/pause functionality', async () => {
     const onPlayStateChange = jest.fn()
-    render(
-      <AudioPlayer 
-        tracks={[mockTracks[0]]} 
-        onPlayStateChange={onPlayStateChange}
-      />
-    )
+    
+    await act(async () => {
+      render(
+        <AudioPlayer 
+          tracks={[mockTracks[0]]} 
+          onPlayStateChange={onPlayStateChange}
+        />
+      )
+    })
+    
+    // Simulate audio loaded data to enable play button
+    await act(async () => {
+      const audioElement = screen.getByRole('region').querySelector('audio')
+      if (audioElement && audioElement.simulateLoadedData) {
+        audioElement.simulateLoadedData(180)
+      }
+    })
+    
+    // Wait for component to finish loading
+    await waitFor(() => {
+      expect(screen.getByLabelText('Play')).not.toBeDisabled()
+    })
     
     const playButton = screen.getByLabelText('Play')
-    fireEvent.click(playButton)
+    
+    await act(async () => {
+      fireEvent.click(playButton)
+    })
     
     await waitFor(() => {
-      expect(mockAudio.play).toHaveBeenCalled()
+      const spies = getMediaSpies()
+      expect(spies.play).toHaveBeenCalled()
       expect(onPlayStateChange).toHaveBeenCalledWith(true)
     })
   })
 
-  it('handles track navigation', () => {
+  it('handles track navigation', async () => {
     const onTrackChange = jest.fn()
-    render(
-      <AudioPlayer 
-        tracks={mockTracks} 
-        onTrackChange={onTrackChange}
-      />
-    )
+    
+    await act(async () => {
+      render(
+        <AudioPlayer 
+          tracks={mockTracks} 
+          onTrackChange={onTrackChange}
+        />
+      )
+    })
+    
+    // Simulate audio loaded data to enable navigation buttons  
+    await act(async () => {
+      const audioElement = screen.getByRole('region').querySelector('audio')
+      if (audioElement && audioElement.simulateLoadedData) {
+        audioElement.simulateLoadedData(180)
+      }
+    })
     
     const nextButton = screen.getByLabelText('Next track')
-    fireEvent.click(nextButton)
+    
+    // Wait for loading to complete and button to be enabled
+    await waitFor(() => {
+      expect(nextButton).not.toBeDisabled()
+    })
+    
+    await act(async () => {
+      fireEvent.click(nextButton)
+    })
     
     expect(onTrackChange).toHaveBeenCalledWith(1)
   })
 
-  it('disables previous button on first track', () => {
-    render(<AudioPlayer tracks={mockTracks} currentTrackIndex={0} />)
+  it('disables previous button on first track', async () => {
+    await act(async () => {
+      render(<AudioPlayer tracks={mockTracks} currentTrackIndex={0} />)
+    })
     
     const prevButton = screen.getByLabelText('Previous track')
     expect(prevButton).toBeDisabled()
   })
 
-  it('disables next button on last track', () => {
-    render(<AudioPlayer tracks={mockTracks} currentTrackIndex={1} />)
+  it('disables next button on last track', async () => {
+    await act(async () => {
+      render(<AudioPlayer tracks={mockTracks} currentTrackIndex={1} />)
+    })
     
     const nextButton = screen.getByLabelText('Next track')
     expect(nextButton).toBeDisabled()
   })
 
-  it('handles volume control', () => {
-    render(<AudioPlayer tracks={[mockTracks[0]]} />)
+  it('handles volume control', async () => {
+    await act(async () => {
+      render(<AudioPlayer tracks={[mockTracks[0]]} />)
+    })
     
-    const volumeSlider = screen.getByRole('slider')
-    fireEvent.change(volumeSlider, { target: { value: '0.5' } })
+    const volumeSlider = screen.getByLabelText('Volume')
     
-    expect(mockAudio.volume).toBe(0.5)
+    await act(async () => {
+      fireEvent.change(volumeSlider, { target: { value: '0.5' } })
+    })
+    
+    const mediaState = getMediaState()
+    expect(mediaState.volume).toBe(0.5)
   })
 
-  it('handles mute/unmute', () => {
-    render(<AudioPlayer tracks={[mockTracks[0]]} />)
+  it('handles mute/unmute', async () => {
+    await act(async () => {
+      render(<AudioPlayer tracks={[mockTracks[0]]} />)
+    })
     
     const muteButton = screen.getByLabelText('Mute')
-    fireEvent.click(muteButton)
     
-    expect(mockAudio.volume).toBe(0)
+    await act(async () => {
+      fireEvent.click(muteButton)
+    })
+    
+    const mediaState = getMediaState()
+    expect(mediaState.volume).toBe(0)
   })
 
-  it('formats time correctly', () => {
-    render(<AudioPlayer tracks={[mockTracks[0]]} />)
+  it('formats time correctly', async () => {
+    await act(async () => {
+      render(<AudioPlayer tracks={[mockTracks[0]]} />)
+    })
     
-    // Should show 0:00 initially
-    expect(screen.getByText('0:00')).toBeInTheDocument()
+    // Should show 0:00 initially - there are multiple instances, get all
+    const timeElements = screen.getAllByText('0:00')
+    expect(timeElements.length).toBeGreaterThan(0)
   })
 
-  it('handles progress bar clicks', () => {
-    render(<AudioPlayer tracks={[mockTracks[0]]} />)
+  it('handles progress bar clicks', async () => {
+    mockAudio.duration = 180 // Set duration for the test
+    
+    await act(async () => {
+      render(<AudioPlayer tracks={[mockTracks[0]]} />)
+    })
+    
+    // Trigger loadeddata event to set duration on the actual DOM element
+    await act(async () => {
+      const audioElement = screen.getByRole('region').querySelector('audio')
+      if (audioElement && audioElement.simulateLoadedData) {
+        audioElement.simulateLoadedData(180)
+      }
+    })
+    
+    // Find progress bar by aria-label
+    const progressBar = screen.getByLabelText('Audio progress')
     
     // Mock getBoundingClientRect for progress bar
-    const progressBar = screen.getByRole('progressbar', { hidden: true })?.parentElement
-    if (progressBar) {
-      jest.spyOn(progressBar, 'getBoundingClientRect').mockReturnValue({
-        left: 0,
-        width: 100,
-        top: 0,
-        right: 100,
-        bottom: 10,
-        height: 10,
-        x: 0,
-        y: 0,
-        toJSON: () => ({})
-      })
-      
+    jest.spyOn(progressBar, 'getBoundingClientRect').mockReturnValue({
+      left: 0,
+      width: 100,
+      top: 0,
+      right: 100,
+      bottom: 10,
+      height: 10,
+      x: 0,
+      y: 0,
+      toJSON: () => ({})
+    })
+    
+    await act(async () => {
       fireEvent.click(progressBar, { clientX: 50 })
-      
-      // Should seek to middle of track (assuming duration is set)
-      expect(mockAudio.currentTime).toBeGreaterThan(0)
-    }
+    })
+    
+    const mediaState = getMediaState()
+    
+    // Should seek to middle of track
+    expect(mediaState.currentTime).toBe(90) // 50% of 180 seconds
   })
 
   it('shows error message when audio fails to load', async () => {
-    const failingAudio = {
-      ...mockAudio,
-      addEventListener: jest.fn((event, callback) => {
-        if (event === 'error') {
-          setTimeout(() => callback(), 0)
-        }
-      })
-    }
+    await act(async () => {
+      render(<AudioPlayer tracks={[mockTracks[0]]} />)
+    })
     
-    jest.spyOn(window, 'HTMLAudioElement').mockImplementation(() => failingAudio as any)
-    
-    render(<AudioPlayer tracks={[mockTracks[0]]} />)
+    // Simulate an error on the actual DOM element
+    await act(async () => {
+      const audioElement = screen.getByRole('region').querySelector('audio')
+      if (audioElement && audioElement.simulateError) {
+        audioElement.simulateError()
+      }
+    })
     
     await waitFor(() => {
       expect(screen.getByText('Failed to load audio')).toBeInTheDocument()
     })
   })
 
-  it('shows loading state', () => {
-    const loadingAudio = {
-      ...mockAudio,
-      addEventListener: jest.fn((event, callback) => {
-        if (event === 'loadstart') {
-          setTimeout(() => callback(), 0)
-        }
-      })
-    }
+  it('shows loading state', async () => {
+    await act(async () => {
+      render(<AudioPlayer tracks={[mockTracks[0]]} />)
+    })
     
-    jest.spyOn(window, 'HTMLAudioElement').mockImplementation(() => loadingAudio as any)
-    
-    render(<AudioPlayer tracks={[mockTracks[0]]} />)
-    
-    // Should show loading spinner in play button
-    expect(screen.getByRole('button', { name: /play/i })).toBeInTheDocument()
+    // The component starts in loading state
+    expect(screen.getByText('Loading')).toBeInTheDocument()
+    expect(screen.getByLabelText('Play')).toBeDisabled()
   })
 
-  it('handles empty tracks array', () => {
-    render(<AudioPlayer tracks={[]} />)
+  it('handles empty tracks array', async () => {
+    await act(async () => {
+      render(<AudioPlayer tracks={[]} />)
+    })
     
     expect(screen.getByText('No audio track available')).toBeInTheDocument()
   })
 
-  it('auto-advances to next track when current track ends', () => {
+  it('auto-advances to next track when current track ends', async () => {
     const onTrackChange = jest.fn()
-    const endingAudio = {
-      ...mockAudio,
-      addEventListener: jest.fn((event, callback) => {
-        if (event === 'ended') {
-          setTimeout(() => callback(), 0)
-        }
-      })
-    }
     
-    jest.spyOn(window, 'HTMLAudioElement').mockImplementation(() => endingAudio as any)
+    await act(async () => {
+      render(
+        <AudioPlayer 
+          tracks={mockTracks} 
+          currentTrackIndex={0}
+          onTrackChange={onTrackChange}
+        />
+      )
+    })
     
-    render(
-      <AudioPlayer 
-        tracks={mockTracks} 
-        currentTrackIndex={0}
-        onTrackChange={onTrackChange}
-      />
-    )
+    // Simulate track ending on the actual DOM element
+    await act(async () => {
+      const audioElement = screen.getByRole('region').querySelector('audio')
+      if (audioElement && audioElement.simulateEnded) {
+        audioElement.simulateEnded()
+      }
+    })
     
     // Track should auto-advance when ended
-    setTimeout(() => {
+    await waitFor(() => {
       expect(onTrackChange).toHaveBeenCalledWith(1)
-    }, 10)
+    })
   })
 })

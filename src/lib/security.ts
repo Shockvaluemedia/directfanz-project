@@ -1,5 +1,8 @@
 /**
- * Security utilities and middleware for implementing OWASP best practices
+ * Server-side security utilities and middleware for implementing OWASP best practices
+ * 
+ * WARNING: This module uses Node.js crypto and should only be imported in server-side code.
+ * For client-safe security utilities, use './security-client.ts' instead.
  */
 
 import crypto from 'crypto';
@@ -7,61 +10,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { logger } from './logger';
 import { createRateLimitResponse } from './error-handler';
 import { AppError, ErrorCode } from './errors';
+import { SECURITY_CONSTANTS, generateCSP, sanitizeInput, generateSecureDownloadHeaders } from './security-client';
 
-// Constants for security settings
-export const SECURITY_CONSTANTS = {
-  PASSWORD_MIN_LENGTH: 10,
-  PASSWORD_REQUIRE_LOWERCASE: true,
-  PASSWORD_REQUIRE_UPPERCASE: true,
-  PASSWORD_REQUIRE_NUMBER: true,
-  PASSWORD_REQUIRE_SYMBOL: true,
-  CSRF_TOKEN_EXPIRY: 3600, // 1 hour in seconds
-  SESSION_IDLE_TIMEOUT: 30 * 60 * 1000, // 30 minutes in milliseconds
-  BCRYPT_ROUNDS: 12,
-  COOKIE_SECURE: process.env.NODE_ENV === 'production',
-  COOKIE_SAME_SITE: 'lax' as 'lax' | 'strict' | 'none',
-  COOKIE_HTTP_ONLY: true,
-  CONTENT_SECURITY_POLICY: {
-    'default-src': ["'self'"],
-    'script-src': ["'self'", "'unsafe-inline'", 'js.stripe.com', 'cdn.vercel-insights.com'],
-    'style-src': ["'self'", "'unsafe-inline'"],
-    'img-src': ["'self'", 'data:', 'blob:', '*.amazonaws.com', '*.stripe.com'],
-    'font-src': ["'self'"],
-    'connect-src': ["'self'", 'api.stripe.com', '*.vercel-insights.com', '*.sentry.io'],
-    'media-src': ["'self'", 'blob:', '*.amazonaws.com'],
-    'frame-src': ["'self'", 'js.stripe.com', 'hooks.stripe.com'],
-  },
-};
+// Re-export client-safe utilities for convenience
+export { SECURITY_CONSTANTS, generateCSP, sanitizeInput, generateSecureDownloadHeaders } from './security-client';
 
-// Password validation
-export const validatePassword = (password: string): { isValid: boolean; errors: string[] } => {
-  const errors: string[] = [];
-
-  if (password.length < SECURITY_CONSTANTS.PASSWORD_MIN_LENGTH) {
-    errors.push(`Password must be at least ${SECURITY_CONSTANTS.PASSWORD_MIN_LENGTH} characters long`);
-  }
-
-  if (SECURITY_CONSTANTS.PASSWORD_REQUIRE_LOWERCASE && !/[a-z]/.test(password)) {
-    errors.push('Password must contain at least one lowercase letter');
-  }
-
-  if (SECURITY_CONSTANTS.PASSWORD_REQUIRE_UPPERCASE && !/[A-Z]/.test(password)) {
-    errors.push('Password must contain at least one uppercase letter');
-  }
-
-  if (SECURITY_CONSTANTS.PASSWORD_REQUIRE_NUMBER && !/\d/.test(password)) {
-    errors.push('Password must contain at least one number');
-  }
-
-  if (SECURITY_CONSTANTS.PASSWORD_REQUIRE_SYMBOL && !/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)) {
-    errors.push('Password must contain at least one special character');
-  }
-
-  return {
-    isValid: errors.length === 0,
-    errors,
-  };
-};
+// === SERVER-SIDE ONLY FUNCTIONS (require Node.js crypto) ===
 
 // Generate a secure random token
 export const generateSecureToken = (bytes = 32): string => {
@@ -148,14 +102,7 @@ export const decryptData = (encryptedData: string, key = process.env.ENCRYPTION_
   }
 };
 
-// Generate a Content Security Policy header
-export const generateCSP = (): string => {
-  return Object.entries(SECURITY_CONSTANTS.CONTENT_SECURITY_POLICY)
-    .map(([key, values]) => `${key} ${values.join(' ')}`)
-    .join('; ');
-};
-
-// CSRF token generation and validation
+// CSRF token generation and validation (server-side only)
 export const generateCsrfToken = (sessionId: string): { token: string; expires: Date } => {
   const expires = new Date(Date.now() + SECURITY_CONSTANTS.CSRF_TOKEN_EXPIRY * 1000);
   const data = `${sessionId}:${expires.getTime()}`;
@@ -192,16 +139,9 @@ export const validateCsrfToken = (token: string, sessionId: string): boolean => 
   }
 };
 
-// Sanitize user input to prevent XSS
-export const sanitizeInput = (input: string): string => {
-  return input
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-};
+// === SERVER-SIDE MIDDLEWARE AND UTILITIES ===
 
-// GDPR data export
+// GDPR data export (server-side only)
 export const generateUserDataExport = async (userId: string): Promise<Record<string, any>> => {
   // This would be implemented to fetch all user data from various tables
   // For now, we'll return a placeholder
@@ -221,7 +161,7 @@ export const generateUserDataExport = async (userId: string): Promise<Record<str
   };
 };
 
-// GDPR data deletion
+// GDPR data deletion (server-side only)
 export const initiateUserDataDeletion = async (userId: string): Promise<void> => {
   // This would implement the actual data deletion process
   // For now, we'll just log the request
@@ -234,7 +174,7 @@ export const initiateUserDataDeletion = async (userId: string): Promise<void> =>
   // 4. Send confirmation email
 };
 
-// Security headers middleware
+// Security headers middleware (server-side only)
 export const addSecurityHeaders = (response: NextResponse): NextResponse => {
   // Content Security Policy
   response.headers.set('Content-Security-Policy', generateCSP());
@@ -362,16 +302,4 @@ export const detectSuspiciousActivity = (request: NextRequest, userId?: string):
   // Add more sophisticated checks here
   
   return false;
-};
-
-// Generate secure response headers for file downloads
-export const generateSecureDownloadHeaders = (filename: string, contentType: string): Record<string, string> => {
-  return {
-    'Content-Disposition': `attachment; filename="${encodeURIComponent(filename)}"`,
-    'Content-Type': contentType,
-    'X-Content-Type-Options': 'nosniff',
-    'Cache-Control': 'private, no-cache, no-store, must-revalidate',
-    'Pragma': 'no-cache',
-    'Expires': '0',
-  };
 };

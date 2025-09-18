@@ -27,32 +27,24 @@ export async function checkContentAccess(
   contentId: string
 ): Promise<ContentAccessResult> {
   try {
-    // Get content with associated tiers
+    // Get content with relations
     const content = await prisma.content.findUnique({
       where: { id: contentId },
       include: {
-        tiers: {
-          select: {
-            id: true,
-            minimumPrice: true,
-            isActive: true
-          }
-        },
         artist: {
-          select: {
-            id: true,
-            role: true
-          }
-        }
-      }
-    })
+          include: {
+            tiers: true,
+          },
+        },
+      },
+    });
 
     if (!content) {
       return { hasAccess: false, reason: 'not_found' }
     }
 
     // Public content is accessible to everyone
-    if (content.isPublic) {
+    if (content.visibility === 'PUBLIC') {
       return { hasAccess: true, reason: 'public' }
     }
 
@@ -102,7 +94,7 @@ export async function checkContentAccess(
             id: subscription.id,
             tierId: subscription.tierId,
             amount: Number(subscription.amount),
-            status: subscription.status
+            status: subscription.status as SubscriptionStatus
           }
         }
       }
@@ -182,7 +174,7 @@ export async function getUserAccessibleContent(
   const where: any = {
     artistId,
     OR: [
-      { isPublic: true },
+      { visibility: 'PUBLIC' },
       {
         tiers: {
           some: {
@@ -287,7 +279,7 @@ export async function getContentAccessSummary(
         where: { artistId }
       }),
       prisma.content.count({
-        where: { artistId, isPublic: true }
+        where: { artistId, visibility: 'PUBLIC' }
       })
     ])
 
@@ -317,7 +309,7 @@ export async function getContentAccessSummary(
     const accessibleGatedContent = await prisma.content.count({
       where: {
         artistId,
-        isPublic: false,
+        visibility: { not: 'PUBLIC' },
         tiers: {
           some: {
             id: { in: subscribedTierIds },
