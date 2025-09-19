@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { safeParseURL } from '@/lib/api-utils';
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
+    const url = safeParseURL(request);
+    const searchParams = url?.searchParams || new URLSearchParams();
     const search = searchParams.get('search') || '';
     const type = searchParams.get('type');
     const sortBy = searchParams.get('sortBy') || 'createdAt';
@@ -65,7 +67,7 @@ export async function GET(request: NextRequest) {
           createdAt: true,
           totalViews: true,
           totalLikes: true,
-          artist: {
+          users: {
             select: {
               id: true,
               displayName: true,

@@ -70,9 +70,26 @@ export function paginatedResponse<T>(
   });
 }
 
+// Safe URL parsing utility for static generation compatibility
+export function safeParseURL(request: NextRequest): URL | null {
+  try {
+    // During static generation, request.url might be empty or invalid
+    if (!request.url || request.url === '') {
+      return null;
+    }
+    return new URL(request.url);
+  } catch (error) {
+    console.warn('Failed to parse request URL during static generation:', request.url);
+    return null;
+  }
+}
+
 // Extract pagination params from request
 export function getPaginationFromRequest(request: NextRequest) {
-  const url = new URL(request.url);
+  const url = safeParseURL(request);
+  if (!url) {
+    return { page: 1, limit: 10 }; // Default values for static generation
+  }
   const page = Math.max(1, parseInt(url.searchParams.get('page') || '1'));
   const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') || '10')));
 
@@ -81,8 +98,8 @@ export function getPaginationFromRequest(request: NextRequest) {
 
 // Extract search params from request
 export function getSearchFromRequest(request: NextRequest) {
-  const url = new URL(request.url);
-  return url.searchParams.get('search') || '';
+  const url = safeParseURL(request);
+  return url?.searchParams.get('search') || '';
 }
 
 // Authentication middleware

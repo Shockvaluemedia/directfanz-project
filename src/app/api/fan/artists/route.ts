@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { safeParseURL } from '@/lib/api-utils';
 import { z } from 'zod';
 
 const searchSchema = z.object({
@@ -29,7 +30,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Only fans can discover artists' }, { status: 403 });
     }
 
-    const { searchParams } = new URL(request.url);
+    const url = safeParseURL(request);
+    const searchParams = url?.searchParams || new URLSearchParams();
     const params = {
       search: searchParams.get('search') || undefined,
       genre: searchParams.get('genre') || undefined,
