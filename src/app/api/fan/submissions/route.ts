@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
   let session: any;
   try {
     session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -25,18 +25,18 @@ export async function GET(request: NextRequest) {
 
     // Build where clause
     const where: any = {
-      submitterId: session.user.id
+      submitterId: session.user.id,
     };
 
     if (status) where.status = status;
     if (campaignId) {
       where.challenge = {
-        campaignId: campaignId
+        campaignId: campaignId,
       };
     }
 
     // Get user's submissions
-    const submissions = await prisma.challengeSubmission.findMany({
+    const submissions = await prisma.challenge_submissions.findMany({
       where,
       include: {
         challenge: {
@@ -49,45 +49,41 @@ export async function GET(request: NextRequest) {
                   select: {
                     id: true,
                     displayName: true,
-                    avatar: true
-                  }
-                }
-              }
-            }
-          }
-        }
+                    avatar: true,
+                  },
+                },
+              },
+            },
+          },
+        },
       },
       orderBy: {
-        submittedAt: 'desc'
+        submittedAt: 'desc',
       },
-      take: limit
+      take: limit,
     });
 
     // Transform the data to match the frontend interface
     const transformedSubmissions = submissions.map(submission => ({
       id: submission.id,
-      campaignId: submission.challenge.campaign.id,
-      campaignTitle: submission.challenge.campaign.title,
+      campaignId: submission.challenge.campaigns.id,
+      campaignTitle: submission.challenge.campaigns.title,
       type: submission.contentType.toLowerCase(),
       status: submission.reviewStatus.toLowerCase(), // Use review status for frontend
       submittedAt: submission.submittedAt.toISOString(),
       likes: submission.likeCount,
       views: submission.viewCount,
-      artistName: submission.challenge.campaign.artist.displayName,
+      artistName: submission.challenge.campaigns.users.displayName,
       title: submission.title,
       description: submission.description,
       score: submission.totalScore,
       contentUrl: submission.contentUrl,
-      thumbnailUrl: submission.thumbnailUrl
+      thumbnailUrl: submission.thumbnailUrl,
     }));
 
-    return NextResponse.json({ submissions: transformedSubmissions });
-
+    return NextResponse.json({ challenge_submissions: transformedSubmissions });
   } catch (error) {
     logger.error('Error fetching fan submissions', { userId: session?.user?.id }, error as Error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

@@ -21,10 +21,10 @@ const userUpdateSchema = z.object({
 });
 
 export async function GET(request: NextRequest) {
-  return withAdminApi(request, async (req) => {
+  return withAdminApi(request, async req => {
     try {
       const { searchParams } = new URL(request.url);
-      
+
       const params = userFilterSchema.parse({
         role: searchParams.get('role') || undefined,
         status: searchParams.get('status') || 'all',
@@ -51,13 +51,13 @@ export async function GET(request: NextRequest) {
       const orderBy = getOrderBy(params.sortBy);
 
       const [users, totalCount] = await Promise.all([
-        prisma.user.findMany({
+        prisma.users.findMany({
           where: whereClause,
           include: {
-            artistProfile: true,
+            artists: true,
             subscriptions: {
               where: { status: 'ACTIVE' },
-              include: { tier: true },
+              include: { tiers: true },
             },
             _count: {
               select: {
@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
           take: params.limit,
           skip: params.offset,
         }),
-        prisma.user.count({ where: whereClause }),
+        prisma.users.count({ where: whereClause }),
       ]);
 
       const formattedUsers = users.map(user => ({
@@ -85,25 +85,26 @@ export async function GET(request: NextRequest) {
         emailVerified: user.emailVerified,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
-        
+
         // Artist-specific data
         ...(user.role === 'ARTIST' && {
-          artistProfile: user.artistProfile,
+          artists: user.artists,
           contentCount: user._count.content,
-          totalEarnings: user.artistProfile?.totalEarnings || 0,
-          totalSubscribers: user.artistProfile?.totalSubscribers || 0,
+          totalEarnings: user.artists?.totalEarnings || 0,
+          totalSubscribers: user.artists?.totalSubscribers || 0,
         }),
 
         // Fan-specific data
         ...(user.role === 'FAN' && {
           subscriptionCount: user._count.subscriptions,
           activeSubscriptions: user.subscriptions.length,
-          monthlySpending: user.subscriptions.reduce((sum, sub) => 
-            sum + parseFloat(sub.amount.toString()), 0
+          monthlySpending: user.subscriptions.reduce(
+            (sum, sub) => sum + parseFloat(sub.amount.toString()),
+            0
           ),
           commentCount: user._count.comments,
         }),
-        
+
         // General stats
         accountAge: Math.floor((Date.now() - user.createdAt.getTime()) / (1000 * 60 * 60 * 24)),
       }));
@@ -127,11 +128,10 @@ export async function GET(request: NextRequest) {
           total: totalCount,
         },
       });
-
     } catch (error) {
       if (error instanceof z.ZodError) {
         return NextResponse.json(
-          { 
+          {
             error: 'Invalid parameters',
             details: error.errors,
           },
@@ -140,29 +140,23 @@ export async function GET(request: NextRequest) {
       }
 
       logger.error('Admin users endpoint error', { adminUserId: req.user?.id }, error as Error);
-      return NextResponse.json(
-        { error: 'Failed to fetch users' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
     }
   });
 }
 
 export async function POST(request: NextRequest) {
-  return withAdminApi(request, async (req) => {
+  return withAdminApi(request, async req => {
     try {
       const body = await request.json();
       const { userId, action, ...updateData } = body;
 
       if (!userId) {
-        return NextResponse.json(
-          { error: 'User ID is required' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
       }
 
       let result;
-      
+
       if (action === 'suspend') {
         // For now, we'll log the suspension action
         // In a real implementation, you'd add a status field to track this
@@ -171,39 +165,37 @@ export async function POST(request: NextRequest) {
           targetUserId: userId,
           action: 'suspend',
         });
-        
-        result = await prisma.user.findUnique({
+
+        result = await prisma.users.findUnique({
           where: { id: userId },
-          include: { artistProfile: true },
+          include: { artists: true },
         });
-        
+
         // Note: Implement actual suspension logic here
         // This might involve:
         // - Setting a status field
         // - Canceling active subscriptions
         // - Hiding content
         // - Sending notifications
-
       } else if (action === 'reactivate') {
         logger.info('User reactivation requested', {
           adminUserId: req.user.id,
           targetUserId: userId,
           action: 'reactivate',
         });
-        
-        result = await prisma.user.findUnique({
-          where: { id: userId },
-          include: { artistProfile: true },
-        });
 
+        result = await prisma.users.findUnique({
+          where: { id: userId },
+          include: { artists: true },
+        });
       } else {
         // Update user data
         const validatedData = userUpdateSchema.parse(updateData);
-        
-        result = await prisma.user.update({
+
+        result = await prisma.users.update({
           where: { id: userId },
           data: validatedData,
-          include: { artistProfile: true },
+          include: { artists: true },
         });
 
         logger.info('User updated by admin', {
@@ -214,10 +206,7 @@ export async function POST(request: NextRequest) {
       }
 
       if (!result) {
-        return NextResponse.json(
-          { error: 'User not found' },
-          { status: 404 }
-        );
+        return NextResponse.json({ error: 'User not found' }, { status: 404 });
       }
 
       return NextResponse.json({
@@ -225,11 +214,10 @@ export async function POST(request: NextRequest) {
         message: `User ${action || 'updated'} successfully`,
         data: result,
       });
-
     } catch (error) {
       if (error instanceof z.ZodError) {
         return NextResponse.json(
-          { 
+          {
             error: 'Invalid update data',
             details: error.errors,
           },
@@ -238,10 +226,7 @@ export async function POST(request: NextRequest) {
       }
 
       logger.error('Admin user update error', { adminUserId: req.user?.id }, error as Error);
-      return NextResponse.json(
-        { error: 'Failed to update user' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to update user' }, { status: 500 });
     }
   });
 }
@@ -253,9 +238,9 @@ function getOrderBy(sortBy: string) {
     case 'name':
       return { displayName: 'asc' as const };
     case 'earnings':
-      return { artistProfile: { totalEarnings: 'desc' as const } };
+      return { artists: { totalEarnings: 'desc' as const } };
     case 'subscribers':
-      return { artistProfile: { totalSubscribers: 'desc' as const } };
+      return { artists: { totalSubscribers: 'desc' as const } };
     default:
       return { createdAt: 'desc' as const };
   }

@@ -1,38 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { 
-  getArtistAnalytics, 
-  getEarningsForPeriod, 
+import {
+  getArtistAnalytics,
+  getEarningsForPeriod,
   getSubscriberGrowthForPeriod,
   getDailyEarningsSummary,
   getSubscriberCountPerTier,
-  getChurnAnalysis
+  getChurnAnalysis,
 } from '@/lib/analytics';
 import { prisma } from '@/lib/prisma';
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Verify user is an artist
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: { id: session.user.id },
       select: { role: true },
     });
 
     if (!user || user.role !== 'ARTIST') {
-      return NextResponse.json(
-        { error: 'Access denied. Artist role required.' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'Access denied. Artist role required.' }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);
@@ -46,32 +40,32 @@ export async function GET(request: NextRequest) {
     if (summary === 'true') {
       // Get basic artist stats for dashboard
       const [artistProfile, subscriptions, content, messages] = await Promise.all([
-        prisma.artist.findUnique({
+        prisma.artists.findUnique({
           where: { userId: session.user.id },
           select: {
             totalSubscribers: true,
-            totalEarnings: true
-          }
+            totalEarnings: true,
+          },
         }),
-        prisma.subscription.findMany({
+        prisma.subscriptions.findMany({
           where: {
             artistId: session.user.id,
-            status: 'ACTIVE'
+            status: 'ACTIVE',
           },
           select: {
             amount: true,
-            currentPeriodStart: true
-          }
+            currentPeriodStart: true,
+          },
         }),
         prisma.content.count({
-          where: { artistId: session.user.id }
+          where: { artistId: session.user.id },
         }),
-        prisma.message.count({
+        prisma.messages.count({
           where: {
             recipientId: session.user.id,
-            readAt: null
-          }
-        })
+            readAt: null,
+          },
+        }),
       ]);
 
       // Calculate monthly revenue from current subscriptions
@@ -83,7 +77,10 @@ export async function GET(request: NextRequest) {
 
       // Calculate engagement rate (simplified - could be more sophisticated)
       const totalSubscribers = artistProfile?.totalSubscribers || 0;
-      const engagementRate = totalSubscribers > 0 ? Math.min(100, Math.round((subscriptions.length / totalSubscribers) * 100)) : 0;
+      const engagementRate =
+        totalSubscribers > 0
+          ? Math.min(100, Math.round((subscriptions.length / totalSubscribers) * 100))
+          : 0;
 
       return NextResponse.json({
         success: true,
@@ -94,9 +91,9 @@ export async function GET(request: NextRequest) {
             totalContent: content,
             engagementRate,
             unreadMessages: messages,
-            pendingNotifications: 0 // TODO: implement notifications system
-          }
-        }
+            pendingNotifications: 0, // TODO: implement notifications system
+          },
+        },
       });
     }
 
@@ -178,9 +175,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Analytics API error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch analytics data' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch analytics data' }, { status: 500 });
   }
 }

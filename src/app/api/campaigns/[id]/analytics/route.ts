@@ -5,10 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
 // GET /api/campaigns/[id]/analytics - Get campaign analytics
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const { id: campaignId } = params;
     const session = await getServerSession(authOptions);
@@ -18,9 +15,9 @@ export async function GET(
     }
 
     // Check if campaign exists and user has access
-    const campaign = await prisma.campaign.findUnique({
+    const campaign = await prisma.campaigns.findUnique({
       where: { id: campaignId },
-      select: { id: true, artistId: true, status: true }
+      select: { id: true, artistId: true, status: true },
     });
 
     if (!campaign) {
@@ -33,7 +30,7 @@ export async function GET(
     }
 
     // Get campaign analytics from existing data
-    const analyticsData = await prisma.campaign.findUnique({
+    const analyticsData = await prisma.campaigns.findUnique({
       where: { id: campaignId },
       include: {
         challenges: {
@@ -44,19 +41,19 @@ export async function GET(
             submissionCount: true,
             _count: {
               select: {
-                participations: true,
-                submissions: true
-              }
-            }
-          }
+                challenge_participations: true,
+                challenge_submissions: true,
+              },
+            },
+          },
         },
         _count: {
           select: {
             challenges: true,
-            rewards: true
-          }
-        }
-      }
+            campaign_rewards: true,
+          },
+        },
+      },
     });
 
     if (!analyticsData) {
@@ -65,31 +62,33 @@ export async function GET(
 
     // Calculate key metrics
     const totalSubmissions = analyticsData.challenges.reduce(
-      (sum, challenge) => sum + challenge.submissionCount, 0
+      (sum, challenge) => sum + challenge.submissionCount,
+      0
     );
     const totalParticipations = analyticsData.challenges.reduce(
-      (sum, challenge) => sum + challenge.participantCount, 0
+      (sum, challenge) => sum + challenge.participantCount,
+      0
     );
 
     // Get submission trends over time (last 30 days)
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    const submissionTrends = await prisma.challengeSubmission.findMany({
+    const submissionTrends = await prisma.challenge_submissions.findMany({
       where: {
         challenge: {
-          campaignId: campaignId
+          campaignId: campaignId,
         },
         submittedAt: {
-          gte: thirtyDaysAgo
-        }
+          gte: thirtyDaysAgo,
+        },
       },
       select: {
-        submittedAt: true
+        submittedAt: true,
       },
       orderBy: {
-        submittedAt: 'asc'
-      }
+        submittedAt: 'asc',
+      },
     });
 
     // Group submissions by date
@@ -100,12 +99,12 @@ export async function GET(
     });
 
     // Get top performers
-    const topSubmissions = await prisma.challengeSubmission.findMany({
+    const topSubmissions = await prisma.challenge_submissions.findMany({
       where: {
         challenge: {
-          campaignId: campaignId
+          campaignId: campaignId,
         },
-        status: 'APPROVED'
+        status: 'APPROVED',
       },
       select: {
         id: true,
@@ -117,15 +116,12 @@ export async function GET(
           select: {
             id: true,
             displayName: true,
-            avatar: true
-          }
-        }
+            avatar: true,
+          },
+        },
       },
-      orderBy: [
-        { totalScore: 'desc' },
-        { likeCount: 'desc' }
-      ],
-      take: 10
+      orderBy: [{ totalScore: 'desc' }, { likeCount: 'desc' }],
+      take: 10,
     });
 
     const analytics = {
@@ -134,57 +130,59 @@ export async function GET(
         totalSubmissions,
         totalChallenges: analyticsData._count.challenges,
         totalRewards: analyticsData._count.rewards,
-        engagementRate: totalParticipations > 0 ? 
-          (totalSubmissions / totalParticipations * 100).toFixed(1) : 0,
-        completionRate: analyticsData.targetValue > 0 ? 
-          (analyticsData.currentValue / analyticsData.targetValue * 100).toFixed(1) : 0
+        engagementRate:
+          totalParticipations > 0 ? ((totalSubmissions / totalParticipations) * 100).toFixed(1) : 0,
+        completionRate:
+          analyticsData.targetValue > 0
+            ? ((analyticsData.currentValue / analyticsData.targetValue) * 100).toFixed(1)
+            : 0,
       },
       performance: {
         targetProgress: {
           current: analyticsData.currentValue,
           target: analyticsData.targetValue,
-          percentage: analyticsData.targetValue > 0 ? 
-            Math.round((analyticsData.currentValue / analyticsData.targetValue) * 100) : 0
+          percentage:
+            analyticsData.targetValue > 0
+              ? Math.round((analyticsData.currentValue / analyticsData.targetValue) * 100)
+              : 0,
         },
         metrics: {
           totalViews: 0, // Would need view tracking
           totalLikes: 0, // Would need to aggregate from submissions
           averageScore: 0, // Would need to calculate from submissions
-          retentionRate: 0 // Would need session tracking
-        }
+          retentionRate: 0, // Would need session tracking
+        },
       },
       trends: {
         submissionsByDate: Object.entries(submissionsByDate).map(([date, count]) => ({
           date,
-          submissions: count
+          challenge_submissions: count,
         })),
         participationGrowth: [], // Would need historical participation data
-        engagementTrends: [] // Would need historical engagement data
+        engagementTrends: [], // Would need historical engagement data
       },
       challenges: analyticsData.challenges.map(challenge => ({
         id: challenge.id,
         title: challenge.title,
         participants: challenge.participantCount,
-        submissions: challenge.submissionCount,
-        engagementRate: challenge.participantCount > 0 ? 
-          (challenge.submissionCount / challenge.participantCount * 100).toFixed(1) : 0
+        challenge_submissions: challenge.submissionCount,
+        engagementRate:
+          challenge.participantCount > 0
+            ? ((challenge.submissionCount / challenge.participantCount) * 100).toFixed(1)
+            : 0,
       })),
       topPerformers: topSubmissions,
       demographics: {
         // Would need user demographic data
         ageGroups: [],
         locations: [],
-        deviceTypes: []
-      }
+        deviceTypes: [],
+      },
     };
 
     return NextResponse.json(analytics);
-
   } catch (error) {
     logger.error('Error fetching campaign analytics', { campaignId: params.id }, error as Error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

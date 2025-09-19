@@ -1,4 +1,9 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectCommand,
+  GetObjectCommand,
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import sharp from 'sharp';
 import ffmpeg from 'fluent-ffmpeg';
@@ -6,7 +11,7 @@ import ffmpegStatic from 'ffmpeg-static';
 import { lookup as mimeTypeLookup } from 'mime-types';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { ContentType } from '@prisma/client';
+import { ContentType } from '@/lib/types/enums';
 
 // Set ffmpeg binary path
 if (ffmpegStatic) {
@@ -27,10 +32,10 @@ const CDN_DOMAIN = process.env.AWS_CLOUDFRONT_DOMAIN || process.env.AWS_S3_BUCKE
 
 // File upload configuration
 const MAX_FILE_SIZES = {
-  IMAGE: 10 * 1024 * 1024,      // 10MB for images
-  AUDIO: 100 * 1024 * 1024,     // 100MB for audio
-  VIDEO: 500 * 1024 * 1024,     // 500MB for video
-  DOCUMENT: 50 * 1024 * 1024,   // 50MB for documents
+  IMAGE: 10 * 1024 * 1024, // 10MB for images
+  AUDIO: 100 * 1024 * 1024, // 100MB for audio
+  VIDEO: 500 * 1024 * 1024, // 500MB for video
+  DOCUMENT: 50 * 1024 * 1024, // 50MB for documents
 };
 
 const ALLOWED_EXTENSIONS = {
@@ -68,14 +73,14 @@ export class FileUploader {
     if (!allowedExtensions.includes(ext)) {
       return {
         isValid: false,
-        error: `Invalid file type. Allowed types: ${allowedExtensions.join(', ')}`
+        error: `Invalid file type. Allowed types: ${allowedExtensions.join(', ')}`,
       };
     }
 
     if (file.size > maxSize) {
       return {
         isValid: false,
-        error: `File too large. Maximum size: ${Math.round(maxSize / 1024 / 1024)}MB`
+        error: `File too large. Maximum size: ${Math.round(maxSize / 1024 / 1024)}MB`,
       };
     }
 
@@ -87,12 +92,12 @@ export class FileUploader {
    */
   static getContentType(file: File): ContentType {
     const ext = path.extname(file.name).toLowerCase();
-    
+
     if (ALLOWED_EXTENSIONS.IMAGE.includes(ext)) return ContentType.IMAGE;
     if (ALLOWED_EXTENSIONS.AUDIO.includes(ext)) return ContentType.AUDIO;
     if (ALLOWED_EXTENSIONS.VIDEO.includes(ext)) return ContentType.VIDEO;
     if (ALLOWED_EXTENSIONS.DOCUMENT.includes(ext)) return ContentType.DOCUMENT;
-    
+
     throw new Error('Unsupported file type');
   }
 
@@ -103,7 +108,7 @@ export class FileUploader {
     const ext = path.extname(fileName);
     const uuid = uuidv4();
     const timestamp = Date.now();
-    
+
     return `content/${userId}/${contentType.toLowerCase()}/${timestamp}-${uuid}${ext}`;
   }
 
@@ -170,7 +175,10 @@ export class FileUploader {
   /**
    * Process and upload image
    */
-  static async processImage(buffer: Buffer, key: string): Promise<{
+  static async processImage(
+    buffer: Buffer,
+    key: string
+  ): Promise<{
     url: string;
     thumbnailUrl: string;
     width: number;
@@ -179,7 +187,7 @@ export class FileUploader {
   }> {
     // Get image metadata
     const metadata = await sharp(buffer).metadata();
-    
+
     // Optimize main image
     const optimizedBuffer = await sharp(buffer)
       .jpeg({ quality: 85, progressive: true })
@@ -195,7 +203,7 @@ export class FileUploader {
 
     // Upload main image
     const url = await this.uploadToS3(optimizedBuffer, key, 'image/jpeg');
-    
+
     // Upload thumbnail
     const thumbnailKey = key.replace(/\.[^/.]+$/, '-thumb.jpg');
     const thumbnailUrl = await this.uploadToS3(thumbnailBuffer, thumbnailKey, 'image/jpeg');
@@ -212,7 +220,11 @@ export class FileUploader {
   /**
    * Process and upload audio
    */
-  static async processAudio(buffer: Buffer, key: string, fileName: string): Promise<{
+  static async processAudio(
+    buffer: Buffer,
+    key: string,
+    fileName: string
+  ): Promise<{
     url: string;
     thumbnailUrl?: string;
     duration: number;
@@ -234,7 +246,7 @@ export class FileUploader {
           try {
             // Read processed file
             const processedBuffer = require('fs').readFileSync(outputPath);
-            
+
             // Upload to S3
             const url = await this.uploadToS3(processedBuffer, key, 'audio/mpeg');
 
@@ -261,7 +273,7 @@ export class FileUploader {
             reject(error);
           }
         })
-        .on('error', (err) => {
+        .on('error', err => {
           // Cleanup on error
           try {
             require('fs').unlinkSync(tempPath);
@@ -278,7 +290,11 @@ export class FileUploader {
   /**
    * Process and upload video
    */
-  static async processVideo(buffer: Buffer, key: string, fileName: string): Promise<{
+  static async processVideo(
+    buffer: Buffer,
+    key: string,
+    fileName: string
+  ): Promise<{
     url: string;
     thumbnailUrl: string;
     duration: number;
@@ -306,10 +322,10 @@ export class FileUploader {
             // Read processed file
             const processedBuffer = require('fs').readFileSync(outputPath);
             const thumbnailBuffer = require('fs').readFileSync(thumbnailPath);
-            
+
             // Upload video to S3
             const url = await this.uploadToS3(processedBuffer, key, 'video/mp4');
-            
+
             // Upload thumbnail
             const thumbnailKey = key.replace(/\.[^/.]+$/, '-thumb.jpg');
             const thumbnailUrl = await this.uploadToS3(thumbnailBuffer, thumbnailKey, 'image/jpeg');
@@ -346,7 +362,7 @@ export class FileUploader {
             reject(error);
           }
         })
-        .on('error', (err) => {
+        .on('error', err => {
           // Cleanup on error
           [tempPath, outputPath, thumbnailPath].forEach(path => {
             try {
@@ -377,14 +393,14 @@ export class FileUploader {
     // Get content type and validate
     const contentType = this.getContentType(file);
     const validation = this.validateFile(file, contentType);
-    
+
     if (!validation.isValid) {
       throw new Error(validation.error);
     }
 
     // Generate unique key
     const key = this.generateFileKey(userId, contentType, file.name);
-    
+
     // Convert file to buffer
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);

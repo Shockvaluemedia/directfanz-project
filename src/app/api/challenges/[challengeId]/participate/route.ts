@@ -5,10 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
 // POST /api/challenges/[challengeId]/participate - Join a challenge
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { challengeId: string } }
-) {
+export async function POST(request: NextRequest, { params }: { params: { challengeId: string } }) {
   let session: any;
   try {
     session = await getServerSession(authOptions);
@@ -17,23 +14,23 @@ export async function POST(
     }
 
     // Get challenge details and check if it exists
-    const challenge = await prisma.challenge.findUnique({
+    const challenge = await prisma.challenges.findUnique({
       where: { id: params.challengeId },
       include: {
         campaign: {
-          select: { 
-            id: true, 
-            title: true, 
-            status: true, 
-            entryFee: true, 
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            entryFee: true,
             maxParticipants: true,
-            totalParticipants: true 
-          }
+            totalParticipants: true,
+          },
         },
         _count: {
-          select: { participations: true }
-        }
-      }
+          select: { challenge_participations: true },
+        },
+      },
     });
 
     if (!challenge) {
@@ -45,7 +42,7 @@ export async function POST(
       return NextResponse.json({ error: 'Challenge is not active' }, { status: 400 });
     }
 
-    if (challenge.campaign.status !== 'ACTIVE') {
+    if (challenge.campaigns.status !== 'ACTIVE') {
       return NextResponse.json({ error: 'Campaign is not active' }, { status: 400 });
     }
 
@@ -61,25 +58,31 @@ export async function POST(
 
     // Check participation limits
     if (challenge.maxParticipants && challenge.participantCount >= challenge.maxParticipants) {
-      return NextResponse.json({ error: 'Challenge has reached maximum participants' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Challenge has reached maximum participants' },
+        { status: 400 }
+      );
     }
 
     // Check if user is already participating
-    const existingParticipation = await prisma.challengeParticipation.findUnique({
+    const existingParticipation = await prisma.challenge_participations.findUnique({
       where: {
         challengeId_participantId: {
           challengeId: params.challengeId,
-          participantId: session.user.id
-        }
-      }
+          participantId: session.user.id,
+        },
+      },
     });
 
     if (existingParticipation) {
       if (existingParticipation.status === 'ACTIVE') {
-        return NextResponse.json({ error: 'Already participating in this challenge' }, { status: 400 });
+        return NextResponse.json(
+          { error: 'Already participating in this challenge' },
+          { status: 400 }
+        );
       } else {
         // Reactivate participation if it was withdrawn
-        const updatedParticipation = await prisma.challengeParticipation.update({
+        const updatedParticipation = await prisma.challenge_participations.update({
           where: { id: existingParticipation.id },
           data: {
             status: 'ACTIVE',
@@ -87,9 +90,9 @@ export async function POST(
           },
           include: {
             challenge: {
-              select: { title: true, type: true }
-            }
-          }
+              select: { title: true, type: true },
+            },
+          },
         });
 
         logger.info('Challenge participation reactivated', {
@@ -103,19 +106,19 @@ export async function POST(
     }
 
     // Handle entry fee if required
-    if (challenge.campaign.entryFee && Number(challenge.campaign.entryFee) > 0) {
+    if (challenge.campaigns.entryFee && Number(challenge.campaigns.entryFee) > 0) {
       // In a real implementation, you would integrate with Stripe here
       // For now, we'll assume the payment is handled elsewhere
       logger.info('Entry fee required', {
         challengeId: params.challengeId,
-        entryFee: challenge.campaign.entryFee,
+        entryFee: challenge.campaigns.entryFee,
         participantId: session.user.id,
       });
     }
 
     // Create participation record
-    const participation = await prisma.$transaction(async (tx) => {
-      const newParticipation = await tx.challengeParticipation.create({
+    const participation = await prisma.$transaction(async tx => {
+      const newParticipation = await tx.challenge_participations.create({
         data: {
           challengeId: params.challengeId,
           participantId: session.user.id,
@@ -123,39 +126,39 @@ export async function POST(
         },
         include: {
           challenge: {
-            select: { title: true, type: true, maxScore: true }
+            select: { title: true, type: true, maxScore: true },
           },
           participant: {
-            select: { displayName: true, avatar: true }
-          }
-        }
+            select: { displayName: true, avatar: true },
+          },
+        },
       });
 
       // Update challenge participant count
       await tx.challenge.update({
         where: { id: params.challengeId },
         data: {
-          participantCount: { increment: 1 }
-        }
+          participantCount: { increment: 1 },
+        },
       });
 
       // Update campaign participant count
-      await tx.campaign.update({
-        where: { id: challenge.campaign.id },
+      await tx.campaigns.update({
+        where: { id: challenge.campaigns.id },
         data: {
-          totalParticipants: { increment: 1 }
-        }
+          totalParticipants: { increment: 1 },
+        },
       });
 
       // Initialize leaderboard entry
-      await tx.challengeLeaderboard.create({
+      await tx.challenge_leaderboards.create({
         data: {
           challengeId: params.challengeId,
           userId: session.user.id,
           rank: challenge.participantCount + 1,
           score: 0,
-          submissions: 0,
-        }
+          challenge_submissions: 0,
+        },
       });
 
       return newParticipation;
@@ -169,16 +172,16 @@ export async function POST(
     });
 
     return NextResponse.json(participation, { status: 201 });
-
   } catch (error) {
-    logger.error('Error joining challenge', { 
-      challengeId: params.challengeId,
-      userId: session?.user?.id 
-    }, error as Error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+    logger.error(
+      'Error joining challenge',
+      {
+        challengeId: params.challengeId,
+        userId: session?.user?.id,
+      },
+      error as Error
     );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -195,25 +198,25 @@ export async function DELETE(
     }
 
     // Find participation
-    const participation = await prisma.challengeParticipation.findUnique({
+    const participation = await prisma.challenge_participations.findUnique({
       where: {
         challengeId_participantId: {
           challengeId: params.challengeId,
-          participantId: session.user.id
-        }
+          participantId: session.user.id,
+        },
       },
       include: {
         challenge: {
           include: {
             campaign: {
-              select: { id: true }
-            }
-          }
+              select: { id: true },
+            },
+          },
         },
-        submissions: {
-          select: { id: true }
-        }
-      }
+        challenge_submissions: {
+          select: { id: true },
+        },
+      },
     });
 
     if (!participation) {
@@ -226,41 +229,44 @@ export async function DELETE(
 
     // Don't allow leaving if user has submissions (to maintain leaderboard integrity)
     if (participation.submissions.length > 0) {
-      return NextResponse.json({ 
-        error: 'Cannot leave challenge after making submissions. You can withdraw instead.' 
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: 'Cannot leave challenge after making submissions. You can withdraw instead.',
+        },
+        { status: 400 }
+      );
     }
 
     // Remove participation
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async tx => {
       // Update participation status to withdrawn
-      await tx.challengeParticipation.update({
+      await tx.challenge_participations.update({
         where: { id: participation.id },
-        data: { status: 'WITHDRAWN' }
+        data: { status: 'WITHDRAWN' },
       });
 
       // Update challenge participant count
       await tx.challenge.update({
         where: { id: params.challengeId },
         data: {
-          participantCount: { decrement: 1 }
-        }
+          participantCount: { decrement: 1 },
+        },
       });
 
       // Update campaign participant count
-      await tx.campaign.update({
-        where: { id: participation.challenge.campaign.id },
+      await tx.campaigns.update({
+        where: { id: participation.challenge.campaigns.id },
         data: {
-          totalParticipants: { decrement: 1 }
-        }
+          totalParticipants: { decrement: 1 },
+        },
       });
 
       // Remove from leaderboard
-      await tx.challengeLeaderboard.deleteMany({
+      await tx.challenge_leaderboards.deleteMany({
         where: {
           challengeId: params.challengeId,
-          userId: session.user.id
-        }
+          userId: session.user.id,
+        },
       });
     });
 
@@ -271,15 +277,15 @@ export async function DELETE(
     });
 
     return NextResponse.json({ message: 'Successfully left challenge' });
-
   } catch (error) {
-    logger.error('Error leaving challenge', { 
-      challengeId: params.challengeId,
-      userId: session?.user?.id 
-    }, error as Error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+    logger.error(
+      'Error leaving challenge',
+      {
+        challengeId: params.challengeId,
+        userId: session?.user?.id,
+      },
+      error as Error
     );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

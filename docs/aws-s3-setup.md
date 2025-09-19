@@ -1,9 +1,12 @@
 # 📦 AWS S3 Setup for Direct Fan Platform
 
 ## Overview
-This guide helps you set up AWS S3 for file storage and content delivery for your Direct Fan Platform.
+
+This guide helps you set up AWS S3 for file storage and content delivery for
+your Direct Fan Platform.
 
 ## Prerequisites
+
 - AWS account (free tier available)
 - Access to AWS Console
 - Basic understanding of AWS IAM and S3
@@ -11,6 +14,7 @@ This guide helps you set up AWS S3 for file storage and content delivery for you
 ## Step 1: Create S3 Bucket
 
 ### 1.1 Create Bucket
+
 1. Go to [AWS S3 Console](https://console.aws.amazon.com/s3/)
 2. Click "Create bucket"
 3. Choose a unique bucket name (e.g., `your-fan-platform-content-prod`)
@@ -19,20 +23,21 @@ This guide helps you set up AWS S3 for file storage and content delivery for you
 6. Click "Create bucket"
 
 ### 1.2 Configure Bucket Policy
+
 Add this bucket policy to allow public read access to uploaded content:
 
 ```json
 {
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Sid": "PublicReadGetObject",
-            "Effect": "Allow",
-            "Principal": "*",
-            "Action": "s3:GetObject",
-            "Resource": "arn:aws:s3:::your-bucket-name/*"
-        }
-    ]
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "PublicReadGetObject",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::your-bucket-name/*"
+    }
+  ]
 }
 ```
 
@@ -42,34 +47,24 @@ Add the following CORS configuration to your bucket:
 
 ```json
 [
-    {
-        "AllowedHeaders": [
-            "*"
-        ],
-        "AllowedMethods": [
-            "GET",
-            "PUT",
-            "POST",
-            "DELETE",
-            "HEAD"
-        ],
-        "AllowedOrigins": [
-            "https://yourdomain.com",
-            "https://*.yourdomain.com",
-            "http://localhost:3000"
-        ],
-        "ExposeHeaders": [
-            "ETag",
-            "x-amz-request-id"
-        ],
-        "MaxAgeSeconds": 3000
-    }
+  {
+    "AllowedHeaders": ["*"],
+    "AllowedMethods": ["GET", "PUT", "POST", "DELETE", "HEAD"],
+    "AllowedOrigins": [
+      "https://yourdomain.com",
+      "https://*.yourdomain.com",
+      "http://localhost:3000"
+    ],
+    "ExposeHeaders": ["ETag", "x-amz-request-id"],
+    "MaxAgeSeconds": 3000
+  }
 ]
 ```
 
 ## Step 3: Create IAM User
 
 ### 3.1 Create User
+
 1. Go to [AWS IAM Console](https://console.aws.amazon.com/iam/)
 2. Click "Users" → "Create user"
 3. Enter username: `fan-platform-s3-user`
@@ -77,31 +72,33 @@ Add the following CORS configuration to your bucket:
 5. Create and attach the custom policy below
 
 ### 3.2 Custom IAM Policy
+
 Create a policy named `FanPlatformS3Access`:
 
 ```json
 {
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Effect": "Allow",
-            "Action": [
-                "s3:PutObject",
-                "s3:PutObjectAcl",
-                "s3:GetObject",
-                "s3:DeleteObject",
-                "s3:ListBucket"
-            ],
-            "Resource": [
-                "arn:aws:s3:::your-bucket-name",
-                "arn:aws:s3:::your-bucket-name/*"
-            ]
-        }
-    ]
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:PutObjectAcl",
+        "s3:GetObject",
+        "s3:DeleteObject",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::your-bucket-name",
+        "arn:aws:s3:::your-bucket-name/*"
+      ]
+    }
+  ]
 }
 ```
 
 ### 3.3 Generate Access Keys
+
 1. Select your created user
 2. Go to "Security credentials" tab
 3. Click "Create access key"
@@ -122,6 +119,7 @@ AWS_S3_BUCKET_NAME="your-bucket-name"
 ## Step 5: Optional - CloudFront CDN
 
 ### 5.1 Create CloudFront Distribution
+
 1. Go to [CloudFront Console](https://console.aws.amazon.com/cloudfront/)
 2. Click "Create distribution"
 3. Set origin domain to your S3 bucket
@@ -129,6 +127,7 @@ AWS_S3_BUCKET_NAME="your-bucket-name"
 5. Set up SSL certificate
 
 ### 5.2 Add CDN Environment Variable
+
 ```bash
 AWS_CLOUDFRONT_URL="https://d123456abcdefg.cloudfront.net"
 ```
@@ -136,6 +135,7 @@ AWS_CLOUDFRONT_URL="https://d123456abcdefg.cloudfront.net"
 ## Step 6: Test Configuration
 
 ### 6.1 Test Upload
+
 Use the following script to test your S3 configuration:
 
 ```bash
@@ -161,6 +161,7 @@ rm test.txt
 ## File Organization Structure
 
 Your S3 bucket will be organized as:
+
 ```
 your-bucket-name/
 ├── content/
@@ -214,11 +215,13 @@ your-bucket-name/
    - Check file size limits (5TB max for single upload)
 
 ### Monitoring
+
 - Enable CloudWatch metrics for S3
 - Set up alerts for failed uploads
 - Monitor storage costs regularly
 
 ## Next Steps
+
 1. Configure your environment variables
 2. Test file uploads in your development environment
 3. Deploy to production
@@ -226,4 +229,5 @@ your-bucket-name/
 
 ---
 
-**Important**: Replace `your-bucket-name` and `yourdomain.com` with your actual values throughout this guide.
+**Important**: Replace `your-bucket-name` and `yourdomain.com` with your actual
+values throughout this guide.

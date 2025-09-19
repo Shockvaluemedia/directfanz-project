@@ -1,6 +1,7 @@
 # Business Monitoring Implementation Guide
 
-This guide shows how to implement comprehensive business monitoring for your Direct-to-Fan Platform using the new business metrics tracking system.
+This guide shows how to implement comprehensive business monitoring for your
+Direct-to-Fan Platform using the new business metrics tracking system.
 
 ## Overview
 
@@ -8,7 +9,8 @@ The business monitoring system provides:
 
 1. **Business Metrics Tracking** - Key business events and KPIs
 2. **Payment Flow Monitoring** - Comprehensive Stripe integration tracking
-3. **User Engagement Tracking** - User behavior and content interaction analytics
+3. **User Engagement Tracking** - User behavior and content interaction
+   analytics
 4. **Enhanced Sentry Integration** - Business context for error debugging
 5. **Prometheus Metrics** - Time-series metrics for Grafana dashboards
 6. **Admin Dashboard APIs** - Business intelligence endpoints
@@ -54,23 +56,25 @@ async function handleUserRegistration(userData: any) {
   try {
     // Your registration logic...
     const user = await createUser(userData);
-    
+
     // Track the registration
-    userEngagementTracker.trackUserRegistration({
-      userId: user.id,
-      email: user.email,
-      userType: user.role, // 'creator' or 'fan'
-      registrationMethod: 'email', // or 'google', 'facebook', etc.
-      source: 'landing_page',
-      marketingChannel: 'organic_search',
-      hasCompletedProfile: false,
-    }, {
-      source: 'web',
-      platform: 'desktop',
-      referrer: request.headers.referer,
-      userAgent: request.headers['user-agent'],
-    });
-    
+    userEngagementTracker.trackUserRegistration(
+      {
+        userId: user.id,
+        email: user.email,
+        userType: user.role, // 'creator' or 'fan'
+        registrationMethod: 'email', // or 'google', 'facebook', etc.
+        source: 'landing_page',
+        marketingChannel: 'organic_search',
+        hasCompletedProfile: false,
+      },
+      {
+        source: 'web',
+        platform: 'desktop',
+        referrer: request.headers.referer,
+        userAgent: request.headers['user-agent'],
+      }
+    );
   } catch (error) {
     // Error will automatically include business context in Sentry
     throw error;
@@ -88,27 +92,27 @@ async function handleStripeWebhook(event: Stripe.Event) {
   switch (event.type) {
     case 'payment_intent.succeeded':
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
-      
+
       paymentMonitor.trackPaymentSuccess(paymentIntent, {
         userId: paymentIntent.metadata.fan_id,
         creatorId: paymentIntent.metadata.creator_id,
         source: 'web',
       });
       break;
-      
+
     case 'payment_intent.payment_failed':
       const failedPayment = event.data.object as Stripe.PaymentIntent;
-      
+
       paymentMonitor.trackPaymentFailure(failedPayment, {
         userId: failedPayment.metadata.fan_id,
         creatorId: failedPayment.metadata.creator_id,
         source: 'web',
       });
       break;
-      
+
     case 'customer.subscription.created':
       const subscription = event.data.object as Stripe.Subscription;
-      
+
       paymentMonitor.trackSubscriptionCreated(subscription, {
         userId: subscription.metadata.fan_id,
         creatorId: subscription.metadata.creator_id,
@@ -126,40 +130,50 @@ async function handleStripeWebhook(event: Stripe.Event) {
 import { userEngagementTracker } from '@/lib/user-engagement-tracking';
 
 // In your content viewing handler
-async function trackContentView(contentId: string, viewerId: string, duration: number) {
+async function trackContentView(
+  contentId: string,
+  viewerId: string,
+  duration: number
+) {
   const content = await getContent(contentId);
-  
-  userEngagementTracker.trackContentInteraction({
-    contentId,
-    contentType: content.type,
-    creatorId: content.creatorId,
-    viewerId,
-    action: 'view',
-    duration,
-    isSubscribed: await isUserSubscribed(viewerId, content.creatorId),
-    tierRequired: content.tierRequired,
-  }, {
-    source: 'web',
-    platform: detectPlatform(request.headers['user-agent']),
-  });
+
+  userEngagementTracker.trackContentInteraction(
+    {
+      contentId,
+      contentType: content.type,
+      creatorId: content.creatorId,
+      viewerId,
+      action: 'view',
+      duration,
+      isSubscribed: await isUserSubscribed(viewerId, content.creatorId),
+      tierRequired: content.tierRequired,
+    },
+    {
+      source: 'web',
+      platform: detectPlatform(request.headers['user-agent']),
+    }
+  );
 }
 
 // Track content uploads
 async function trackContentUpload(creatorId: string, contentData: any) {
-  userEngagementTracker.trackCreatorActivity({
-    creatorId,
-    action: 'content_upload',
-    contentType: contentData.type,
-    metadata: {
-      contentId: contentData.id,
-      fileSize: contentData.size,
-      duration: contentData.duration,
-      creatorTier: await getCreatorTier(creatorId),
+  userEngagementTracker.trackCreatorActivity(
+    {
+      creatorId,
+      action: 'content_upload',
+      contentType: contentData.type,
+      metadata: {
+        contentId: contentData.id,
+        fileSize: contentData.size,
+        duration: contentData.duration,
+        creatorTier: await getCreatorTier(creatorId),
+      },
     },
-  }, {
-    source: 'web',
-    platform: 'desktop',
-  });
+    {
+      source: 'web',
+      platform: 'desktop',
+    }
+  );
 }
 ```
 
@@ -170,30 +184,34 @@ import { captureError } from '@/lib/sentry';
 
 // In your error handlers
 async function handlePaymentError(error: Error, context: any) {
-  captureError(error, {
-    // User context
-    userId: context.userId,
-    userType: context.userType,
-    subscriptionTier: context.subscriptionTier,
-    
-    // Payment context
-    paymentId: context.paymentId,
-    amount: context.amount,
-    currency: context.currency,
-    paymentMethod: context.paymentMethod,
-    stripeCustomerId: context.stripeCustomerId,
-    
-    // Business context
-    businessEvent: 'payment_processing',
-    funnel: 'subscription_signup',
-    component: 'payment_handler',
-    feature: 'stripe_integration',
-    
-    // Technical context
-    source: 'api',
-    platform: 'web',
-    apiVersion: 'v1',
-  }, 'error');
+  captureError(
+    error,
+    {
+      // User context
+      userId: context.userId,
+      userType: context.userType,
+      subscriptionTier: context.subscriptionTier,
+
+      // Payment context
+      paymentId: context.paymentId,
+      amount: context.amount,
+      currency: context.currency,
+      paymentMethod: context.paymentMethod,
+      stripeCustomerId: context.stripeCustomerId,
+
+      // Business context
+      businessEvent: 'payment_processing',
+      funnel: 'subscription_signup',
+      component: 'payment_handler',
+      feature: 'stripe_integration',
+
+      // Technical context
+      source: 'api',
+      platform: 'web',
+      apiVersion: 'v1',
+    },
+    'error'
+  );
 }
 ```
 
@@ -205,7 +223,7 @@ async function handlePaymentError(error: Error, context: any) {
 // GET /api/admin/metrics?range=30d
 const response = await fetch('/api/admin/metrics?range=30d', {
   headers: {
-    'Authorization': `Bearer ${adminToken}`,
+    Authorization: `Bearer ${adminToken}`,
   },
 });
 
@@ -225,7 +243,7 @@ console.log('Conversion Rate:', metrics.summary.conversionRate);
 // For authenticated access:
 const response = await fetch('/api/metrics', {
   headers: {
-    'Authorization': `Bearer ${process.env.METRICS_AUTH_TOKEN}`,
+    Authorization: `Bearer ${process.env.METRICS_AUTH_TOKEN}`,
   },
 });
 ```
@@ -251,6 +269,7 @@ scrape_configs:
 ### 2. Key Metrics to Monitor
 
 #### Business KPIs
+
 ```promql
 # Active Users (last 24 hours)
 direct_fan_active_users{period="24h",user_type="total"}
@@ -266,9 +285,10 @@ rate(direct_fan_user_registrations_total[1h])
 ```
 
 #### Payment Metrics
+
 ```promql
 # Payment Success Rate
-rate(direct_fan_payment_attempts_total{status="succeeded"}[5m]) / 
+rate(direct_fan_payment_attempts_total{status="succeeded"}[5m]) /
 rate(direct_fan_payment_attempts_total[5m]) * 100
 
 # Average Payment Amount
@@ -279,6 +299,7 @@ direct_fan_churn_rate{period="30d"}
 ```
 
 #### Content Engagement
+
 ```promql
 # Content Upload Rate
 rate(direct_fan_content_uploads_total[1h])
@@ -293,6 +314,7 @@ histogram_quantile(0.95, rate(direct_fan_content_engagement_duration_seconds_buc
 ### 3. Sample Grafana Queries
 
 #### Revenue Dashboard
+
 ```promql
 # Total Revenue (last 30 days)
 increase(direct_fan_payment_amounts_sum{currency="USD"}[30d])
@@ -305,6 +327,7 @@ direct_fan_arpu{period="30d",user_segment="all_users"}
 ```
 
 #### User Growth Dashboard
+
 ```promql
 # Daily Active Users
 direct_fan_active_users{period="24h",user_type="total"}
@@ -331,7 +354,7 @@ businessMetrics.track({
     feature: 'live_streaming',
     duration: 3600, // 1 hour stream
     viewers: 150,
-    tips_received: 25.50,
+    tips_received: 25.5,
     currency: 'USD',
   },
 });
@@ -380,12 +403,15 @@ businessMetrics.track({
 ### Real-time Alerts
 
 #### Sentry Alerts
+
 Configure alerts in Sentry for:
+
 - Payment failure rate > 5%
 - Subscription cancellation spike
 - High error rates in specific business flows
 
 #### Grafana Alerts
+
 ```yaml
 # Alert when conversion rate drops below 2%
 - alert: LowConversionRate
@@ -395,8 +421,8 @@ Configure alerts in Sentry for:
     severity: warning
     team: growth
   annotations:
-    summary: "Conversion rate has dropped below 2%"
-    description: "Current conversion rate: {{ $value }}%"
+    summary: 'Conversion rate has dropped below 2%'
+    description: 'Current conversion rate: {{ $value }}%'
 
 # Alert when payment failure rate is high
 - alert: HighPaymentFailureRate
@@ -410,13 +436,14 @@ Configure alerts in Sentry for:
     severity: critical
     team: payments
   annotations:
-    summary: "High payment failure rate detected"
-    description: "Payment failure rate: {{ $value | humanizePercentage }}"
+    summary: 'High payment failure rate detected'
+    description: 'Payment failure rate: {{ $value | humanizePercentage }}'
 ```
 
 ## Privacy and Compliance
 
 ### Data Anonymization
+
 The system supports automatic PII anonymization:
 
 ```env
@@ -430,6 +457,7 @@ USER_TRACKING_SALT=your-secure-salt
 ```
 
 ### GDPR Compliance
+
 - User IDs are hashed when `ANONYMIZE_USER_DATA=true`
 - IP addresses are anonymized to /24 subnets
 - Sensitive data is filtered from error reports
@@ -471,10 +499,16 @@ rate(business_events_total[5m])
 
 ## Next Steps
 
-1. **Set up Grafana Dashboards** - Create comprehensive business intelligence dashboards
-2. **Configure Alerts** - Set up proactive monitoring for critical business metrics
-3. **Implement Cohort Analysis** - Track user retention and lifetime value over time
+1. **Set up Grafana Dashboards** - Create comprehensive business intelligence
+   dashboards
+2. **Configure Alerts** - Set up proactive monitoring for critical business
+   metrics
+3. **Implement Cohort Analysis** - Track user retention and lifetime value over
+   time
 4. **A/B Testing** - Use the event tracking system for feature experiments
-5. **Real-time Analytics** - Consider adding real-time dashboards for live business metrics
+5. **Real-time Analytics** - Consider adding real-time dashboards for live
+   business metrics
 
-This monitoring system provides a solid foundation for understanding your business performance, user behavior, and technical health. The data collected will help you make data-driven decisions to grow your Direct-to-Fan Platform.
+This monitoring system provides a solid foundation for understanding your
+business performance, user behavior, and technical health. The data collected
+will help you make data-driven decisions to grow your Direct-to-Fan Platform.

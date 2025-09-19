@@ -1,13 +1,7 @@
-export default function TestMinimalLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function TestMinimalLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body>
-        {children}
-      </body>
+    <html lang='en'>
+      <body>{children}</body>
     </html>
-  )
+  );
 }

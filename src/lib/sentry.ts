@@ -23,7 +23,7 @@ export const initSentry = () => {
         return event;
       },
     });
-    
+
     logger.info('Sentry initialized for error monitoring');
   } else {
     logger.info('Sentry not initialized (not in production or DSN not provided)');
@@ -156,7 +156,11 @@ export const captureError = (
       },
     });
   } catch (sentryError) {
-    logger.error('Failed to capture error in Sentry', { originalError: error.message }, sentryError as Error);
+    logger.error(
+      'Failed to capture error in Sentry',
+      { originalError: error.message },
+      sentryError as Error
+    );
   }
 };
 
@@ -258,18 +262,14 @@ export const captureMessage = (
 };
 
 // Start performance monitoring
-export const startTransaction = (
-  name: string,
-  op: string,
-  context?: Record<string, any>
-) => {
+export const startTransaction = (name: string, op: string, context?: Record<string, any>) => {
   if (process.env.NODE_ENV !== 'production' || !process.env.NEXT_PUBLIC_SENTRY_DSN) {
     return null;
   }
 
   try {
     // Use the Sentry API to start a span
-    return Sentry.startSpan({ name, op }, (span) => {
+    return Sentry.startSpan({ name, op }, span => {
       // Add context as attributes if provided
       if (context && span) {
         Object.entries(context).forEach(([key, value]) => {
@@ -287,11 +287,15 @@ export const startTransaction = (
 // Finish performance monitoring
 export const finishTransaction = (transaction: any | null) => {
   if (!transaction) return;
-  
+
   try {
     transaction.finish();
   } catch (error) {
-    logger.error('Failed to finish Sentry transaction', { transactionName: transaction.name }, error as Error);
+    logger.error(
+      'Failed to finish Sentry transaction',
+      { transactionName: transaction.name },
+      error as Error
+    );
   }
 };
 

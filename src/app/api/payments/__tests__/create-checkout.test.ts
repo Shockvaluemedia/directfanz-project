@@ -1,7 +1,10 @@
 // Mock NextRequest at the top
 global.fetch = jest.fn();
 global.Request = class Request {
-  constructor(public url: string, public init?: RequestInit) {}
+  constructor(
+    public url: string,
+    public init?: RequestInit
+  ) {}
   headers = new Map();
   method = 'GET';
   body = null;
@@ -13,11 +16,11 @@ import { NextRequest } from 'next/server';
 import { POST } from '../create-checkout/route';
 import { getServerSession } from 'next-auth';
 import { prisma } from '@/lib/prisma';
-import { 
-  createStripeProduct, 
-  createStripePrice, 
-  createCheckoutSession, 
-  createOrRetrieveCustomer 
+import {
+  createStripeProduct,
+  createStripePrice,
+  createCheckoutSession,
+  createOrRetrieveCustomer,
 } from '@/lib/stripe';
 
 // Mock dependencies
@@ -39,10 +42,16 @@ jest.mock('@/lib/stripe');
 
 const mockGetServerSession = getServerSession as jest.MockedFunction<typeof getServerSession>;
 const mockPrisma = prisma as jest.Mocked<typeof prisma>;
-const mockCreateStripeProduct = createStripeProduct as jest.MockedFunction<typeof createStripeProduct>;
+const mockCreateStripeProduct = createStripeProduct as jest.MockedFunction<
+  typeof createStripeProduct
+>;
 const mockCreateStripePrice = createStripePrice as jest.MockedFunction<typeof createStripePrice>;
-const mockCreateCheckoutSession = createCheckoutSession as jest.MockedFunction<typeof createCheckoutSession>;
-const mockCreateOrRetrieveCustomer = createOrRetrieveCustomer as jest.MockedFunction<typeof createOrRetrieveCustomer>;
+const mockCreateCheckoutSession = createCheckoutSession as jest.MockedFunction<
+  typeof createCheckoutSession
+>;
+const mockCreateOrRetrieveCustomer = createOrRetrieveCustomer as jest.MockedFunction<
+  typeof createOrRetrieveCustomer
+>;
 
 describe('/api/payments/create-checkout', () => {
   beforeEach(() => {
@@ -112,7 +121,7 @@ describe('/api/payments/create-checkout', () => {
         updatedAt: new Date(),
       });
 
-      mockPrisma.tier.findUnique.mockResolvedValue(null);
+      mockPrisma.tiers.findUnique.mockResolvedValue(null);
 
       const request = new NextRequest('http://localhost:3000/api/payments/create-checkout', {
         method: 'POST',
@@ -143,12 +152,12 @@ describe('/api/payments/create-checkout', () => {
         updatedAt: new Date(),
       });
 
-      mockPrisma.tier.findUnique.mockResolvedValue({
+      mockPrisma.tiers.findUnique.mockResolvedValue({
         id: 'tier-1',
         artistId: 'artist-1',
         name: 'Basic',
         description: 'Basic tier',
-        minimumPrice: 5.00,
+        minimumPrice: 5.0,
         isActive: false,
         subscriberCount: 0,
         createdAt: new Date(),
@@ -163,7 +172,7 @@ describe('/api/payments/create-checkout', () => {
           socialLinks: null,
           createdAt: new Date(),
           updatedAt: new Date(),
-          artistProfile: {
+          artists: {
             id: 'profile-1',
             userId: 'artist-1',
             stripeAccountId: 'acct_123',
@@ -205,12 +214,12 @@ describe('/api/payments/create-checkout', () => {
         updatedAt: new Date(),
       });
 
-      mockPrisma.tier.findUnique.mockResolvedValue({
+      mockPrisma.tiers.findUnique.mockResolvedValue({
         id: 'tier-1',
         artistId: 'artist-1',
         name: 'Basic',
         description: 'Basic tier',
-        minimumPrice: 10.00,
+        minimumPrice: 10.0,
         isActive: true,
         subscriberCount: 0,
         createdAt: new Date(),
@@ -225,7 +234,7 @@ describe('/api/payments/create-checkout', () => {
           socialLinks: null,
           createdAt: new Date(),
           updatedAt: new Date(),
-          artistProfile: {
+          artists: {
             id: 'profile-1',
             userId: 'artist-1',
             stripeAccountId: 'acct_123',
@@ -267,12 +276,12 @@ describe('/api/payments/create-checkout', () => {
         updatedAt: new Date(),
       });
 
-      mockPrisma.tier.findUnique.mockResolvedValue({
+      mockPrisma.tiers.findUnique.mockResolvedValue({
         id: 'tier-1',
         artistId: 'artist-1',
         name: 'Basic',
         description: 'Basic tier',
-        minimumPrice: 5.00,
+        minimumPrice: 5.0,
         isActive: true,
         subscriberCount: 0,
         createdAt: new Date(),
@@ -287,7 +296,7 @@ describe('/api/payments/create-checkout', () => {
           socialLinks: null,
           createdAt: new Date(),
           updatedAt: new Date(),
-          artistProfile: {
+          artists: {
             id: 'profile-1',
             userId: 'artist-1',
             stripeAccountId: null,
@@ -329,12 +338,12 @@ describe('/api/payments/create-checkout', () => {
         updatedAt: new Date(),
       });
 
-      mockPrisma.tier.findUnique.mockResolvedValue({
+      mockPrisma.tiers.findUnique.mockResolvedValue({
         id: 'tier-1',
         artistId: 'artist-1',
         name: 'Basic',
         description: 'Basic tier',
-        minimumPrice: 5.00,
+        minimumPrice: 5.0,
         isActive: true,
         subscriberCount: 0,
         createdAt: new Date(),
@@ -349,7 +358,7 @@ describe('/api/payments/create-checkout', () => {
           socialLinks: null,
           createdAt: new Date(),
           updatedAt: new Date(),
-          artistProfile: {
+          artists: {
             id: 'profile-1',
             userId: 'artist-1',
             stripeAccountId: 'acct_123',
@@ -368,7 +377,7 @@ describe('/api/payments/create-checkout', () => {
         artistId: 'artist-1',
         tierId: 'tier-1',
         stripeSubscriptionId: 'sub_123',
-        amount: 10.00,
+        amount: 10.0,
         status: 'ACTIVE',
         currentPeriodStart: new Date(),
         currentPeriodEnd: new Date(),
@@ -405,12 +414,12 @@ describe('/api/payments/create-checkout', () => {
         updatedAt: new Date(),
       });
 
-      mockPrisma.tier.findUnique.mockResolvedValue({
+      mockPrisma.tiers.findUnique.mockResolvedValue({
         id: 'tier-1',
         artistId: 'artist-1',
         name: 'Basic',
         description: 'Basic tier',
-        minimumPrice: 5.00,
+        minimumPrice: 5.0,
         isActive: true,
         subscriberCount: 0,
         createdAt: new Date(),
@@ -425,7 +434,7 @@ describe('/api/payments/create-checkout', () => {
           socialLinks: null,
           createdAt: new Date(),
           updatedAt: new Date(),
-          artistProfile: {
+          artists: {
             id: 'profile-1',
             userId: 'artist-1',
             stripeAccountId: 'acct_123',
@@ -460,16 +469,8 @@ describe('/api/payments/create-checkout', () => {
         'Test Fan',
         'acct_123'
       );
-      expect(mockCreateStripeProduct).toHaveBeenCalledWith(
-        'Basic',
-        'Basic tier',
-        'acct_123'
-      );
-      expect(mockCreateStripePrice).toHaveBeenCalledWith(
-        'prod_123',
-        10,
-        'acct_123'
-      );
+      expect(mockCreateStripeProduct).toHaveBeenCalledWith('Basic', 'Basic tier', 'acct_123');
+      expect(mockCreateStripePrice).toHaveBeenCalledWith('prod_123', 10, 'acct_123');
     });
 
     it('should return 400 for invalid request data', async () => {

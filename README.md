@@ -1,11 +1,14 @@
-# Direct Fan Platform
+# DirectFanz
 
-A platform that connects independent artists with their superfans through subscription-based exclusive content access.
+A platform that connects independent artists with their superfans through
+subscription-based exclusive content access.
 
 ## Features
 
-- **Artist Dashboard**: Create subscription tiers, upload exclusive content, track earnings
-- **Fan Experience**: Discover artists, flexible subscription pricing, access exclusive content
+- **Artist Dashboard**: Create subscription tiers, upload exclusive content,
+  track earnings
+- **Fan Experience**: Discover artists, flexible subscription pricing, access
+  exclusive content
 - **Secure Payments**: Stripe integration with daily payouts
 - **Community Features**: Comments, notifications, and fan interactions
 
@@ -29,18 +32,22 @@ A platform that connects independent artists with their superfans through subscr
 ### Quick Start
 
 1. **Clone the repository** (if not already done):
+
    ```bash
    git clone <your-repo-url>
-   cd direct-fan-platform
+   cd directfanz
    ```
 
 2. **Set up environment variables**:
+
    ```bash
    cp .env.local.example .env.local
    ```
+
    Edit `.env.local` with your configuration values.
 
 3. **Start the application with Docker**:
+
    ```bash
    docker-compose up --build
    ```
@@ -85,7 +92,8 @@ docker-compose exec postgres psql -U postgres -d direct_fan_platform
 
 ### Database Setup
 
-The database will be automatically initialized when you first run `docker-compose up`. The schema will be created using Prisma migrations.
+The database will be automatically initialized when you first run
+`docker-compose up`. The schema will be created using Prisma migrations.
 
 To run database operations:
 
@@ -109,7 +117,7 @@ Key environment variables you need to configure in `.env.local`:
 
 ```env
 # Database (automatically configured for Docker)
-DATABASE_URL="postgresql://postgres:password@postgres:5432/direct_fan_platform"
+DATABASE_URL="postgresql://postgres:password@postgres:5432/directfanz"
 
 # Redis (automatically configured for Docker)
 REDIS_URL="redis://redis:6379"
@@ -137,20 +145,25 @@ FROM_EMAIL="noreply@yourplatform.com"
 
 ### Common Issues
 
-1. **Port conflicts**: If ports 3000, 5432, 6379, or 5050 are already in use, modify the ports in `docker-compose.yml`
+1. **Port conflicts**: If ports 3000, 5432, 6379, or 5050 are already in use,
+   modify the ports in `docker-compose.yml`
 
 2. **Database connection issues**: Ensure PostgreSQL service is running:
+
    ```bash
    docker-compose logs postgres
    ```
 
-3. **Node modules issues**: If you encounter module-related errors, rebuild the container:
+3. **Node modules issues**: If you encounter module-related errors, rebuild the
+   container:
+
    ```bash
    docker-compose down
    docker-compose up --build
    ```
 
-4. **Permission issues**: On Linux/Mac, you might need to adjust file permissions:
+4. **Permission issues**: On Linux/Mac, you might need to adjust file
+   permissions:
    ```bash
    sudo chown -R $USER:$USER .
    ```

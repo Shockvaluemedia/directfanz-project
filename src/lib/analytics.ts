@@ -54,7 +54,7 @@ export async function calculateEarningsData(artistId: string): Promise<EarningsD
   const previousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
   // Get total earnings from artist profile
-  const artist = await prisma.artist.findUnique({
+  const artist = await prisma.artists.findUnique({
     where: { userId: artistId },
     select: { totalEarnings: true },
   });
@@ -62,7 +62,7 @@ export async function calculateEarningsData(artistId: string): Promise<EarningsD
   const totalEarnings = artist?.totalEarnings ? parseFloat(artist.totalEarnings.toString()) : 0;
 
   // Get current active subscriptions
-  const activeSubscriptions = await prisma.subscription.findMany({
+  const activeSubscriptions = await prisma.subscriptions.findMany({
     where: {
       artistId,
       status: 'ACTIVE',
@@ -76,13 +76,22 @@ export async function calculateEarningsData(artistId: string): Promise<EarningsD
   const todaySubs = activeSubscriptions.filter(sub => sub.createdAt >= startOfDay);
   const thisYearSubs = activeSubscriptions.filter(sub => sub.createdAt >= startOfYear);
 
-  const monthlyEarnings = thisMonthSubs.reduce((sum, sub) => sum + parseFloat(sub.amount.toString()), 0);
-  const weeklyEarnings = thisWeekSubs.reduce((sum, sub) => sum + parseFloat(sub.amount.toString()), 0);
+  const monthlyEarnings = thisMonthSubs.reduce(
+    (sum, sub) => sum + parseFloat(sub.amount.toString()),
+    0
+  );
+  const weeklyEarnings = thisWeekSubs.reduce(
+    (sum, sub) => sum + parseFloat(sub.amount.toString()),
+    0
+  );
   const dailyEarnings = todaySubs.reduce((sum, sub) => sum + parseFloat(sub.amount.toString()), 0);
-  const yearlyEarnings = thisYearSubs.reduce((sum, sub) => sum + parseFloat(sub.amount.toString()), 0);
+  const yearlyEarnings = thisYearSubs.reduce(
+    (sum, sub) => sum + parseFloat(sub.amount.toString()),
+    0
+  );
 
   // Calculate previous month earnings for growth comparison
-  const previousMonthSubs = await prisma.subscription.findMany({
+  const previousMonthSubs = await prisma.subscriptions.findMany({
     where: {
       artistId,
       status: 'ACTIVE',
@@ -96,9 +105,12 @@ export async function calculateEarningsData(artistId: string): Promise<EarningsD
   }, 0);
 
   // Calculate growth percentage
-  const earningsGrowth = previousMonthEarnings > 0 
-    ? ((monthlyEarnings - previousMonthEarnings) / previousMonthEarnings) * 100 
-    : monthlyEarnings > 0 ? 100 : 0;
+  const earningsGrowth =
+    previousMonthEarnings > 0
+      ? ((monthlyEarnings - previousMonthEarnings) / previousMonthEarnings) * 100
+      : monthlyEarnings > 0
+        ? 100
+        : 0;
 
   return {
     totalEarnings,
@@ -120,25 +132,25 @@ export async function calculateSubscriberMetrics(artistId: string): Promise<Subs
   // Get current subscriber counts
   const [totalResult, activeResult, newResult, canceledResult] = await Promise.all([
     // Total subscribers (including canceled)
-    prisma.subscription.count({
+    prisma.subscriptions.count({
       where: { artistId },
     }),
     // Active subscribers
-    prisma.subscription.count({
-      where: { 
+    prisma.subscriptions.count({
+      where: {
         artistId,
         status: 'ACTIVE',
       },
     }),
     // New subscribers this month
-    prisma.subscription.count({
+    prisma.subscriptions.count({
       where: {
         artistId,
         createdAt: { gte: startOfMonth },
       },
     }),
     // Canceled subscribers this month
-    prisma.subscription.count({
+    prisma.subscriptions.count({
       where: {
         artistId,
         status: 'CANCELED',
@@ -155,7 +167,7 @@ export async function calculateSubscriberMetrics(artistId: string): Promise<Subs
   // Calculate churn rate based on active subscribers at start of month
   const startOfMonthActive = activeSubscribers + canceledSubscribers - newSubscribers;
   const churnRate = startOfMonthActive > 0 ? (canceledSubscribers / startOfMonthActive) * 100 : 0;
-  
+
   // Calculate retention rate
   const retentionRate = Math.max(0, 100 - churnRate);
 
@@ -173,7 +185,7 @@ export async function calculateSubscriberMetrics(artistId: string): Promise<Subs
  * Calculate tier analytics for an artist
  */
 export async function calculateTierAnalytics(artistId: string): Promise<TierAnalytics[]> {
-  const tiers = await prisma.tier.findMany({
+  const tiers = await prisma.tiers.findMany({
     where: { artistId },
     include: {
       subscriptions: {
@@ -187,7 +199,7 @@ export async function calculateTierAnalytics(artistId: string): Promise<TierAnal
   for (const tier of tiers) {
     const activeSubscriptions = tier.subscriptions;
     const subscriberCount = activeSubscriptions.length;
-    
+
     // Calculate monthly revenue for this tier
     const monthlyRevenue = activeSubscriptions.reduce((sum, sub) => {
       return sum + parseFloat(sub.amount.toString());
@@ -216,11 +228,14 @@ export async function calculateTierAnalytics(artistId: string): Promise<TierAnal
 /**
  * Get recent activity for an artist
  */
-export async function getRecentActivity(artistId: string, limit: number = 10): Promise<RecentActivity[]> {
+export async function getRecentActivity(
+  artistId: string,
+  limit: number = 10
+): Promise<RecentActivity[]> {
   const activities: RecentActivity[] = [];
 
   // Get recent subscriptions
-  const recentSubscriptions = await prisma.subscription.findMany({
+  const recentSubscriptions = await prisma.subscriptions.findMany({
     where: { artistId },
     include: {
       fan: { select: { displayName: true } },
@@ -233,13 +248,14 @@ export async function getRecentActivity(artistId: string, limit: number = 10): P
   for (const sub of recentSubscriptions) {
     const fanName = sub.fan?.displayName || 'Anonymous Fan';
     const tierName = sub.tier?.name || 'Unknown Tier';
-    
+
     activities.push({
       id: sub.id,
       type: sub.status === 'CANCELED' ? 'cancellation' : 'subscription',
-      description: sub.status === 'CANCELED' 
-        ? `${fanName} canceled subscription to ${tierName}`
-        : `${fanName} subscribed to ${tierName}`,
+      description:
+        sub.status === 'CANCELED'
+          ? `${fanName} canceled subscription to ${tierName}`
+          : `${fanName} subscribed to ${tierName}`,
       amount: parseFloat(sub.amount.toString()),
       timestamp: sub.createdAt,
     });
@@ -262,9 +278,7 @@ export async function getRecentActivity(artistId: string, limit: number = 10): P
   }
 
   // Sort all activities by timestamp and limit
-  return activities
-    .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
-    .slice(0, limit);
+  return activities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()).slice(0, limit);
 }
 
 /**
@@ -307,7 +321,7 @@ export async function getDailyEarningsSummary(artistId: string): Promise<{
   // Get subscriptions for different periods
   const [todaysSubs, yesterdaysSubs, weekSubs, monthSubs, last30DaysSubs] = await Promise.all([
     // Today's new subscriptions
-    prisma.subscription.findMany({
+    prisma.subscriptions.findMany({
       where: {
         artistId,
         status: 'ACTIVE',
@@ -316,7 +330,7 @@ export async function getDailyEarningsSummary(artistId: string): Promise<{
       select: { amount: true },
     }),
     // Yesterday's new subscriptions
-    prisma.subscription.findMany({
+    prisma.subscriptions.findMany({
       where: {
         artistId,
         status: 'ACTIVE',
@@ -325,7 +339,7 @@ export async function getDailyEarningsSummary(artistId: string): Promise<{
       select: { amount: true },
     }),
     // This week's new subscriptions
-    prisma.subscription.findMany({
+    prisma.subscriptions.findMany({
       where: {
         artistId,
         status: 'ACTIVE',
@@ -334,7 +348,7 @@ export async function getDailyEarningsSummary(artistId: string): Promise<{
       select: { amount: true },
     }),
     // This month's new subscriptions
-    prisma.subscription.findMany({
+    prisma.subscriptions.findMany({
       where: {
         artistId,
         status: 'ACTIVE',
@@ -343,7 +357,7 @@ export async function getDailyEarningsSummary(artistId: string): Promise<{
       select: { amount: true },
     }),
     // Last 30 days for average calculation
-    prisma.subscription.findMany({
+    prisma.subscriptions.findMany({
       where: {
         artistId,
         status: 'ACTIVE',
@@ -354,10 +368,16 @@ export async function getDailyEarningsSummary(artistId: string): Promise<{
   ]);
 
   const todayEarnings = todaysSubs.reduce((sum, sub) => sum + parseFloat(sub.amount.toString()), 0);
-  const yesterdayEarnings = yesterdaysSubs.reduce((sum, sub) => sum + parseFloat(sub.amount.toString()), 0);
+  const yesterdayEarnings = yesterdaysSubs.reduce(
+    (sum, sub) => sum + parseFloat(sub.amount.toString()),
+    0
+  );
   const weekEarnings = weekSubs.reduce((sum, sub) => sum + parseFloat(sub.amount.toString()), 0);
   const monthEarnings = monthSubs.reduce((sum, sub) => sum + parseFloat(sub.amount.toString()), 0);
-  const last30DaysEarnings = last30DaysSubs.reduce((sum, sub) => sum + parseFloat(sub.amount.toString()), 0);
+  const last30DaysEarnings = last30DaysSubs.reduce(
+    (sum, sub) => sum + parseFloat(sub.amount.toString()),
+    0
+  );
 
   const dailyAverage = last30DaysEarnings / 30;
 
@@ -382,19 +402,21 @@ export async function getDailyEarningsSummary(artistId: string): Promise<{
 /**
  * Get detailed subscriber count per tier (Requirement 1.5)
  */
-export async function getSubscriberCountPerTier(artistId: string): Promise<{
-  tierId: string;
-  tierName: string;
-  subscriberCount: number;
-  activeSubscribers: number;
-  newThisMonth: number;
-  churnThisMonth: number;
-  revenue: number;
-}[]> {
+export async function getSubscriberCountPerTier(artistId: string): Promise<
+  {
+    tierId: string;
+    tierName: string;
+    subscriberCount: number;
+    activeSubscribers: number;
+    newThisMonth: number;
+    churnThisMonth: number;
+    revenue: number;
+  }[]
+> {
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const tiers = await prisma.tier.findMany({
+  const tiers = await prisma.tiers.findMany({
     where: { artistId },
     include: {
       subscriptions: {
@@ -413,8 +435,8 @@ export async function getSubscriberCountPerTier(artistId: string): Promise<{
     const allSubs = tier.subscriptions;
     const activeSubs = allSubs.filter(sub => sub.status === 'ACTIVE');
     const newThisMonth = allSubs.filter(sub => sub.createdAt >= startOfMonth);
-    const churnedThisMonth = allSubs.filter(sub => 
-      sub.status === 'CANCELED' && sub.updatedAt >= startOfMonth
+    const churnedThisMonth = allSubs.filter(
+      sub => sub.status === 'CANCELED' && sub.updatedAt >= startOfMonth
     );
 
     const revenue = activeSubs.reduce((sum, sub) => sum + parseFloat(sub.amount.toString()), 0);
@@ -448,7 +470,7 @@ export async function getChurnAnalysis(artistId: string): Promise<{
 
   // Get all subscriptions for analysis
   const [allSubs, tiers] = await Promise.all([
-    prisma.subscription.findMany({
+    prisma.subscriptions.findMany({
       where: { artistId },
       select: {
         id: true,
@@ -458,7 +480,7 @@ export async function getChurnAnalysis(artistId: string): Promise<{
         tierId: true,
       },
     }),
-    prisma.tier.findMany({
+    prisma.tiers.findMany({
       where: { artistId },
       select: { id: true, name: true },
     }),
@@ -473,7 +495,8 @@ export async function getChurnAnalysis(artistId: string): Promise<{
 
   // Calculate monthly churn rate
   const startOfMonthActive = activeSubs.length + monthlyChurned.length;
-  const monthlyChurnRate = startOfMonthActive > 0 ? (monthlyChurned.length / startOfMonthActive) * 100 : 0;
+  const monthlyChurnRate =
+    startOfMonthActive > 0 ? (monthlyChurned.length / startOfMonthActive) * 100 : 0;
 
   // Calculate churn by tier
   const churnByTier = tiers.map(tier => {
@@ -496,9 +519,8 @@ export async function getChurnAnalysis(artistId: string): Promise<{
     const lifetime = sub.updatedAt.getTime() - sub.createdAt.getTime();
     return lifetime / (1000 * 60 * 60 * 24); // Convert to days
   });
-  const averageLifetime = lifetimes.length > 0 
-    ? lifetimes.reduce((sum, days) => sum + days, 0) / lifetimes.length 
-    : 0;
+  const averageLifetime =
+    lifetimes.length > 0 ? lifetimes.reduce((sum, days) => sum + days, 0) / lifetimes.length : 0;
 
   // Placeholder for churn reasons (would need additional data collection)
   const churnReasons = [
@@ -527,7 +549,7 @@ export async function getEarningsForPeriod(
   endDate: Date
 ): Promise<{ date: string; earnings: number }[]> {
   // Get all subscription payments in the period
-  const subscriptions = await prisma.subscription.findMany({
+  const subscriptions = await prisma.subscriptions.findMany({
     where: {
       artistId,
       status: 'ACTIVE',
@@ -542,7 +564,7 @@ export async function getEarningsForPeriod(
 
   // Group by date
   const earningsByDate = new Map<string, number>();
-  
+
   for (const sub of subscriptions) {
     const dateKey = sub.createdAt.toISOString().split('T')[0];
     const amount = parseFloat(sub.amount.toString());
@@ -563,9 +585,11 @@ export async function getSubscriberGrowthForPeriod(
   artistId: string,
   startDate: Date,
   endDate: Date
-): Promise<{ date: string; subscribers: number; newSubscribers: number; canceledSubscribers: number }[]> {
+): Promise<
+  { date: string; subscribers: number; newSubscribers: number; canceledSubscribers: number }[]
+> {
   // Get all subscription events in the period
-  const subscriptions = await prisma.subscription.findMany({
+  const subscriptions = await prisma.subscriptions.findMany({
     where: {
       artistId,
       OR: [
@@ -583,18 +607,18 @@ export async function getSubscriberGrowthForPeriod(
 
   // Group by date and calculate metrics
   const metricsByDate = new Map<string, { new: number; canceled: number; total: number }>();
-  
+
   for (const sub of subscriptions) {
     const createdDateKey = sub.createdAt.toISOString().split('T')[0];
     const updatedDateKey = sub.updatedAt.toISOString().split('T')[0];
-    
+
     // Count new subscriptions
     if (sub.createdAt >= startDate && sub.createdAt <= endDate) {
       const existing = metricsByDate.get(createdDateKey) || { new: 0, canceled: 0, total: 0 };
       existing.new += 1;
       metricsByDate.set(createdDateKey, existing);
     }
-    
+
     // Count cancellations
     if (sub.status === 'CANCELED' && sub.updatedAt >= startDate && sub.updatedAt <= endDate) {
       const existing = metricsByDate.get(updatedDateKey) || { new: 0, canceled: 0, total: 0 };

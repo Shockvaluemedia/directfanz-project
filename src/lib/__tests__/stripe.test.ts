@@ -30,7 +30,7 @@ jest.mock('stripe', () => {
       },
     },
   };
-  
+
   return jest.fn().mockImplementation(() => mockStripeInstance);
 });
 
@@ -76,9 +76,9 @@ describe('Stripe Integration', () => {
     it('should throw error when Stripe account creation fails', async () => {
       mockStripe.accounts.create.mockRejectedValue(new Error('Stripe error'));
 
-      await expect(
-        createStripeConnectAccount('test@example.com', 'Test Artist')
-      ).rejects.toThrow('Failed to create Stripe Connect account');
+      await expect(createStripeConnectAccount('test@example.com', 'Test Artist')).rejects.toThrow(
+        'Failed to create Stripe Connect account'
+      );
     });
   });
 
@@ -167,7 +167,7 @@ describe('Stripe Integration', () => {
       const mockPrice = { id: 'price_test123' };
       mockStripe.prices.create.mockResolvedValue(mockPrice);
 
-      const result = await createStripePrice('prod_test123', 10.00, 'acct_test123');
+      const result = await createStripePrice('prod_test123', 10.0, 'acct_test123');
 
       expect(mockStripe.prices.create).toHaveBeenCalledWith(
         {
@@ -243,11 +243,7 @@ describe('Stripe Integration', () => {
       };
       mockStripe.customers.list.mockResolvedValue(mockCustomers);
 
-      const result = await createOrRetrieveCustomer(
-        'test@example.com',
-        'Test Fan',
-        'acct_test123'
-      );
+      const result = await createOrRetrieveCustomer('test@example.com', 'Test Fan', 'acct_test123');
 
       expect(mockStripe.customers.list).toHaveBeenCalledWith(
         {
@@ -264,15 +260,11 @@ describe('Stripe Integration', () => {
     it('should create new customer if none exists', async () => {
       const mockCustomers = { data: [] };
       const mockNewCustomer = { id: 'cus_new123' };
-      
+
       mockStripe.customers.list.mockResolvedValue(mockCustomers);
       mockStripe.customers.create.mockResolvedValue(mockNewCustomer);
 
-      const result = await createOrRetrieveCustomer(
-        'test@example.com',
-        'Test Fan',
-        'acct_test123'
-      );
+      const result = await createOrRetrieveCustomer('test@example.com', 'Test Fan', 'acct_test123');
 
       expect(mockStripe.customers.create).toHaveBeenCalledWith(
         {

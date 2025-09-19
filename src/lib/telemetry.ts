@@ -27,11 +27,16 @@ export function initTelemetry() {
 // Stub tracer instance
 export const tracer = {
   startActiveSpan: (name: string, options: any, fn: any) => {
-    return fn({ setStatus: () => {}, setAttributes: () => {}, recordException: () => {}, end: () => {} });
-  }
+    return fn({
+      setStatus: () => {},
+      setAttributes: () => {},
+      recordException: () => {},
+      end: () => {},
+    });
+  },
 };
 
-// Stub metrics instance  
+// Stub metrics instance
 export const meter = {
   createHistogram: () => ({ record: () => {} }),
   createCounter: () => ({ add: () => {} }),
@@ -101,6 +106,6 @@ export class TracingService {
 export function getTelemetryHealth() {
   return {
     status: 'disabled',
-    message: 'Telemetry is disabled due to missing dependencies'
+    message: 'Telemetry is disabled due to missing dependencies',
   };
 }

@@ -17,15 +17,15 @@ export async function GET() {
   try {
     const dbStartTime = Date.now();
     await prisma.$queryRaw`SELECT 1`;
-    checks.database = { 
+    checks.database = {
       status: 'ok',
-      latency: Date.now() - dbStartTime
+      latency: Date.now() - dbStartTime,
     };
   } catch (error) {
     logger.error('Health check: Database connection failed', {}, error as Error);
-    checks.database = { 
+    checks.database = {
       status: 'error',
-      message: 'Could not connect to database'
+      message: 'Could not connect to database',
     };
   }
 
@@ -33,15 +33,15 @@ export async function GET() {
   try {
     const redisStartTime = Date.now();
     await redis.ping();
-    checks.redis = { 
+    checks.redis = {
       status: 'ok',
-      latency: Date.now() - redisStartTime
+      latency: Date.now() - redisStartTime,
     };
   } catch (error) {
     logger.error('Health check: Redis connection failed', {}, error as Error);
-    checks.redis = { 
+    checks.redis = {
       status: 'error',
-      message: 'Could not connect to Redis'
+      message: 'Could not connect to Redis',
     };
   }
 
@@ -56,15 +56,18 @@ export async function GET() {
     logger.warn('Health check failed', { checks, latency: totalLatency });
   }
 
-  return NextResponse.json({
-    status: isHealthy ? 'healthy' : 'unhealthy',
-    timestamp: new Date().toISOString(),
-    checks,
-    latency: totalLatency
-  }, {
-    status: isHealthy ? 200 : 503,
-    headers: {
-      'Cache-Control': 'no-store, max-age=0'
+  return NextResponse.json(
+    {
+      status: isHealthy ? 'healthy' : 'unhealthy',
+      timestamp: new Date().toISOString(),
+      checks,
+      latency: totalLatency,
+    },
+    {
+      status: isHealthy ? 200 : 503,
+      headers: {
+        'Cache-Control': 'no-store, max-age=0',
+      },
     }
-  });
+  );
 }

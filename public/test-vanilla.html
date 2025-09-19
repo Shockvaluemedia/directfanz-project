@@ -1,81 +1,81 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Vanilla JavaScript Test</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 600px;
-            margin: 50px auto;
-            padding: 20px;
-        }
-        button {
-            background: #4F46E5;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-        button:hover {
-            background: #4338CA;
-        }
-        #result {
-            margin-top: 20px;
-            padding: 10px;
-            background: #F3F4F6;
-            border-radius: 5px;
-            min-height: 50px;
-        }
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 600px;
+        margin: 50px auto;
+        padding: 20px;
+      }
+      button {
+        background: #4f46e5;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+      }
+      button:hover {
+        background: #4338ca;
+      }
+      #result {
+        margin-top: 20px;
+        padding: 10px;
+        background: #f3f4f6;
+        border-radius: 5px;
+        min-height: 50px;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <h1>Vanilla JavaScript Test</h1>
     <p>This tests basic JavaScript without React or Next.js</p>
-    
+
     <button id="testButton" onclick="testClick()">Click Me!</button>
     <div id="result">Ready to test...</div>
 
     <script>
-        console.log('Vanilla JavaScript loaded and ready');
-        
-        let clickCount = 0;
-        
-        function testClick() {
-            clickCount++;
-            console.log('Button clicked! Count:', clickCount);
-            
-            const resultDiv = document.getElementById('result');
-            resultDiv.innerHTML = `
+      console.log('Vanilla JavaScript loaded and ready');
+
+      let clickCount = 0;
+
+      function testClick() {
+        clickCount++;
+        console.log('Button clicked! Count:', clickCount);
+
+        const resultDiv = document.getElementById('result');
+        resultDiv.innerHTML = `
                 <strong>Success!</strong><br>
                 Button clicked ${clickCount} time${clickCount === 1 ? '' : 's'}<br>
                 JavaScript is working properly!<br>
                 Time: ${new Date().toLocaleTimeString()}
             `;
-            
-            // Test fetch API too
-            fetch('/api/auth/csrf')
-                .then(response => response.json())
-                .then(data => {
-                    console.log('API test successful:', data);
-                    resultDiv.innerHTML += '<br><br><strong>API Test:</strong> ✅ Working';
-                })
-                .catch(error => {
-                    console.error('API test failed:', error);
-                    resultDiv.innerHTML += '<br><br><strong>API Test:</strong> ❌ Failed';
-                });
-        }
-        
-        // Test if DOM is ready
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOM is ready');
-        });
-        
-        // Test immediate execution
-        console.log('Script is executing immediately');
+
+        // Test fetch API too
+        fetch('/api/auth/csrf')
+          .then(response => response.json())
+          .then(data => {
+            console.log('API test successful:', data);
+            resultDiv.innerHTML += '<br><br><strong>API Test:</strong> ✅ Working';
+          })
+          .catch(error => {
+            console.error('API test failed:', error);
+            resultDiv.innerHTML += '<br><br><strong>API Test:</strong> ❌ Failed';
+          });
+      }
+
+      // Test if DOM is ready
+      document.addEventListener('DOMContentLoaded', function () {
+        console.log('DOM is ready');
+      });
+
+      // Test immediate execution
+      console.log('Script is executing immediately');
     </script>
-</body>
+  </body>
 </html>

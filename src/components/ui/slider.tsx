@@ -15,81 +15,93 @@ interface SliderProps {
 }
 
 export const Slider = forwardRef<HTMLDivElement, SliderProps>(
-  ({ 
-    value = [0], 
-    onValueChange, 
-    min = 0, 
-    max = 100, 
-    step = 1, 
-    disabled = false, 
-    className = '',
-    ...props 
-  }, ref) => {
+  (
+    {
+      value = [0],
+      onValueChange,
+      min = 0,
+      max = 100,
+      step = 1,
+      disabled = false,
+      className = '',
+      ...props
+    },
+    ref
+  ) => {
     const sliderRef = useRef<HTMLDivElement>(null);
     const currentValue = value[0] || 0;
-    
-    const getValueFromPosition = useCallback((clientX: number) => {
-      if (!sliderRef.current) return currentValue;
-      
-      const rect = sliderRef.current.getBoundingClientRect();
-      const percentage = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-      const newValue = min + percentage * (max - min);
-      
-      // Round to nearest step
-      const steppedValue = Math.round(newValue / step) * step;
-      return Math.max(min, Math.min(max, steppedValue));
-    }, [min, max, step, currentValue]);
 
-    const handleMouseDown = useCallback((e: React.MouseEvent) => {
-      if (disabled) return;
-      
-      const newValue = getValueFromPosition(e.clientX);
-      onValueChange?.([newValue]);
+    const getValueFromPosition = useCallback(
+      (clientX: number) => {
+        if (!sliderRef.current) return currentValue;
 
-      const handleMouseMove = (e: MouseEvent) => {
+        const rect = sliderRef.current.getBoundingClientRect();
+        const percentage = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+        const newValue = min + percentage * (max - min);
+
+        // Round to nearest step
+        const steppedValue = Math.round(newValue / step) * step;
+        return Math.max(min, Math.min(max, steppedValue));
+      },
+      [min, max, step, currentValue]
+    );
+
+    const handleMouseDown = useCallback(
+      (e: React.MouseEvent) => {
+        if (disabled) return;
+
         const newValue = getValueFromPosition(e.clientX);
         onValueChange?.([newValue]);
-      };
 
-      const handleMouseUp = () => {
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-      };
+        const handleMouseMove = (e: MouseEvent) => {
+          const newValue = getValueFromPosition(e.clientX);
+          onValueChange?.([newValue]);
+        };
 
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-    }, [disabled, getValueFromPosition, onValueChange]);
+        const handleMouseUp = () => {
+          document.removeEventListener('mousemove', handleMouseMove);
+          document.removeEventListener('mouseup', handleMouseUp);
+        };
 
-    const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-      if (disabled) return;
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+      },
+      [disabled, getValueFromPosition, onValueChange]
+    );
 
-      let newValue = currentValue;
-      
-      switch (e.key) {
-        case 'ArrowLeft':
-        case 'ArrowDown':
-          newValue = Math.max(min, currentValue - step);
-          e.preventDefault();
-          break;
-        case 'ArrowRight':
-        case 'ArrowUp':
-          newValue = Math.min(max, currentValue + step);
-          e.preventDefault();
-          break;
-        case 'Home':
-          newValue = min;
-          e.preventDefault();
-          break;
-        case 'End':
-          newValue = max;
-          e.preventDefault();
-          break;
-        default:
-          return;
-      }
-      
-      onValueChange?.([newValue]);
-    }, [disabled, currentValue, min, max, step, onValueChange]);
+    const handleKeyDown = useCallback(
+      (e: React.KeyboardEvent) => {
+        if (disabled) return;
+
+        let newValue = currentValue;
+
+        switch (e.key) {
+          case 'ArrowLeft':
+          case 'ArrowDown':
+            newValue = Math.max(min, currentValue - step);
+            e.preventDefault();
+            break;
+          case 'ArrowRight':
+          case 'ArrowUp':
+            newValue = Math.min(max, currentValue + step);
+            e.preventDefault();
+            break;
+          case 'Home':
+            newValue = min;
+            e.preventDefault();
+            break;
+          case 'End':
+            newValue = max;
+            e.preventDefault();
+            break;
+          default:
+            return;
+        }
+
+        onValueChange?.([newValue]);
+      },
+      [disabled, currentValue, min, max, step, onValueChange]
+    );
 
     const percentage = ((currentValue - min) / (max - min)) * 100;
 
@@ -109,10 +121,10 @@ export const Slider = forwardRef<HTMLDivElement, SliderProps>(
         >
           {/* Track fill */}
           <div
-            className="absolute h-full bg-blue-600 transition-all duration-150"
+            className='absolute h-full bg-blue-600 transition-all duration-150'
             style={{ width: `${percentage}%` }}
           />
-          
+
           {/* Thumb */}
           <div
             className={`
@@ -124,7 +136,7 @@ export const Slider = forwardRef<HTMLDivElement, SliderProps>(
             style={{ left: `${percentage}%` }}
             tabIndex={disabled ? -1 : 0}
             onKeyDown={handleKeyDown}
-            role="slider"
+            role='slider'
             aria-valuemin={min}
             aria-valuemax={max}
             aria-valuenow={currentValue}

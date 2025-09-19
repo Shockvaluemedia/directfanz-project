@@ -18,10 +18,7 @@ export async function POST(request: NextRequest) {
     const signature = headersList.get('stripe-signature');
 
     if (!signature) {
-      return NextResponse.json(
-        { error: 'Missing stripe-signature header' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Missing stripe-signature header' }, { status: 400 });
     }
 
     let event: Stripe.Event;
@@ -30,10 +27,7 @@ export async function POST(request: NextRequest) {
       event = stripe.webhooks.constructEvent(body, signature, webhookSecret!);
     } catch (err) {
       console.error('Webhook signature verification failed:', err);
-      return NextResponse.json(
-        { error: 'Invalid signature' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
     }
 
     // Handle the event
@@ -41,23 +35,23 @@ export async function POST(request: NextRequest) {
       case 'checkout.session.completed':
         await handleCheckoutSessionCompleted(event.data.object as Stripe.Checkout.Session);
         break;
-      
+
       case 'invoice.payment_succeeded':
         await handleInvoicePaymentSucceeded(event.data.object as Stripe.Invoice);
         break;
-      
+
       case 'invoice.payment_failed':
         await handleInvoicePaymentFailed(event.data.object as Stripe.Invoice);
         break;
-      
+
       case 'customer.subscription.updated':
         await handleSubscriptionUpdated(event.data.object as Stripe.Subscription);
         break;
-      
+
       case 'customer.subscription.deleted':
         await handleSubscriptionDeleted(event.data.object as Stripe.Subscription);
         break;
-      
+
       default:
         console.log(`Unhandled event type: ${event.type}`);
     }
@@ -65,10 +59,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ received: true });
   } catch (error) {
     console.error('Webhook error:', error);
-    return NextResponse.json(
-      { error: 'Webhook handler failed' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Webhook handler failed' }, { status: 500 });
   }
 }
 
@@ -83,7 +74,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     const subscriptionId = session.subscription as string;
 
     // Create subscription record
-    await prisma.subscription.create({
+    await prisma.subscriptions.create({
       data: {
         fanId,
         artistId,
@@ -97,7 +88,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     });
 
     // Update tier subscriber count
-    await prisma.tier.update({
+    await prisma.tiers.update({
       where: { id: tierId },
       data: {
         subscriberCount: {
@@ -107,7 +98,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     });
 
     // Update artist total subscribers
-    await prisma.artist.update({
+    await prisma.artists.update({
       where: { userId: artistId },
       data: {
         totalSubscribers: {
@@ -118,9 +109,9 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
 
     // Send welcome notification to fan
     const [fan, artist, tier] = await Promise.all([
-      prisma.user.findUnique({ where: { id: fanId } }),
-      prisma.user.findUnique({ where: { id: artistId } }),
-      prisma.tier.findUnique({ where: { id: tierId } })
+      prisma.users.findUnique({ where: { id: fanId } }),
+      prisma.users.findUnique({ where: { id: artistId } }),
+      prisma.tiers.findUnique({ where: { id: tierId } }),
     ]);
 
     if (fan?.email && artist && tier) {
@@ -133,7 +124,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
           <p>You now have access to exclusive content from ${artist.displayName}.</p>
           <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/artist/${artistId}">Visit ${artist.displayName}'s page</a></p>
         `,
-        text: `Thank you for subscribing!\n\nYou are now subscribed to ${artist.displayName}'s ${tier.name} tier.\n\nYou now have access to exclusive content from ${artist.displayName}.\n\nVisit ${artist.displayName}'s page: ${process.env.NEXT_PUBLIC_APP_URL}/artist/${artistId}`
+        text: `Thank you for subscribing!\n\nYou are now subscribed to ${artist.displayName}'s ${tier.name} tier.\n\nYou now have access to exclusive content from ${artist.displayName}.\n\nVisit ${artist.displayName}'s page: ${process.env.NEXT_PUBLIC_APP_URL}/artist/${artistId}`,
       });
     }
 
@@ -146,18 +137,18 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
 async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
   try {
     const subscriptionId = invoice.subscription as string;
-    
+
     if (!subscriptionId) {
       return;
     }
 
     // Update subscription status and period
-    const subscription = await prisma.subscription.findUnique({
+    const subscription = await prisma.subscriptions.findUnique({
       where: { stripeSubscriptionId: subscriptionId },
     });
 
     if (subscription) {
-      await prisma.subscription.update({
+      await prisma.subscriptions.update({
         where: { id: subscription.id },
         data: {
           status: 'ACTIVE',
@@ -171,7 +162,7 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
       const platformFee = amount * 0.05; // 5% platform fee
       const artistEarnings = amount - platformFee;
 
-      await prisma.artist.update({
+      await prisma.artists.update({
         where: { userId: subscription.artistId },
         data: {
           totalEarnings: {
@@ -190,13 +181,13 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
 async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
   try {
     const subscriptionId = invoice.subscription as string;
-    
+
     if (!subscriptionId) {
       return;
     }
 
     // Update subscription status to past due
-    const subscription = await prisma.subscription.findUnique({
+    const subscription = await prisma.subscriptions.findUnique({
       where: { stripeSubscriptionId: subscriptionId },
       include: {
         fan: true,
@@ -209,7 +200,7 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
     });
 
     if (subscription) {
-      await prisma.subscription.update({
+      await prisma.subscriptions.update({
         where: { id: subscription.id },
         data: { status: 'PAST_DUE' },
       });
@@ -221,40 +212,43 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
           stripeInvoiceId: invoice.id,
           amount: invoice.amount_due / 100,
           attemptCount: invoice.attempt_count || 1,
-          nextRetryAt: invoice.next_payment_attempt 
-            ? new Date(invoice.next_payment_attempt * 1000) 
+          nextRetryAt: invoice.next_payment_attempt
+            ? new Date(invoice.next_payment_attempt * 1000)
             : null,
           failureReason: invoice.last_finalization_error?.message || 'Payment failed',
         },
       });
 
       // Send notification email to fan about payment failure
-      if (subscription.fan.email) {
+      if (subscription.users.email) {
         await sendEmail({
-          to: subscription.fan.email,
-          subject: `Payment Failed for ${subscription.tier.artist?.displayName || 'Artist'} Subscription`,
+          to: subscription.users.email,
+          subject: `Payment Failed for ${subscription.tiers.artist?.displayName || 'Artist'} Subscription`,
           html: `
             <h1>Payment Failed</h1>
-            <p>We were unable to process your payment for your subscription to ${subscription.tier.name}.</p>
+            <p>We were unable to process your payment for your subscription to ${subscription.tiers.name}.</p>
             <p>This was attempt ${invoice.attempt_count} of 3. ${
-              invoice.next_payment_attempt 
-                ? `We'll try again on ${new Date(invoice.next_payment_attempt * 1000).toLocaleDateString()}.` 
+              invoice.next_payment_attempt
+                ? `We'll try again on ${new Date(invoice.next_payment_attempt * 1000).toLocaleDateString()}.`
                 : 'Please update your payment method to continue your subscription.'
             }</p>
             <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions">Manage your subscriptions</a></p>
           `,
-          text: `Payment Failed for ${subscription.tier.artist?.displayName || 'Artist'} Subscription\n\n` +
-            `We were unable to process your payment for your subscription to ${subscription.tier.name}.\n\n` +
+          text:
+            `Payment Failed for ${subscription.tiers.artist?.displayName || 'Artist'} Subscription\n\n` +
+            `We were unable to process your payment for your subscription to ${subscription.tiers.name}.\n\n` +
             `This was attempt ${invoice.attempt_count} of 3. ${
-              invoice.next_payment_attempt 
-                ? `We'll try again on ${new Date(invoice.next_payment_attempt * 1000).toLocaleDateString()}.` 
+              invoice.next_payment_attempt
+                ? `We'll try again on ${new Date(invoice.next_payment_attempt * 1000).toLocaleDateString()}.`
                 : 'Please update your payment method to continue your subscription.'
             }\n\n` +
-            `Manage your subscriptions: ${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions`
+            `Manage your subscriptions: ${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions`,
         });
       }
-      
-      console.log(`Payment failed for subscription ${subscriptionId}, attempt ${invoice.attempt_count}`);
+
+      console.log(
+        `Payment failed for subscription ${subscriptionId}, attempt ${invoice.attempt_count}`
+      );
     }
   } catch (error) {
     console.error('Error handling invoice payment failed:', error);
@@ -263,12 +257,12 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
 
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
   try {
-    const subscriptionRecord = await prisma.subscription.findUnique({
+    const subscriptionRecord = await prisma.subscriptions.findUnique({
       where: { stripeSubscriptionId: subscription.id },
     });
 
     if (subscriptionRecord) {
-      await prisma.subscription.update({
+      await prisma.subscriptions.update({
         where: { id: subscriptionRecord.id },
         data: {
           status: subscription.status.toUpperCase() as any,
@@ -286,19 +280,19 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
 
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   try {
-    const subscriptionRecord = await prisma.subscription.findUnique({
+    const subscriptionRecord = await prisma.subscriptions.findUnique({
       where: { stripeSubscriptionId: subscription.id },
     });
 
     if (subscriptionRecord) {
       // Update subscription status
-      await prisma.subscription.update({
+      await prisma.subscriptions.update({
         where: { id: subscriptionRecord.id },
         data: { status: 'CANCELED' },
       });
 
       // Decrement tier subscriber count
-      await prisma.tier.update({
+      await prisma.tiers.update({
         where: { id: subscriptionRecord.tierId },
         data: {
           subscriberCount: {
@@ -308,7 +302,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
       });
 
       // Decrement artist total subscribers
-      await prisma.artist.update({
+      await prisma.artists.update({
         where: { userId: subscriptionRecord.artistId },
         data: {
           totalSubscribers: {

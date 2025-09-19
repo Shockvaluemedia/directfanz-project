@@ -29,26 +29,20 @@ interface CampaignEditModalProps {
 
 const campaignTypes = [
   'PROMOTIONAL',
-  'CHALLENGE', 
+  'CHALLENGE',
   'ENGAGEMENT',
   'LAUNCH',
   'COMMUNITY',
-  'SEASONAL'
+  'SEASONAL',
 ] as const;
 
-const targetMetrics = [
-  'PARTICIPANTS',
-  'SUBMISSIONS',
-  'ENGAGEMENT',
-  'VIEWS',
-  'SHARES'
-] as const;
+const targetMetrics = ['PARTICIPANTS', 'SUBMISSIONS', 'ENGAGEMENT', 'VIEWS', 'SHARES'] as const;
 
-export default function CampaignEditModal({ 
-  isOpen, 
-  onClose, 
-  campaign, 
-  onSave 
+export default function CampaignEditModal({
+  isOpen,
+  onClose,
+  campaign,
+  onSave,
 }: CampaignEditModalProps) {
   const [formData, setFormData] = useState({
     title: campaign.title,
@@ -57,7 +51,7 @@ export default function CampaignEditModal({
     startDate: new Date(campaign.startDate).toISOString().slice(0, 16),
     endDate: new Date(campaign.endDate).toISOString().slice(0, 16),
     targetMetric: campaign.targetMetric,
-    targetValue: campaign.targetValue
+    targetValue: campaign.targetValue,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -71,7 +65,7 @@ export default function CampaignEditModal({
       startDate: new Date(campaign.startDate).toISOString().slice(0, 16),
       endDate: new Date(campaign.endDate).toISOString().slice(0, 16),
       targetMetric: campaign.targetMetric,
-      targetValue: campaign.targetValue
+      targetValue: campaign.targetValue,
     });
     setErrors({});
   }, [campaign]);
@@ -106,7 +100,7 @@ export default function CampaignEditModal({
     if (formData.startDate && formData.endDate) {
       const startDate = new Date(formData.startDate);
       const endDate = new Date(formData.endDate);
-      
+
       if (endDate <= startDate) {
         newErrors.endDate = 'End date must be after start date';
       }
@@ -180,132 +174,135 @@ export default function CampaignEditModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className='max-w-2xl max-h-[90vh] overflow-y-auto'>
         <DialogHeader>
           <DialogTitle>Edit Campaign</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className='space-y-6'>
           <div>
-            <Label htmlFor="title">Campaign Title *</Label>
+            <Label htmlFor='title'>Campaign Title *</Label>
             <Input
-              id="title"
+              id='title'
               value={formData.title}
-              onChange={(e) => handleFieldChange('title', e.target.value)}
-              placeholder="Enter campaign title"
+              onChange={e => handleFieldChange('title', e.target.value)}
+              placeholder='Enter campaign title'
               className={errors.title ? 'border-red-500' : ''}
             />
-            {errors.title && <p className="text-red-500 text-sm mt-1">{errors.title}</p>}
+            {errors.title && <p className='text-red-500 text-sm mt-1'>{errors.title}</p>}
           </div>
 
           <div>
-            <Label htmlFor="description">Description *</Label>
+            <Label htmlFor='description'>Description *</Label>
             <Textarea
-              id="description"
+              id='description'
               value={formData.description}
-              onChange={(e) => handleFieldChange('description', e.target.value)}
-              placeholder="Describe your campaign"
+              onChange={e => handleFieldChange('description', e.target.value)}
+              placeholder='Describe your campaign'
               rows={4}
               className={errors.description ? 'border-red-500' : ''}
             />
-            {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description}</p>}
-          </div>
-
-          <div>
-            <Label htmlFor="type">Campaign Type *</Label>
-            <select
-              id="type"
-              value={formData.type}
-              onChange={(e) => handleFieldChange('type', e.target.value)}
-              disabled={!canEditType}
-              className={`w-full mt-1 block rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2 ${errors.type ? 'border-red-500' : ''} ${!canEditType ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-            >
-              <option value="">Select a type</option>
-              {campaignTypes.map((type) => (
-                <option key={type} value={type}>{type}</option>
-              ))}
-            </select>
-            {errors.type && <p className="text-red-500 text-sm mt-1">{errors.type}</p>}
-            {!canEditType && (
-              <p className="text-gray-500 text-sm mt-1">Campaign type cannot be changed once launched</p>
+            {errors.description && (
+              <p className='text-red-500 text-sm mt-1'>{errors.description}</p>
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor='type'>Campaign Type *</Label>
+            <select
+              id='type'
+              value={formData.type}
+              onChange={e => handleFieldChange('type', e.target.value)}
+              disabled={!canEditType}
+              className={`w-full mt-1 block rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2 ${errors.type ? 'border-red-500' : ''} ${!canEditType ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+            >
+              <option value=''>Select a type</option>
+              {campaignTypes.map(type => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
+            {errors.type && <p className='text-red-500 text-sm mt-1'>{errors.type}</p>}
+            {!canEditType && (
+              <p className='text-gray-500 text-sm mt-1'>
+                Campaign type cannot be changed once launched
+              </p>
+            )}
+          </div>
+
+          <div className='grid grid-cols-2 gap-4'>
             <div>
-              <Label htmlFor="startDate">Start Date *</Label>
+              <Label htmlFor='startDate'>Start Date *</Label>
               <Input
-                id="startDate"
-                type="datetime-local"
+                id='startDate'
+                type='datetime-local'
                 value={formData.startDate}
-                onChange={(e) => handleFieldChange('startDate', e.target.value)}
+                onChange={e => handleFieldChange('startDate', e.target.value)}
                 disabled={!canEditDates}
                 className={`${errors.startDate ? 'border-red-500' : ''} ${!canEditDates ? 'bg-gray-100 cursor-not-allowed' : ''}`}
               />
-              {errors.startDate && <p className="text-red-500 text-sm mt-1">{errors.startDate}</p>}
+              {errors.startDate && <p className='text-red-500 text-sm mt-1'>{errors.startDate}</p>}
               {!canEditDates && (
-                <p className="text-gray-500 text-sm mt-1">Dates cannot be changed once launched</p>
+                <p className='text-gray-500 text-sm mt-1'>Dates cannot be changed once launched</p>
               )}
             </div>
 
             <div>
-              <Label htmlFor="endDate">End Date *</Label>
+              <Label htmlFor='endDate'>End Date *</Label>
               <Input
-                id="endDate"
-                type="datetime-local"
+                id='endDate'
+                type='datetime-local'
                 value={formData.endDate}
-                onChange={(e) => handleFieldChange('endDate', e.target.value)}
+                onChange={e => handleFieldChange('endDate', e.target.value)}
                 disabled={!canEditDates}
                 className={`${errors.endDate ? 'border-red-500' : ''} ${!canEditDates ? 'bg-gray-100 cursor-not-allowed' : ''}`}
               />
-              {errors.endDate && <p className="text-red-500 text-sm mt-1">{errors.endDate}</p>}
+              {errors.endDate && <p className='text-red-500 text-sm mt-1'>{errors.endDate}</p>}
             </div>
           </div>
 
           <div>
-            <Label htmlFor="targetMetric">Target Metric *</Label>
+            <Label htmlFor='targetMetric'>Target Metric *</Label>
             <select
-              id="targetMetric"
+              id='targetMetric'
               value={formData.targetMetric}
-              onChange={(e) => handleFieldChange('targetMetric', e.target.value)}
+              onChange={e => handleFieldChange('targetMetric', e.target.value)}
               className={`w-full mt-1 block rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2 ${errors.targetMetric ? 'border-red-500' : ''}`}
             >
-              <option value="">Select target metric</option>
-              {targetMetrics.map((metric) => (
-                <option key={metric} value={metric}>{metric}</option>
+              <option value=''>Select target metric</option>
+              {targetMetrics.map(metric => (
+                <option key={metric} value={metric}>
+                  {metric}
+                </option>
               ))}
             </select>
-            {errors.targetMetric && <p className="text-red-500 text-sm mt-1">{errors.targetMetric}</p>}
+            {errors.targetMetric && (
+              <p className='text-red-500 text-sm mt-1'>{errors.targetMetric}</p>
+            )}
           </div>
 
           <div>
-            <Label htmlFor="targetValue">Target Value *</Label>
+            <Label htmlFor='targetValue'>Target Value *</Label>
             <Input
-              id="targetValue"
-              type="number"
-              min="1"
+              id='targetValue'
+              type='number'
+              min='1'
               value={formData.targetValue}
-              onChange={(e) => handleFieldChange('targetValue', parseInt(e.target.value) || 0)}
-              placeholder="Enter target value"
+              onChange={e => handleFieldChange('targetValue', parseInt(e.target.value) || 0)}
+              placeholder='Enter target value'
               className={errors.targetValue ? 'border-red-500' : ''}
             />
-            {errors.targetValue && <p className="text-red-500 text-sm mt-1">{errors.targetValue}</p>}
+            {errors.targetValue && (
+              <p className='text-red-500 text-sm mt-1'>{errors.targetValue}</p>
+            )}
           </div>
 
-          <div className="flex justify-end space-x-2 pt-4">
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={onClose}
-              disabled={isSubmitting}
-            >
+          <div className='flex justify-end space-x-2 pt-4'>
+            <Button type='button' variant='outline' onClick={onClose} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button 
-              type="submit" 
-              disabled={isSubmitting}
-              className="min-w-[120px]"
-            >
+            <Button type='submit' disabled={isSubmitting} className='min-w-[120px]'>
               {isSubmitting ? 'Saving...' : 'Save Changes'}
             </Button>
           </div>

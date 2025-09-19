@@ -1,6 +1,6 @@
 /**
  * User Engagement Tracking
- * 
+ *
  * Comprehensive tracking for user authentication, content interactions,
  * and engagement metrics with privacy-conscious anonymization
  */
@@ -71,7 +71,7 @@ class UserEngagementTracker {
    */
   private anonymizeUserId(userId: string): string {
     if (!this.anonymizeData) return userId;
-    
+
     return createHash('sha256')
       .update(userId + this.saltForHashing)
       .digest('hex')
@@ -83,7 +83,7 @@ class UserEngagementTracker {
    */
   private anonymizeIP(ipAddress?: string): string | undefined {
     if (!ipAddress || !this.anonymizeData) return ipAddress;
-    
+
     const parts = ipAddress.split('.');
     if (parts.length === 4) {
       return `${parts[0]}.${parts[1]}.${parts[2]}.0`;
@@ -94,15 +94,12 @@ class UserEngagementTracker {
   /**
    * Track user registration
    */
-  trackUserRegistration(
-    data: UserRegistrationData,
-    context: UserEngagementContext
-  ): void {
+  trackUserRegistration(data: UserRegistrationData, context: UserEngagementContext): void {
     if (!this.isEnabled) return;
 
     try {
       const anonymousUserId = this.anonymizeUserId(data.userId);
-      
+
       businessMetrics.trackUserRegistration({
         userId: anonymousUserId,
         userType: data.userType,
@@ -140,28 +137,30 @@ class UserEngagementTracker {
         marketingChannel: data.marketingChannel,
       });
     } catch (error) {
-      logger.error('Failed to track user registration', {
-        userId: this.anonymizeUserId(data.userId),
-      }, error as Error);
+      logger.error(
+        'Failed to track user registration',
+        {
+          userId: this.anonymizeUserId(data.userId),
+        },
+        error as Error
+      );
     }
   }
 
   /**
    * Track user authentication events
    */
-  trackUserAuthentication(
-    data: UserSessionData,
-    context: UserEngagementContext
-  ): void {
+  trackUserAuthentication(data: UserSessionData, context: UserEngagementContext): void {
     if (!this.isEnabled) return;
 
     try {
       const anonymousUserId = this.anonymizeUserId(data.userId);
-      
+
       // Only track login if method is a supported authentication method
-      const authMethod = data.method && ['email', 'google', 'facebook', 'twitter', 'apple'].includes(data.method) 
-        ? data.method as 'email' | 'google' | 'facebook' | 'twitter' | 'apple'
-        : 'email';
+      const authMethod =
+        data.method && ['email', 'google', 'facebook', 'twitter', 'apple'].includes(data.method)
+          ? (data.method as 'email' | 'google' | 'facebook' | 'twitter' | 'apple')
+          : 'email';
 
       businessMetrics.trackUserLogin({
         userId: anonymousUserId,
@@ -204,26 +203,27 @@ class UserEngagementTracker {
         duration: data.duration,
       });
     } catch (error) {
-      logger.error('Failed to track user authentication', {
-        userId: this.anonymizeUserId(data.userId),
-        action: data.action,
-      }, error as Error);
+      logger.error(
+        'Failed to track user authentication',
+        {
+          userId: this.anonymizeUserId(data.userId),
+          action: data.action,
+        },
+        error as Error
+      );
     }
   }
 
   /**
    * Track content interactions
    */
-  trackContentInteraction(
-    data: ContentInteractionData,
-    context: UserEngagementContext
-  ): void {
+  trackContentInteraction(data: ContentInteractionData, context: UserEngagementContext): void {
     if (!this.isEnabled) return;
 
     try {
       const anonymousViewerId = data.viewerId ? this.anonymizeUserId(data.viewerId) : undefined;
       const anonymousCreatorId = this.anonymizeUserId(data.creatorId);
-      
+
       businessMetrics.trackContent({
         event: 'content_interaction',
         contentId: data.contentId,
@@ -272,27 +272,39 @@ class UserEngagementTracker {
         isSubscribed: data.isSubscribed,
       });
     } catch (error) {
-      logger.error('Failed to track content interaction', {
-        contentId: data.contentId,
-        action: data.action,
-      }, error as Error);
+      logger.error(
+        'Failed to track content interaction',
+        {
+          contentId: data.contentId,
+          action: data.action,
+        },
+        error as Error
+      );
     }
   }
 
   /**
    * Track creator activities
    */
-  trackCreatorActivity(data: {
-    creatorId: string;
-    action: 'content_upload' | 'profile_update' | 'tier_created' | 'tier_updated' | 'promotion_created';
-    contentType?: 'image' | 'video' | 'audio' | 'text' | 'live_stream';
-    metadata?: Record<string, any>;
-  }, context: UserEngagementContext): void {
+  trackCreatorActivity(
+    data: {
+      creatorId: string;
+      action:
+        | 'content_upload'
+        | 'profile_update'
+        | 'tier_created'
+        | 'tier_updated'
+        | 'promotion_created';
+      contentType?: 'image' | 'video' | 'audio' | 'text' | 'live_stream';
+      metadata?: Record<string, any>;
+    },
+    context: UserEngagementContext
+  ): void {
     if (!this.isEnabled) return;
 
     try {
       const anonymousCreatorId = this.anonymizeUserId(data.creatorId);
-      
+
       businessMetrics.track({
         event: 'creator_activity',
         userId: anonymousCreatorId,
@@ -327,32 +339,41 @@ class UserEngagementTracker {
         contentType: data.contentType,
       });
     } catch (error) {
-      logger.error('Failed to track creator activity', {
-        creatorId: this.anonymizeUserId(data.creatorId),
-        action: data.action,
-      }, error as Error);
+      logger.error(
+        'Failed to track creator activity',
+        {
+          creatorId: this.anonymizeUserId(data.creatorId),
+          action: data.action,
+        },
+        error as Error
+      );
     }
   }
 
   /**
    * Track search and discovery events
    */
-  trackDiscoveryEvent(data: {
-    userId?: string;
-    action: 'search' | 'browse' | 'filter' | 'sort' | 'recommendation_view';
-    query?: string;
-    category?: string;
-    filters?: Record<string, any>;
-    resultsCount?: number;
-    clickedResultPosition?: number;
-    clickedCreatorId?: string;
-  }, context: UserEngagementContext): void {
+  trackDiscoveryEvent(
+    data: {
+      userId?: string;
+      action: 'search' | 'browse' | 'filter' | 'sort' | 'recommendation_view';
+      query?: string;
+      category?: string;
+      filters?: Record<string, any>;
+      resultsCount?: number;
+      clickedResultPosition?: number;
+      clickedCreatorId?: string;
+    },
+    context: UserEngagementContext
+  ): void {
     if (!this.isEnabled) return;
 
     try {
       const anonymousUserId = data.userId ? this.anonymizeUserId(data.userId) : undefined;
-      const anonymousClickedCreatorId = data.clickedCreatorId ? this.anonymizeUserId(data.clickedCreatorId) : undefined;
-      
+      const anonymousClickedCreatorId = data.clickedCreatorId
+        ? this.anonymizeUserId(data.clickedCreatorId)
+        : undefined;
+
       businessMetrics.track({
         event: 'discovery_event',
         userId: anonymousUserId,
@@ -378,29 +399,36 @@ class UserEngagementTracker {
         clickedPosition: data.clickedResultPosition,
       });
     } catch (error) {
-      logger.error('Failed to track discovery event', {
-        userId: data.userId ? this.anonymizeUserId(data.userId) : undefined,
-        action: data.action,
-      }, error as Error);
+      logger.error(
+        'Failed to track discovery event',
+        {
+          userId: data.userId ? this.anonymizeUserId(data.userId) : undefined,
+          action: data.action,
+        },
+        error as Error
+      );
     }
   }
 
   /**
    * Track user retention events
    */
-  trackRetentionEvent(data: {
-    userId: string;
-    daysSinceRegistration: number;
-    daysSinceLastVisit: number;
-    isReturningUser: boolean;
-    lifetimeSessions: number;
-    lifetimeContentViews: number;
-  }, context: UserEngagementContext): void {
+  trackRetentionEvent(
+    data: {
+      userId: string;
+      daysSinceRegistration: number;
+      daysSinceLastVisit: number;
+      isReturningUser: boolean;
+      lifetimeSessions: number;
+      lifetimeContentViews: number;
+    },
+    context: UserEngagementContext
+  ): void {
     if (!this.isEnabled) return;
 
     try {
       const anonymousUserId = this.anonymizeUserId(data.userId);
-      
+
       businessMetrics.track({
         event: 'user_retention',
         userId: anonymousUserId,
@@ -411,7 +439,10 @@ class UserEngagementTracker {
           lifetimeSessions: data.lifetimeSessions,
           lifetimeContentViews: data.lifetimeContentViews,
           retentionCohort: this.getRetentionCohort(data.daysSinceRegistration),
-          engagementLevel: this.calculateEngagementLevel(data.lifetimeSessions, data.daysSinceRegistration),
+          engagementLevel: this.calculateEngagementLevel(
+            data.lifetimeSessions,
+            data.daysSinceRegistration
+          ),
         },
       });
 
@@ -419,25 +450,35 @@ class UserEngagementTracker {
         userId: anonymousUserId,
         daysSinceRegistration: data.daysSinceRegistration,
         isReturningUser: data.isReturningUser,
-        engagementLevel: this.calculateEngagementLevel(data.lifetimeSessions, data.daysSinceRegistration),
+        engagementLevel: this.calculateEngagementLevel(
+          data.lifetimeSessions,
+          data.daysSinceRegistration
+        ),
       });
     } catch (error) {
-      logger.error('Failed to track retention event', {
-        userId: this.anonymizeUserId(data.userId),
-      }, error as Error);
+      logger.error(
+        'Failed to track retention event',
+        {
+          userId: this.anonymizeUserId(data.userId),
+        },
+        error as Error
+      );
     }
   }
 
   /**
    * Track session quality metrics
    */
-  private trackSessionQuality(userId: string, data: {
-    duration: number;
-    pageViews: number;
-    actionsPerformed: number;
-  }): void {
+  private trackSessionQuality(
+    userId: string,
+    data: {
+      duration: number;
+      pageViews: number;
+      actionsPerformed: number;
+    }
+  ): void {
     const qualityScore = this.calculateSessionQuality(data);
-    
+
     businessMetrics.track({
       event: 'session_quality',
       userId,
@@ -458,7 +499,7 @@ class UserEngagementTracker {
    */
   private trackViewEngagement(contentType: string, duration: number, isSubscribed: boolean): void {
     const engagementTier = this.getEngagementTier(contentType, duration);
-    
+
     businessMetrics.track({
       event: 'view_engagement_pattern',
       properties: {
@@ -482,13 +523,13 @@ class UserEngagementTracker {
   }): number {
     // Duration score (up to 40 points)
     const durationScore = Math.min((data.duration / 300) * 40, 40); // 5 minutes = max points
-    
+
     // Page views score (up to 30 points)
     const pageViewScore = Math.min(data.pageViews * 5, 30);
-    
+
     // Actions score (up to 30 points)
     const actionScore = Math.min(data.actionsPerformed * 3, 30);
-    
+
     return Math.round(durationScore + pageViewScore + actionScore);
   }
 
@@ -504,8 +545,9 @@ class UserEngagementTracker {
       live_stream: { medium: 120, high: 600 },
     };
 
-    const contentThresholds = thresholds[contentType as keyof typeof thresholds] || thresholds.video;
-    
+    const contentThresholds =
+      thresholds[contentType as keyof typeof thresholds] || thresholds.video;
+
     if (duration >= contentThresholds.high) return 'high';
     if (duration >= contentThresholds.medium) return 'medium';
     return 'low';
@@ -543,11 +585,14 @@ class UserEngagementTracker {
   /**
    * Calculate engagement level based on sessions and registration age
    */
-  private calculateEngagementLevel(sessions: number, daysSinceRegistration: number): 'low' | 'medium' | 'high' {
+  private calculateEngagementLevel(
+    sessions: number,
+    daysSinceRegistration: number
+  ): 'low' | 'medium' | 'high' {
     if (daysSinceRegistration === 0) return 'medium'; // New users
-    
+
     const sessionsPerDay = sessions / daysSinceRegistration;
-    
+
     if (sessionsPerDay >= 0.5) return 'high'; // At least every 2 days
     if (sessionsPerDay >= 0.1) return 'medium'; // At least every 10 days
     return 'low';

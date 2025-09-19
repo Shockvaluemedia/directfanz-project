@@ -2,9 +2,7 @@
   "dashboard": {
     "id": null,
     "title": "Direct Fan Platform - Application Dashboard",
-    "tags": [
-      "direct-fan-platform"
-    ],
+    "tags": ["direct-fan-platform"],
     "timezone": "browser",
     "panels": [
       {

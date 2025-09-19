@@ -54,13 +54,13 @@ describe('Billing Functions', () => {
     it('should calculate proration for tier upgrade correctly', async () => {
       const mockSubscription = {
         id: 'sub123',
-        amount: new Decimal(10.00),
+        amount: new Decimal(10.0),
         tier: { id: 'tier1' },
       };
 
       const mockStripeSubscription = {
         current_period_start: 1640995200, // Jan 1, 2022
-        current_period_end: 1643673600,   // Feb 1, 2022 (31 days)
+        current_period_end: 1643673600, // Feb 1, 2022 (31 days)
       };
 
       mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
@@ -76,13 +76,13 @@ describe('Billing Functions', () => {
         return mockDate as any;
       });
 
-      const result = await calculateTierChangeProration('sub123', 'tier2', 20.00);
+      const result = await calculateTierChangeProration('sub123', 'tier2', 20.0);
 
-      expect(result.currentAmount).toBe(10.00);
-      expect(result.newAmount).toBe(20.00);
+      expect(result.currentAmount).toBe(10.0);
+      expect(result.newAmount).toBe(20.0);
       expect(result.totalDaysInPeriod).toBe(31);
       expect(result.daysRemaining).toBe(16);
-      
+
       // Proration calculation:
       // Daily current rate: $10.00 / 31 = $0.3226
       // Daily new rate: $20.00 / 31 = $0.6452
@@ -90,7 +90,7 @@ describe('Billing Functions', () => {
       // New amount for remaining period: $0.6452 * 16 = $10.32
       // Proration amount: $10.32 - $5.16 = $5.16
       expect(result.prorationAmount).toBeCloseTo(5.16, 2);
-      expect(result.nextInvoiceAmount).toBe(20.00);
+      expect(result.nextInvoiceAmount).toBe(20.0);
 
       jest.restoreAllMocks();
     });
@@ -98,13 +98,13 @@ describe('Billing Functions', () => {
     it('should calculate proration for tier downgrade correctly', async () => {
       const mockSubscription = {
         id: 'sub123',
-        amount: new Decimal(20.00),
+        amount: new Decimal(20.0),
         tier: { id: 'tier1' },
       };
 
       const mockStripeSubscription = {
         current_period_start: 1640995200, // Jan 1, 2022
-        current_period_end: 1643673600,   // Feb 1, 2022 (31 days)
+        current_period_end: 1643673600, // Feb 1, 2022 (31 days)
       };
 
       mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
@@ -120,12 +120,12 @@ describe('Billing Functions', () => {
         return mockDate as any;
       });
 
-      const result = await calculateTierChangeProration('sub123', 'tier2', 10.00);
+      const result = await calculateTierChangeProration('sub123', 'tier2', 10.0);
 
-      expect(result.currentAmount).toBe(20.00);
-      expect(result.newAmount).toBe(10.00);
+      expect(result.currentAmount).toBe(20.0);
+      expect(result.newAmount).toBe(10.0);
       expect(result.prorationAmount).toBeCloseTo(-5.16, 2); // Negative for downgrade
-      expect(result.nextInvoiceAmount).toBe(10.00);
+      expect(result.nextInvoiceAmount).toBe(10.0);
 
       jest.restoreAllMocks();
     });
@@ -133,9 +133,9 @@ describe('Billing Functions', () => {
     it('should throw error if subscription not found', async () => {
       mockPrisma.subscription.findUnique.mockResolvedValue(null);
 
-      await expect(
-        calculateTierChangeProration('nonexistent', 'tier2', 20.00)
-      ).rejects.toThrow('Failed to calculate proration');
+      await expect(calculateTierChangeProration('nonexistent', 'tier2', 20.0)).rejects.toThrow(
+        'Failed to calculate proration'
+      );
     });
   });
 
@@ -148,7 +148,7 @@ describe('Billing Functions', () => {
 
       const mockStripeSubscription = {
         current_period_start: 1640995200, // Jan 1, 2022
-        current_period_end: 1643673600,   // Feb 1, 2022
+        current_period_end: 1643673600, // Feb 1, 2022
       };
 
       mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
@@ -183,7 +183,7 @@ describe('Billing Functions', () => {
 
       const mockStripeSubscription = {
         current_period_start: 1640995200, // Jan 1, 2022
-        current_period_end: 1643673600,   // Feb 1, 2022
+        current_period_end: 1643673600, // Feb 1, 2022
       };
 
       mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
@@ -212,7 +212,7 @@ describe('Billing Functions', () => {
       const mockSubscription = {
         id: 'sub123',
         tierId: 'tier1',
-        amount: new Decimal(10.00),
+        amount: new Decimal(10.0),
         status: 'ACTIVE',
         stripeSubscriptionId: 'stripe_sub123',
         tier: {
@@ -222,18 +222,20 @@ describe('Billing Functions', () => {
 
       const mockNewTier = {
         id: 'tier2',
-        minimumPrice: new Decimal(15.00),
+        minimumPrice: new Decimal(15.0),
       };
 
       const mockStripeSubscription = {
         items: {
-          data: [{
-            id: 'si_test123',
-            price: { product: 'prod_test123' },
-          }],
+          data: [
+            {
+              id: 'si_test123',
+              price: { product: 'prod_test123' },
+            },
+          ],
         },
         current_period_start: 1640995200, // Jan 1, 2022
-        current_period_end: 1643673600,   // Feb 1, 2022
+        current_period_end: 1643673600, // Feb 1, 2022
       };
 
       // Mock current date to be 15 days into the period (16 days remaining)
@@ -247,12 +249,12 @@ describe('Billing Functions', () => {
       });
 
       mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
-      mockPrisma.tier.findUnique.mockResolvedValue(mockNewTier as any);
+      mockPrisma.tiers.findUnique.mockResolvedValue(mockNewTier as any);
       mockStripe.subscriptions.retrieve.mockResolvedValue(mockStripeSubscription as any);
       mockStripe.subscriptions.update.mockResolvedValue({} as any);
-      
+
       // Mock transaction
-      mockPrisma.$transaction.mockImplementation(async (callback) => {
+      mockPrisma.$transaction.mockImplementation(async callback => {
         return await callback({
           subscription: {
             update: jest.fn().mockResolvedValue({}),
@@ -263,7 +265,7 @@ describe('Billing Functions', () => {
         });
       });
 
-      const result = await upgradeSubscription('sub123', 'tier2', 20.00);
+      const result = await upgradeSubscription('sub123', 'tier2', 20.0);
 
       expect(result.success).toBe(true);
       expect(result.prorationAmount).toBeGreaterThan(0); // Should be positive for upgrade
@@ -273,7 +275,7 @@ describe('Billing Functions', () => {
           proration_behavior: 'create_prorations',
         })
       );
-      
+
       jest.restoreAllMocks();
     });
 
@@ -285,28 +287,28 @@ describe('Billing Functions', () => {
 
       mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
 
-      await expect(
-        upgradeSubscription('sub123', 'tier2', 20.00)
-      ).rejects.toThrow('Can only change tier for active subscriptions');
+      await expect(upgradeSubscription('sub123', 'tier2', 20.0)).rejects.toThrow(
+        'Can only change tier for active subscriptions'
+      );
     });
 
     it('should throw error for amount below minimum', async () => {
       const mockSubscription = {
         id: 'sub123',
         status: 'ACTIVE',
-        tier: { artist: { id: 'artist123' } },
+        tier: { users: { id: 'artist123' } },
       };
 
       const mockNewTier = {
         id: 'tier2',
-        minimumPrice: new Decimal(15.00),
+        minimumPrice: new Decimal(15.0),
       };
 
       mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
-      mockPrisma.tier.findUnique.mockResolvedValue(mockNewTier as any);
+      mockPrisma.tiers.findUnique.mockResolvedValue(mockNewTier as any);
 
       await expect(
-        upgradeSubscription('sub123', 'tier2', 10.00) // Below minimum of $15
+        upgradeSubscription('sub123', 'tier2', 10.0) // Below minimum of $15
       ).rejects.toThrow('Amount is below minimum price for the new tier');
     });
   });
@@ -316,7 +318,7 @@ describe('Billing Functions', () => {
       const mockSubscription = {
         id: 'sub123',
         tierId: 'tier1',
-        amount: new Decimal(20.00),
+        amount: new Decimal(20.0),
         status: 'ACTIVE',
         stripeSubscriptionId: 'stripe_sub123',
         tier: {
@@ -326,18 +328,20 @@ describe('Billing Functions', () => {
 
       const mockNewTier = {
         id: 'tier2',
-        minimumPrice: new Decimal(5.00),
+        minimumPrice: new Decimal(5.0),
       };
 
       const mockStripeSubscription = {
         items: {
-          data: [{
-            id: 'si_test123',
-            price: { product: 'prod_test123' },
-          }],
+          data: [
+            {
+              id: 'si_test123',
+              price: { product: 'prod_test123' },
+            },
+          ],
         },
         current_period_start: 1640995200, // Jan 1, 2022
-        current_period_end: 1643673600,   // Feb 1, 2022
+        current_period_end: 1643673600, // Feb 1, 2022
       };
 
       // Mock current date to be 15 days into the period (16 days remaining)
@@ -351,12 +355,12 @@ describe('Billing Functions', () => {
       });
 
       mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
-      mockPrisma.tier.findUnique.mockResolvedValue(mockNewTier as any);
+      mockPrisma.tiers.findUnique.mockResolvedValue(mockNewTier as any);
       mockStripe.subscriptions.retrieve.mockResolvedValue(mockStripeSubscription as any);
       mockStripe.subscriptions.update.mockResolvedValue({} as any);
-      
+
       // Mock transaction
-      mockPrisma.$transaction.mockImplementation(async (callback) => {
+      mockPrisma.$transaction.mockImplementation(async callback => {
         return await callback({
           subscription: {
             update: jest.fn().mockResolvedValue({}),
@@ -367,11 +371,11 @@ describe('Billing Functions', () => {
         });
       });
 
-      const result = await downgradeSubscription('sub123', 'tier2', 10.00);
+      const result = await downgradeSubscription('sub123', 'tier2', 10.0);
 
       expect(result.success).toBe(true);
       expect(result.prorationAmount).toBeLessThan(0); // Should be negative for downgrade
-      
+
       jest.restoreAllMocks();
     });
   });
@@ -380,7 +384,7 @@ describe('Billing Functions', () => {
     it('should generate invoice data correctly', async () => {
       // Ensure clean mock state
       mockStripe.invoices.retrieve.mockReset();
-      
+
       const mockInvoice = {
         id: 'in_test123',
         subscription: 'stripe_sub123',
@@ -412,13 +416,13 @@ describe('Billing Functions', () => {
 
       expect(result.id).toBe('in_test123');
       expect(result.subscriptionId).toBe('stripe_sub123');
-      expect(result.amount).toBe(10.00);
+      expect(result.amount).toBe(10.0);
       expect(result.status).toBe('paid');
       expect(result.dueDate).toEqual(new Date(1640995200 * 1000));
       expect(result.paidAt).toEqual(new Date(1640995300 * 1000));
       expect(result.items).toHaveLength(1);
       expect(result.items[0].description).toBe('Premium Tier Subscription');
-      expect(result.items[0].amount).toBe(10.00);
+      expect(result.items[0].amount).toBe(10.0);
     });
 
     it('should handle invoice without paid_at timestamp', async () => {
@@ -447,15 +451,15 @@ describe('Billing Functions', () => {
       jest.clearAllMocks();
       mockStripe.invoices.retrieve.mockClear();
       mockStripe.invoices.retrieve.mockReset();
-      
+
       // Set up the error mock
       mockStripe.invoices.retrieve.mockImplementation(() => {
         throw new Error('Invoice not found');
       });
 
-      await expect(
-        generateInvoiceData('nonexistent')
-      ).rejects.toThrow('Failed to generate invoice data');
+      await expect(generateInvoiceData('nonexistent')).rejects.toThrow(
+        'Failed to generate invoice data'
+      );
     });
   });
 });

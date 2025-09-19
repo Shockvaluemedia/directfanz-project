@@ -62,9 +62,7 @@ export async function createAccountLink(
 /**
  * Check if a Stripe Connect account is fully onboarded
  */
-export async function checkAccountOnboardingStatus(
-  accountId: string
-): Promise<boolean> {
+export async function checkAccountOnboardingStatus(accountId: string): Promise<boolean> {
   try {
     const account = await stripe.accounts.retrieve(accountId);
     return account.details_submitted && account.charges_enabled;

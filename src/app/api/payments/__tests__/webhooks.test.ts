@@ -74,8 +74,8 @@ describe('/api/payments/webhooks', () => {
 
       mockStripe.webhooks.constructEvent.mockReturnValue(mockEvent as any);
       mockPrisma.subscription.create.mockResolvedValue({} as any);
-      mockPrisma.tier.update.mockResolvedValue({} as any);
-      mockPrisma.artist.update.mockResolvedValue({} as any);
+      mockPrisma.tiers.update.mockResolvedValue({} as any);
+      mockPrisma.users.update.mockResolvedValue({} as any);
 
       const request = createMockRequest('http://localhost:3000/api/payments/webhooks', {
         method: 'POST',
@@ -93,7 +93,7 @@ describe('/api/payments/webhooks', () => {
           artistId: 'artist123',
           tierId: 'tier123',
           stripeSubscriptionId: 'sub_test123',
-          amount: 10.00,
+          amount: 10.0,
           status: 'ACTIVE',
           currentPeriodStart: expect.any(Date),
           currentPeriodEnd: expect.any(Date),
@@ -122,7 +122,7 @@ describe('/api/payments/webhooks', () => {
       mockStripe.webhooks.constructEvent.mockReturnValue(mockEvent as any);
       mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
       mockPrisma.subscription.update.mockResolvedValue({} as any);
-      mockPrisma.artist.update.mockResolvedValue({} as any);
+      mockPrisma.users.update.mockResolvedValue({} as any);
 
       const request = createMockRequest('http://localhost:3000/api/payments/webhooks', {
         method: 'POST',
@@ -142,7 +142,7 @@ describe('/api/payments/webhooks', () => {
           currentPeriodEnd: new Date(1643673600 * 1000),
         },
       });
-      expect(mockPrisma.artist.update).toHaveBeenCalledWith({
+      expect(mockPrisma.users.update).toHaveBeenCalledWith({
         where: { userId: 'artist123' },
         data: {
           totalEarnings: {
@@ -200,7 +200,7 @@ describe('/api/payments/webhooks', () => {
         data: {
           subscriptionId: 'subscription123',
           stripeInvoiceId: 'in_test123',
-          amount: 10.00,
+          amount: 10.0,
           attemptCount: 2,
           nextRetryAt: new Date(1640995200 * 1000),
           failureReason: 'Your card was declined.',
@@ -227,8 +227,8 @@ describe('/api/payments/webhooks', () => {
       mockStripe.webhooks.constructEvent.mockReturnValue(mockEvent as any);
       mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
       mockPrisma.subscription.update.mockResolvedValue({} as any);
-      mockPrisma.tier.update.mockResolvedValue({} as any);
-      mockPrisma.artist.update.mockResolvedValue({} as any);
+      mockPrisma.tiers.update.mockResolvedValue({} as any);
+      mockPrisma.users.update.mockResolvedValue({} as any);
 
       const request = createMockRequest('http://localhost:3000/api/payments/webhooks', {
         method: 'POST',
@@ -244,7 +244,7 @@ describe('/api/payments/webhooks', () => {
         where: { id: 'subscription123' },
         data: { status: 'CANCELED' },
       });
-      expect(mockPrisma.tier.update).toHaveBeenCalledWith({
+      expect(mockPrisma.tiers.update).toHaveBeenCalledWith({
         where: { id: 'tier123' },
         data: {
           subscriberCount: {

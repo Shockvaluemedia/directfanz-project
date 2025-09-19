@@ -23,7 +23,11 @@ export function useFileUpload() {
   const updateUploadProgress = (fileName: string, update: Partial<UploadProgress>) => {
     setUploads(prev => {
       const newUploads = new Map(prev);
-      const existing = newUploads.get(fileName) || { fileName, progress: 0, status: 'pending' as const };
+      const existing = newUploads.get(fileName) || {
+        fileName,
+        progress: 0,
+        status: 'pending' as const,
+      };
       newUploads.set(fileName, { ...existing, fileName, ...update });
       return newUploads;
     });
@@ -31,7 +35,7 @@ export function useFileUpload() {
 
   const uploadFile = async (file: File): Promise<UploadedFile> => {
     const fileName = file.name;
-    
+
     // Initialize progress
     updateUploadProgress(fileName, {
       progress: 0,
@@ -41,7 +45,7 @@ export function useFileUpload() {
     try {
       // Step 1: Get presigned URL
       updateUploadProgress(fileName, { status: 'uploading', progress: 10 });
-      
+
       const presignedResponse = await fetch('/api/upload/presigned-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -92,20 +96,19 @@ export function useFileUpload() {
       }
 
       const { data: confirmedFile } = await confirmResponse.json();
-      
-      updateUploadProgress(fileName, { 
-        progress: 100, 
-        status: 'completed' 
+
+      updateUploadProgress(fileName, {
+        progress: 100,
+        status: 'completed',
       });
 
       toast.success(`Successfully uploaded ${fileName}`);
       return confirmedFile;
-
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Upload failed';
-      
-      updateUploadProgress(fileName, { 
-        status: 'error', 
+
+      updateUploadProgress(fileName, {
+        status: 'error',
         error: errorMessage,
         progress: 0,
       });

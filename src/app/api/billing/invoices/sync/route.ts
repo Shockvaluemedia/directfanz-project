@@ -11,40 +11,28 @@ import { syncInvoices } from '@/lib/billing';
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
     const { subscriptionId } = body;
 
     if (!subscriptionId) {
-      return NextResponse.json(
-        { error: 'Missing subscriptionId parameter' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Missing subscriptionId parameter' }, { status: 400 });
     }
 
     // Get subscription and verify ownership
-    const subscription = await prisma.subscription.findUnique({
-      where: { 
+    const subscription = await prisma.subscriptions.findUnique({
+      where: {
         id: subscriptionId,
-        OR: [
-          { fanId: session.user.id },
-          { artistId: session.user.id }
-        ]
+        OR: [{ fanId: session.user.id }, { artistId: session.user.id }],
       },
     });
 
     if (!subscription) {
-      return NextResponse.json(
-        { error: 'Subscription not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Subscription not found' }, { status: 404 });
     }
 
     // Sync invoices from Stripe
@@ -56,9 +44,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error syncing invoices:', error);
-    return NextResponse.json(
-      { error: 'Failed to sync invoices' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to sync invoices' }, { status: 500 });
   }
 }

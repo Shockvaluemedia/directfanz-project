@@ -26,7 +26,7 @@ const updateSchema = z.object({
 
 // GET /api/content - List content for artist or browse public content
 export async function GET(request: NextRequest) {
-  return withApi(request, async (req) => {
+  return withApi(request, async req => {
     try {
       const { searchParams } = new URL(request.url);
       const query = listQuerySchema.parse({
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
         where.artistId = req.user.id;
       } else {
         // For fans, show public content or content from subscribed tiers
-        const subscriptions = await prisma.subscription.findMany({
+        const subscriptions = await prisma.subscriptions.findMany({
           where: {
             fanId: req.user.id,
             status: 'ACTIVE',
@@ -93,13 +93,13 @@ export async function GET(request: NextRequest) {
       }
 
       if (query.search) {
-        where.OR = where.OR ? [...where.OR, 
-          { title: { contains: query.search } },
-          { description: { contains: query.search } },
-        ] : [
-          { title: { contains: query.search } },
-          { description: { contains: query.search } },
-        ];
+        where.OR = where.OR
+          ? [
+              ...where.OR,
+              { title: { contains: query.search } },
+              { description: { contains: query.search } },
+            ]
+          : [{ title: { contains: query.search } }, { description: { contains: query.search } }];
       }
 
       // Build order by
@@ -111,7 +111,7 @@ export async function GET(request: NextRequest) {
         prisma.content.findMany({
           where,
           include: {
-            artist: {
+            users: {
               select: {
                 id: true,
                 displayName: true,
@@ -164,7 +164,6 @@ export async function GET(request: NextRequest) {
           },
         },
       });
-
     } catch (error) {
       if (error instanceof z.ZodError) {
         return NextResponse.json(
@@ -177,23 +176,17 @@ export async function GET(request: NextRequest) {
       }
 
       logger.error('Content list error', { userId: req.user?.id }, error as Error);
-      return NextResponse.json(
-        { error: 'Failed to fetch content' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to fetch content' }, { status: 500 });
     }
   });
 }
 
 // POST /api/content - Create new content (metadata only, file uploaded separately)
 export async function POST(request: NextRequest) {
-  return withApi(request, async (req) => {
+  return withApi(request, async req => {
     try {
       if (req.user.role !== 'ARTIST') {
-        return NextResponse.json(
-          { error: 'Only artists can create content' },
-          { status: 403 }
-        );
+        return NextResponse.json({ error: 'Only artists can create content' }, { status: 403 });
       }
 
       const body = await request.json();
@@ -201,7 +194,7 @@ export async function POST(request: NextRequest) {
 
       // Validate tier ownership if specified
       if (validatedData.tierIds && validatedData.tierIds.length > 0) {
-        const userTiers = await prisma.tier.findMany({
+        const userTiers = await prisma.tiers.findMany({
           where: {
             id: { in: validatedData.tierIds },
             artistId: req.user.id,
@@ -224,7 +217,6 @@ export async function POST(request: NextRequest) {
         { error: 'Use /api/content/upload for file uploads' },
         { status: 400 }
       );
-
     } catch (error) {
       if (error instanceof z.ZodError) {
         return NextResponse.json(
@@ -237,33 +229,24 @@ export async function POST(request: NextRequest) {
       }
 
       logger.error('Content creation error', { userId: req.user?.id }, error as Error);
-      return NextResponse.json(
-        { error: 'Failed to create content' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to create content' }, { status: 500 });
     }
   });
 }
 
 // PUT /api/content - Update content metadata
 export async function PUT(request: NextRequest) {
-  return withApi(request, async (req) => {
+  return withApi(request, async req => {
     try {
       if (req.user.role !== 'ARTIST') {
-        return NextResponse.json(
-          { error: 'Only artists can update content' },
-          { status: 403 }
-        );
+        return NextResponse.json({ error: 'Only artists can update content' }, { status: 403 });
       }
 
       const { searchParams } = new URL(request.url);
       const contentId = searchParams.get('id');
 
       if (!contentId) {
-        return NextResponse.json(
-          { error: 'Content ID is required' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'Content ID is required' }, { status: 400 });
       }
 
       // Verify content ownership
@@ -280,10 +263,7 @@ export async function PUT(request: NextRequest) {
       });
 
       if (!existingContent) {
-        return NextResponse.json(
-          { error: 'Content not found or access denied' },
-          { status: 404 }
-        );
+        return NextResponse.json({ error: 'Content not found or access denied' }, { status: 404 });
       }
 
       const body = await request.json();
@@ -291,7 +271,7 @@ export async function PUT(request: NextRequest) {
 
       // Validate tier ownership if specified
       if (validatedData.tierIds && validatedData.tierIds.length > 0) {
-        const userTiers = await prisma.tier.findMany({
+        const userTiers = await prisma.tiers.findMany({
           where: {
             id: { in: validatedData.tierIds },
             artistId: req.user.id,
@@ -311,7 +291,8 @@ export async function PUT(request: NextRequest) {
       // Update content
       const updateData: any = {};
       if (validatedData.title !== undefined) updateData.title = validatedData.title;
-      if (validatedData.description !== undefined) updateData.description = validatedData.description;
+      if (validatedData.description !== undefined)
+        updateData.description = validatedData.description;
       if (validatedData.visibility !== undefined) updateData.visibility = validatedData.visibility;
       if (validatedData.tags !== undefined) updateData.tags = JSON.stringify(validatedData.tags);
 
@@ -326,7 +307,7 @@ export async function PUT(request: NextRequest) {
           }),
         },
         include: {
-          artist: {
+          users: {
             select: {
               id: true,
               displayName: true,
@@ -356,17 +337,16 @@ export async function PUT(request: NextRequest) {
         _count: undefined,
       };
 
-      logger.info('Content updated', { 
-        userId: req.user.id, 
+      logger.info('Content updated', {
+        userId: req.user.id,
         contentId: contentId,
-        changes: Object.keys(updateData)
+        changes: Object.keys(updateData),
       });
 
       return NextResponse.json({
         success: true,
         data: formattedContent,
       });
-
     } catch (error) {
       if (error instanceof z.ZodError) {
         return NextResponse.json(
@@ -379,33 +359,24 @@ export async function PUT(request: NextRequest) {
       }
 
       logger.error('Content update error', { userId: req.user?.id }, error as Error);
-      return NextResponse.json(
-        { error: 'Failed to update content' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to update content' }, { status: 500 });
     }
   });
 }
 
 // DELETE /api/content - Delete content
 export async function DELETE(request: NextRequest) {
-  return withApi(request, async (req) => {
+  return withApi(request, async req => {
     try {
       if (req.user.role !== 'ARTIST') {
-        return NextResponse.json(
-          { error: 'Only artists can delete content' },
-          { status: 403 }
-        );
+        return NextResponse.json({ error: 'Only artists can delete content' }, { status: 403 });
       }
 
       const { searchParams } = new URL(request.url);
       const contentId = searchParams.get('id');
 
       if (!contentId) {
-        return NextResponse.json(
-          { error: 'Content ID is required' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'Content ID is required' }, { status: 400 });
       }
 
       // Verify content ownership and get file info
@@ -423,10 +394,7 @@ export async function DELETE(request: NextRequest) {
       });
 
       if (!existingContent) {
-        return NextResponse.json(
-          { error: 'Content not found or access denied' },
-          { status: 404 }
-        );
+        return NextResponse.json({ error: 'Content not found or access denied' }, { status: 404 });
       }
 
       // Delete the content record (this will also cascade delete related records)
@@ -445,23 +413,19 @@ export async function DELETE(request: NextRequest) {
         });
       }
 
-      logger.info('Content deleted', { 
-        userId: req.user.id, 
+      logger.info('Content deleted', {
+        userId: req.user.id,
         contentId: contentId,
-        title: existingContent.title
+        title: existingContent.title,
       });
 
       return NextResponse.json({
         success: true,
         message: 'Content deleted successfully',
       });
-
     } catch (error) {
       logger.error('Content deletion error', { userId: req.user?.id }, error as Error);
-      return NextResponse.json(
-        { error: 'Failed to delete content' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to delete content' }, { status: 500 });
     }
   });
 }

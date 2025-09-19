@@ -5,10 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
 // POST /api/campaigns/[id]/join - Join a campaign
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   let session: any;
   try {
     session = await getServerSession(authOptions);
@@ -24,14 +21,14 @@ export async function POST(
 
     // Check if campaign exists and is active
     const campaignId = params.id;
-    const campaign = await prisma.campaign.findUnique({
+    const campaign = await prisma.campaigns.findUnique({
       where: { id: campaignId },
       include: {
         challenges: {
           where: { status: 'ACTIVE' },
-          select: { id: true, title: true, maxParticipants: true, participantCount: true }
-        }
-      }
+          select: { id: true, title: true, maxParticipants: true, participantCount: true },
+        },
+      },
     });
 
     if (!campaign) {
@@ -51,17 +48,20 @@ export async function POST(
     }
 
     // Check if user has already joined any challenge in this campaign
-    const existingParticipation = await prisma.challengeParticipation.findFirst({
+    const existingParticipation = await prisma.challenge_participations.findFirst({
       where: {
         participantId: session.user.id,
         challenge: {
-          campaignId: campaignId
-        }
-      }
+          campaignId: campaignId,
+        },
+      },
     });
 
     if (existingParticipation) {
-      return NextResponse.json({ error: 'Already participating in this campaign' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Already participating in this campaign' },
+        { status: 400 }
+      );
     }
 
     // Check campaign participant limits
@@ -76,31 +76,34 @@ export async function POST(
     }
 
     // Check challenge participant limits
-    if (mainChallenge.maxParticipants && mainChallenge.participantCount >= mainChallenge.maxParticipants) {
+    if (
+      mainChallenge.maxParticipants &&
+      mainChallenge.participantCount >= mainChallenge.maxParticipants
+    ) {
       return NextResponse.json({ error: 'Challenge is full' }, { status: 400 });
     }
 
     // Use transaction to ensure data consistency
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async tx => {
       // Create challenge participation
-      const participation = await tx.challengeParticipation.create({
+      const participation = await tx.challenge_participations.create({
         data: {
           challengeId: mainChallenge.id,
           participantId: session.user.id,
-          status: 'ACTIVE'
-        }
+          status: 'ACTIVE',
+        },
       });
 
       // Update challenge participant count
       await tx.challenge.update({
         where: { id: mainChallenge.id },
-        data: { participantCount: { increment: 1 } }
+        data: { participantCount: { increment: 1 } },
       });
 
       // Update campaign participant count
-      await tx.campaign.update({
+      await tx.campaigns.update({
         where: { id: campaignId },
-        data: { totalParticipants: { increment: 1 } }
+        data: { totalParticipants: { increment: 1 } },
       });
 
       return participation;
@@ -110,34 +113,34 @@ export async function POST(
       campaignId,
       challengeId: mainChallenge.id,
       userId: session.user.id,
-      participationId: result.id
+      participationId: result.id,
     });
 
-    return NextResponse.json({
-      success: true,
-      participationId: result.id,
-      challengeId: mainChallenge.id,
-      message: 'Successfully joined campaign!'
-    }, { status: 201 });
-
-  } catch (error) {
-    logger.error('Error joining campaign', { 
-      campaignId: params.id, 
-      userId: session?.user?.id 
-    }, error as Error);
-    
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+      {
+        success: true,
+        participationId: result.id,
+        challengeId: mainChallenge.id,
+        message: 'Successfully joined campaign!',
+      },
+      { status: 201 }
     );
+  } catch (error) {
+    logger.error(
+      'Error joining campaign',
+      {
+        campaignId: params.id,
+        userId: session?.user?.id,
+      },
+      error as Error
+    );
+
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 // DELETE /api/campaigns/[id]/join - Leave a campaign
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   let session: any;
   try {
     const { id: campaignId } = params;
@@ -148,21 +151,21 @@ export async function DELETE(
     }
 
     // Find user's participation in this campaign
-    const participation = await prisma.challengeParticipation.findFirst({
+    const participation = await prisma.challenge_participations.findFirst({
       where: {
         participantId: session.user.id,
         challenge: {
-          campaignId: campaignId
-        }
+          campaignId: campaignId,
+        },
       },
       include: {
         challenge: {
-          select: { id: true, status: true }
+          select: { id: true, status: true },
         },
-        submissions: {
-          select: { id: true }
-        }
-      }
+        challenge_submissions: {
+          select: { id: true },
+        },
+      },
     });
 
     if (!participation) {
@@ -171,28 +174,31 @@ export async function DELETE(
 
     // Don't allow leaving if user has submissions
     if (participation.submissions.length > 0) {
-      return NextResponse.json({ 
-        error: 'Cannot leave campaign after submitting content' 
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: 'Cannot leave campaign after submitting content',
+        },
+        { status: 400 }
+      );
     }
 
     // Use transaction to ensure data consistency
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async tx => {
       // Delete participation
-      await tx.challengeParticipation.delete({
-        where: { id: participation.id }
+      await tx.challenge_participations.delete({
+        where: { id: participation.id },
       });
 
       // Update challenge participant count
       await tx.challenge.update({
         where: { id: participation.challenge.id },
-        data: { participantCount: { decrement: 1 } }
+        data: { participantCount: { decrement: 1 } },
       });
 
       // Update campaign participant count
-      await tx.campaign.update({
+      await tx.campaigns.update({
         where: { id: campaignId },
-        data: { totalParticipants: { decrement: 1 } }
+        data: { totalParticipants: { decrement: 1 } },
       });
     });
 
@@ -200,23 +206,23 @@ export async function DELETE(
       campaignId,
       challengeId: participation.challenge.id,
       userId: session.user.id,
-      participationId: participation.id
+      participationId: participation.id,
     });
 
     return NextResponse.json({
       success: true,
-      message: 'Successfully left campaign'
+      message: 'Successfully left campaign',
     });
-
   } catch (error) {
-    logger.error('Error leaving campaign', { 
-      campaignId: params.id, 
-      userId: session?.user?.id 
-    }, error as Error);
-    
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+    logger.error(
+      'Error leaving campaign',
+      {
+        campaignId: params.id,
+        userId: session?.user?.id,
+      },
+      error as Error
     );
+
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

@@ -14,34 +14,28 @@ const uploadSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-  return withApi(request, async (req) => {
+  return withApi(request, async req => {
     try {
       // Check if user is an artist
       if (req.user.role !== 'ARTIST') {
-        return NextResponse.json(
-          { error: 'Only artists can upload content' },
-          { status: 403 }
-        );
+        return NextResponse.json({ error: 'Only artists can upload content' }, { status: 403 });
       }
 
       // Parse multipart form data
       const formData = await request.formData();
       const file = formData.get('file') as File;
-      
+
       if (!file) {
-        return NextResponse.json(
-          { error: 'No file provided' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'No file provided' }, { status: 400 });
       }
 
       // Parse metadata
-      const metadata = JSON.parse(formData.get('metadata') as string || '{}');
+      const metadata = JSON.parse((formData.get('metadata') as string) || '{}');
       const validatedData = uploadSchema.parse(metadata);
 
       // Validate tier ownership if specified
       if (validatedData.tierIds.length > 0) {
-        const userTiers = await prisma.tier.findMany({
+        const userTiers = await prisma.tiers.findMany({
           where: {
             id: { in: validatedData.tierIds },
             artistId: req.user.id,
@@ -67,7 +61,7 @@ export async function POST(request: NextRequest) {
 
       // Upload and process file
       const uploadResult = await FileUploader.uploadFile(file, req.user.id);
-      
+
       // Determine content type
       const contentType = FileUploader.getContentType(file);
 
@@ -127,7 +121,6 @@ export async function POST(request: NextRequest) {
           },
         },
       });
-
     } catch (error) {
       if (error instanceof z.ZodError) {
         return NextResponse.json(
@@ -140,10 +133,10 @@ export async function POST(request: NextRequest) {
       }
 
       logger.error('Content upload error', { userId: req.user?.id }, error as Error);
-      
+
       return NextResponse.json(
-        { 
-          error: error instanceof Error ? error.message : 'Failed to upload content'
+        {
+          error: error instanceof Error ? error.message : 'Failed to upload content',
         },
         { status: 500 }
       );
@@ -153,13 +146,10 @@ export async function POST(request: NextRequest) {
 
 // Generate presigned upload URL for direct client uploads
 export async function PUT(request: NextRequest) {
-  return withApi(request, async (req) => {
+  return withApi(request, async req => {
     try {
       if (req.user.role !== 'ARTIST') {
-        return NextResponse.json(
-          { error: 'Only artists can upload content' },
-          { status: 403 }
-        );
+        return NextResponse.json({ error: 'Only artists can upload content' }, { status: 403 });
       }
 
       const body = await request.json();
@@ -178,10 +168,7 @@ export async function PUT(request: NextRequest) {
       const validation = FileUploader.validateFile(file, detectedContentType);
 
       if (!validation.isValid) {
-        return NextResponse.json(
-          { error: validation.error },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: validation.error }, { status: 400 });
       }
 
       // Generate unique key and presigned URL
@@ -196,14 +183,10 @@ export async function PUT(request: NextRequest) {
           contentType: detectedContentType,
         },
       });
-
     } catch (error) {
       logger.error('Presigned URL generation error', { userId: req.user?.id }, error as Error);
-      
-      return NextResponse.json(
-        { error: 'Failed to generate upload URL' },
-        { status: 500 }
-      );
+
+      return NextResponse.json({ error: 'Failed to generate upload URL' }, { status: 500 });
     }
   });
 }

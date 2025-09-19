@@ -1,20 +1,20 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { ZodError } from 'zod'
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { ZodError } from 'zod';
 
 // Standard API response structure
 export interface ApiResponse<T = any> {
-  success: boolean
-  data?: T
-  error?: string
-  message?: string
+  success: boolean;
+  data?: T;
+  error?: string;
+  message?: string;
   pagination?: {
-    page: number
-    limit: number
-    total: number
-    pages: number
-  }
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  };
 }
 
 // Success response helper
@@ -22,25 +22,31 @@ export function apiSuccess<T>(data?: T, message?: string): NextResponse<ApiRespo
   return NextResponse.json({
     success: true,
     data,
-    message
-  })
+    message,
+  });
 }
 
 // Error response helper
 export function apiError(error: string, status: number = 400): NextResponse<ApiResponse> {
-  return NextResponse.json({
-    success: false,
-    error
-  }, { status })
+  return NextResponse.json(
+    {
+      success: false,
+      error,
+    },
+    { status }
+  );
 }
 
 // Validation error helper
 export function validationError(error: ZodError): NextResponse<ApiResponse> {
-  const errors = error.errors.map(err => `${err.path.join('.')}: ${err.message}`).join(', ')
-  return NextResponse.json({
-    success: false,
-    error: `Validation failed: ${errors}`
-  }, { status: 400 })
+  const errors = error.errors.map(err => `${err.path.join('.')}: ${err.message}`).join(', ');
+  return NextResponse.json(
+    {
+      success: false,
+      error: `Validation failed: ${errors}`,
+    },
+    { status: 400 }
+  );
 }
 
 // Paginated response helper
@@ -59,46 +65,46 @@ export function paginatedResponse<T>(
       page,
       limit,
       total,
-      pages: Math.ceil(total / limit)
-    }
-  })
+      pages: Math.ceil(total / limit),
+    },
+  });
 }
 
 // Extract pagination params from request
 export function getPaginationFromRequest(request: NextRequest) {
-  const url = new URL(request.url)
-  const page = Math.max(1, parseInt(url.searchParams.get('page') || '1'))
-  const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') || '10')))
-  
-  return { page, limit }
+  const url = new URL(request.url);
+  const page = Math.max(1, parseInt(url.searchParams.get('page') || '1'));
+  const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') || '10')));
+
+  return { page, limit };
 }
 
 // Extract search params from request
 export function getSearchFromRequest(request: NextRequest) {
-  const url = new URL(request.url)
-  return url.searchParams.get('search') || ''
+  const url = new URL(request.url);
+  return url.searchParams.get('search') || '';
 }
 
 // Authentication middleware
 export async function requireAuth(request: NextRequest) {
-  const session = await getServerSession(authOptions)
-  
+  const session = await getServerSession(authOptions);
+
   if (!session?.user) {
-    throw new Error('Authentication required')
+    throw new Error('Authentication required');
   }
-  
-  return session
+
+  return session;
 }
 
 // Role-based authorization
 export async function requireRole(request: NextRequest, allowedRoles: string[]) {
-  const session = await requireAuth(request)
-  
+  const session = await requireAuth(request);
+
   if (!allowedRoles.includes(session.user.role)) {
-    throw new Error('Insufficient permissions')
+    throw new Error('Insufficient permissions');
   }
-  
-  return session
+
+  return session;
 }
 
 // Generic API handler wrapper with error handling
@@ -107,27 +113,27 @@ export function apiHandler(
 ) {
   return async (request: NextRequest, context?: any) => {
     try {
-      return await handler(request, context)
+      return await handler(request, context);
     } catch (error) {
-      console.error('API Error:', error)
-      
+      console.error('API Error:', error);
+
       if (error instanceof ZodError) {
-        return validationError(error)
+        return validationError(error);
       }
-      
+
       if (error instanceof Error) {
         if (error.message === 'Authentication required') {
-          return apiError('Authentication required', 401)
+          return apiError('Authentication required', 401);
         }
         if (error.message === 'Insufficient permissions') {
-          return apiError('Insufficient permissions', 403)
+          return apiError('Insufficient permissions', 403);
         }
-        return apiError(error.message, 400)
+        return apiError(error.message, 400);
       }
-      
-      return apiError('Internal server error', 500)
+
+      return apiError('Internal server error', 500);
     }
-  }
+  };
 }
 
 // Body parser with validation
@@ -136,32 +142,32 @@ export async function parseAndValidate<T>(
   schema: { parse: (data: any) => T }
 ): Promise<T> {
   try {
-    const body = await request.json()
-    return schema.parse(body)
+    const body = await request.json();
+    return schema.parse(body);
   } catch (error) {
     if (error instanceof ZodError) {
-      throw error
+      throw error;
     }
-    throw new Error('Invalid JSON body')
+    throw new Error('Invalid JSON body');
   }
 }
 
 // File upload helpers
 export function validateFileType(file: File, allowedTypes: string[]): boolean {
-  return allowedTypes.some(type => file.type.startsWith(type))
+  return allowedTypes.some(type => file.type.startsWith(type));
 }
 
 export function validateFileSize(file: File, maxSizeInMB: number): boolean {
-  const maxSizeInBytes = maxSizeInMB * 1024 * 1024
-  return file.size <= maxSizeInBytes
+  const maxSizeInBytes = maxSizeInMB * 1024 * 1024;
+  return file.size <= maxSizeInBytes;
 }
 
 // URL parameter extraction
 export function getIdFromParams(params: { id?: string }): string {
   if (!params.id) {
-    throw new Error('ID parameter is required')
+    throw new Error('ID parameter is required');
   }
-  return params.id
+  return params.id;
 }
 
 // Check if user owns resource
@@ -172,35 +178,35 @@ export async function checkResourceOwnership(
 ): Promise<boolean> {
   // Admins can access everything
   if (userRole === 'ADMIN') {
-    return true
+    return true;
   }
-  
+
   // Users can access their own resources
-  return userId === resourceOwnerId
+  return userId === resourceOwnerId;
 }
 
 // Rate limiting helper (simple in-memory implementation)
-const rateLimitMap = new Map<string, { count: number; resetTime: number }>()
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 
 export function checkRateLimit(
   key: string,
   maxRequests: number = 100,
   windowMs: number = 60000
 ): boolean {
-  const now = Date.now()
-  const record = rateLimitMap.get(key)
-  
+  const now = Date.now();
+  const record = rateLimitMap.get(key);
+
   if (!record || now > record.resetTime) {
-    rateLimitMap.set(key, { count: 1, resetTime: now + windowMs })
-    return true
+    rateLimitMap.set(key, { count: 1, resetTime: now + windowMs });
+    return true;
   }
-  
+
   if (record.count >= maxRequests) {
-    return false
+    return false;
   }
-  
-  record.count++
-  return true
+
+  record.count++;
+  return true;
 }
 
 // CORS helper
@@ -210,13 +216,13 @@ export function corsHeaders() {
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
     'Access-Control-Max-Age': '86400',
-  }
+  };
 }
 
 // Handle preflight requests
 export function handlePreflight(): NextResponse {
   return new NextResponse(null, {
     status: 200,
-    headers: corsHeaders()
-  })
+    headers: corsHeaders(),
+  });
 }

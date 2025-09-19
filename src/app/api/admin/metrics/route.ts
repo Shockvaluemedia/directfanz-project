@@ -3,16 +3,16 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
-import { UserRole } from '@prisma/client';
+// UserRole is not exported from Prisma client, use string literals
 
 // Secure random number generator
 function secureRandom(max: number): number {
-  return Math.floor(crypto.getRandomValues(new Uint32Array(1))[0] / (0xffffffff + 1) * max);
+  return Math.floor((crypto.getRandomValues(new Uint32Array(1))[0] / (0xffffffff + 1)) * max);
 }
 
 // Secure random float between 0 and max
 function secureRandomFloat(max: number): number {
-  return crypto.getRandomValues(new Uint32Array(1))[0] / (0xffffffff + 1) * max;
+  return (crypto.getRandomValues(new Uint32Array(1))[0] / (0xffffffff + 1)) * max;
 }
 import client from 'prom-client';
 
@@ -127,19 +127,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const startDate = new Date(now.getTime() - daysBack * 24 * 60 * 60 * 1000);
 
     // Fetch metrics from database
-    const [
-      userStats,
-      contentStats,
-      subscriptionStats,
-      paymentStats,
-      engagementStats,
-    ] = await Promise.all([
-      getUserMetrics(startDate, now),
-      getContentMetrics(startDate, now),
-      getSubscriptionMetrics(startDate, now),
-      getPaymentMetrics(startDate, now),
-      getEngagementMetrics(startDate, now),
-    ]);
+    const [userStats, contentStats, subscriptionStats, paymentStats, engagementStats] =
+      await Promise.all([
+        getUserMetrics(startDate, now),
+        getContentMetrics(startDate, now),
+        getSubscriptionMetrics(startDate, now),
+        getPaymentMetrics(startDate, now),
+        getEngagementMetrics(startDate, now),
+      ]);
 
     // Compile comprehensive metrics response
     const metrics: BusinessMetricsResponse = {
@@ -211,13 +206,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         'X-Processing-Time': `${processingTime}ms`,
       },
     });
-
   } catch (error) {
     logger.error('Failed to retrieve business metrics', {}, error as Error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -225,35 +216,36 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
  * Get user-related metrics
  */
 async function getUserMetrics(startDate: Date, endDate: Date) {
-  const [totalUsers, totalCreators, totalFans, recentRegistrations, activeUsers, retentionData] = await Promise.all([
-    prisma.user.count(),
-    prisma.user.count({ where: { role: UserRole.ARTIST } }),
-    prisma.user.count({ where: { role: UserRole.FAN } }),
-    prisma.user.findMany({
-      where: {
-        createdAt: {
-          gte: startDate,
+  const [totalUsers, totalCreators, totalFans, recentRegistrations, activeUsers, retentionData] =
+    await Promise.all([
+      prisma.users.count(),
+      prisma.users.count({ where: { role: 'ARTIST' } }),
+      prisma.users.count({ where: { role: 'FAN' } }),
+      prisma.users.findMany({
+        where: {
+          createdAt: {
+            gte: startDate,
+          },
         },
-      },
-      select: {
-        createdAt: true,
-        role: true,
-      },
-    }),
-    // Mock active users data - in real implementation, you'd track sessions
-    Promise.resolve({
-      hourly: secureRandom(100),
-      daily: secureRandom(1000),
-      weekly: secureRandom(5000),
-      monthly: secureRandom(20000),
-    }),
-    // Mock retention data - in real implementation, you'd calculate from session data
-    Promise.resolve({
-      day1: 0.85,
-      day7: 0.65,
-      day30: 0.45,
-    }),
-  ]);
+        select: {
+          createdAt: true,
+          role: true,
+        },
+      }),
+      // Mock active users data - in real implementation, you'd track sessions
+      Promise.resolve({
+        hourly: secureRandom(100),
+        daily: secureRandom(1000),
+        weekly: secureRandom(5000),
+        monthly: secureRandom(20000),
+      }),
+      // Mock retention data - in real implementation, you'd calculate from session data
+      Promise.resolve({
+        day1: 0.85,
+        day7: 0.65,
+        day30: 0.45,
+      }),
+    ]);
 
   // Process registrations by time period
   const now = new Date();
@@ -265,26 +257,27 @@ async function getUserMetrics(startDate: Date, endDate: Date) {
   const registrationsToday = recentRegistrations.filter(u => u.createdAt >= today).length;
   const registrationsThisWeek = recentRegistrations.filter(u => u.createdAt >= thisWeek).length;
   const registrationsThisMonth = recentRegistrations.filter(u => u.createdAt >= thisMonth).length;
-  const registrationsLastMonth = recentRegistrations.filter(u => 
-    u.createdAt >= lastMonth && u.createdAt < thisMonth
+  const registrationsLastMonth = recentRegistrations.filter(
+    u => u.createdAt >= lastMonth && u.createdAt < thisMonth
   ).length;
 
-  const growth = registrationsLastMonth > 0 
-    ? ((registrationsThisMonth - registrationsLastMonth) / registrationsLastMonth) * 100 
-    : 0;
+  const growth =
+    registrationsLastMonth > 0
+      ? ((registrationsThisMonth - registrationsLastMonth) / registrationsLastMonth) * 100
+      : 0;
 
   // Generate trend data
   const trends = [];
   for (let i = 29; i >= 0; i--) {
     const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-    const dayRegistrations = recentRegistrations.filter(u => 
-      u.createdAt.toDateString() === date.toDateString()
+    const dayRegistrations = recentRegistrations.filter(
+      u => u.createdAt.toDateString() === date.toDateString()
     );
     trends.push({
       date: date.toISOString().split('T')[0],
       users: dayRegistrations.length,
-      creators: dayRegistrations.filter(u => u.role === UserRole.ARTIST).length,
-      fans: dayRegistrations.filter(u => u.role === UserRole.FAN).length,
+      creators: dayRegistrations.filter(u => u.role === 'ARTIST').length,
+      fans: dayRegistrations.filter(u => u.role === 'FAN').length,
     });
   }
 
@@ -310,7 +303,7 @@ async function getUserMetrics(startDate: Date, endDate: Date) {
 async function getContentMetrics(startDate: Date, endDate: Date) {
   // Mock implementation - replace with actual content queries
   const totalContent = secureRandom(10000);
-  
+
   return {
     totalContent,
     uploads: {
@@ -349,7 +342,7 @@ async function getPaymentMetrics(startDate: Date, endDate: Date) {
   const totalRevenue = secureRandom(500000);
   const successfulPayments = secureRandom(1000);
   const failedPayments = secureRandom(50);
-  
+
   const trends = [];
   const now = new Date();
   for (let i = 29; i >= 0; i--) {
@@ -366,8 +359,8 @@ async function getPaymentMetrics(startDate: Date, endDate: Date) {
     averageOrderValue: totalRevenue / (successfulPayments || 1),
     lifetimeValue: secureRandom(1000),
     revenueGrowth: secureRandomFloat(20),
-    successRate: successfulPayments / (successfulPayments + failedPayments) * 100,
-    failureRate: failedPayments / (successfulPayments + failedPayments) * 100,
+    successRate: (successfulPayments / (successfulPayments + failedPayments)) * 100,
+    failureRate: (failedPayments / (successfulPayments + failedPayments)) * 100,
     trends,
   };
 }

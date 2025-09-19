@@ -5,10 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
 // GET /api/challenges/[challengeId]/leaderboard - Get challenge leaderboard
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { challengeId: string } }
-) {
+export async function GET(request: NextRequest, { params }: { params: { challengeId: string } }) {
   let session: any;
   try {
     session = await getServerSession(authOptions);
@@ -22,17 +19,17 @@ export async function GET(
     const userRank = searchParams.get('userRank') === 'true';
 
     // Check if challenge exists and user has access
-    const challenge = await prisma.challenge.findUnique({
+    const challenge = await prisma.challenges.findUnique({
       where: { id: params.challengeId },
-      select: { 
+      select: {
         id: true,
         title: true,
         status: true,
         maxScore: true,
         campaign: {
-          select: { artistId: true, status: true, title: true }
-        }
-      }
+          select: { artistId: true, status: true, title: true },
+        },
+      },
     });
 
     if (!challenge) {
@@ -40,8 +37,8 @@ export async function GET(
     }
 
     // Check access permissions
-    const canView = 
-      challenge.campaign.artistId === session.user.id ||
+    const canView =
+      challenge.campaigns.artistId === session.user.id ||
       session.user.role === 'ADMIN' ||
       challenge.status === 'ACTIVE' ||
       challenge.status === 'COMPLETED';
@@ -51,59 +48,59 @@ export async function GET(
     }
 
     // Get main leaderboard
-    const leaderboard = await prisma.challengeLeaderboard.findMany({
+    const leaderboard = await prisma.challenge_leaderboards.findMany({
       where: { challengeId: params.challengeId },
       orderBy: { rank: 'asc' },
       skip: offset,
       take: limit,
       include: {
         user: {
-          select: { 
-            id: true, 
-            displayName: true, 
+          select: {
+            id: true,
+            displayName: true,
             avatar: true,
-            role: true
-          }
-        }
-      }
+            role: true,
+          },
+        },
+      },
     });
 
     // Get user's rank if requested
     let currentUserRank = null;
     if (userRank) {
-      currentUserRank = await prisma.challengeLeaderboard.findUnique({
+      currentUserRank = await prisma.challenge_leaderboards.findUnique({
         where: {
           challengeId_userId: {
             challengeId: params.challengeId,
-            userId: session.user.id
-          }
+            userId: session.user.id,
+          },
         },
         include: {
           user: {
-            select: { 
-              id: true, 
-              displayName: true, 
-              avatar: true 
-            }
-          }
-        }
+            select: {
+              id: true,
+              displayName: true,
+              avatar: true,
+            },
+          },
+        },
       });
     }
 
     // Get leaderboard statistics
-    const stats = await prisma.challengeLeaderboard.aggregate({
+    const stats = await prisma.challenge_leaderboards.aggregate({
       where: { challengeId: params.challengeId },
       _count: { rank: true },
       _avg: { score: true },
       _max: { score: true },
-      _min: { score: true }
+      _min: { score: true },
     });
 
     // Get recent activity (recent submissions or score changes)
-    const recentActivity = await prisma.challengeSubmission.findMany({
-      where: { 
+    const recentActivity = await prisma.challenge_submissions.findMany({
+      where: {
         challengeId: params.challengeId,
-        status: 'APPROVED'
+        status: 'APPROVED',
       },
       orderBy: { submittedAt: 'desc' },
       take: 10,
@@ -113,13 +110,13 @@ export async function GET(
         totalScore: true,
         submittedAt: true,
         submitter: {
-          select: { 
-            id: true, 
-            displayName: true, 
-            avatar: true 
-          }
-        }
-      }
+          select: {
+            id: true,
+            displayName: true,
+            avatar: true,
+          },
+        },
+      },
     });
 
     return NextResponse.json({
@@ -127,7 +124,7 @@ export async function GET(
         id: challenge.id,
         title: challenge.title,
         status: challenge.status,
-        maxScore: challenge.maxScore
+        maxScore: challenge.maxScore,
       },
       leaderboard,
       currentUserRank,
@@ -135,33 +132,30 @@ export async function GET(
         totalParticipants: stats._count.rank || 0,
         averageScore: stats._avg.score || 0,
         highestScore: stats._max.score || 0,
-        lowestScore: stats._min.score || 0
+        lowestScore: stats._min.score || 0,
       },
       recentActivity,
       pagination: {
         offset,
         limit,
-        hasMore: leaderboard.length === limit
-      }
+        hasMore: leaderboard.length === limit,
+      },
     });
-
   } catch (error) {
-    logger.error('Error fetching leaderboard', { 
-      challengeId: params.challengeId,
-      userId: session?.user?.id 
-    }, error as Error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+    logger.error(
+      'Error fetching leaderboard',
+      {
+        challengeId: params.challengeId,
+        userId: session?.user?.id,
+      },
+      error as Error
     );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 // POST /api/challenges/[challengeId]/leaderboard/refresh - Recalculate leaderboard
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { challengeId: string } }
-) {
+export async function POST(request: NextRequest, { params }: { params: { challengeId: string } }) {
   let session: any;
   try {
     session = await getServerSession(authOptions);
@@ -170,20 +164,20 @@ export async function POST(
     }
 
     // Check if user is the challenge owner or admin
-    const challenge = await prisma.challenge.findUnique({
+    const challenge = await prisma.challenges.findUnique({
       where: { id: params.challengeId },
-      select: { 
+      select: {
         campaign: {
-          select: { artistId: true }
-        }
-      }
+          select: { artistId: true },
+        },
+      },
     });
 
     if (!challenge) {
       return NextResponse.json({ error: 'Challenge not found' }, { status: 404 });
     }
 
-    if (challenge.campaign.artistId !== session.user.id && session.user.role !== 'ADMIN') {
+    if (challenge.campaigns.artistId !== session.user.id && session.user.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
@@ -193,41 +187,41 @@ export async function POST(
     logger.info('Leaderboard recalculated', {
       challengeId: params.challengeId,
       triggeredBy: session.user.id,
-      updatedEntries: updatedLeaderboard.length
+      updatedEntries: updatedLeaderboard.length,
     });
 
     return NextResponse.json({
       message: 'Leaderboard recalculated successfully',
-      updatedEntries: updatedLeaderboard.length
+      updatedEntries: updatedLeaderboard.length,
     });
-
   } catch (error) {
-    logger.error('Error recalculating leaderboard', { 
-      challengeId: params.challengeId,
-      userId: session?.user?.id 
-    }, error as Error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+    logger.error(
+      'Error recalculating leaderboard',
+      {
+        challengeId: params.challengeId,
+        userId: session?.user?.id,
+      },
+      error as Error
     );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 // Helper function to recalculate leaderboard rankings
 async function recalculateLeaderboard(challengeId: string) {
-  return await prisma.$transaction(async (tx) => {
+  return await prisma.$transaction(async tx => {
     // Get all participants with their scores
-    const participations = await tx.challengeParticipation.findMany({
-      where: { 
+    const participations = await tx.challenge_participations.findMany({
+      where: {
         challengeId,
-        status: 'ACTIVE'
+        status: 'ACTIVE',
       },
       include: {
-        submissions: {
+        challenge_submissions: {
           where: { status: 'APPROVED' },
-          select: { totalScore: true }
-        }
-      }
+          select: { totalScore: true },
+        },
+      },
     });
 
     // Calculate scores and update leaderboard
@@ -236,20 +230,20 @@ async function recalculateLeaderboard(challengeId: string) {
     for (const participation of participations) {
       // Calculate total score from all approved submissions
       const totalScore = participation.submissions.reduce(
-        (sum, submission) => sum + submission.totalScore, 
+        (sum, submission) => sum + submission.totalScore,
         0
       );
 
       // Update participation current score
-      await tx.challengeParticipation.update({
+      await tx.challenge_participations.update({
         where: { id: participation.id },
-        data: { currentScore: totalScore }
+        data: { currentScore: totalScore },
       });
 
       leaderboardUpdates.push({
         userId: participation.participantId,
         score: totalScore,
-        submissions: participation.submissions.length
+        challenge_submissions: participation.submissions.length,
       });
     }
 
@@ -262,35 +256,35 @@ async function recalculateLeaderboard(challengeId: string) {
       const entry = leaderboardUpdates[i];
       const rank = i + 1;
 
-      const updated = await tx.challengeLeaderboard.upsert({
+      const updated = await tx.challenge_leaderboards.upsert({
         where: {
           challengeId_userId: {
             challengeId,
-            userId: entry.userId
-          }
+            userId: entry.userId,
+          },
         },
         update: {
           rank,
           score: entry.score,
-          submissions: entry.submissions,
-          updatedAt: new Date()
+          challenge_submissions: entry.submissions,
+          updatedAt: new Date(),
         },
         create: {
           challengeId,
           userId: entry.userId,
           rank,
           score: entry.score,
-          submissions: entry.submissions
-        }
+          challenge_submissions: entry.submissions,
+        },
       });
 
       // Update participation rank
-      await tx.challengeParticipation.updateMany({
+      await tx.challenge_participations.updateMany({
         where: {
           challengeId,
-          participantId: entry.userId
+          participantId: entry.userId,
         },
-        data: { rank }
+        data: { rank },
       });
 
       updatedEntries.push(updated);

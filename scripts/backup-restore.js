@@ -5,14 +5,14 @@
  * Automates database backups, file backups, and disaster recovery procedures
  */
 
-const { execSync } = require('child_process');
-const fs = require('fs');
-const path = require('path');
-const readline = require('readline');
+import { execSync } from 'child_process';
+import fs from 'fs';
+import path from 'path';
+import readline from 'readline';
 
 const rl = readline.createInterface({
   input: process.stdin,
-  output: process.stdout
+  output: process.stdout,
 });
 
 const colors = {
@@ -34,7 +34,7 @@ function executeCommand(command, options = {}) {
     const result = execSync(command, {
       stdio: options.silent ? 'pipe' : 'inherit',
       encoding: 'utf8',
-      ...options
+      ...options,
     });
     return result;
   } catch (error) {
@@ -48,7 +48,7 @@ function executeCommand(command, options = {}) {
 }
 
 function question(query) {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     rl.question(query, resolve);
   });
 }
@@ -57,31 +57,31 @@ function question(query) {
 const backupConfigs = {
   databases: {
     postgresql: {
-      backupCommand: (host, port, database, username, filename) => 
+      backupCommand: (host, port, database, username, filename) =>
         `PGPASSWORD=$POSTGRES_PASSWORD pg_dump -h ${host} -p ${port} -U ${username} -d ${database} --verbose --clean --no-owner --no-acl --format=custom -f ${filename}`,
       restoreCommand: (host, port, database, username, filename) =>
-        `PGPASSWORD=$POSTGRES_PASSWORD pg_restore -h ${host} -p ${port} -U ${username} -d ${database} --verbose --clean --no-owner --no-acl ${filename}`
+        `PGPASSWORD=$POSTGRES_PASSWORD pg_restore -h ${host} -p ${port} -U ${username} -d ${database} --verbose --clean --no-owner --no-acl ${filename}`,
     },
     mysql: {
       backupCommand: (host, port, database, username, filename) =>
         `mysqldump -h ${host} -P ${port} -u ${username} -p${password} ${database} > ${filename}`,
       restoreCommand: (host, port, database, username, filename) =>
-        `mysql -h ${host} -P ${port} -u ${username} -p${password} ${database} < ${filename}`
-    }
+        `mysql -h ${host} -P ${port} -u ${username} -p${password} ${database} < ${filename}`,
+    },
   },
-  
+
   storage: {
     s3: {
       uploadCommand: (localPath, s3Path) => `aws s3 cp ${localPath} ${s3Path} --recursive`,
       downloadCommand: (s3Path, localPath) => `aws s3 cp ${s3Path} ${localPath} --recursive`,
-      syncCommand: (localPath, s3Path) => `aws s3 sync ${localPath} ${s3Path} --delete`
+      syncCommand: (localPath, s3Path) => `aws s3 sync ${localPath} ${s3Path} --delete`,
     },
     gcs: {
       uploadCommand: (localPath, gcsPath) => `gsutil -m cp -r ${localPath} ${gcsPath}`,
       downloadCommand: (gcsPath, localPath) => `gsutil -m cp -r ${gcsPath} ${localPath}`,
-      syncCommand: (localPath, gcsPath) => `gsutil -m rsync -r -d ${localPath} ${gcsPath}`
-    }
-  }
+      syncCommand: (localPath, gcsPath) => `gsutil -m rsync -r -d ${localPath} ${gcsPath}`,
+    },
+  },
 };
 
 // Backup schedule configurations
@@ -89,8 +89,8 @@ const backupSchedules = {
   cron: {
     daily: '0 2 * * *',
     weekly: '0 2 * * 0',
-    monthly: '0 2 1 * *'
-  }
+    monthly: '0 2 1 * *',
+  },
 };
 
 class BackupManager {
@@ -99,63 +99,63 @@ class BackupManager {
     this.timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
     this.ensureBackupDir();
   }
-  
+
   ensureBackupDir() {
     if (!fs.existsSync(this.backupDir)) {
       fs.mkdirSync(this.backupDir, { recursive: true });
       log(`Created backup directory: ${this.backupDir}`, colors.green);
     }
   }
-  
+
   async backupDatabase() {
     log('🗄️ Starting database backup...', colors.cyan);
-    
+
     const dbType = await question('Database type (postgresql/mysql): ');
     if (!backupConfigs.databases[dbType]) {
       throw new Error(`Unsupported database type: ${dbType}`);
     }
-    
+
     const config = backupConfigs.databases[dbType];
     const host = process.env.DB_HOST || 'localhost';
     const port = process.env.DB_PORT || (dbType === 'postgresql' ? '5432' : '3306');
-    const database = process.env.DB_NAME || await question('Database name: ');
-    const username = process.env.DB_USER || await question('Database username: ');
-    
+    const database = process.env.DB_NAME || (await question('Database name: '));
+    const username = process.env.DB_USER || (await question('Database username: '));
+
     const filename = path.join(this.backupDir, `${database}_${this.timestamp}.backup`);
     const command = config.backupCommand(host, port, database, username, filename);
-    
+
     log(`Backing up database ${database}...`, colors.blue);
     executeCommand(command);
-    
+
     // Compress backup
     log('Compressing backup...', colors.blue);
     executeCommand(`gzip ${filename}`);
-    
+
     const compressedFile = `${filename}.gz`;
     log(`✅ Database backup completed: ${compressedFile}`, colors.green);
-    
+
     return compressedFile;
   }
-  
+
   async restoreDatabase() {
     log('🔄 Starting database restoration...', colors.cyan);
-    
+
     const backupFile = await question('Backup file path: ');
     if (!fs.existsSync(backupFile)) {
       throw new Error(`Backup file not found: ${backupFile}`);
     }
-    
+
     const dbType = await question('Database type (postgresql/mysql): ');
     if (!backupConfigs.databases[dbType]) {
       throw new Error(`Unsupported database type: ${dbType}`);
     }
-    
+
     const config = backupConfigs.databases[dbType];
     const host = process.env.DB_HOST || 'localhost';
     const port = process.env.DB_PORT || (dbType === 'postgresql' ? '5432' : '3306');
-    const database = process.env.DB_NAME || await question('Database name: ');
-    const username = process.env.DB_USER || await question('Database username: ');
-    
+    const database = process.env.DB_NAME || (await question('Database name: '));
+    const username = process.env.DB_USER || (await question('Database username: '));
+
     // Decompress if needed
     let fileToRestore = backupFile;
     if (backupFile.endsWith('.gz')) {
@@ -163,42 +163,44 @@ class BackupManager {
       executeCommand(`gunzip -c ${backupFile} > ${backupFile.replace('.gz', '')}`);
       fileToRestore = backupFile.replace('.gz', '');
     }
-    
+
     // Confirm restoration
-    const confirm = await question(`⚠️ This will replace the current database "${database}". Continue? (y/N): `);
+    const confirm = await question(
+      `⚠️ This will replace the current database "${database}". Continue? (y/N): `
+    );
     if (confirm.toLowerCase() !== 'y') {
       log('Database restoration cancelled.', colors.yellow);
       return;
     }
-    
+
     const command = config.restoreCommand(host, port, database, username, fileToRestore);
-    
+
     log(`Restoring database ${database}...`, colors.blue);
     executeCommand(command);
-    
+
     log('✅ Database restoration completed!', colors.green);
   }
-  
+
   async backupFiles() {
     log('📁 Starting file backup...', colors.cyan);
-    
+
     const sourceDirs = [
       './uploads',
       './public/uploads',
       './storage',
       './.env.production',
       './package.json',
-      './next.config.js'
+      './next.config.js',
     ].filter(dir => fs.existsSync(dir));
-    
+
     if (sourceDirs.length === 0) {
       log('No files to backup found.', colors.yellow);
       return;
     }
-    
+
     const backupPath = path.join(this.backupDir, `files_${this.timestamp}`);
     fs.mkdirSync(backupPath, { recursive: true });
-    
+
     for (const sourceDir of sourceDirs) {
       log(`Backing up ${sourceDir}...`, colors.blue);
       if (fs.statSync(sourceDir).isDirectory()) {
@@ -207,120 +209,120 @@ class BackupManager {
         executeCommand(`cp ${sourceDir} ${backupPath}/`, { ignoreError: true });
       }
     }
-    
+
     // Create archive
     const archiveName = `${backupPath}.tar.gz`;
     executeCommand(`tar -czf ${archiveName} -C ${this.backupDir} files_${this.timestamp}`);
-    
+
     // Remove uncompressed directory
     executeCommand(`rm -rf ${backupPath}`);
-    
+
     log(`✅ File backup completed: ${archiveName}`, colors.green);
     return archiveName;
   }
-  
+
   async uploadToCloud() {
     log('☁️ Uploading backups to cloud storage...', colors.cyan);
-    
+
     const provider = await question('Cloud provider (s3/gcs): ');
     if (!backupConfigs.storage[provider]) {
       throw new Error(`Unsupported cloud provider: ${provider}`);
     }
-    
+
     const config = backupConfigs.storage[provider];
-    const bucketName = process.env.BACKUP_BUCKET || await question('Bucket/Container name: ');
-    const cloudPath = provider === 's3' ? `s3://${bucketName}/backups/` : `gs://${bucketName}/backups/`;
-    
+    const bucketName = process.env.BACKUP_BUCKET || (await question('Bucket/Container name: '));
+    const cloudPath =
+      provider === 's3' ? `s3://${bucketName}/backups/` : `gs://${bucketName}/backups/`;
+
     log(`Uploading to ${provider.toUpperCase()}...`, colors.blue);
     const command = config.uploadCommand(this.backupDir, cloudPath);
     executeCommand(command);
-    
+
     log('✅ Cloud upload completed!', colors.green);
   }
-  
+
   async downloadFromCloud() {
     log('☁️ Downloading backups from cloud storage...', colors.cyan);
-    
+
     const provider = await question('Cloud provider (s3/gcs): ');
     if (!backupConfigs.storage[provider]) {
       throw new Error(`Unsupported cloud provider: ${provider}`);
     }
-    
+
     const config = backupConfigs.storage[provider];
-    const bucketName = process.env.BACKUP_BUCKET || await question('Bucket/Container name: ');
-    const cloudPath = provider === 's3' ? `s3://${bucketName}/backups/` : `gs://${bucketName}/backups/`;
+    const bucketName = process.env.BACKUP_BUCKET || (await question('Bucket/Container name: '));
+    const cloudPath =
+      provider === 's3' ? `s3://${bucketName}/backups/` : `gs://${bucketName}/backups/`;
     const localPath = './restored-backups';
-    
+
     if (!fs.existsSync(localPath)) {
       fs.mkdirSync(localPath, { recursive: true });
     }
-    
+
     log(`Downloading from ${provider.toUpperCase()}...`, colors.blue);
     const command = config.downloadCommand(cloudPath, localPath);
     executeCommand(command);
-    
+
     log(`✅ Cloud download completed to: ${localPath}`, colors.green);
   }
-  
+
   listBackups() {
     log('📋 Available backups:', colors.cyan);
-    
+
     if (!fs.existsSync(this.backupDir)) {
       log('No backups found.', colors.yellow);
       return;
     }
-    
+
     const files = fs.readdirSync(this.backupDir);
-    const backups = files.filter(file => 
-      file.endsWith('.backup.gz') || 
-      file.endsWith('.tar.gz') ||
-      file.endsWith('.sql.gz')
+    const backups = files.filter(
+      file => file.endsWith('.backup.gz') || file.endsWith('.tar.gz') || file.endsWith('.sql.gz')
     );
-    
+
     if (backups.length === 0) {
       log('No backups found.', colors.yellow);
       return;
     }
-    
+
     backups.forEach((backup, index) => {
       const stats = fs.statSync(path.join(this.backupDir, backup));
       const size = (stats.size / (1024 * 1024)).toFixed(2);
       log(`${index + 1}. ${backup} (${size} MB) - ${stats.mtime.toISOString()}`, colors.yellow);
     });
   }
-  
+
   async cleanupOldBackups() {
     log('🧹 Cleaning up old backups...', colors.cyan);
-    
+
     const retentionDays = parseInt(process.env.BACKUP_RETENTION_DAYS || '30');
-    const cutoffDate = new Date(Date.now() - (retentionDays * 24 * 60 * 60 * 1000));
-    
+    const cutoffDate = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
+
     if (!fs.existsSync(this.backupDir)) {
       log('No backup directory found.', colors.yellow);
       return;
     }
-    
+
     const files = fs.readdirSync(this.backupDir);
     let deletedCount = 0;
-    
+
     files.forEach(file => {
       const filePath = path.join(this.backupDir, file);
       const stats = fs.statSync(filePath);
-      
+
       if (stats.mtime < cutoffDate) {
         fs.unlinkSync(filePath);
         log(`Deleted old backup: ${file}`, colors.blue);
         deletedCount++;
       }
     });
-    
+
     log(`✅ Cleanup completed. Deleted ${deletedCount} old backups.`, colors.green);
   }
 }
 
 async function createBackupScript() {
   log('📜 Creating automated backup script...', colors.cyan);
-  
+
   const backupScript = `#!/bin/bash
 
 # Automated Backup Script for Direct Fan Platform
@@ -441,19 +443,19 @@ log "\${GREEN}Automated backup completed successfully!\${NC}"
 
 async function createCronJob() {
   log('⏰ Setting up cron job for automated backups...', colors.cyan);
-  
+
   const frequency = await question('Backup frequency (daily/weekly/monthly): ');
   const schedule = backupSchedules.cron[frequency];
-  
+
   if (!schedule) {
     throw new Error(`Invalid frequency: ${frequency}`);
   }
-  
+
   const cronEntry = `${schedule} /usr/bin/docker exec direct-fan-platform-app /app/scripts/automated-backup.sh >> /var/log/cron.log 2>&1`;
-  
+
   log('Add this line to your crontab (run: crontab -e):', colors.yellow);
   log(cronEntry, colors.cyan);
-  
+
   // Create systemd timer as alternative
   const timerContent = `[Unit]
 Description=Direct Fan Platform Backup Timer
@@ -480,14 +482,17 @@ WantedBy=multi-user.target`;
 
   fs.writeFileSync('/tmp/backup.timer', timerContent);
   fs.writeFileSync('/tmp/backup.service', serviceContent);
-  
+
   log('Systemd timer files created in /tmp/', colors.green);
-  log('To install: sudo cp /tmp/backup.* /etc/systemd/system/ && sudo systemctl enable backup.timer', colors.yellow);
+  log(
+    'To install: sudo cp /tmp/backup.* /etc/systemd/system/ && sudo systemctl enable backup.timer',
+    colors.yellow
+  );
 }
 
 async function createDisasterRecoveryPlan() {
   log('🚨 Creating disaster recovery plan...', colors.cyan);
-  
+
   const drPlan = `# Disaster Recovery Plan for Direct Fan Platform
 
 ## Overview
@@ -590,10 +595,10 @@ node scripts/backup-restore.js
 async function main() {
   log('💾 Backup and Disaster Recovery Setup', colors.cyan);
   log('=====================================', colors.cyan);
-  
+
   try {
     const manager = new BackupManager();
-    
+
     const action = await question(`
 Choose an action:
 1. Backup database
@@ -609,7 +614,7 @@ Choose an action:
 11. Full backup (database + files + cloud upload)
 
 Enter your choice (1-11): `);
-    
+
     switch (action) {
       case '1':
         await manager.backupDatabase();
@@ -653,7 +658,6 @@ Enter your choice (1-11): `);
         log('❌ Invalid choice', colors.red);
         break;
     }
-    
   } catch (error) {
     log(`❌ Operation failed: ${error.message}`, colors.red);
     process.exit(1);

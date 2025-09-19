@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { SUPPORTED_FILE_TYPES } from '@/lib/s3';
 import { notifyNewContent } from '@/lib/notifications';
 import { z } from 'zod';
+import crypto from 'crypto';
 
 const createContentSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title too long'),
@@ -22,7 +23,7 @@ const createContentSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id || session.user.role !== 'ARTIST') {
       return NextResponse.json(
         { error: { code: 'UNAUTHORIZED', message: 'Artist authentication required' } },
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
 
     // Verify that specified tiers belong to the artist
     if (validatedData.tierIds.length > 0) {
-      const tierCount = await prisma.tier.count({
+      const tierCount = await prisma.tiers.count({
         where: {
           id: { in: validatedData.tierIds },
           artistId: session.user.id,
@@ -56,7 +57,12 @@ export async function POST(request: NextRequest) {
 
       if (tierCount !== validatedData.tierIds.length) {
         return NextResponse.json(
-          { error: { code: 'INVALID_TIERS', message: 'One or more tiers do not belong to this artist' } },
+          {
+            error: {
+              code: 'INVALID_TIERS',
+              message: 'One or more tiers do not belong to this artist',
+            },
+          },
           { status: 400 }
         );
       }
@@ -65,6 +71,7 @@ export async function POST(request: NextRequest) {
     // Create content record
     const content = await prisma.content.create({
       data: {
+        id: crypto.randomUUID(),
         title: validatedData.title,
         description: validatedData.description,
         type: contentType,
@@ -75,10 +82,11 @@ export async function POST(request: NextRequest) {
         format: validatedData.format,
         tags: JSON.stringify(validatedData.tags),
         visibility: validatedData.visibility,
-        artistId: session.user.id,
+        users: { connect: { id: session.user.id } },
         tiers: {
           connect: validatedData.tierIds.map(id => ({ id })),
         },
+        updatedAt: new Date(),
       },
       include: {
         tiers: {
@@ -91,33 +99,33 @@ export async function POST(request: NextRequest) {
     });
 
     // Get artist name for notification
-    const artist = await prisma.user.findUnique({
+    const artist = await prisma.users.findUnique({
       where: { id: session.user.id },
       select: { displayName: true },
     });
 
     // Send notifications to subscribers (async, don't await)
     if (validatedData.tierIds.length > 0) {
-      notifyNewContent(content, artist?.displayName || 'Artist')
-        .catch(error => console.error('Failed to send content notifications:', error));
+      notifyNewContent(content, artist?.displayName || 'Artist').catch(error =>
+        console.error('Failed to send content notifications:', error)
+      );
     }
 
     return NextResponse.json({
       success: true,
       data: content,
     });
-
   } catch (error) {
     console.error('Content creation error:', error);
-    
+
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { 
-          error: { 
-            code: 'VALIDATION_ERROR', 
+        {
+          error: {
+            code: 'VALIDATION_ERROR',
             message: 'Invalid request data',
-            details: { errors: error.errors }
-          } 
+            details: { errors: error.errors },
+          },
         },
         { status: 400 }
       );
@@ -133,7 +141,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id || session.user.role !== 'ARTIST') {
       return NextResponse.json(
         { error: { code: 'UNAUTHORIZED', message: 'Artist authentication required' } },
@@ -197,7 +205,6 @@ export async function GET(request: NextRequest) {
         },
       },
     });
-
   } catch (error) {
     console.error('Content fetch error:', error);
     return NextResponse.json(

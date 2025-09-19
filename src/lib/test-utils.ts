@@ -1,6 +1,6 @@
 /**
  * Test Utilities
- * 
+ *
  * Comprehensive utilities for testing Direct-to-Fan Platform
  * Includes mocks for Stripe, database, authentication, and business logic
  */
@@ -49,7 +49,7 @@ export const createMockTier = (overrides = {}) => ({
   artistId: 'artist-123',
   name: 'Basic Tier',
   description: 'Basic subscription tier',
-  price: 10.00,
+  price: 10.0,
   currency: 'USD',
   stripePriceId: 'price_123',
   isActive: true,
@@ -76,7 +76,7 @@ export const createMockInvoice = (overrides = {}) => ({
   id: 'inv-123',
   subscriptionId: 'sub-123',
   stripeInvoiceId: 'in_stripe_123',
-  amount: 10.00,
+  amount: 10.0,
   currency: 'USD',
   status: 'paid',
   dueDate: new Date('2024-02-01'),
@@ -96,15 +96,17 @@ export const createMockStripeSubscription = (overrides = {}) => ({
   current_period_start: Math.floor(Date.now() / 1000) - 86400,
   current_period_end: Math.floor(Date.now() / 1000) + 86400 * 30,
   items: {
-    data: [{
-      id: 'si_123',
-      price: {
-        id: 'price_123',
-        unit_amount: 1000,
-        currency: 'usd',
-        recurring: { interval: 'month' },
+    data: [
+      {
+        id: 'si_123',
+        price: {
+          id: 'price_123',
+          unit_amount: 1000,
+          currency: 'usd',
+          recurring: { interval: 'month' },
+        },
       },
-    }],
+    ],
   },
   metadata: {
     fan_id: 'user-123',
@@ -126,11 +128,13 @@ export const createMockStripePaymentIntent = (overrides = {}) => ({
   confirmation_method: 'automatic',
   created: Math.floor(Date.now() / 1000),
   charges: {
-    data: [{
-      id: 'ch_123',
-      receipt_url: 'https://pay.stripe.com/receipts/123',
-      payment_method_details: { type: 'card' },
-    }],
+    data: [
+      {
+        id: 'ch_123',
+        receipt_url: 'https://pay.stripe.com/receipts/123',
+        payment_method_details: { type: 'card' },
+      },
+    ],
   },
   metadata: {
     fan_id: 'user-123',
@@ -343,7 +347,7 @@ export const mockAuthenticatedRequest = (method = 'GET', body = {}, session = nu
     method,
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': 'Bearer test-token',
+      Authorization: 'Bearer test-token',
     },
     body: method !== 'GET' ? JSON.stringify(body) : undefined,
   });
@@ -446,9 +450,9 @@ export const mockNotifications = {
 export const setupTestDatabase = () => {
   beforeEach(() => {
     // Reset all mocks
-    Object.values(mockPrisma).forEach((mock) => {
+    Object.values(mockPrisma).forEach(mock => {
       if (typeof mock === 'object' && mock !== null) {
-        Object.values(mock).forEach((method) => {
+        Object.values(mock).forEach(method => {
           if (jest.isMockFunction(method)) {
             method.mockReset();
           }
@@ -461,8 +465,8 @@ export const setupTestDatabase = () => {
 export const setupTestStripe = () => {
   beforeEach(() => {
     // Reset all Stripe mocks
-    Object.values(mockStripe).forEach((service) => {
-      Object.values(service).forEach((method) => {
+    Object.values(mockStripe).forEach(service => {
+      Object.values(service).forEach(method => {
         if (jest.isMockFunction(method)) {
           method.mockReset();
         }
@@ -483,24 +487,24 @@ export const setupTestEnvironment = () => {
   setupTestDatabase();
   setupTestStripe();
   setupTestAuth();
-  
+
   beforeEach(() => {
     // Reset business metrics mocks
-    Object.values(mockBusinessMetrics).forEach((method) => {
+    Object.values(mockBusinessMetrics).forEach(method => {
       if (jest.isMockFunction(method)) {
         method.mockReset();
       }
     });
-    
+
     // Reset payment monitoring mocks
-    Object.values(mockPaymentMonitor).forEach((method) => {
+    Object.values(mockPaymentMonitor).forEach(method => {
       if (jest.isMockFunction(method)) {
         method.mockReset();
       }
     });
-    
+
     // Reset user engagement mocks
-    Object.values(mockUserEngagementTracker).forEach((method) => {
+    Object.values(mockUserEngagementTracker).forEach(method => {
       if (jest.isMockFunction(method)) {
         method.mockReset();
       }
@@ -521,24 +525,18 @@ export const expectBusinessMetricTracked = (eventName: string, properties?: any)
 export const expectPaymentTracked = (eventName: string, amount?: number) => {
   const method = mockPaymentMonitor[eventName as keyof typeof mockPaymentMonitor];
   expect(method).toHaveBeenCalled();
-  
+
   if (amount !== undefined) {
-    expect(method).toHaveBeenCalledWith(
-      expect.objectContaining({ amount }),
-      expect.any(Object)
-    );
+    expect(method).toHaveBeenCalledWith(expect.objectContaining({ amount }), expect.any(Object));
   }
 };
 
 export const expectUserEngagementTracked = (eventName: string, userId?: string) => {
   const method = mockUserEngagementTracker[eventName as keyof typeof mockUserEngagementTracker];
   expect(method).toHaveBeenCalled();
-  
+
   if (userId) {
-    expect(method).toHaveBeenCalledWith(
-      expect.objectContaining({ userId }),
-      expect.any(Object)
-    );
+    expect(method).toHaveBeenCalledWith(expect.objectContaining({ userId }), expect.any(Object));
   }
 };
 
@@ -591,4 +589,13 @@ export const businessMetrics = {
 // Export everything for easy importing
 export * from '@testing-library/jest-dom';
 export { render, screen, fireEvent, waitFor } from '@testing-library/react';
-export { jest, expect, describe, it, beforeEach, afterEach, beforeAll, afterAll } from '@jest/globals';
+export {
+  jest,
+  expect,
+  describe,
+  it,
+  beforeEach,
+  afterEach,
+  beforeAll,
+  afterAll,
+} from '@jest/globals';

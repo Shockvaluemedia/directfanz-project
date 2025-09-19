@@ -10,7 +10,12 @@ import { WebSocketHandler } from './websocket-handler';
 
 class WebSocketSingleton {
   private static instance: WebSocketSingleton;
-  private io: SocketIOServer<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData> | null = null;
+  private io: SocketIOServer<
+    ClientToServerEvents,
+    ServerToClientEvents,
+    InterServerEvents,
+    SocketData
+  > | null = null;
   private handler: WebSocketHandler | null = null;
 
   private constructor() {}
@@ -22,13 +27,20 @@ class WebSocketSingleton {
     return WebSocketSingleton.instance;
   }
 
-  public setIO(io: SocketIOServer<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>) {
+  public setIO(
+    io: SocketIOServer<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>
+  ) {
     this.io = io;
     this.handler = new WebSocketHandler(io);
     this.handler.initialize();
   }
 
-  public getIO(): SocketIOServer<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData> | null {
+  public getIO(): SocketIOServer<
+    ClientToServerEvents,
+    ServerToClientEvents,
+    InterServerEvents,
+    SocketData
+  > | null {
     return this.io;
   }
 
@@ -43,7 +55,12 @@ class WebSocketSingleton {
     }
   }
 
-  public emitToConversation(userId1: string, userId2: string, event: keyof ServerToClientEvents, data: any): void {
+  public emitToConversation(
+    userId1: string,
+    userId2: string,
+    event: keyof ServerToClientEvents,
+    data: any
+  ): void {
     if (this.handler) {
       this.handler.emitToConversation(userId1, userId2, event, data);
     }

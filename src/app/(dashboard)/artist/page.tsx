@@ -1,10 +1,11 @@
-"use client";
+'use client';
 
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { ArtistOverview } from '@/components/dashboard/ArtistOverview';
 import { LoadingSpinner } from '@/components/ui/loading';
+import { ClientOnly } from '@/components/ui/ClientOnly';
 
 export default function ArtistDashboardPage() {
   const { data: session, status } = useSession();
@@ -26,10 +27,10 @@ export default function ArtistDashboardPage() {
 
   if (status === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center" suppressHydrationWarning>
-        <div className="flex flex-col items-center">
-          <LoadingSpinner size="lg" />
-          <p className="mt-3 text-sm text-gray-600">Loading dashboard...</p>
+      <div className='min-h-screen flex items-center justify-center'>
+        <div className='flex flex-col items-center'>
+          <LoadingSpinner size='lg' />
+          <p className='mt-3 text-sm text-gray-600'>Loading dashboard...</p>
         </div>
       </div>
     );
@@ -40,8 +41,18 @@ export default function ArtistDashboardPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8" suppressHydrationWarning>
-      <ArtistOverview />
-    </div>
+    <ClientOnly
+      fallback={
+        <div className='container mx-auto px-4 py-8'>
+          <div className='flex items-center justify-center py-12'>
+            <LoadingSpinner size='lg' />
+          </div>
+        </div>
+      }
+    >
+      <div className='container mx-auto px-4 py-8'>
+        <ArtistOverview />
+      </div>
+    </ClientOnly>
   );
 }

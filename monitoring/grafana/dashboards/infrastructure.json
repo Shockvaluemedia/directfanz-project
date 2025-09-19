@@ -15,7 +15,7 @@
         "id": 1,
         "title": "CPU Usage",
         "type": "graph",
-        "gridPos": {"h": 6, "w": 12, "x": 0, "y": 0},
+        "gridPos": { "h": 6, "w": 12, "x": 0, "y": 0 },
         "targets": [
           {
             "expr": "100 - (avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
@@ -35,7 +35,7 @@
         "id": 2,
         "title": "Memory Usage",
         "type": "graph",
-        "gridPos": {"h": 6, "w": 12, "x": 12, "y": 0},
+        "gridPos": { "h": 6, "w": 12, "x": 12, "y": 0 },
         "targets": [
           {
             "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
@@ -55,7 +55,7 @@
         "id": 3,
         "title": "Disk Usage",
         "type": "graph",
-        "gridPos": {"h": 6, "w": 12, "x": 0, "y": 6},
+        "gridPos": { "h": 6, "w": 12, "x": 0, "y": 6 },
         "targets": [
           {
             "expr": "100 - ((node_filesystem_avail_bytes{mountpoint=\"/\"} * 100) / node_filesystem_size_bytes{mountpoint=\"/\"})",
@@ -75,7 +75,7 @@
         "id": 4,
         "title": "Network I/O",
         "type": "graph",
-        "gridPos": {"h": 6, "w": 12, "x": 12, "y": 6},
+        "gridPos": { "h": 6, "w": 12, "x": 12, "y": 6 },
         "targets": [
           {
             "expr": "rate(node_network_receive_bytes_total{device!=\"lo\"}[5m])",
@@ -99,7 +99,7 @@
         "id": 5,
         "title": "Load Average",
         "type": "graph",
-        "gridPos": {"h": 6, "w": 8, "x": 0, "y": 12},
+        "gridPos": { "h": 6, "w": 8, "x": 0, "y": 12 },
         "targets": [
           {
             "expr": "node_load1",
@@ -128,7 +128,7 @@
         "id": 6,
         "title": "Container Status",
         "type": "table",
-        "gridPos": {"h": 6, "w": 8, "x": 8, "y": 12},
+        "gridPos": { "h": 6, "w": 8, "x": 8, "y": 12 },
         "targets": [
           {
             "expr": "container_last_seen",
@@ -154,7 +154,7 @@
         "id": 7,
         "title": "Docker Container Memory",
         "type": "graph",
-        "gridPos": {"h": 6, "w": 8, "x": 16, "y": 12},
+        "gridPos": { "h": 6, "w": 8, "x": 16, "y": 12 },
         "targets": [
           {
             "expr": "container_memory_usage_bytes{name=~\"direct-fan-platform.*\"}",
@@ -173,7 +173,7 @@
         "id": 8,
         "title": "PostgreSQL Connections",
         "type": "stat",
-        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 18},
+        "gridPos": { "h": 4, "w": 6, "x": 0, "y": 18 },
         "targets": [
           {
             "expr": "pg_stat_database_numbackends{datname=\"direct_fan_platform\"}",
@@ -188,9 +188,9 @@
             },
             "thresholds": {
               "steps": [
-                {"color": "green", "value": 0},
-                {"color": "yellow", "value": 50},
-                {"color": "red", "value": 80}
+                { "color": "green", "value": 0 },
+                { "color": "yellow", "value": 50 },
+                { "color": "red", "value": 80 }
               ]
             },
             "unit": "none"
@@ -201,7 +201,7 @@
         "id": 9,
         "title": "PostgreSQL Query Rate",
         "type": "graph",
-        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 18},
+        "gridPos": { "h": 4, "w": 6, "x": 6, "y": 18 },
         "targets": [
           {
             "expr": "rate(pg_stat_database_tup_inserted{datname=\"direct_fan_platform\"}[5m])",
@@ -230,7 +230,7 @@
         "id": 10,
         "title": "Redis Memory Usage",
         "type": "stat",
-        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 18},
+        "gridPos": { "h": 4, "w": 6, "x": 12, "y": 18 },
         "targets": [
           {
             "expr": "redis_memory_used_bytes",
@@ -245,9 +245,9 @@
             },
             "thresholds": {
               "steps": [
-                {"color": "green", "value": 0},
-                {"color": "yellow", "value": 500000000},
-                {"color": "red", "value": 1000000000}
+                { "color": "green", "value": 0 },
+                { "color": "yellow", "value": 500000000 },
+                { "color": "red", "value": 1000000000 }
               ]
             },
             "unit": "bytes"
@@ -258,7 +258,7 @@
         "id": 11,
         "title": "Redis Operations/sec",
         "type": "graph",
-        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 18},
+        "gridPos": { "h": 4, "w": 6, "x": 18, "y": 18 },
         "targets": [
           {
             "expr": "rate(redis_commands_processed_total[5m])",

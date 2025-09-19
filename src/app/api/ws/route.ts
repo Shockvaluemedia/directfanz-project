@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
   // Handle Server-Sent Events connection
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get('userId');
-  
+
   if (!userId) {
     return new Response('User ID required', { status: 400 });
   }
@@ -25,14 +25,14 @@ export async function GET(request: NextRequest) {
       // Store connection
       const clientId = `${userId}_${Date.now()}`;
       connections.set(clientId, controller);
-      
+
       // Send initial connection message
       const message = `data: ${JSON.stringify({
         type: 'connected',
-        data: { message: 'SSE connection established', clientId }
+        data: { message: 'SSE connection established', clientId },
       })}\n\n`;
       controller.enqueue(new TextEncoder().encode(message));
-      
+
       // Handle connection cleanup
       const cleanup = () => {
         connections.delete(clientId);
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
           }
         });
       };
-      
+
       // Store cleanup function
       (controller as any).cleanup = cleanup;
     },
@@ -52,17 +52,17 @@ export async function GET(request: NextRequest) {
       if ((this as any).cleanup) {
         (this as any).cleanup();
       }
-    }
+    },
   });
 
   return new Response(stream, {
     headers: {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
+      Connection: 'keep-alive',
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'Cache-Control'
-    }
+      'Access-Control-Allow-Headers': 'Cache-Control',
+    },
   });
 }
 
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { type, contentId, data, userId } = body;
-    
+
     switch (type) {
       case 'subscribe_content':
         // Subscribe to content updates
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
           }
         }
         break;
-        
+
       case 'unsubscribe_content':
         // Unsubscribe from content updates
         if (userId && contentId) {
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
           }
         }
         break;
-        
+
       case 'new_comment':
       case 'comment_updated':
       case 'comment_deleted':
@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
           broadcastToContent(contentId, { type, data });
         }
         break;
-        
+
       case 'notification':
         // Send notification to specific user
         if (userId) {
@@ -113,15 +113,15 @@ export async function POST(request: NextRequest) {
         }
         break;
     }
-    
+
     return new Response(JSON.stringify({ success: true }), {
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
     console.error('SSE POST error:', error);
     return new Response(JSON.stringify({ error: 'Invalid request' }), {
       status: 400,
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json' },
     });
   }
 }
@@ -133,7 +133,7 @@ function broadcastToContent(contentId: string, message: any, excludeClientId?: s
 
   subscribers.forEach(clientId => {
     if (excludeClientId && clientId === excludeClientId) return;
-    
+
     const controller = connections.get(clientId);
     if (controller) {
       try {
@@ -152,7 +152,7 @@ function broadcastToContent(contentId: string, message: any, excludeClientId?: s
 function broadcastToUser(userId: string, message: any) {
   const clientId = Array.from(connections.keys()).find(id => id.startsWith(userId));
   if (!clientId) return;
-  
+
   const controller = connections.get(clientId);
   if (controller) {
     try {
@@ -168,7 +168,7 @@ function broadcastToUser(userId: string, message: any) {
 function broadcastToAll(message: any, excludeClientId?: string) {
   connections.forEach((controller, clientId) => {
     if (excludeClientId && clientId === excludeClientId) return;
-    
+
     try {
       const sseMessage = `data: ${JSON.stringify(message)}\n\n`;
       controller.enqueue(new TextEncoder().encode(sseMessage));
@@ -178,4 +178,3 @@ function broadcastToAll(message: any, excludeClientId?: string) {
     }
   });
 }
-

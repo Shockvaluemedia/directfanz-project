@@ -13,7 +13,7 @@ const uploadRequestSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id || session.user.role !== 'ARTIST') {
       return NextResponse.json(
         { error: { code: 'UNAUTHORIZED', message: 'Artist authentication required' } },
@@ -23,19 +23,19 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const validatedData = uploadRequestSchema.parse(body);
-    
+
     const { fileName, fileType, fileSize } = validatedData;
 
     // Validate file upload parameters
     const validationErrors = validateFileUpload(fileName, fileType, fileSize);
     if (validationErrors.length > 0) {
       return NextResponse.json(
-        { 
-          error: { 
-            code: 'VALIDATION_ERROR', 
+        {
+          error: {
+            code: 'VALIDATION_ERROR',
             message: 'File validation failed',
-            details: { errors: validationErrors }
-          } 
+            details: { errors: validationErrors },
+          },
         },
         { status: 400 }
       );
@@ -53,18 +53,17 @@ export async function POST(request: NextRequest) {
       success: true,
       data: presignedUrlData,
     });
-
   } catch (error) {
     console.error('Upload URL generation error:', error);
-    
+
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { 
-          error: { 
-            code: 'VALIDATION_ERROR', 
+        {
+          error: {
+            code: 'VALIDATION_ERROR',
             message: 'Invalid request data',
-            details: { errors: error.errors }
-          } 
+            details: { errors: error.errors },
+          },
         },
         { status: 400 }
       );

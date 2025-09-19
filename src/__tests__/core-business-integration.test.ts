@@ -1,10 +1,10 @@
 /**
  * Core Business Logic Integration Tests
- * 
+ *
  * Tests the core business functionality without complex auth dependencies
  */
 
-import { 
+import {
   setupTestEnvironment,
   createMockUser,
   createMockArtist,
@@ -49,8 +49,8 @@ describe('Core Business Integration Tests', () => {
       });
 
       // Mock database operations
-      (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
-      (prisma.user.create as jest.Mock).mockResolvedValue(mockUser);
+      (prisma.users.findUnique as jest.Mock).mockResolvedValue(null);
+      (prisma.users.create as jest.Mock).mockResolvedValue(mockUser);
 
       // Simulate user registration business logic
       const userData = {
@@ -106,8 +106,8 @@ describe('Core Business Integration Tests', () => {
       });
 
       // Mock database operations
-      (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
-      (prisma.user.create as jest.Mock).mockResolvedValue({
+      (prisma.users.findUnique as jest.Mock).mockResolvedValue(null);
+      (prisma.users.create as jest.Mock).mockResolvedValue({
         ...mockUser,
         artist: mockArtist,
       });
@@ -134,7 +134,7 @@ describe('Core Business Integration Tests', () => {
       userEngagementTracker.trackSignup(mockUser.id, {
         role: artistData.role,
         signupMethod: 'email',
-        artistProfile: {
+        artists: {
           stageName: artistData.stageName,
           genre: artistData.genre,
         },
@@ -154,7 +154,7 @@ describe('Core Business Integration Tests', () => {
       expect(userEngagementTracker.trackSignup).toHaveBeenCalledWith('artist-user-123', {
         role: 'artist',
         signupMethod: 'email',
-        artistProfile: {
+        artists: {
           stageName: 'Test Artist',
           genre: 'Pop',
         },
@@ -292,12 +292,16 @@ describe('Core Business Integration Tests', () => {
       });
 
       // Track subscription cancellation
-      paymentMonitor.trackSubscriptionCancelled(subscription, {
-        userId: fanUser.id,
-        creatorId: artistUser.id,
-        subscriptionTier: 'Premium Tier',
-        source: 'webhook',
-      }, 'subscription_cancelled');
+      paymentMonitor.trackSubscriptionCancelled(
+        subscription,
+        {
+          userId: fanUser.id,
+          creatorId: artistUser.id,
+          subscriptionTier: 'Premium Tier',
+          source: 'webhook',
+        },
+        'subscription_cancelled'
+      );
 
       // Track churn event
       businessMetrics.track({
@@ -472,10 +476,10 @@ describe('Core Business Integration Tests', () => {
 
     it('should handle business logic errors gracefully', async () => {
       const mockError = new Error('Database connection failed');
-      
+
       // Mock a database error
-      (prisma.user.findUnique as jest.Mock).mockRejectedValue(mockError);
-      
+      (prisma.users.findUnique as jest.Mock).mockRejectedValue(mockError);
+
       // Test error handling in business logic
       try {
         // This would normally be wrapped in error handling
@@ -492,7 +496,7 @@ describe('Core Business Integration Tests', () => {
           },
         });
       }
-      
+
       expect(businessMetrics.track).toHaveBeenCalledWith({
         event: 'error_occurred',
         userId: 'user-123',
@@ -509,7 +513,7 @@ describe('Core Business Integration Tests', () => {
     it('should calculate and track key performance indicators', async () => {
       const fanUser = createMockUser({ id: 'fan-123', role: 'fan' });
       const artistUser = createMockUser({ id: 'artist-user-123', role: 'artist' });
-      
+
       // Simulate multiple user actions that affect KPIs
       const actions = [
         { event: 'user_registered', value: 1 },
@@ -517,7 +521,7 @@ describe('Core Business Integration Tests', () => {
         { event: 'content_viewed', value: 1 },
         { event: 'payment_succeeded', value: 29.99 },
       ];
-      
+
       actions.forEach(action => {
         businessMetrics.track({
           event: action.event,
@@ -529,10 +533,10 @@ describe('Core Business Integration Tests', () => {
           },
         });
       });
-      
+
       // Verify all KPI events were tracked
       expect(businessMetrics.track).toHaveBeenCalledTimes(4);
-      
+
       // Verify specific high-value events
       expect(businessMetrics.track).toHaveBeenCalledWith({
         event: 'subscription_created',
@@ -543,7 +547,7 @@ describe('Core Business Integration Tests', () => {
           timestamp: expect.any(String),
         },
       });
-      
+
       expect(businessMetrics.track).toHaveBeenCalledWith({
         event: 'payment_succeeded',
         userId: 'fan-123',

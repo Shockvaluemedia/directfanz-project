@@ -38,12 +38,24 @@ import {
 import { getServerSession } from 'next-auth';
 
 const mockPrisma = prisma as jest.Mocked<typeof prisma>;
-const mockGetBillingCycleInfo = getBillingCycleInfo as jest.MockedFunction<typeof getBillingCycleInfo>;
-const mockGetUpcomingInvoices = getUpcomingInvoices as jest.MockedFunction<typeof getUpcomingInvoices>;
-const mockGetBillingCycleStats = getBillingCycleStats as jest.MockedFunction<typeof getBillingCycleStats>;
-const mockProcessBillingRenewals = processBillingRenewals as jest.MockedFunction<typeof processBillingRenewals>;
-const mockProcessFailedPaymentRetries = processFailedPaymentRetries as jest.MockedFunction<typeof processFailedPaymentRetries>;
-const mockSendBillingReminders = sendBillingReminders as jest.MockedFunction<typeof sendBillingReminders>;
+const mockGetBillingCycleInfo = getBillingCycleInfo as jest.MockedFunction<
+  typeof getBillingCycleInfo
+>;
+const mockGetUpcomingInvoices = getUpcomingInvoices as jest.MockedFunction<
+  typeof getUpcomingInvoices
+>;
+const mockGetBillingCycleStats = getBillingCycleStats as jest.MockedFunction<
+  typeof getBillingCycleStats
+>;
+const mockProcessBillingRenewals = processBillingRenewals as jest.MockedFunction<
+  typeof processBillingRenewals
+>;
+const mockProcessFailedPaymentRetries = processFailedPaymentRetries as jest.MockedFunction<
+  typeof processFailedPaymentRetries
+>;
+const mockSendBillingReminders = sendBillingReminders as jest.MockedFunction<
+  typeof sendBillingReminders
+>;
 const mockGetServerSession = getServerSession as jest.MockedFunction<typeof getServerSession>;
 
 // Helper functions to create mock requests
@@ -82,7 +94,7 @@ describe('/api/billing/cycle', () => {
         daysInCurrentPeriod: 31,
         daysRemaining: 15,
       };
-      
+
       const expectedBillingInfo = {
         currentPeriodStart: '2022-01-01T00:00:00.000Z',
         currentPeriodEnd: '2022-02-01T00:00:00.000Z',
@@ -95,7 +107,9 @@ describe('/api/billing/cycle', () => {
       mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
       mockGetBillingCycleInfo.mockResolvedValue(mockBillingInfo);
 
-      const request = createMockGetRequest('http://localhost:3000/api/billing/cycle?action=info&subscriptionId=sub123');
+      const request = createMockGetRequest(
+        'http://localhost:3000/api/billing/cycle?action=info&subscriptionId=sub123'
+      );
       const response = await GET(request);
       const data = await response.json();
 
@@ -112,30 +126,29 @@ describe('/api/billing/cycle', () => {
       const mockUpcomingInvoices = [
         {
           subscriptionId: 'sub1',
-          amount: 10.00,
+          amount: 10.0,
           dueDate: new Date('2022-02-01'),
           periodStart: new Date('2022-01-01'),
           periodEnd: new Date('2022-02-01'),
         },
         {
           subscriptionId: 'sub2',
-          amount: 15.00,
+          amount: 15.0,
           dueDate: new Date('2022-02-01'),
           periodStart: new Date('2022-01-01'),
           periodEnd: new Date('2022-02-01'),
         },
       ];
 
-      const mockArtistSubscriptions = [
-        { id: 'sub1' },
-        { id: 'sub2' },
-      ];
+      const mockArtistSubscriptions = [{ id: 'sub1' }, { id: 'sub2' }];
 
       mockGetServerSession.mockResolvedValue(mockSession as any);
       mockGetUpcomingInvoices.mockResolvedValue(mockUpcomingInvoices);
       mockPrisma.subscription.findMany.mockResolvedValue(mockArtistSubscriptions as any);
 
-      const request = createMockGetRequest('http://localhost:3000/api/billing/cycle?action=upcoming');
+      const request = createMockGetRequest(
+        'http://localhost:3000/api/billing/cycle?action=upcoming'
+      );
       const response = await GET(request);
       const data = await response.json();
 
@@ -154,7 +167,7 @@ describe('/api/billing/cycle', () => {
         activeSubscriptions: 100,
         upcomingRenewals: 15,
         failedPayments: 5,
-        totalMonthlyRevenue: 2500.00,
+        totalMonthlyRevenue: 2500.0,
       };
 
       mockGetServerSession.mockResolvedValue(mockSession as any);
@@ -171,7 +184,9 @@ describe('/api/billing/cycle', () => {
     it('should return 401 for unauthenticated user', async () => {
       mockGetServerSession.mockResolvedValue(null);
 
-      const request = createMockGetRequest('http://localhost:3000/api/billing/cycle?action=info&subscriptionId=sub123');
+      const request = createMockGetRequest(
+        'http://localhost:3000/api/billing/cycle?action=info&subscriptionId=sub123'
+      );
       const response = await GET(request);
       const data = await response.json();
 
@@ -202,7 +217,9 @@ describe('/api/billing/cycle', () => {
       mockGetServerSession.mockResolvedValue(mockSession as any);
       mockPrisma.subscription.findUnique.mockResolvedValue(null);
 
-      const request = createMockGetRequest('http://localhost:3000/api/billing/cycle?action=info&subscriptionId=sub123');
+      const request = createMockGetRequest(
+        'http://localhost:3000/api/billing/cycle?action=info&subscriptionId=sub123'
+      );
       const response = await GET(request);
       const data = await response.json();
 
@@ -217,7 +234,9 @@ describe('/api/billing/cycle', () => {
 
       mockGetServerSession.mockResolvedValue(mockSession as any);
 
-      const request = createMockGetRequest('http://localhost:3000/api/billing/cycle?action=upcoming');
+      const request = createMockGetRequest(
+        'http://localhost:3000/api/billing/cycle?action=upcoming'
+      );
       const response = await GET(request);
       const data = await response.json();
 
@@ -247,7 +266,9 @@ describe('/api/billing/cycle', () => {
 
       mockGetServerSession.mockResolvedValue(mockSession as any);
 
-      const request = createMockGetRequest('http://localhost:3000/api/billing/cycle?action=invalid');
+      const request = createMockGetRequest(
+        'http://localhost:3000/api/billing/cycle?action=invalid'
+      );
       const response = await GET(request);
       const data = await response.json();
 
@@ -267,16 +288,16 @@ describe('/api/billing/cycle', () => {
         {
           type: 'renewal' as const,
           subscriptionId: 'sub1',
-          amount: 10.00,
+          amount: 10.0,
           timestamp: fixedTimestamp,
         },
       ];
-      
+
       const expectedEvents = [
         {
           type: 'renewal',
           subscriptionId: 'sub1',
-          amount: 10.00,
+          amount: 10.0,
           timestamp: '2025-09-14T23:33:14.309Z',
         },
       ];
@@ -305,17 +326,17 @@ describe('/api/billing/cycle', () => {
         {
           type: 'retry' as const,
           subscriptionId: 'sub1',
-          amount: 10.00,
+          amount: 10.0,
           timestamp: fixedTimestamp,
           metadata: { resolved: true },
         },
       ];
-      
+
       const expectedEvents = [
         {
           type: 'retry',
           subscriptionId: 'sub1',
-          amount: 10.00,
+          amount: 10.0,
           timestamp: '2025-09-14T23:33:14.310Z',
           metadata: { resolved: true },
         },

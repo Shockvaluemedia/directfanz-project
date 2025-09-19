@@ -6,17 +6,24 @@ import { logger } from '@/lib/logger';
 
 const analyticsSchema = z.object({
   period: z.enum(['7d', '30d', '90d', '1y', 'all']).default('30d'),
-  metrics: z.array(z.enum(['users', 'revenue', 'content', 'subscriptions', 'retention'])).default(['users', 'revenue', 'content', 'subscriptions']),
+  metrics: z
+    .array(z.enum(['users', 'revenue', 'content', 'subscriptions', 'retention']))
+    .default(['users', 'revenue', 'content', 'subscriptions']),
 });
 
 export async function GET(request: NextRequest) {
-  return withAdminApi(request, async (req) => {
+  return withAdminApi(request, async req => {
     try {
       const { searchParams } = new URL(request.url);
-      
+
       const params = analyticsSchema.parse({
         period: searchParams.get('period') || '30d',
-        metrics: searchParams.get('metrics')?.split(',') || ['users', 'revenue', 'content', 'subscriptions'],
+        metrics: searchParams.get('metrics')?.split(',') || [
+          'users',
+          'revenue',
+          'content',
+          'subscriptions',
+        ],
       });
 
       const periodStart = getPeriodStart(params.period);
@@ -25,14 +32,14 @@ export async function GET(request: NextRequest) {
       // User analytics
       if (params.metrics.includes('users')) {
         const [totalUsers, newUsers, artistCount, fanCount] = await Promise.all([
-          prisma.user.count(),
-          prisma.user.count({
+          prisma.users.count(),
+          prisma.users.count({
             where: { createdAt: { gte: periodStart } },
           }),
-          prisma.user.count({
+          prisma.users.count({
             where: { role: 'ARTIST' },
           }),
-          prisma.user.count({
+          prisma.users.count({
             where: { role: 'FAN' },
           }),
         ]);
@@ -52,33 +59,34 @@ export async function GET(request: NextRequest) {
 
       // Revenue analytics
       if (params.metrics.includes('revenue')) {
-        const [totalRevenue, periodRevenue, avgRevenuePerArtist, topEarningArtists] = await Promise.all([
-          prisma.artist.aggregate({
-            _sum: { totalEarnings: true },
-          }),
-          prisma.invoice.aggregate({
-            where: {
-              status: 'PAID',
-              paidAt: { gte: periodStart },
-            },
-            _sum: { amount: true },
-          }),
-          prisma.artist.aggregate({
-            _avg: { totalEarnings: true },
-          }),
-          prisma.artist.findMany({
-            include: {
-              user: {
-                select: {
-                  displayName: true,
-                  avatar: true,
+        const [totalRevenue, periodRevenue, avgRevenuePerArtist, topEarningArtists] =
+          await Promise.all([
+            prisma.artists.aggregate({
+              _sum: { totalEarnings: true },
+            }),
+            prisma.invoices.aggregate({
+              where: {
+                status: 'PAID',
+                paidAt: { gte: periodStart },
+              },
+              _sum: { amount: true },
+            }),
+            prisma.artists.aggregate({
+              _avg: { totalEarnings: true },
+            }),
+            prisma.artists.findMany({
+              include: {
+                users: {
+                  select: {
+                    displayName: true,
+                    avatar: true,
+                  },
                 },
               },
-            },
-            orderBy: { totalEarnings: 'desc' },
-            take: 10,
-          }),
-        ]);
+              orderBy: { totalEarnings: 'desc' },
+              take: 10,
+            }),
+          ]);
 
         // Daily revenue for the period
         const dailyRevenue = await getDailyRevenue(periodStart);
@@ -89,8 +97,8 @@ export async function GET(request: NextRequest) {
           averagePerArtist: avgRevenuePerArtist._avg.totalEarnings || 0,
           topEarners: topEarningArtists.map(artist => ({
             id: artist.userId,
-            displayName: artist.user.displayName,
-            avatar: artist.user.avatar,
+            displayName: artist.users.displayName,
+            avatar: artist.users.avatar,
             totalEarnings: artist.totalEarnings,
             totalSubscribers: artist.totalSubscribers,
           })),
@@ -111,7 +119,7 @@ export async function GET(request: NextRequest) {
           }),
           prisma.content.findMany({
             include: {
-              artist: {
+              users: {
                 select: {
                   displayName: true,
                   avatar: true,
@@ -137,15 +145,18 @@ export async function GET(request: NextRequest) {
         analytics.content = {
           total: totalContent,
           new: newContent,
-          byType: contentByType.reduce((acc, item) => {
-            acc[item.type.toLowerCase()] = item._count.id;
-            return acc;
-          }, {} as Record<string, number>),
+          byType: contentByType.reduce(
+            (acc, item) => {
+              acc[item.type.toLowerCase()] = item._count.id;
+              return acc;
+            },
+            {} as Record<string, number>
+          ),
           topContent: topContent.map(content => ({
             id: content.id,
             title: content.title,
             type: content.type,
-            artist: content.artist,
+            artist: content.users,
             commentCount: content._count.comments,
             createdAt: content.createdAt,
           })),
@@ -155,24 +166,25 @@ export async function GET(request: NextRequest) {
 
       // Subscription analytics
       if (params.metrics.includes('subscriptions')) {
-        const [totalSubscriptions, activeSubscriptions, newSubscriptions, canceledSubscriptions] = await Promise.all([
-          prisma.subscription.count(),
-          prisma.subscription.count({
-            where: { status: 'ACTIVE' },
-          }),
-          prisma.subscription.count({
-            where: { createdAt: { gte: periodStart } },
-          }),
-          prisma.subscription.count({
-            where: {
-              status: 'CANCELED',
-              updatedAt: { gte: periodStart },
-            },
-          }),
-        ]);
+        const [totalSubscriptions, activeSubscriptions, newSubscriptions, canceledSubscriptions] =
+          await Promise.all([
+            prisma.subscriptions.count(),
+            prisma.subscriptions.count({
+              where: { status: 'ACTIVE' },
+            }),
+            prisma.subscriptions.count({
+              where: { createdAt: { gte: periodStart } },
+            }),
+            prisma.subscriptions.count({
+              where: {
+                status: 'CANCELED',
+                updatedAt: { gte: periodStart },
+              },
+            }),
+          ]);
 
         // Average subscription value
-        const avgSubscriptionValue = await prisma.subscription.aggregate({
+        const avgSubscriptionValue = await prisma.subscriptions.aggregate({
           where: { status: 'ACTIVE' },
           _avg: { amount: true },
         });
@@ -182,7 +194,8 @@ export async function GET(request: NextRequest) {
 
         // Churn rate calculation
         const startOfPeriodActive = activeSubscriptions + canceledSubscriptions - newSubscriptions;
-        const churnRate = startOfPeriodActive > 0 ? (canceledSubscriptions / startOfPeriodActive * 100) : 0;
+        const churnRate =
+          startOfPeriodActive > 0 ? (canceledSubscriptions / startOfPeriodActive) * 100 : 0;
 
         analytics.subscriptions = {
           total: totalSubscriptions,
@@ -218,11 +231,10 @@ export async function GET(request: NextRequest) {
         period: params.period,
         generatedAt: new Date().toISOString(),
       });
-
     } catch (error) {
       if (error instanceof z.ZodError) {
         return NextResponse.json(
-          { 
+          {
             error: 'Invalid parameters',
             details: error.errors,
           },
@@ -231,17 +243,14 @@ export async function GET(request: NextRequest) {
       }
 
       logger.error('Admin analytics endpoint error', { adminUserId: req.user?.id }, error as Error);
-      return NextResponse.json(
-        { error: 'Failed to fetch analytics' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to fetch analytics' }, { status: 500 });
     }
   });
 }
 
 function getPeriodStart(period: string): Date {
   const now = new Date();
-  
+
   switch (period) {
     case '7d':
       return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -265,7 +274,7 @@ async function getDailyRegistrations(periodStart: Date) {
     GROUP BY DATE_TRUNC('day', "createdAt")
     ORDER BY date ASC
   `;
-  
+
   return registrations;
 }
 
@@ -277,7 +286,7 @@ async function getDailyRevenue(periodStart: Date) {
     GROUP BY DATE_TRUNC('day', "paidAt")
     ORDER BY date ASC
   `;
-  
+
   return revenue;
 }
 
@@ -289,7 +298,7 @@ async function getDailyUploads(periodStart: Date) {
     GROUP BY DATE_TRUNC('day', "createdAt")
     ORDER BY date ASC
   `;
-  
+
   return uploads;
 }
 
@@ -303,29 +312,29 @@ async function getDailySubscriptions(periodStart: Date) {
     GROUP BY DATE_TRUNC('day', "createdAt")
     ORDER BY date ASC
   `;
-  
+
   return subscriptions;
 }
 
 async function getMonthlyActiveUsers(): Promise<number> {
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  
+
   // This is a simplified calculation
   // In reality, you'd track user sessions/activities
-  const activeUsers = await prisma.user.count({
+  const activeUsers = await prisma.users.count({
     where: {
       updatedAt: { gte: thirtyDaysAgo },
     },
   });
-  
+
   return activeUsers;
 }
 
 async function getConversionRate(): Promise<number> {
   const [totalVisitors, totalSubscribers] = await Promise.all([
-    prisma.user.count({ where: { role: 'FAN' } }),
-    prisma.subscription.count({ where: { status: 'ACTIVE' } }),
+    prisma.users.count({ where: { role: 'FAN' } }),
+    prisma.subscriptions.count({ where: { status: 'ACTIVE' } }),
   ]);
-  
-  return totalVisitors > 0 ? (totalSubscribers / totalVisitors * 100) : 0;
+
+  return totalVisitors > 0 ? (totalSubscribers / totalVisitors) * 100 : 0;
 }

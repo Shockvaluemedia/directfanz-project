@@ -46,7 +46,7 @@ const DialogContext = React.createContext<{
 
 export function Dialog({ open: controlledOpen, onOpenChange, children }: DialogProps) {
   const [internalOpen, setInternalOpen] = useState(false);
-  
+
   const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
   const setOpen = (newOpen: boolean) => {
     if (controlledOpen === undefined) {
@@ -55,11 +55,7 @@ export function Dialog({ open: controlledOpen, onOpenChange, children }: DialogP
     onOpenChange?.(newOpen);
   };
 
-  return (
-    <DialogContext.Provider value={{ open, setOpen }}>
-      {children}
-    </DialogContext.Provider>
-  );
+  return <DialogContext.Provider value={{ open, setOpen }}>{children}</DialogContext.Provider>;
 }
 
 export function DialogTrigger({ asChild, children, onClick }: DialogTriggerProps) {
@@ -77,11 +73,7 @@ export function DialogTrigger({ asChild, children, onClick }: DialogTriggerProps
     });
   }
 
-  return (
-    <button onClick={handleClick}>
-      {children}
-    </button>
-  );
+  return <button onClick={handleClick}>{children}</button>;
 }
 
 export function DialogContent({ className = '', children, onClose }: DialogContentProps) {
@@ -121,25 +113,38 @@ export function DialogContent({ className = '', children, onClose }: DialogConte
   };
 
   return createPortal(
-    <div 
-      className="fixed inset-0 z-50 flex items-center justify-center"
+    <div
+      className='fixed inset-0 z-50 flex items-center justify-center'
       onClick={handleBackdropClick}
     >
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/50" />
-      
+      <div className='fixed inset-0 bg-black/50' />
+
       {/* Dialog */}
-      <div className={`relative bg-white rounded-lg shadow-lg max-w-lg w-full mx-4 max-h-[90vh] overflow-auto ${className}`}>
+      <div
+        className={`relative bg-white rounded-lg shadow-lg max-w-lg w-full mx-4 max-h-[90vh] overflow-auto ${className}`}
+      >
         <button
           onClick={() => {
             setOpen(false);
             onClose?.();
           }}
-          className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-white transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
+          className='absolute right-4 top-4 rounded-sm opacity-70 ring-offset-white transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2'
         >
-          <span className="sr-only">Close</span>
-          <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="m11.25 3.75-7.5 7.5m0-7.5 7.5 7.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          <span className='sr-only'>Close</span>
+          <svg
+            width='15'
+            height='15'
+            viewBox='0 0 15 15'
+            fill='none'
+            xmlns='http://www.w3.org/2000/svg'
+          >
+            <path
+              d='m11.25 3.75-7.5 7.5m0-7.5 7.5 7.5'
+              stroke='currentColor'
+              strokeWidth='1.5'
+              strokeLinecap='round'
+            />
           </svg>
         </button>
         {children}
@@ -159,23 +164,25 @@ export function DialogHeader({ children, className = '' }: DialogHeaderProps) {
 
 export function DialogTitle({ children, className = '' }: DialogTitleProps) {
   return (
-    <h3 className={`text-lg font-semibold leading-none tracking-tight ${className}`}>
-      {children}
-    </h3>
+    <h3 className={`text-lg font-semibold leading-none tracking-tight ${className}`}>{children}</h3>
   );
 }
 
 export function DialogDescription({ children, className = '' }: DialogDescriptionProps) {
-  return (
-    <p className={`text-sm text-gray-600 ${className}`}>
-      {children}
-    </p>
-  );
+  return <p className={`text-sm text-gray-600 ${className}`}>{children}</p>;
 }
 
-export function DialogFooter({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+export function DialogFooter({
+  children,
+  className = '',
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
-    <div className={`flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 p-6 pt-0 ${className}`}>
+    <div
+      className={`flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 p-6 pt-0 ${className}`}
+    >
       {children}
     </div>
   );

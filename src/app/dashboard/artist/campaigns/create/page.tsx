@@ -25,10 +25,10 @@ export default function CreateCampaignPage() {
 
   if (status === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="flex flex-col items-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-          <p className="mt-3 text-sm text-gray-600">Loading campaign creator...</p>
+      <div className='min-h-screen flex items-center justify-center'>
+        <div className='flex flex-col items-center'>
+          <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900'></div>
+          <p className='mt-3 text-sm text-gray-600'>Loading campaign creator...</p>
         </div>
       </div>
     );
@@ -36,7 +36,7 @@ export default function CreateCampaignPage() {
 
   if (!session || session.user.role !== 'ARTIST') {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className='min-h-screen flex items-center justify-center'>
         <p>Access denied. Artist role required.</p>
       </div>
     );

@@ -5,13 +5,13 @@ global:
     monitor: 'direct-fan-platform'
 
 rule_files:
-  - "alert_rules.yml"
+  - 'alert_rules.yml'
 
 alerting:
   alertmanagers:
     - static_configs:
         - targets:
-          - alertmanager:9093
+            - alertmanager:9093
 
 scrape_configs:
   # Prometheus itself
@@ -56,8 +56,8 @@ scrape_configs:
       module: [http_2xx]
     static_configs:
       - targets:
-        - https://your-domain.com
-        - https://your-domain.com/api/health
+          - https://your-domain.com
+          - https://your-domain.com/api/health
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target

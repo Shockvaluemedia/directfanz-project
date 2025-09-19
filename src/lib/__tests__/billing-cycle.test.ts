@@ -67,13 +67,13 @@ describe('Billing Cycle Functions', () => {
           id: 'sub1',
           stripeSubscriptionId: 'stripe_sub1',
           fan: { id: 'fan1' },
-          tier: { artist: { id: 'artist1' } },
+          tier: { users: { id: 'artist1' } },
         },
         {
           id: 'sub2',
           stripeSubscriptionId: 'stripe_sub2',
           fan: { id: 'fan2' },
-          tier: { artist: { id: 'artist2' } },
+          tier: { users: { id: 'artist2' } },
         },
       ];
 
@@ -83,9 +83,7 @@ describe('Billing Cycle Functions', () => {
         period_start: 1640995200,
         period_end: 1643673600,
         lines: {
-          data: [
-            { proration: false, amount: 1000 },
-          ],
+          data: [{ proration: false, amount: 1000 }],
         },
       };
 
@@ -112,7 +110,7 @@ describe('Billing Cycle Functions', () => {
       expect(result).toHaveLength(2);
       expect(result[0]).toEqual({
         subscriptionId: 'sub1',
-        amount: 10.00,
+        amount: 10.0,
         dueDate: new Date(1640995200 * 1000),
         periodStart: new Date(1640995200 * 1000),
         periodEnd: new Date(1643673600 * 1000),
@@ -120,11 +118,11 @@ describe('Billing Cycle Functions', () => {
       });
       expect(result[1]).toEqual({
         subscriptionId: 'sub2',
-        amount: 20.00,
+        amount: 20.0,
         dueDate: new Date(1640995200 * 1000),
         periodStart: new Date(1640995200 * 1000),
         periodEnd: new Date(1643673600 * 1000),
-        prorationAmount: 5.00,
+        prorationAmount: 5.0,
       });
     });
 
@@ -163,7 +161,7 @@ describe('Billing Cycle Functions', () => {
       const OriginalDate = Date;
       const now = new OriginalDate('2022-01-31T12:00:00Z');
       const tomorrow = new OriginalDate('2022-02-01T12:00:00Z');
-      
+
       jest.spyOn(global, 'Date').mockImplementation((dateString?: string) => {
         if (dateString) return new OriginalDate(dateString) as any;
         return now as any;
@@ -181,7 +179,7 @@ describe('Billing Cycle Functions', () => {
             name: 'Premium',
             artist: { displayName: 'Test Artist' },
           },
-          amount: new Decimal(10.00),
+          amount: new Decimal(10.0),
         },
       ];
 
@@ -201,8 +199,8 @@ describe('Billing Cycle Functions', () => {
       expect(result).toHaveLength(1);
       expect(result[0].type).toBe('renewal');
       expect(result[0].subscriptionId).toBe('sub1');
-      expect(result[0].amount).toBe(10.00);
-      
+      expect(result[0].amount).toBe(10.0);
+
       expect(mockPrisma.subscription.update).toHaveBeenCalledWith({
         where: { id: 'sub1' },
         data: {
@@ -225,7 +223,7 @@ describe('Billing Cycle Functions', () => {
     it('should skip email notification if billing notifications disabled', async () => {
       const OriginalDate = Date;
       const now = new OriginalDate('2022-01-31T12:00:00Z');
-      
+
       jest.spyOn(global, 'Date').mockImplementation((dateString?: string) => {
         if (dateString) return new OriginalDate(dateString) as any;
         return now as any;
@@ -243,7 +241,7 @@ describe('Billing Cycle Functions', () => {
             name: 'Premium',
             artist: { displayName: 'Test Artist' },
           },
-          amount: new Decimal(10.00),
+          amount: new Decimal(10.0),
         },
       ];
 
@@ -275,7 +273,7 @@ describe('Billing Cycle Functions', () => {
           id: 'failure1',
           subscriptionId: 'sub1',
           stripeInvoiceId: 'in_test123',
-          amount: new Decimal(10.00),
+          amount: new Decimal(10.0),
           attemptCount: 2,
           fanEmail: 'fan@example.com',
           tierName: 'Premium',
@@ -324,7 +322,7 @@ describe('Billing Cycle Functions', () => {
           subscriptionId: 'sub1',
           stripeSubscriptionId: 'stripe_sub1',
           stripeInvoiceId: 'in_test123',
-          amount: new Decimal(10.00),
+          amount: new Decimal(10.0),
           attemptCount: 3,
           artistId: 'artist1',
           fanEmail: 'fan@example.com',
@@ -378,7 +376,7 @@ describe('Billing Cycle Functions', () => {
           id: 'failure1',
           subscriptionId: 'sub1',
           stripeInvoiceId: 'in_test123',
-          amount: new Decimal(10.00),
+          amount: new Decimal(10.0),
           attemptCount: 1,
           fanEmail: 'fan@example.com',
           tierName: 'Premium',
@@ -424,7 +422,7 @@ describe('Billing Cycle Functions', () => {
         {
           id: 'sub1',
           currentPeriodEnd: renewalDate,
-          amount: new Decimal(10.00),
+          amount: new Decimal(10.0),
           fan: {
             email: 'fan1@example.com',
             notificationPreferences: { billing: true },
@@ -437,7 +435,7 @@ describe('Billing Cycle Functions', () => {
         {
           id: 'sub2',
           currentPeriodEnd: renewalDate,
-          amount: new Decimal(15.00),
+          amount: new Decimal(15.0),
           fan: {
             email: 'fan2@example.com',
             notificationPreferences: { billing: false }, // Disabled
@@ -480,7 +478,7 @@ describe('Billing Cycle Functions', () => {
       mockPrisma.$queryRaw.mockResolvedValue([{ count: '5' }]);
 
       mockPrisma.subscription.aggregate.mockResolvedValue({
-        _sum: { amount: new Decimal(2500.00) },
+        _sum: { amount: new Decimal(2500.0) },
       } as any);
 
       const result = await getBillingCycleStats();
@@ -489,7 +487,7 @@ describe('Billing Cycle Functions', () => {
         activeSubscriptions: 100,
         upcomingRenewals: 15,
         failedPayments: 5,
-        totalMonthlyRevenue: 2500.00,
+        totalMonthlyRevenue: 2500.0,
       });
 
       jest.useRealTimers();
@@ -499,9 +497,7 @@ describe('Billing Cycle Functions', () => {
       jest.useFakeTimers();
       jest.setSystemTime(new Date('2022-01-29T12:00:00Z'));
 
-      mockPrisma.subscription.count
-        .mockResolvedValueOnce(0)
-        .mockResolvedValueOnce(0);
+      mockPrisma.subscription.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
 
       // Mock $queryRaw for payment failures count
       mockPrisma.$queryRaw.mockResolvedValue([{ count: '0' }]);

@@ -51,7 +51,9 @@ import { Decimal } from '@prisma/client/runtime/library';
 const mockPrisma = prisma as jest.Mocked<typeof prisma>;
 const mockStripe = stripe as jest.Mocked<typeof stripe>;
 const mockSendEmail = sendEmail as jest.MockedFunction<typeof sendEmail>;
-const mockGenerateInvoiceData = generateInvoiceData as jest.MockedFunction<typeof generateInvoiceData>;
+const mockGenerateInvoiceData = generateInvoiceData as jest.MockedFunction<
+  typeof generateInvoiceData
+>;
 
 describe('Extended Billing Functions', () => {
   beforeEach(() => {
@@ -68,7 +70,7 @@ describe('Extended Billing Functions', () => {
       const mockSubscription = {
         id: 'sub123',
         tierId: 'tier1',
-        amount: new Decimal(10.00),
+        amount: new Decimal(10.0),
         status: 'ACTIVE',
         stripeSubscriptionId: 'stripe_sub123',
         currentPeriodEnd: new Date('2022-02-01'),
@@ -84,16 +86,18 @@ describe('Extended Billing Functions', () => {
       const mockNewTier = {
         id: 'tier2',
         name: 'Premium Tier',
-        minimumPrice: new Decimal(15.00),
+        minimumPrice: new Decimal(15.0),
         artist: { displayName: 'Test Artist' },
       };
 
       const mockStripeSubscription = {
         items: {
-          data: [{
-            id: 'si_test123',
-            price: { product: 'prod_test123' },
-          }],
+          data: [
+            {
+              id: 'si_test123',
+              price: { product: 'prod_test123' },
+            },
+          ],
         },
       };
 
@@ -102,13 +106,13 @@ describe('Extended Billing Functions', () => {
       };
 
       mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
-      mockPrisma.tier.findUnique.mockResolvedValue(mockNewTier as any);
+      mockPrisma.tiers.findUnique.mockResolvedValue(mockNewTier as any);
       mockStripe.subscriptions.retrieve.mockResolvedValue(mockStripeSubscription as any);
       mockStripe.subscriptions.update.mockResolvedValue({} as any);
       mockPrisma.$queryRaw.mockResolvedValue([{ id: 'invoice123' }]);
       mockSendEmail.mockResolvedValue(undefined);
 
-      const result = await scheduleTierChange('sub123', 'tier2', 20.00);
+      const result = await scheduleTierChange('sub123', 'tier2', 20.0);
 
       expect(result.success).toBe(true);
       expect(result.scheduledDate).toEqual(mockSubscription.currentPeriodEnd);
@@ -148,28 +152,28 @@ describe('Extended Billing Functions', () => {
 
       mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
 
-      await expect(
-        scheduleTierChange('sub123', 'tier2', 20.00)
-      ).rejects.toThrow('Can only schedule tier changes for active subscriptions');
+      await expect(scheduleTierChange('sub123', 'tier2', 20.0)).rejects.toThrow(
+        'Can only schedule tier changes for active subscriptions'
+      );
     });
 
     it('should throw error for amount below minimum', async () => {
       const mockSubscription = {
         id: 'sub123',
         status: 'ACTIVE',
-        tier: { artist: { id: 'artist123' } },
+        tier: { users: { id: 'artist123' } },
       };
 
       const mockNewTier = {
         id: 'tier2',
-        minimumPrice: new Decimal(15.00),
+        minimumPrice: new Decimal(15.0),
       };
 
       mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
-      mockPrisma.tier.findUnique.mockResolvedValue(mockNewTier as any);
+      mockPrisma.tiers.findUnique.mockResolvedValue(mockNewTier as any);
 
       await expect(
-        scheduleTierChange('sub123', 'tier2', 10.00) // Below minimum of $15
+        scheduleTierChange('sub123', 'tier2', 10.0) // Below minimum of $15
       ).rejects.toThrow('Amount is below minimum price for the new tier');
     });
   });
@@ -182,56 +186,53 @@ describe('Extended Billing Functions', () => {
       };
 
       const mockStripeInvoices = {
-        data: [
-          { id: 'in_test1' },
-          { id: 'in_test2' },
-        ],
+        data: [{ id: 'in_test1' }, { id: 'in_test2' }],
         has_more: false,
       };
 
       const mockInvoiceData1 = {
         id: 'in_test1',
         subscriptionId: 'stripe_sub123',
-        amount: 10.00,
+        amount: 10.0,
         status: 'paid',
         dueDate: new Date('2022-01-01'),
         items: [
           {
             description: 'Monthly subscription',
-            amount: 10.00,
+            amount: 10.0,
             quantity: 1,
             period: {
               start: new Date('2022-01-01'),
               end: new Date('2022-02-01'),
-            }
-          }
+            },
+          },
         ],
       };
 
       const mockInvoiceData2 = {
         id: 'in_test2',
         subscriptionId: 'stripe_sub123',
-        amount: 10.00,
+        amount: 10.0,
         status: 'paid',
         dueDate: new Date('2022-02-01'),
         paidAt: new Date('2022-02-01'),
         items: [
           {
             description: 'Monthly subscription',
-            amount: 10.00,
+            amount: 10.0,
             quantity: 1,
             period: {
               start: new Date('2022-02-01'),
               end: new Date('2022-03-01'),
-            }
-          }
+            },
+          },
         ],
       };
 
       // Mock dependencies
       mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
       mockStripe.invoices.list.mockResolvedValue(mockStripeInvoices as any);
-      
+
       // Mock invoice retrieval
       mockStripe.invoices.retrieve
         .mockResolvedValueOnce({
@@ -279,13 +280,13 @@ describe('Extended Billing Functions', () => {
             ],
           },
         } as any);
-      
+
       // Setup $queryRaw mock for invoice existence checks
       // First invoice doesn't exist (empty array), second one does exist
       mockPrisma.$queryRaw
         .mockResolvedValueOnce([]) // First invoice check - doesn't exist
         .mockResolvedValueOnce([{ id: 'db_invoice2' }]); // Second invoice check - exists
-      
+
       // Setup $executeRaw mock for insert/update operations
       mockPrisma.$executeRaw.mockResolvedValue(1);
 
@@ -319,7 +320,7 @@ describe('Extended Billing Functions', () => {
       mockStripe.invoices.list
         .mockResolvedValueOnce(mockStripeInvoices1 as any)
         .mockResolvedValueOnce(mockStripeInvoices2 as any);
-      
+
       // Mock invoice retrieval
       mockStripe.invoices.retrieve
         .mockResolvedValueOnce({
@@ -340,7 +341,7 @@ describe('Extended Billing Functions', () => {
           created: Math.floor(new Date('2022-02-01').getTime() / 1000),
           lines: { data: [] },
         } as any);
-      
+
       // Both invoices don't exist, so should be created
       mockPrisma.$queryRaw.mockResolvedValue([]);
       mockPrisma.$executeRaw.mockResolvedValue(1);
@@ -364,9 +365,7 @@ describe('Extended Billing Functions', () => {
     it('should throw error if subscription not found', async () => {
       mockPrisma.subscription.findUnique.mockResolvedValue(null);
 
-      await expect(
-        syncInvoices('nonexistent')
-      ).rejects.toThrow('Failed to sync invoices');
+      await expect(syncInvoices('nonexistent')).rejects.toThrow('Failed to sync invoices');
     });
   });
 
@@ -378,17 +377,14 @@ describe('Extended Billing Functions', () => {
       };
 
       const mockStripeInvoices = {
-        data: [
-          { id: 'in_test1' },
-          { id: 'in_test2' },
-        ],
+        data: [{ id: 'in_test1' }, { id: 'in_test2' }],
         has_more: false,
       };
 
       const mockInvoiceData1 = {
         id: 'in_test1',
         subscriptionId: 'stripe_sub123',
-        amount: 10.00,
+        amount: 10.0,
         status: 'paid',
         dueDate: new Date('2022-01-01'),
         items: [],
@@ -397,7 +393,7 @@ describe('Extended Billing Functions', () => {
       const mockInvoiceData2 = {
         id: 'in_test2',
         subscriptionId: 'stripe_sub123',
-        amount: 10.00,
+        amount: 10.0,
         status: 'paid',
         dueDate: new Date('2022-02-01'),
         items: [],
@@ -474,9 +470,9 @@ describe('Extended Billing Functions', () => {
     it('should throw error if subscription not found', async () => {
       mockPrisma.subscription.findUnique.mockResolvedValue(null);
 
-      await expect(
-        getSubscriptionInvoices('nonexistent')
-      ).rejects.toThrow('Failed to get subscription invoices');
+      await expect(getSubscriptionInvoices('nonexistent')).rejects.toThrow(
+        'Failed to get subscription invoices'
+      );
     });
 
     it('should handle errors when generating invoice data', async () => {
@@ -486,16 +482,13 @@ describe('Extended Billing Functions', () => {
       };
 
       const mockStripeInvoices = {
-        data: [
-          { id: 'in_test1' },
-          { id: 'in_test2' },
-        ],
+        data: [{ id: 'in_test1' }, { id: 'in_test2' }],
         has_more: false,
       };
 
       mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
       mockStripe.invoices.list.mockResolvedValue(mockStripeInvoices as any);
-      
+
       // First invoice succeeds, second fails
       mockStripe.invoices.retrieve
         .mockResolvedValueOnce({

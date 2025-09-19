@@ -14,15 +14,10 @@ interface SwitchProps {
 }
 
 export const Switch = forwardRef<HTMLButtonElement, SwitchProps>(
-  ({ 
-    checked = false, 
-    onCheckedChange, 
-    disabled = false, 
-    className = '', 
-    id,
-    name,
-    ...props 
-  }, ref) => {
+  (
+    { checked = false, onCheckedChange, disabled = false, className = '', id, name, ...props },
+    ref
+  ) => {
     const handleClick = () => {
       if (!disabled) {
         onCheckedChange?.(!checked);
@@ -39,8 +34,8 @@ export const Switch = forwardRef<HTMLButtonElement, SwitchProps>(
     return (
       <button
         ref={ref}
-        type="button"
-        role="switch"
+        type='button'
+        role='switch'
         aria-checked={checked}
         aria-disabled={disabled}
         id={id}
@@ -57,7 +52,7 @@ export const Switch = forwardRef<HTMLButtonElement, SwitchProps>(
         `}
         {...props}
       >
-        <span className="sr-only">Toggle switch</span>
+        <span className='sr-only'>Toggle switch</span>
         <span
           className={`
             pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out

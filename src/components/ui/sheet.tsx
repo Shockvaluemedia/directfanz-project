@@ -49,7 +49,7 @@ const SheetContext = React.createContext<{
 
 export function Sheet({ open: controlledOpen, onOpenChange, children }: SheetProps) {
   const [internalOpen, setInternalOpen] = useState(false);
-  
+
   const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
   const setOpen = (newOpen: boolean) => {
     if (controlledOpen === undefined) {
@@ -58,11 +58,7 @@ export function Sheet({ open: controlledOpen, onOpenChange, children }: SheetPro
     onOpenChange?.(newOpen);
   };
 
-  return (
-    <SheetContext.Provider value={{ open, setOpen }}>
-      {children}
-    </SheetContext.Provider>
-  );
+  return <SheetContext.Provider value={{ open, setOpen }}>{children}</SheetContext.Provider>;
 }
 
 export function SheetTrigger({ asChild, children, onClick }: SheetTriggerProps) {
@@ -80,14 +76,15 @@ export function SheetTrigger({ asChild, children, onClick }: SheetTriggerProps) 
     });
   }
 
-  return (
-    <button onClick={handleClick}>
-      {children}
-    </button>
-  );
+  return <button onClick={handleClick}>{children}</button>;
 }
 
-export function SheetContent({ side = 'right', className = '', children, onClose }: SheetContentProps) {
+export function SheetContent({
+  side = 'right',
+  className = '',
+  children,
+  onClose,
+}: SheetContentProps) {
   const { open, setOpen } = React.useContext(SheetContext);
   const [mounted, setMounted] = useState(false);
 
@@ -152,25 +149,35 @@ export function SheetContent({ side = 'right', className = '', children, onClose
   };
 
   return createPortal(
-    <div 
-      className="fixed inset-0 z-50"
-      onClick={handleBackdropClick}
-    >
+    <div className='fixed inset-0 z-50' onClick={handleBackdropClick}>
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
-      
+      <div className='fixed inset-0 bg-black/50 backdrop-blur-sm' />
+
       {/* Sheet */}
-      <div className={`fixed bg-white shadow-lg transition-transform duration-300 ease-in-out ${getPositionClasses(side)} ${getTransformClasses(side)} ${className}`}>
+      <div
+        className={`fixed bg-white shadow-lg transition-transform duration-300 ease-in-out ${getPositionClasses(side)} ${getTransformClasses(side)} ${className}`}
+      >
         <button
           onClick={() => {
             setOpen(false);
             onClose?.();
           }}
-          className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-white transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
+          className='absolute right-4 top-4 rounded-sm opacity-70 ring-offset-white transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2'
         >
-          <span className="sr-only">Close</span>
-          <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="m11.25 3.75-7.5 7.5m0-7.5 7.5 7.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          <span className='sr-only'>Close</span>
+          <svg
+            width='15'
+            height='15'
+            viewBox='0 0 15 15'
+            fill='none'
+            xmlns='http://www.w3.org/2000/svg'
+          >
+            <path
+              d='m11.25 3.75-7.5 7.5m0-7.5 7.5 7.5'
+              stroke='currentColor'
+              strokeWidth='1.5'
+              strokeLinecap='round'
+            />
           </svg>
         </button>
         {children}
@@ -190,23 +197,25 @@ export function SheetHeader({ children, className = '' }: SheetHeaderProps) {
 
 export function SheetTitle({ children, className = '' }: SheetTitleProps) {
   return (
-    <h3 className={`text-lg font-semibold leading-none tracking-tight ${className}`}>
-      {children}
-    </h3>
+    <h3 className={`text-lg font-semibold leading-none tracking-tight ${className}`}>{children}</h3>
   );
 }
 
 export function SheetDescription({ children, className = '' }: SheetDescriptionProps) {
-  return (
-    <p className={`text-sm text-gray-600 ${className}`}>
-      {children}
-    </p>
-  );
+  return <p className={`text-sm text-gray-600 ${className}`}>{children}</p>;
 }
 
-export function SheetFooter({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+export function SheetFooter({
+  children,
+  className = '',
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
-    <div className={`flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 p-6 pt-0 ${className}`}>
+    <div
+      className={`flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 p-6 pt-0 ${className}`}
+    >
       {children}
     </div>
   );

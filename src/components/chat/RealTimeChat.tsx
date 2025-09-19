@@ -17,11 +17,11 @@ interface RealTimeChatProps {
   className?: string;
 }
 
-export function RealTimeChat({ 
-  otherUser, 
-  initialMessages = [], 
+export function RealTimeChat({
+  otherUser,
+  initialMessages = [],
   onMessageSent,
-  className = ''
+  className = '',
 }: RealTimeChatProps) {
   const { data: session } = useSession();
   const [allMessages, setAllMessages] = useState<Message[]>(initialMessages);
@@ -50,7 +50,7 @@ export function RealTimeChat({
   const conversationTypingUsers = typingUsers.filter(
     user => user.userId === otherUser.id || user.userId === currentUserId
   );
-  
+
   const isOtherUserOnline = onlineUsers.includes(otherUser.id);
   const isOtherUserTyping = conversationTypingUsers.some(user => user.userId === otherUser.id);
 
@@ -96,20 +96,14 @@ export function RealTimeChat({
 
     const handleMessageRead = (data: { messageId: string; readAt: string; readBy: string }) => {
       setAllMessages(prev =>
-        prev.map(msg =>
-          msg.id === data.messageId
-            ? { ...msg, readAt: data.readAt }
-            : msg
-        )
+        prev.map(msg => (msg.id === data.messageId ? { ...msg, readAt: data.readAt } : msg))
       );
     };
 
     const handleMessageDelivered = (data: { messageId: string; deliveredAt: string }) => {
       setAllMessages(prev =>
         prev.map(msg =>
-          msg.id === data.messageId
-            ? { ...msg, deliveredAt: data.deliveredAt }
-            : msg
+          msg.id === data.messageId ? { ...msg, deliveredAt: data.deliveredAt } : msg
         )
       );
     };
@@ -138,19 +132,22 @@ export function RealTimeChat({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const handleSendMessage = useCallback(async (content: string, type?: 'TEXT' | 'IMAGE' | 'AUDIO', attachmentUrl?: string) => {
-    if (!content.trim() || !isConnected) return;
+  const handleSendMessage = useCallback(
+    async (content: string, type?: 'TEXT' | 'IMAGE' | 'AUDIO', attachmentUrl?: string) => {
+      if (!content.trim() || !isConnected) return;
 
-    try {
-      sendMessage(otherUser.id, content.trim(), type, attachmentUrl);
-    } catch (error) {
-      console.error('Failed to send message:', error);
-    }
-  }, [sendMessage, otherUser.id, isConnected]);
+      try {
+        sendMessage(otherUser.id, content.trim(), type, attachmentUrl);
+      } catch (error) {
+        console.error('Failed to send message:', error);
+      }
+    },
+    [sendMessage, otherUser.id, isConnected]
+  );
 
   const handleStartTyping = useCallback(() => {
     if (!isConnected) return;
-    
+
     setIsTyping(true);
     startTyping(otherUser.id);
 
@@ -167,7 +164,7 @@ export function RealTimeChat({
 
   const handleStopTyping = useCallback(() => {
     if (!isConnected) return;
-    
+
     setIsTyping(false);
     stopTyping(otherUser.id);
 
@@ -188,8 +185,8 @@ export function RealTimeChat({
 
   if (!session?.user?.id) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-gray-500">Please log in to chat</p>
+      <div className='flex items-center justify-center h-64'>
+        <p className='text-gray-500'>Please log in to chat</p>
       </div>
     );
   }
@@ -197,63 +194,52 @@ export function RealTimeChat({
   return (
     <div className={`flex flex-col h-full bg-white dark:bg-gray-900 ${className}`}>
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-        <div className="flex items-center space-x-3">
-          <div className="relative">
+      <div className='flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700'>
+        <div className='flex items-center space-x-3'>
+          <div className='relative'>
             <img
               src={otherUser.avatar || '/default-avatar.png'}
               alt={otherUser.displayName}
-              className="w-10 h-10 rounded-full"
+              className='w-10 h-10 rounded-full'
             />
             <UserPresenceIndicator
               isOnline={isOtherUserOnline}
-              className="absolute -bottom-1 -right-1"
+              className='absolute -bottom-1 -right-1'
             />
           </div>
           <div>
-            <h3 className="font-semibold text-gray-900 dark:text-white">
-              {otherUser.displayName}
-            </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <h3 className='font-semibold text-gray-900 dark:text-white'>{otherUser.displayName}</h3>
+            <p className='text-sm text-gray-500 dark:text-gray-400'>
               {isOtherUserOnline ? 'Online' : 'Offline'}
             </p>
           </div>
         </div>
-        
+
         <ConnectionIndicator status={connectionStatus} error={error} />
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto">
+      <div className='flex-1 overflow-y-auto'>
         <MessageList
           messages={allMessages}
           currentUserId={currentUserId}
           onMessageRead={markMessageAsRead}
         />
-        
+
         {/* Typing Indicator */}
-        {isOtherUserTyping && (
-          <TypingIndicator
-            user={otherUser}
-            className="px-4 pb-2"
-          />
-        )}
-        
+        {isOtherUserTyping && <TypingIndicator user={otherUser} className='px-4 pb-2' />}
+
         <div ref={messagesEndRef} />
       </div>
 
       {/* Input */}
-      <div className="border-t border-gray-200 dark:border-gray-700">
+      <div className='border-t border-gray-200 dark:border-gray-700'>
         <MessageInput
           onSendMessage={handleSendMessage}
           onStartTyping={handleStartTyping}
           onStopTyping={handleStopTyping}
           disabled={!isConnected}
-          placeholder={
-            !isConnected 
-              ? 'Connecting...' 
-              : `Message ${otherUser.displayName}...`
-          }
+          placeholder={!isConnected ? 'Connecting...' : `Message ${otherUser.displayName}...`}
         />
       </div>
     </div>

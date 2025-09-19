@@ -1,336 +1,514 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Direct Fan Platform - Enhanced Demo</title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DirectFanz - Enhanced Demo</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/framer-motion@11.0.28/dist/framer-motion.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-        
-        * {
-            font-family: 'Inter', sans-serif;
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+      * {
+        font-family: 'Inter', sans-serif;
+      }
+
+      /* Custom animations */
+      @keyframes blob {
+        0% {
+          transform: translate(0px, 0px) scale(1);
         }
-        
-        /* Custom animations */
-        @keyframes blob {
-            0% { transform: translate(0px, 0px) scale(1); }
-            33% { transform: translate(30px, -50px) scale(1.1); }
-            66% { transform: translate(-20px, 20px) scale(0.9); }
-            100% { transform: translate(0px, 0px) scale(1); }
+        33% {
+          transform: translate(30px, -50px) scale(1.1);
         }
-        
-        @keyframes float {
-            0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-20px); }
+        66% {
+          transform: translate(-20px, 20px) scale(0.9);
         }
-        
-        @keyframes pulse-glow {
-            0%, 100% { opacity: 0.5; transform: scale(1); }
-            50% { opacity: 0.8; transform: scale(1.05); }
+        100% {
+          transform: translate(0px, 0px) scale(1);
         }
-        
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(30px); }
-            to { opacity: 1; transform: translateY(0); }
+      }
+
+      @keyframes float {
+        0%,
+        100% {
+          transform: translateY(0px);
         }
-        
-        .animate-blob { animation: blob 7s infinite; }
-        .animate-float { animation: float 3s ease-in-out infinite; }
-        .animate-pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
-        .animate-fadeInUp { animation: fadeInUp 0.6s ease-out; }
-        
-        .animation-delay-2000 { animation-delay: 2s; }
-        .animation-delay-4000 { animation-delay: 4s; }
-        
-        /* Glassmorphism effect */
-        .glass {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+        50% {
+          transform: translateY(-20px);
         }
-        
-        /* Smooth scrolling */
-        html { scroll-behavior: smooth; }
-        
-        /* Custom scrollbar */
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #f1f5f9; }
-        ::-webkit-scrollbar-thumb {
-            background: linear-gradient(180deg, #6366f1, #8b5cf6);
-            border-radius: 4px;
+      }
+
+      @keyframes pulse-glow {
+        0%,
+        100% {
+          opacity: 0.5;
+          transform: scale(1);
         }
-        ::-webkit-scrollbar-thumb:hover {
-            background: linear-gradient(180deg, #4f46e5, #7c3aed);
+        50% {
+          opacity: 0.8;
+          transform: scale(1.05);
         }
-        
-        /* Hover transitions */
-        .hover-lift:hover { transform: translateY(-10px); }
-        .hover-scale:hover { transform: scale(1.05); }
+      }
+
+      @keyframes fadeInUp {
+        from {
+          opacity: 0;
+          transform: translateY(30px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .animate-blob {
+        animation: blob 7s infinite;
+      }
+      .animate-float {
+        animation: float 3s ease-in-out infinite;
+      }
+      .animate-pulse-glow {
+        animation: pulse-glow 2s ease-in-out infinite;
+      }
+      .animate-fadeInUp {
+        animation: fadeInUp 0.6s ease-out;
+      }
+
+      .animation-delay-2000 {
+        animation-delay: 2s;
+      }
+      .animation-delay-4000 {
+        animation-delay: 4s;
+      }
+
+      /* Glassmorphism effect */
+      .glass {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+      }
+
+      /* Smooth scrolling */
+      html {
+        scroll-behavior: smooth;
+      }
+
+      /* Custom scrollbar */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #f1f5f9;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: linear-gradient(180deg, #6366f1, #8b5cf6);
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: linear-gradient(180deg, #4f46e5, #7c3aed);
+      }
+
+      /* Hover transitions */
+      .hover-lift:hover {
+        transform: translateY(-10px);
+      }
+      .hover-scale:hover {
+        transform: scale(1.05);
+      }
     </style>
-</head>
-<body class="m-0 p-0">
+  </head>
+  <body class="m-0 p-0">
     <!-- Hero Section -->
-    <div class="relative min-h-screen overflow-hidden bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-800">
-        <!-- Animated background blobs -->
-        <div class="absolute inset-0">
-            <div class="absolute top-0 -left-4 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
-            <div class="absolute top-0 -right-4 w-72 h-72 bg-yellow-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
-            <div class="absolute -bottom-8 left-20 w-72 h-72 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
+    <div
+      class="relative min-h-screen overflow-hidden bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-800"
+    >
+      <!-- Animated background blobs -->
+      <div class="absolute inset-0">
+        <div
+          class="absolute top-0 -left-4 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"
+        ></div>
+        <div
+          class="absolute top-0 -right-4 w-72 h-72 bg-yellow-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"
+        ></div>
+        <div
+          class="absolute -bottom-8 left-20 w-72 h-72 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"
+        ></div>
+      </div>
+
+      <!-- Navigation -->
+      <nav class="relative z-20 flex items-center justify-between p-6 lg:px-8">
+        <div class="flex lg:flex-1">
+          <span class="text-2xl font-bold text-white">DirectFanz</span>
+        </div>
+        <div class="flex items-center space-x-4">
+          <a href="#" class="text-white hover:text-white/80 font-medium transition-colors"
+            >Sign In</a
+          >
+          <a
+            href="#"
+            class="rounded-md bg-white/10 backdrop-blur-sm px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-white/20 transition-all"
+            >Sign Up</a
+          >
+        </div>
+      </nav>
+
+      <!-- Hero content -->
+      <div
+        class="relative z-10 flex flex-col items-center justify-center min-h-[80vh] px-6 text-center animate-fadeInUp"
+      >
+        <h1 class="text-5xl md:text-7xl font-bold text-white mb-8 leading-tight">
+          Connect with Your
+          <span
+            class="block bg-gradient-to-r from-pink-400 via-purple-400 to-indigo-400 bg-clip-text text-transparent"
+          >
+            Superfans
+          </span>
+        </h1>
+
+        <p class="text-xl md:text-2xl text-white/80 mb-12 max-w-2xl mx-auto leading-relaxed">
+          The ultimate platform for artists to monetize exclusive content and build deeper
+          connections with their most dedicated fans.
+        </p>
+
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-20">
+          <a
+            href="#"
+            class="group inline-flex items-center px-8 py-4 text-lg font-semibold text-purple-900 bg-white rounded-full hover:bg-white/90 transition-all transform hover:scale-105 shadow-lg hover:shadow-xl"
+          >
+            Get Started Free
+            <svg
+              class="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M13 7l5 5m0 0l-5 5m5-5H6"
+              ></path>
+            </svg>
+          </a>
+          <button
+            class="group inline-flex items-center px-8 py-4 text-lg font-semibold text-white border-2 border-white/30 rounded-full hover:border-white/50 hover:bg-white/10 transition-all backdrop-blur-sm animate-pulse-glow"
+          >
+            <svg
+              class="mr-2 w-5 h-5 group-hover:scale-110 transition-transform"
+              fill="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path d="M8 5v14l11-7z" />
+            </svg>
+            Watch Demo
+          </button>
         </div>
 
-        <!-- Navigation -->
-        <nav class="relative z-20 flex items-center justify-between p-6 lg:px-8">
-            <div class="flex lg:flex-1">
-                <span class="text-2xl font-bold text-white">Direct Fan Platform</span>
-            </div>
-            <div class="flex items-center space-x-4">
-                <a href="#" class="text-white hover:text-white/80 font-medium transition-colors">Sign In</a>
-                <a href="#" class="rounded-md bg-white/10 backdrop-blur-sm px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-white/20 transition-all">Sign Up</a>
-            </div>
-        </nav>
-
-        <!-- Hero content -->
-        <div class="relative z-10 flex flex-col items-center justify-center min-h-[80vh] px-6 text-center animate-fadeInUp">
-            <h1 class="text-5xl md:text-7xl font-bold text-white mb-8 leading-tight">
-                Connect with Your
-                <span class="block bg-gradient-to-r from-pink-400 via-purple-400 to-indigo-400 bg-clip-text text-transparent">
-                    Superfans
-                </span>
-            </h1>
-            
-            <p class="text-xl md:text-2xl text-white/80 mb-12 max-w-2xl mx-auto leading-relaxed">
-                The ultimate platform for artists to monetize exclusive content and build deeper connections with their most dedicated fans.
-            </p>
-
-            <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-20">
-                <a href="#" class="group inline-flex items-center px-8 py-4 text-lg font-semibold text-purple-900 bg-white rounded-full hover:bg-white/90 transition-all transform hover:scale-105 shadow-lg hover:shadow-xl">
-                    Get Started Free
-                    <svg class="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
-                    </svg>
-                </a>
-                <button class="group inline-flex items-center px-8 py-4 text-lg font-semibold text-white border-2 border-white/30 rounded-full hover:border-white/50 hover:bg-white/10 transition-all backdrop-blur-sm animate-pulse-glow">
-                    <svg class="mr-2 w-5 h-5 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M8 5v14l11-7z"/>
-                    </svg>
-                    Watch Demo
-                </button>
-            </div>
-
-            <!-- Stats -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
-                <div class="glass rounded-2xl p-6 text-center hover-scale transition-transform duration-300 animate-float">
-                    <div class="text-3xl md:text-4xl font-bold text-white mb-2">15K+</div>
-                    <div class="text-white/70 text-sm uppercase tracking-wide">Active Artists</div>
-                </div>
-                <div class="glass rounded-2xl p-6 text-center hover-scale transition-transform duration-300 animate-float" style="animation-delay: 0.5s">
-                    <div class="text-3xl md:text-4xl font-bold text-white mb-2">250K+</div>
-                    <div class="text-white/70 text-sm uppercase tracking-wide">Superfans</div>
-                </div>
-                <div class="glass rounded-2xl p-6 text-center hover-scale transition-transform duration-300 animate-float" style="animation-delay: 1s">
-                    <div class="text-3xl md:text-4xl font-bold text-white mb-2">$5M+</div>
-                    <div class="text-white/70 text-sm uppercase tracking-wide">Artist Earnings</div>
-                </div>
-            </div>
+        <!-- Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+          <div
+            class="glass rounded-2xl p-6 text-center hover-scale transition-transform duration-300 animate-float"
+          >
+            <div class="text-3xl md:text-4xl font-bold text-white mb-2">15K+</div>
+            <div class="text-white/70 text-sm uppercase tracking-wide">Active Artists</div>
+          </div>
+          <div
+            class="glass rounded-2xl p-6 text-center hover-scale transition-transform duration-300 animate-float"
+            style="animation-delay: 0.5s"
+          >
+            <div class="text-3xl md:text-4xl font-bold text-white mb-2">250K+</div>
+            <div class="text-white/70 text-sm uppercase tracking-wide">Superfans</div>
+          </div>
+          <div
+            class="glass rounded-2xl p-6 text-center hover-scale transition-transform duration-300 animate-float"
+            style="animation-delay: 1s"
+          >
+            <div class="text-3xl md:text-4xl font-bold text-white mb-2">$5M+</div>
+            <div class="text-white/70 text-sm uppercase tracking-wide">Artist Earnings</div>
+          </div>
         </div>
+      </div>
 
-        <!-- Scroll indicator -->
-        <div class="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-10 animate-bounce">
-            <div class="w-6 h-10 border-2 border-white/30 rounded-full flex justify-center">
-                <div class="w-1 h-3 bg-white rounded-full animate-bounce mt-2"></div>
-            </div>
+      <!-- Scroll indicator -->
+      <div class="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-10 animate-bounce">
+        <div class="w-6 h-10 border-2 border-white/30 rounded-full flex justify-center">
+          <div class="w-1 h-3 bg-white rounded-full animate-bounce mt-2"></div>
         </div>
+      </div>
     </div>
 
     <!-- Features Section -->
     <section class="py-24 bg-gray-50 relative overflow-hidden">
-        <!-- Background decorations -->
-        <div class="absolute top-0 left-0 w-full h-full">
-            <div class="absolute top-20 left-10 w-20 h-20 bg-indigo-200 rounded-full opacity-20 animate-float"></div>
-            <div class="absolute bottom-20 right-10 w-32 h-32 bg-purple-200 rounded-full opacity-20 animate-float animation-delay-2000"></div>
+      <!-- Background decorations -->
+      <div class="absolute top-0 left-0 w-full h-full">
+        <div
+          class="absolute top-20 left-10 w-20 h-20 bg-indigo-200 rounded-full opacity-20 animate-float"
+        ></div>
+        <div
+          class="absolute bottom-20 right-10 w-32 h-32 bg-purple-200 rounded-full opacity-20 animate-float animation-delay-2000"
+        ></div>
+      </div>
+
+      <div class="max-w-7xl mx-auto px-6 relative">
+        <div class="text-center mb-20">
+          <h2 class="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
+            Everything You Need to
+            <span
+              class="block bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent"
+            >
+              Succeed as a Creator
+            </span>
+          </h2>
+          <p class="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+            Our platform provides all the tools and features you need to build, engage, and monetize
+            your fanbase like never before.
+          </p>
         </div>
 
-        <div class="max-w-7xl mx-auto px-6 relative">
-            <div class="text-center mb-20">
-                <h2 class="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
-                    Everything You Need to
-                    <span class="block bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
-                        Succeed as a Creator
-                    </span>
-                </h2>
-                <p class="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-                    Our platform provides all the tools and features you need to build, engage, and monetize your fanbase like never before.
-                </p>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div
+            class="bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 hover-lift group"
+          >
+            <div
+              class="text-4xl mb-4 transform group-hover:scale-110 transition-transform duration-300"
+            >
+              💰
             </div>
+            <h3 class="text-xl font-bold text-gray-900 mb-4">Flexible Monetization</h3>
+            <p class="text-gray-600 leading-relaxed">
+              Set your own subscription prices with daily payouts through Stripe. Multiple tiers,
+              pay-per-view, and tip options.
+            </p>
+          </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                <div class="bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 hover-lift group">
-                    <div class="text-4xl mb-4 transform group-hover:scale-110 transition-transform duration-300">💰</div>
-                    <h3 class="text-xl font-bold text-gray-900 mb-4">Flexible Monetization</h3>
-                    <p class="text-gray-600 leading-relaxed">Set your own subscription prices with daily payouts through Stripe. Multiple tiers, pay-per-view, and tip options.</p>
-                </div>
-
-                <div class="bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 hover-lift group">
-                    <div class="text-4xl mb-4 transform group-hover:scale-110 transition-transform duration-300">👥</div>
-                    <h3 class="text-xl font-bold text-gray-900 mb-4">Superfan Communities</h3>
-                    <p class="text-gray-600 leading-relaxed">Build exclusive communities around your content with private messaging and interactive features.</p>
-                </div>
-
-                <div class="bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 hover-lift group">
-                    <div class="text-4xl mb-4 transform group-hover:scale-110 transition-transform duration-300">🛡️</div>
-                    <h3 class="text-xl font-bold text-gray-900 mb-4">Secure & Private</h3>
-                    <p class="text-gray-600 leading-relaxed">Enterprise-grade security with end-to-end encryption and advanced content protection.</p>
-                </div>
-
-                <div class="bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 hover-lift group">
-                    <div class="text-4xl mb-4 transform group-hover:scale-110 transition-transform duration-300">📊</div>
-                    <h3 class="text-xl font-bold text-gray-900 mb-4">Advanced Analytics</h3>
-                    <p class="text-gray-600 leading-relaxed">Deep insights into your audience, revenue trends, and content performance with real-time data.</p>
-                </div>
+          <div
+            class="bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 hover-lift group"
+          >
+            <div
+              class="text-4xl mb-4 transform group-hover:scale-110 transition-transform duration-300"
+            >
+              👥
             </div>
+            <h3 class="text-xl font-bold text-gray-900 mb-4">Superfan Communities</h3>
+            <p class="text-gray-600 leading-relaxed">
+              Build exclusive communities around your content with private messaging and interactive
+              features.
+            </p>
+          </div>
+
+          <div
+            class="bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 hover-lift group"
+          >
+            <div
+              class="text-4xl mb-4 transform group-hover:scale-110 transition-transform duration-300"
+            >
+              🛡️
+            </div>
+            <h3 class="text-xl font-bold text-gray-900 mb-4">Secure & Private</h3>
+            <p class="text-gray-600 leading-relaxed">
+              Enterprise-grade security with end-to-end encryption and advanced content protection.
+            </p>
+          </div>
+
+          <div
+            class="bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 hover-lift group"
+          >
+            <div
+              class="text-4xl mb-4 transform group-hover:scale-110 transition-transform duration-300"
+            >
+              📊
+            </div>
+            <h3 class="text-xl font-bold text-gray-900 mb-4">Advanced Analytics</h3>
+            <p class="text-gray-600 leading-relaxed">
+              Deep insights into your audience, revenue trends, and content performance with
+              real-time data.
+            </p>
+          </div>
         </div>
+      </div>
     </section>
 
     <!-- Testimonials Section -->
     <section class="py-24 bg-white">
-        <div class="max-w-6xl mx-auto px-6">
-            <div class="text-center mb-16">
-                <h2 class="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
-                    Success Stories from
-                    <span class="block bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                        Real Creators
-                    </span>
-                </h2>
-                <p class="text-xl text-gray-600 max-w-3xl mx-auto">
-                    Join thousands of creators who have transformed their creative careers and built sustainable income streams.
-                </p>
-            </div>
-
-            <div class="grid md:grid-cols-3 gap-8">
-                <div class="bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 hover-lift border border-gray-100 relative">
-                    <div class="absolute top-4 right-6 text-6xl text-indigo-100 font-serif">"</div>
-                    <div class="flex space-x-1 mb-6">
-                        <span class="w-5 h-5 text-yellow-400">⭐</span>
-                        <span class="w-5 h-5 text-yellow-400">⭐</span>
-                        <span class="w-5 h-5 text-yellow-400">⭐</span>
-                        <span class="w-5 h-5 text-yellow-400">⭐</span>
-                        <span class="w-5 h-5 text-yellow-400">⭐</span>
-                    </div>
-                    <p class="text-gray-700 leading-relaxed mb-6 relative z-10">
-                        This platform completely transformed how I connect with my fans. The direct messaging feature and exclusive content tiers have increased my monthly revenue by 400%.
-                    </p>
-                    <div class="flex items-center">
-                        <div class="w-12 h-12 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-white font-bold mr-4">SC</div>
-                        <div>
-                            <div class="font-semibold text-gray-900">Sarah Chen</div>
-                            <div class="text-gray-600 text-sm">Music Artist</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 hover-lift border border-gray-100 relative">
-                    <div class="absolute top-4 right-6 text-6xl text-indigo-100 font-serif">"</div>
-                    <div class="flex space-x-1 mb-6">
-                        <span class="w-5 h-5 text-yellow-400">⭐</span>
-                        <span class="w-5 h-5 text-yellow-400">⭐</span>
-                        <span class="w-5 h-5 text-yellow-400">⭐</span>
-                        <span class="w-5 h-5 text-yellow-400">⭐</span>
-                        <span class="w-5 h-5 text-yellow-400">⭐</span>
-                    </div>
-                    <p class="text-gray-700 leading-relaxed mb-6 relative z-10">
-                        The analytics dashboard gives me incredible insights into my audience. I can see exactly what content resonates and optimize my strategy accordingly.
-                    </p>
-                    <div class="flex items-center">
-                        <div class="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white font-bold mr-4">MR</div>
-                        <div>
-                            <div class="font-semibold text-gray-900">Marcus Rodriguez</div>
-                            <div class="text-gray-600 text-sm">Digital Artist</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 hover-lift border border-gray-100 relative">
-                    <div class="absolute top-4 right-6 text-6xl text-indigo-100 font-serif">"</div>
-                    <div class="flex space-x-1 mb-6">
-                        <span class="w-5 h-5 text-yellow-400">⭐</span>
-                        <span class="w-5 h-5 text-yellow-400">⭐</span>
-                        <span class="w-5 h-5 text-yellow-400">⭐</span>
-                        <span class="w-5 h-5 text-yellow-400">⭐</span>
-                        <span class="w-5 h-5 text-yellow-400">⭐</span>
-                    </div>
-                    <p class="text-gray-700 leading-relaxed mb-6 relative z-10">
-                        The security features give me peace of mind. I can share exclusive content knowing it's protected, and the daily payouts help me manage my finances better.
-                    </p>
-                    <div class="flex items-center">
-                        <div class="w-12 h-12 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-white font-bold mr-4">LW</div>
-                        <div>
-                            <div class="font-semibold text-gray-900">Luna Williams</div>
-                            <div class="text-gray-600 text-sm">Content Creator</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+      <div class="max-w-6xl mx-auto px-6">
+        <div class="text-center mb-16">
+          <h2 class="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
+            Success Stories from
+            <span
+              class="block bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent"
+            >
+              Real Creators
+            </span>
+          </h2>
+          <p class="text-xl text-gray-600 max-w-3xl mx-auto">
+            Join thousands of creators who have transformed their creative careers and built
+            sustainable income streams.
+          </p>
         </div>
+
+        <div class="grid md:grid-cols-3 gap-8">
+          <div
+            class="bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 hover-lift border border-gray-100 relative"
+          >
+            <div class="absolute top-4 right-6 text-6xl text-indigo-100 font-serif">"</div>
+            <div class="flex space-x-1 mb-6">
+              <span class="w-5 h-5 text-yellow-400">⭐</span>
+              <span class="w-5 h-5 text-yellow-400">⭐</span>
+              <span class="w-5 h-5 text-yellow-400">⭐</span>
+              <span class="w-5 h-5 text-yellow-400">⭐</span>
+              <span class="w-5 h-5 text-yellow-400">⭐</span>
+            </div>
+            <p class="text-gray-700 leading-relaxed mb-6 relative z-10">
+              This platform completely transformed how I connect with my fans. The direct messaging
+              feature and exclusive content tiers have increased my monthly revenue by 400%.
+            </p>
+            <div class="flex items-center">
+              <div
+                class="w-12 h-12 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-white font-bold mr-4"
+              >
+                SC
+              </div>
+              <div>
+                <div class="font-semibold text-gray-900">Sarah Chen</div>
+                <div class="text-gray-600 text-sm">Music Artist</div>
+              </div>
+            </div>
+          </div>
+
+          <div
+            class="bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 hover-lift border border-gray-100 relative"
+          >
+            <div class="absolute top-4 right-6 text-6xl text-indigo-100 font-serif">"</div>
+            <div class="flex space-x-1 mb-6">
+              <span class="w-5 h-5 text-yellow-400">⭐</span>
+              <span class="w-5 h-5 text-yellow-400">⭐</span>
+              <span class="w-5 h-5 text-yellow-400">⭐</span>
+              <span class="w-5 h-5 text-yellow-400">⭐</span>
+              <span class="w-5 h-5 text-yellow-400">⭐</span>
+            </div>
+            <p class="text-gray-700 leading-relaxed mb-6 relative z-10">
+              The analytics dashboard gives me incredible insights into my audience. I can see
+              exactly what content resonates and optimize my strategy accordingly.
+            </p>
+            <div class="flex items-center">
+              <div
+                class="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white font-bold mr-4"
+              >
+                MR
+              </div>
+              <div>
+                <div class="font-semibold text-gray-900">Marcus Rodriguez</div>
+                <div class="text-gray-600 text-sm">Digital Artist</div>
+              </div>
+            </div>
+          </div>
+
+          <div
+            class="bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 hover-lift border border-gray-100 relative"
+          >
+            <div class="absolute top-4 right-6 text-6xl text-indigo-100 font-serif">"</div>
+            <div class="flex space-x-1 mb-6">
+              <span class="w-5 h-5 text-yellow-400">⭐</span>
+              <span class="w-5 h-5 text-yellow-400">⭐</span>
+              <span class="w-5 h-5 text-yellow-400">⭐</span>
+              <span class="w-5 h-5 text-yellow-400">⭐</span>
+              <span class="w-5 h-5 text-yellow-400">⭐</span>
+            </div>
+            <p class="text-gray-700 leading-relaxed mb-6 relative z-10">
+              The security features give me peace of mind. I can share exclusive content knowing
+              it's protected, and the daily payouts help me manage my finances better.
+            </p>
+            <div class="flex items-center">
+              <div
+                class="w-12 h-12 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-white font-bold mr-4"
+              >
+                LW
+              </div>
+              <div>
+                <div class="font-semibold text-gray-900">Luna Williams</div>
+                <div class="text-gray-600 text-sm">Content Creator</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- Call to Action -->
     <section class="py-24 bg-gradient-to-r from-indigo-600 to-purple-600 relative overflow-hidden">
-        <div class="absolute inset-0">
-            <div class="absolute top-10 left-10 w-40 h-40 bg-white/10 rounded-full animate-float"></div>
-            <div class="absolute bottom-10 right-10 w-60 h-60 bg-white/5 rounded-full animate-float animation-delay-2000"></div>
+      <div class="absolute inset-0">
+        <div class="absolute top-10 left-10 w-40 h-40 bg-white/10 rounded-full animate-float"></div>
+        <div
+          class="absolute bottom-10 right-10 w-60 h-60 bg-white/5 rounded-full animate-float animation-delay-2000"
+        ></div>
+      </div>
+
+      <div class="max-w-4xl mx-auto text-center px-6 relative">
+        <h2 class="text-4xl md:text-5xl font-bold text-white mb-6">
+          Ready to Transform Your Creative Career?
+        </h2>
+        <p class="text-xl text-white/90 mb-8 max-w-2xl mx-auto">
+          Join thousands of creators who have already discovered the power of direct fan
+          connections. Start building your sustainable income today.
+        </p>
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <a
+            href="#"
+            class="group inline-flex items-center px-8 py-4 text-lg font-semibold text-indigo-600 bg-white rounded-full hover:bg-gray-50 transition-all transform hover:scale-105 shadow-lg hover:shadow-xl"
+          >
+            Start Your Journey
+            <svg
+              class="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M13 7l5 5m0 0l-5 5m5-5H6"
+              ></path>
+            </svg>
+          </a>
+          <button
+            class="inline-flex items-center px-8 py-4 text-lg font-semibold text-white border-2 border-white/30 rounded-full hover:border-white/50 hover:bg-white/10 transition-all backdrop-blur-sm"
+          >
+            Learn More
+          </button>
         </div>
-        
-        <div class="max-w-4xl mx-auto text-center px-6 relative">
-            <h2 class="text-4xl md:text-5xl font-bold text-white mb-6">
-                Ready to Transform Your Creative Career?
-            </h2>
-            <p class="text-xl text-white/90 mb-8 max-w-2xl mx-auto">
-                Join thousands of creators who have already discovered the power of direct fan connections. Start building your sustainable income today.
-            </p>
-            <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <a href="#" class="group inline-flex items-center px-8 py-4 text-lg font-semibold text-indigo-600 bg-white rounded-full hover:bg-gray-50 transition-all transform hover:scale-105 shadow-lg hover:shadow-xl">
-                    Start Your Journey
-                    <svg class="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
-                    </svg>
-                </a>
-                <button class="inline-flex items-center px-8 py-4 text-lg font-semibold text-white border-2 border-white/30 rounded-full hover:border-white/50 hover:bg-white/10 transition-all backdrop-blur-sm">
-                    Learn More
-                </button>
-            </div>
-        </div>
+      </div>
     </section>
 
     <script>
-        // Add smooth scrolling behavior and intersection observer for animations
-        document.addEventListener('DOMContentLoaded', function() {
-            // Add fade-in animations on scroll
-            const observerOptions = {
-                threshold: 0.1,
-                rootMargin: '0px 0px -50px 0px'
-            };
+      // Add smooth scrolling behavior and intersection observer for animations
+      document.addEventListener('DOMContentLoaded', function () {
+        // Add fade-in animations on scroll
+        const observerOptions = {
+          threshold: 0.1,
+          rootMargin: '0px 0px -50px 0px',
+        };
 
-            const observer = new IntersectionObserver(function(entries) {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        entry.target.classList.add('animate-fadeInUp');
-                    }
-                });
-            }, observerOptions);
+        const observer = new IntersectionObserver(function (entries) {
+          entries.forEach(entry => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('animate-fadeInUp');
+            }
+          });
+        }, observerOptions);
 
-            // Observe elements for scroll animations
-            document.querySelectorAll('section').forEach(section => {
-                observer.observe(section);
-            });
-
-            // Add counter animation effect
-            const stats = document.querySelectorAll('.glass');
-            stats.forEach((stat, index) => {
-                stat.style.animationDelay = `${index * 0.5}s`;
-            });
+        // Observe elements for scroll animations
+        document.querySelectorAll('section').forEach(section => {
+          observer.observe(section);
         });
+
+        // Add counter animation effect
+        const stats = document.querySelectorAll('.glass');
+        stats.forEach((stat, index) => {
+          stat.style.animationDelay = `${index * 0.5}s`;
+        });
+      });
     </script>
-</body>
+  </body>
 </html>

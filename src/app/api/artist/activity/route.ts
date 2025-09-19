@@ -4,7 +4,7 @@ import { prisma } from '@/lib/database';
 import { logger } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
-  return withApi(request, async (req) => {
+  return withApi(request, async req => {
     try {
       // Verify user is an artist
       if (req.user.role !== 'ARTIST') {
@@ -31,30 +31,30 @@ export async function GET(request: NextRequest) {
       }> = [];
 
       // Get recent subscriptions (new fans)
-      const recentSubscriptions = await prisma.subscription.findMany({
+      const recentSubscriptions = await prisma.subscriptions.findMany({
         where: {
           artistId: req.user.id,
           status: 'ACTIVE',
           createdAt: {
-            gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // Last 30 days
-          }
+            gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Last 30 days
+          },
         },
         orderBy: { createdAt: 'desc' },
         take: Math.ceil(limit / 2),
         include: {
-          fan: {
+          users: {
             select: {
               displayName: true,
-              avatar: true
-            }
+              avatar: true,
+            },
           },
-          tier: {
+          tiers: {
             select: {
               name: true,
-              minimumPrice: true
-            }
-          }
-        }
+              minimumPrice: true,
+            },
+          },
+        },
       });
 
       for (const sub of recentSubscriptions) {
@@ -62,33 +62,33 @@ export async function GET(request: NextRequest) {
           id: `sub_${sub.id}`,
           type: 'subscription',
           title: 'New Subscriber',
-          description: `${sub.fan.displayName} subscribed to ${sub.tier.name} tier`,
+          description: `${sub.users.displayName} subscribed to ${sub.tiers.name} tier`,
           timestamp: sub.createdAt.toISOString(),
           user: {
-            name: sub.fan.displayName,
-            avatar: sub.fan.avatar || undefined
-          }
+            name: sub.users.displayName,
+            avatar: sub.users.avatar || undefined,
+          },
         });
       }
 
       // Get recent messages
-      const recentMessages = await prisma.message.findMany({
+      const recentMessages = await prisma.messages.findMany({
         where: {
           recipientId: req.user.id,
           createdAt: {
-            gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Last 7 days
-          }
+            gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // Last 7 days
+          },
         },
         orderBy: { createdAt: 'desc' },
         take: Math.ceil(limit / 2),
         include: {
-          sender: {
+          users_messages_senderIdTousers: {
             select: {
               displayName: true,
-              avatar: true
-            }
-          }
-        }
+              avatar: true,
+            },
+          },
+        },
       });
 
       for (const message of recentMessages) {
@@ -96,40 +96,40 @@ export async function GET(request: NextRequest) {
           id: `msg_${message.id}`,
           type: 'message',
           title: 'New Message',
-          description: `Message from ${message.sender.displayName}: ${message.content.length > 50 ? message.content.substring(0, 50) + '...' : message.content}`,
+          description: `Message from ${message.users_messages_senderIdTousers.displayName}: ${message.content.length > 50 ? message.content.substring(0, 50) + '...' : message.content}`,
           timestamp: message.createdAt.toISOString(),
           user: {
-            name: message.sender.displayName,
-            avatar: message.sender.avatar || undefined
-          }
+            name: message.users_messages_senderIdTousers.displayName,
+            avatar: message.users_messages_senderIdTousers.avatar || undefined,
+          },
         });
       }
 
       // Get recent comments on content
-      const recentComments = await prisma.comment.findMany({
+      const recentComments = await prisma.comments.findMany({
         where: {
           content: {
-            artistId: req.user.id
+            artistId: req.user.id,
           },
           createdAt: {
-            gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Last 7 days
-          }
+            gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // Last 7 days
+          },
         },
         orderBy: { createdAt: 'desc' },
         take: Math.ceil(limit / 3),
         include: {
-          fan: {
+          users: {
             select: {
               displayName: true,
-              avatar: true
-            }
+              avatar: true,
+            },
           },
           content: {
             select: {
-              title: true
-            }
-          }
-        }
+              title: true,
+            },
+          },
+        },
       });
 
       for (const comment of recentComments) {
@@ -137,12 +137,12 @@ export async function GET(request: NextRequest) {
           id: `comment_${comment.id}`,
           type: 'comment',
           title: 'New Comment',
-          description: `${comment.fan.displayName} commented on "${comment.content.title}": ${comment.text.length > 40 ? comment.text.substring(0, 40) + '...' : comment.text}`,
+          description: `${comment.users.displayName} commented on "${comment.content.title}": ${comment.text.length > 40 ? comment.text.substring(0, 40) + '...' : comment.text}`,
           timestamp: comment.createdAt.toISOString(),
           user: {
-            name: comment.fan.displayName,
-            avatar: comment.fan.avatar || undefined
-          }
+            name: comment.users.displayName,
+            avatar: comment.users.avatar || undefined,
+          },
         });
       }
 
@@ -153,22 +153,18 @@ export async function GET(request: NextRequest) {
 
       logger.info('Artist activity fetched', {
         artistId: req.user.id,
-        activityCount: sortedActivities.length
+        activityCount: sortedActivities.length,
       });
 
       return NextResponse.json({
         success: true,
         data: {
-          activities: sortedActivities
-        }
+          activities: sortedActivities,
+        },
       });
-
     } catch (error) {
       logger.error('Get artist activity error', { userId: req.user?.id }, error as Error);
-      return NextResponse.json(
-        { error: 'Failed to fetch activity data' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to fetch activity data' }, { status: 500 });
     }
   });
 }

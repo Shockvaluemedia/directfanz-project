@@ -19,7 +19,7 @@ const reportSchema = z.object({
     'fraud',
     'hate_speech',
     'violence',
-    'other'
+    'other',
   ]),
   description: z.string().min(10).max(1000),
   evidence: z.array(z.string().url()).optional(), // URLs to evidence screenshots/files
@@ -29,12 +29,14 @@ const reportStatusSchema = z.object({
   reportId: z.string().cuid(),
   status: z.enum(['pending', 'reviewing', 'resolved', 'dismissed']),
   resolution: z.string().max(500).optional(),
-  action: z.enum(['none', 'warning', 'content_removal', 'temporary_suspension', 'permanent_ban']).optional(),
+  action: z
+    .enum(['none', 'warning', 'content_removal', 'temporary_suspension', 'permanent_ban'])
+    .optional(),
 });
 
 // User endpoint to submit reports
 export async function POST(request: NextRequest) {
-  return withApi(request, async (req) => {
+  return withApi(request, async req => {
     try {
       const body = await request.json();
       const validatedData = reportSchema.parse(body);
@@ -45,7 +47,7 @@ export async function POST(request: NextRequest) {
       let target = null;
       switch (targetType) {
         case 'user':
-          target = await prisma.user.findUnique({
+          target = await prisma.users.findUnique({
             where: { id: targetId },
             select: { id: true, displayName: true, role: true },
           });
@@ -61,7 +63,7 @@ export async function POST(request: NextRequest) {
           });
           break;
         case 'comment':
-          target = await prisma.comment.findUnique({
+          target = await prisma.comments.findUnique({
             where: { id: targetId },
             include: {
               fan: {
@@ -76,10 +78,7 @@ export async function POST(request: NextRequest) {
       }
 
       if (!target) {
-        return NextResponse.json(
-          { error: 'Target not found' },
-          { status: 404 }
-        );
+        return NextResponse.json({ error: 'Target not found' }, { status: 404 });
       }
 
       // Check for duplicate reports from same user
@@ -92,10 +91,7 @@ export async function POST(request: NextRequest) {
       });
 
       if (existingReport) {
-        return NextResponse.json(
-          { error: 'You have already reported this item' },
-          { status: 409 }
-        );
+        return NextResponse.json({ error: 'You have already reported this item' }, { status: 409 });
       }
 
       // Create the report in the database
@@ -145,11 +141,10 @@ export async function POST(request: NextRequest) {
           estimatedReviewTime: '24 hours',
         },
       });
-
     } catch (error) {
       if (error instanceof z.ZodError) {
         return NextResponse.json(
-          { 
+          {
             error: 'Invalid report data',
             details: error.errors,
           },
@@ -158,20 +153,17 @@ export async function POST(request: NextRequest) {
       }
 
       logger.error('Submit report error', { userId: req.user?.id }, error as Error);
-      return NextResponse.json(
-        { error: 'Failed to submit report' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to submit report' }, { status: 500 });
     }
   });
 }
 
 // Admin endpoint to view and manage reports
 export async function GET(request: NextRequest) {
-  return withAdminApi(request, async (req) => {
+  return withAdminApi(request, async req => {
     try {
       const { searchParams } = new URL(request.url);
-      
+
       const status = searchParams.get('status') || 'pending';
       const targetType = searchParams.get('targetType');
       const priority = searchParams.get('priority') || 'all';
@@ -180,15 +172,15 @@ export async function GET(request: NextRequest) {
 
       // Build filter conditions
       const whereClause: any = {};
-      
+
       if (status !== 'all') {
         whereClause.status = status.toUpperCase();
       }
-      
+
       if (targetType) {
         whereClause.targetType = targetType.toUpperCase();
       }
-      
+
       if (priority !== 'all') {
         whereClause.priority = priority.toUpperCase();
       }
@@ -211,10 +203,7 @@ export async function GET(request: NextRequest) {
               },
             },
           },
-          orderBy: [
-            { priority: 'desc' },
-            { createdAt: 'desc' },
-          ],
+          orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
           take: limit,
           skip: offset,
         }),
@@ -222,13 +211,14 @@ export async function GET(request: NextRequest) {
       ]);
 
       // Get detailed stats
-      const [pendingCount, reviewingCount, resolvedCount, dismissedCount, highPriorityCount] = await Promise.all([
-        prisma.report.count({ where: { status: 'PENDING' } }),
-        prisma.report.count({ where: { status: 'REVIEWING' } }),
-        prisma.report.count({ where: { status: 'RESOLVED' } }),
-        prisma.report.count({ where: { status: 'DISMISSED' } }),
-        prisma.report.count({ where: { priority: 'HIGH' } }),
-      ]);
+      const [pendingCount, reviewingCount, resolvedCount, dismissedCount, highPriorityCount] =
+        await Promise.all([
+          prisma.report.count({ where: { status: 'PENDING' } }),
+          prisma.report.count({ where: { status: 'REVIEWING' } }),
+          prisma.report.count({ where: { status: 'RESOLVED' } }),
+          prisma.report.count({ where: { status: 'DISMISSED' } }),
+          prisma.report.count({ where: { priority: 'HIGH' } }),
+        ]);
 
       // Format reports for response
       const formattedReports = reports.map(report => ({
@@ -270,20 +260,16 @@ export async function GET(request: NextRequest) {
           hasNext: offset + limit < totalCount,
         },
       });
-
     } catch (error) {
       logger.error('Get reports error', { adminId: req.user?.id }, error as Error);
-      return NextResponse.json(
-        { error: 'Failed to fetch reports' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to fetch reports' }, { status: 500 });
     }
   });
 }
 
 // Admin endpoint to update report status
 export async function PUT(request: NextRequest) {
-  return withAdminApi(request, async (req) => {
+  return withAdminApi(request, async req => {
     try {
       const body = await request.json();
       const validatedData = reportStatusSchema.parse(body);
@@ -296,7 +282,7 @@ export async function PUT(request: NextRequest) {
         data: {
           status: status.toUpperCase() as any,
           resolution,
-          action: action ? action.toUpperCase() as any : undefined,
+          action: action ? (action.toUpperCase() as any) : undefined,
           reviewedBy: req.user.id,
           reviewedAt: new Date(),
         },
@@ -330,11 +316,10 @@ export async function PUT(request: NextRequest) {
         message: 'Report updated successfully',
         data: report,
       });
-
     } catch (error) {
       if (error instanceof z.ZodError) {
         return NextResponse.json(
-          { 
+          {
             error: 'Invalid update data',
             details: error.errors,
           },
@@ -343,17 +328,14 @@ export async function PUT(request: NextRequest) {
       }
 
       logger.error('Update report error', { adminId: req.user?.id }, error as Error);
-      return NextResponse.json(
-        { error: 'Failed to update report' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to update report' }, { status: 500 });
     }
   });
 }
 
 async function notifyModerators(report: any) {
   // Find all admin users and notify them
-  const admins = await prisma.user.findMany({
+  const admins = await prisma.users.findMany({
     where: { role: 'ADMIN' }, // Use the actual ADMIN role from schema
     select: { id: true },
     take: 10, // Limit notifications
@@ -373,7 +355,7 @@ async function autoFlagContent(targetType: string, targetId: string) {
     //   where: { id: targetId },
     //   data: { isPublic: false },
     // });
-    
+
     logger.warn('Content auto-flagged', { contentId: targetId });
   }
 }
@@ -384,7 +366,7 @@ async function executeModerationAction(report: any, action: string) {
       // Send warning to user
       // await sendWarning(report.targetId);
       break;
-    
+
     case 'content_removal':
       if (report.targetType === 'content') {
         // await prisma.content.update({
@@ -393,12 +375,12 @@ async function executeModerationAction(report: any, action: string) {
         // });
       }
       break;
-    
+
     case 'temporary_suspension':
       // Implement user suspension logic
       // This would require adding suspension fields to User model
       break;
-    
+
     case 'permanent_ban':
       // Implement permanent ban logic
       // This would require adding ban fields to User model
@@ -415,7 +397,7 @@ async function executeModerationAction(report: any, action: string) {
 function getPriority(reason: string): 'LOW' | 'MEDIUM' | 'HIGH' {
   const highPriorityReasons = ['harassment', 'hate_speech', 'violence', 'fraud'];
   const mediumPriorityReasons = ['inappropriate_content', 'copyright_violation'];
-  
+
   if (highPriorityReasons.includes(reason)) return 'HIGH';
   if (mediumPriorityReasons.includes(reason)) return 'MEDIUM';
   return 'LOW';

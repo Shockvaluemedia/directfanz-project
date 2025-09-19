@@ -70,22 +70,16 @@ export function ContentViewer({ contentId, className, onSubscribe }: ContentView
     const commonProps = {
       contentId: content.id,
       title: content.title,
-      className: "w-full"
+      className: 'w-full',
     };
 
     // Determine content type and render appropriate player
     const contentType = content.type.toLowerCase();
-    
+
     if (contentType.startsWith('video') || contentType === 'video') {
-      return (
-        <VideoPlayer
-          {...commonProps}
-          src={content.fileUrl}
-          poster={content.thumbnailUrl}
-        />
-      );
+      return <VideoPlayer {...commonProps} src={content.fileUrl} poster={content.thumbnailUrl} />;
     }
-    
+
     if (contentType.startsWith('audio') || contentType === 'audio') {
       return (
         <AudioPlayer
@@ -96,27 +90,21 @@ export function ContentViewer({ contentId, className, onSubscribe }: ContentView
         />
       );
     }
-    
+
     if (contentType.startsWith('image') || contentType === 'image') {
-      return (
-        <ImageViewer
-          {...commonProps}
-          src={content.fileUrl}
-          alt={content.title}
-        />
-      );
+      return <ImageViewer {...commonProps} src={content.fileUrl} alt={content.title} />;
     }
 
     // Fallback for unknown content types
     return (
-      <div className="aspect-video bg-muted flex items-center justify-center rounded-lg">
-        <div className="text-center">
-          <p className="text-muted-foreground mb-2">Unsupported content type: {content.type}</p>
-          <a 
-            href={content.fileUrl} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="text-primary hover:underline"
+      <div className='aspect-video bg-muted flex items-center justify-center rounded-lg'>
+        <div className='text-center'>
+          <p className='text-muted-foreground mb-2'>Unsupported content type: {content.type}</p>
+          <a
+            href={content.fileUrl}
+            target='_blank'
+            rel='noopener noreferrer'
+            className='text-primary hover:underline'
           >
             Download file
           </a>
@@ -128,7 +116,7 @@ export function ContentViewer({ contentId, className, onSubscribe }: ContentView
   if (loading) {
     return (
       <div className={`flex items-center justify-center h-64 ${className}`}>
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-primary'></div>
       </div>
     );
   }
@@ -136,12 +124,9 @@ export function ContentViewer({ contentId, className, onSubscribe }: ContentView
   if (error || !content) {
     return (
       <div className={`flex items-center justify-center h-64 ${className}`}>
-        <div className="text-center">
-          <p className="text-destructive mb-2">{error || 'Content not found'}</p>
-          <button 
-            onClick={fetchContent}
-            className="text-primary hover:underline"
-          >
+        <div className='text-center'>
+          <p className='text-destructive mb-2'>{error || 'Content not found'}</p>
+          <button onClick={fetchContent} className='text-primary hover:underline'>
             Try again
           </button>
         </div>
@@ -151,18 +136,12 @@ export function ContentViewer({ contentId, className, onSubscribe }: ContentView
 
   return (
     <div className={`space-y-6 ${className}`}>
-      <ContentAccessControl 
-        content={content} 
-        onSubscribe={onSubscribe}
-      >
+      <ContentAccessControl content={content} onSubscribe={onSubscribe}>
         {renderMediaPlayer}
       </ContentAccessControl>
-      
+
       {/* Comments Section - only show if content is accessible */}
-      <CommentSystem 
-        contentId={content.id}
-        contentOwnerId={content.artist.id}
-      />
+      <CommentSystem contentId={content.id} contentOwnerId={content.artist.id} />
     </div>
   );
 }

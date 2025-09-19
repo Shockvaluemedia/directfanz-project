@@ -3,11 +3,7 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { ArtistSidebar } from '@/components/dashboard/ArtistSidebar';
 
-export default async function ArtistDashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default async function ArtistDashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
 
   if (!session) {
@@ -19,11 +15,9 @@ export default async function ArtistDashboardLayout({
   }
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className='flex h-screen bg-background'>
       <ArtistSidebar />
-      <main className="flex-1 overflow-y-auto">
-        {children}
-      </main>
+      <main className='flex-1 overflow-y-auto'>{children}</main>
     </div>
   );
 }

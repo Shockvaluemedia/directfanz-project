@@ -1,10 +1,10 @@
 /**
  * Simplified Access Control Security Tests
- * 
+ *
  * Tests the key security scenarios for content access control
  */
 
-import { 
+import {
   setupTestEnvironment,
   createMockUser,
   createMockTier,
@@ -24,7 +24,7 @@ jest.mock('@/lib/content-access', () => ({
   getContentAccessSummary: jest.fn(),
 }));
 
-const { 
+const {
   checkContentAccess,
   checkTierAccess,
   generateAccessToken,
@@ -44,22 +44,22 @@ const jwt = require('jsonwebtoken');
 describe('Simplified Access Control Security Tests', () => {
   setupTestEnvironment();
 
-  const artistUser = createMockUser({ 
-    id: 'artist-123', 
-    role: 'ARTIST' 
+  const artistUser = createMockUser({
+    id: 'artist-123',
+    role: 'ARTIST',
   });
-  
-  const fanUser = createMockUser({ 
-    id: 'fan-123', 
-    role: 'FAN' 
+
+  const fanUser = createMockUser({
+    id: 'fan-123',
+    role: 'FAN',
   });
-  
-  const basicTier = createMockTier({ 
-    id: 'basic-tier-123', 
+
+  const basicTier = createMockTier({
+    id: 'basic-tier-123',
     artistId: artistUser.id,
     name: 'Basic Access',
-    minimumPrice: 10.00,
-    isActive: true
+    minimumPrice: 10.0,
+    isActive: true,
   });
 
   beforeEach(() => {
@@ -117,7 +117,7 @@ describe('Simplified Access Control Security Tests', () => {
         subscription: {
           id: 'sub-123',
           tierId: basicTier.id,
-          amount: 15.00,
+          amount: 15.0,
           status: 'ACTIVE',
         },
       });
@@ -170,7 +170,7 @@ describe('Simplified Access Control Security Tests', () => {
         userId: fanUser.id,
         contentId: 'content-123',
         iat: Math.floor(Date.now() / 1000),
-        exp: Math.floor(Date.now() / 1000) + 3600
+        exp: Math.floor(Date.now() / 1000) + 3600,
       };
 
       verifyAccessToken.mockReturnValue(mockPayload);
@@ -252,9 +252,7 @@ describe('Simplified Access Control Security Tests', () => {
 
     it('should return only public content for unsubscribed users', async () => {
       const mockResult = {
-        content: [
-          createMockContent({ id: 'public-1', isPublic: true }),
-        ],
+        content: [createMockContent({ id: 'public-1', isPublic: true })],
         pagination: {
           page: 1,
           limit: 20,
@@ -273,10 +271,7 @@ describe('Simplified Access Control Security Tests', () => {
 
     it('should handle pagination correctly', async () => {
       const mockResult = {
-        content: [
-          createMockContent({ id: 'content-3' }),
-          createMockContent({ id: 'content-4' }),
-        ],
+        content: [createMockContent({ id: 'content-3' }), createMockContent({ id: 'content-4' })],
         pagination: {
           page: 2,
           limit: 2,
@@ -289,7 +284,7 @@ describe('Simplified Access Control Security Tests', () => {
 
       const result = await getUserAccessibleContent(fanUser.id, artistUser.id, {
         page: 2,
-        limit: 2
+        limit: 2,
       });
 
       expect(result.pagination.page).toBe(2);
@@ -351,9 +346,7 @@ describe('Simplified Access Control Security Tests', () => {
         accessibleContent: 5,
         publicContent: 3,
         gatedContent: 7,
-        subscriptions: [
-          { tierId: basicTier.id, tierName: basicTier.name, contentCount: 4 },
-        ],
+        subscriptions: [{ tierId: basicTier.id, tierName: basicTier.name, contentCount: 4 }],
       };
 
       const otherFanSummary = {
@@ -409,7 +402,7 @@ describe('Simplified Access Control Security Tests', () => {
       });
 
       // Simulate concurrent access checks
-      const accessPromises = Array.from({ length: 3 }, () => 
+      const accessPromises = Array.from({ length: 3 }, () =>
         checkContentAccess(fanUser.id, 'concurrent-content-123')
       );
 

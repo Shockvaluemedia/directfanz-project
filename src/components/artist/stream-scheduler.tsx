@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { 
-  CalendarIcon, 
-  ClockIcon, 
+import {
+  CalendarIcon,
+  ClockIcon,
   VideoCameraIcon,
   PlusIcon,
   PencilIcon,
@@ -12,7 +12,7 @@ import {
   EyeIcon,
   UsersIcon,
   PlayIcon,
-  StopIcon
+  StopIcon,
 } from '@heroicons/react/24/outline';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -114,7 +114,7 @@ export default function StreamScheduler() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.title.trim()) {
       toast.error('Please enter a stream title');
       return;
@@ -127,12 +127,10 @@ export default function StreamScheduler() {
     };
 
     try {
-      const url = editingStream 
-        ? `/api/livestream/${editingStream.id}`
-        : '/api/livestream';
-      
+      const url = editingStream ? `/api/livestream/${editingStream.id}` : '/api/livestream';
+
       const method = editingStream ? 'PUT' : 'POST';
-      
+
       const response = await fetch(url, {
         method,
         headers: {
@@ -142,7 +140,9 @@ export default function StreamScheduler() {
       });
 
       if (response.ok) {
-        toast.success(editingStream ? 'Stream updated successfully' : 'Stream scheduled successfully');
+        toast.success(
+          editingStream ? 'Stream updated successfully' : 'Stream scheduled successfully'
+        );
         resetForm();
         fetchStreams();
       } else {
@@ -226,7 +226,9 @@ export default function StreamScheduler() {
     setFormData({
       title: stream.title,
       description: stream.description || '',
-      scheduledAt: stream.scheduledAt ? new Date(stream.scheduledAt).toISOString().slice(0, 16) : '',
+      scheduledAt: stream.scheduledAt
+        ? new Date(stream.scheduledAt).toISOString().slice(0, 16)
+        : '',
       isRecorded: stream.isRecorded,
       tierIds: stream.tierIds,
       isPublic: stream.isPublic,
@@ -260,7 +262,7 @@ export default function StreamScheduler() {
       ENDED: 'bg-gray-100 text-gray-800',
       CANCELLED: 'bg-red-100 text-red-800',
     };
-    
+
     return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800';
   };
 
@@ -275,134 +277,128 @@ export default function StreamScheduler() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div className='flex justify-center items-center h-64'>
+        <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600'></div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className='space-y-6'>
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className='flex justify-between items-center'>
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Live Streams</h2>
-          <p className="text-gray-600">Schedule and manage your live streaming sessions</p>
+          <h2 className='text-2xl font-bold text-gray-900'>Live Streams</h2>
+          <p className='text-gray-600'>Schedule and manage your live streaming sessions</p>
         </div>
-        <Button
-          onClick={() => setShowForm(true)}
-          className="flex items-center space-x-2"
-        >
-          <PlusIcon className="h-5 w-5" />
+        <Button onClick={() => setShowForm(true)} className='flex items-center space-x-2'>
+          <PlusIcon className='h-5 w-5' />
           <span>Schedule Stream</span>
         </Button>
       </div>
 
       {/* Stream Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-semibold">
+        <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4'>
+          <div className='bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto'>
+            <div className='flex justify-between items-center mb-6'>
+              <h3 className='text-xl font-semibold'>
                 {editingStream ? 'Edit Stream' : 'Schedule New Stream'}
               </h3>
-              <button
-                onClick={resetForm}
-                className="text-gray-400 hover:text-gray-600"
-              >
+              <button onClick={resetForm} className='text-gray-400 hover:text-gray-600'>
                 ×
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className='space-y-4'>
               {/* Title */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className='block text-sm font-medium text-gray-700 mb-1'>
                   Stream Title *
                 </label>
                 <input
-                  type="text"
+                  type='text'
                   value={formData.title}
-                  onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter stream title..."
+                  onChange={e => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                  className='w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+                  placeholder='Enter stream title...'
                   required
                 />
               </div>
 
               {/* Description */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Description
-                </label>
+                <label className='block text-sm font-medium text-gray-700 mb-1'>Description</label>
                 <textarea
                   value={formData.description}
-                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="What will you be streaming about?"
+                  className='w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+                  placeholder='What will you be streaming about?'
                 />
               </div>
 
               {/* Scheduled Time */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className='block text-sm font-medium text-gray-700 mb-1'>
                   Scheduled Time (optional)
                 </label>
                 <input
-                  type="datetime-local"
+                  type='datetime-local'
                   value={formData.scheduledAt}
-                  onChange={(e) => setFormData(prev => ({ ...prev, scheduledAt: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  onChange={e => setFormData(prev => ({ ...prev, scheduledAt: e.target.value }))}
+                  className='w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent'
                   min={new Date().toISOString().slice(0, 16)}
                 />
-                <p className="text-xs text-gray-500 mt-1">
+                <p className='text-xs text-gray-500 mt-1'>
                   Leave empty to go live immediately after creation
                 </p>
               </div>
 
               {/* Access Control */}
-              <div className="space-y-3">
-                <div className="flex items-center">
+              <div className='space-y-3'>
+                <div className='flex items-center'>
                   <input
-                    type="checkbox"
-                    id="isPublic"
+                    type='checkbox'
+                    id='isPublic'
                     checked={formData.isPublic}
-                    onChange={(e) => setFormData(prev => ({ ...prev, isPublic: e.target.checked }))}
-                    className="mr-2"
+                    onChange={e => setFormData(prev => ({ ...prev, isPublic: e.target.checked }))}
+                    className='mr-2'
                   />
-                  <label htmlFor="isPublic" className="text-sm font-medium text-gray-700">
+                  <label htmlFor='isPublic' className='text-sm font-medium text-gray-700'>
                     Public Stream (anyone can watch)
                   </label>
                 </div>
 
                 {!formData.isPublic && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className='block text-sm font-medium text-gray-700 mb-2'>
                       Required Subscription Tiers
                     </label>
-                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                    <div className='space-y-2 max-h-32 overflow-y-auto'>
                       {tiers.map(tier => (
-                        <label key={tier.id} className="flex items-center">
+                        <label key={tier.id} className='flex items-center'>
                           <input
-                            type="checkbox"
+                            type='checkbox'
                             checked={formData.tierIds.includes(tier.id)}
-                            onChange={(e) => {
+                            onChange={e => {
                               if (e.target.checked) {
                                 setFormData(prev => ({
                                   ...prev,
-                                  tierIds: [...prev.tierIds, tier.id]
+                                  tierIds: [...prev.tierIds, tier.id],
                                 }));
                               } else {
                                 setFormData(prev => ({
                                   ...prev,
-                                  tierIds: prev.tierIds.filter(id => id !== tier.id)
+                                  tierIds: prev.tierIds.filter(id => id !== tier.id),
                                 }));
                               }
                             }}
-                            className="mr-2"
+                            className='mr-2'
                           />
-                          <span className="text-sm">{tier.name} (${tier.minimumPrice}/month)</span>
+                          <span className='text-sm'>
+                            {tier.name} (${tier.minimumPrice}/month)
+                          </span>
                         </label>
                       ))}
                     </div>
@@ -411,78 +407,81 @@ export default function StreamScheduler() {
               </div>
 
               {/* Recording */}
-              <div className="flex items-center">
+              <div className='flex items-center'>
                 <input
-                  type="checkbox"
-                  id="isRecorded"
+                  type='checkbox'
+                  id='isRecorded'
                   checked={formData.isRecorded}
-                  onChange={(e) => setFormData(prev => ({ ...prev, isRecorded: e.target.checked }))}
-                  className="mr-2"
+                  onChange={e => setFormData(prev => ({ ...prev, isRecorded: e.target.checked }))}
+                  className='mr-2'
                 />
-                <label htmlFor="isRecorded" className="text-sm font-medium text-gray-700">
+                <label htmlFor='isRecorded' className='text-sm font-medium text-gray-700'>
                   Record this stream
                 </label>
               </div>
 
               {/* Max Viewers */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className='block text-sm font-medium text-gray-700 mb-1'>
                   Maximum Viewers
                 </label>
                 <input
-                  type="number"
-                  min="1"
-                  max="10000"
+                  type='number'
+                  min='1'
+                  max='10000'
                   value={formData.maxViewers}
-                  onChange={(e) => setFormData(prev => ({ ...prev, maxViewers: parseInt(e.target.value) }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  onChange={e =>
+                    setFormData(prev => ({ ...prev, maxViewers: parseInt(e.target.value) }))
+                  }
+                  className='w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent'
                 />
               </div>
 
               {/* Payment */}
-              <div className="space-y-3">
-                <div className="flex items-center">
+              <div className='space-y-3'>
+                <div className='flex items-center'>
                   <input
-                    type="checkbox"
-                    id="requiresPayment"
+                    type='checkbox'
+                    id='requiresPayment'
                     checked={formData.requiresPayment}
-                    onChange={(e) => setFormData(prev => ({ ...prev, requiresPayment: e.target.checked }))}
-                    className="mr-2"
+                    onChange={e =>
+                      setFormData(prev => ({ ...prev, requiresPayment: e.target.checked }))
+                    }
+                    className='mr-2'
                   />
-                  <label htmlFor="requiresPayment" className="text-sm font-medium text-gray-700">
+                  <label htmlFor='requiresPayment' className='text-sm font-medium text-gray-700'>
                     Require payment to access
                   </label>
                 </div>
 
                 {formData.requiresPayment && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className='block text-sm font-medium text-gray-700 mb-1'>
                       Access Price ($)
                     </label>
                     <input
-                      type="number"
-                      min="0"
-                      step="0.01"
+                      type='number'
+                      min='0'
+                      step='0.01'
                       value={formData.paymentAmount}
-                      onChange={(e) => setFormData(prev => ({ ...prev, paymentAmount: parseFloat(e.target.value) }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      onChange={e =>
+                        setFormData(prev => ({
+                          ...prev,
+                          paymentAmount: parseFloat(e.target.value),
+                        }))
+                      }
+                      className='w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent'
                     />
                   </div>
                 )}
               </div>
 
               {/* Actions */}
-              <div className="flex justify-end space-x-3 pt-6">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={resetForm}
-                >
+              <div className='flex justify-end space-x-3 pt-6'>
+                <Button type='button' variant='outline' onClick={resetForm}>
                   Cancel
                 </Button>
-                <Button type="submit">
-                  {editingStream ? 'Update Stream' : 'Schedule Stream'}
-                </Button>
+                <Button type='submit'>{editingStream ? 'Update Stream' : 'Schedule Stream'}</Button>
               </div>
             </form>
           </div>
@@ -490,101 +489,97 @@ export default function StreamScheduler() {
       )}
 
       {/* Streams List */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-        {streams.map((stream) => (
-          <Card key={stream.id} className="overflow-hidden">
-            <CardHeader className="pb-3">
-              <div className="flex justify-between items-start">
-                <CardTitle className="text-lg line-clamp-2">{stream.title}</CardTitle>
-                <Badge className={getStatusBadge(stream.status)}>
-                  {stream.status}
-                </Badge>
+      <div className='grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6'>
+        {streams.map(stream => (
+          <Card key={stream.id} className='overflow-hidden'>
+            <CardHeader className='pb-3'>
+              <div className='flex justify-between items-start'>
+                <CardTitle className='text-lg line-clamp-2'>{stream.title}</CardTitle>
+                <Badge className={getStatusBadge(stream.status)}>{stream.status}</Badge>
               </div>
               {stream.description && (
-                <p className="text-sm text-gray-600 line-clamp-2">{stream.description}</p>
+                <p className='text-sm text-gray-600 line-clamp-2'>{stream.description}</p>
               )}
             </CardHeader>
 
-            <CardContent className="space-y-4">
+            <CardContent className='space-y-4'>
               {/* Schedule Info */}
-              <div className="flex items-center text-sm text-gray-600">
+              <div className='flex items-center text-sm text-gray-600'>
                 {stream.scheduledAt && (
                   <>
-                    <CalendarIcon className="h-4 w-4 mr-1" />
+                    <CalendarIcon className='h-4 w-4 mr-1' />
                     <span>Scheduled: {formatDateTime(stream.scheduledAt)}</span>
                   </>
                 )}
                 {stream.startedAt && (
                   <>
-                    <ClockIcon className="h-4 w-4 mr-1" />
+                    <ClockIcon className='h-4 w-4 mr-1' />
                     <span>Started: {formatDateTime(stream.startedAt)}</span>
                   </>
                 )}
               </div>
 
               {/* Stats */}
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="flex items-center">
-                  <UsersIcon className="h-4 w-4 mr-1 text-gray-400" />
+              <div className='grid grid-cols-2 gap-4 text-sm'>
+                <div className='flex items-center'>
+                  <UsersIcon className='h-4 w-4 mr-1 text-gray-400' />
                   <span>{stream.totalViewers} viewers</span>
                 </div>
-                <div className="flex items-center">
-                  <EyeIcon className="h-4 w-4 mr-1 text-gray-400" />
+                <div className='flex items-center'>
+                  <EyeIcon className='h-4 w-4 mr-1 text-gray-400' />
                   <span>Peak: {stream.peakViewers}</span>
                 </div>
               </div>
 
               {/* Access Type */}
-              <div className="flex flex-wrap gap-2">
+              <div className='flex flex-wrap gap-2'>
                 {stream.isPublic ? (
-                  <Badge variant="outline">Public</Badge>
+                  <Badge variant='outline'>Public</Badge>
                 ) : (
-                  <Badge variant="outline">Private</Badge>
+                  <Badge variant='outline'>Private</Badge>
                 )}
-                {stream.isRecorded && <Badge variant="outline">Recorded</Badge>}
-                {stream.requiresPayment && (
-                  <Badge variant="outline">${stream.paymentAmount}</Badge>
-                )}
+                {stream.isRecorded && <Badge variant='outline'>Recorded</Badge>}
+                {stream.requiresPayment && <Badge variant='outline'>${stream.paymentAmount}</Badge>}
               </div>
 
               {/* Actions */}
-              <div className="flex justify-between items-center pt-2">
-                <div className="flex space-x-2">
+              <div className='flex justify-between items-center pt-2'>
+                <div className='flex space-x-2'>
                   <button
                     onClick={() => startEdit(stream)}
-                    className="p-1 text-gray-400 hover:text-blue-600"
+                    className='p-1 text-gray-400 hover:text-blue-600'
                     disabled={stream.status === 'LIVE'}
                   >
-                    <PencilIcon className="h-4 w-4" />
+                    <PencilIcon className='h-4 w-4' />
                   </button>
                   <button
                     onClick={() => handleDeleteStream(stream.id)}
-                    className="p-1 text-gray-400 hover:text-red-600"
+                    className='p-1 text-gray-400 hover:text-red-600'
                     disabled={stream.status === 'LIVE'}
                   >
-                    <TrashIcon className="h-4 w-4" />
+                    <TrashIcon className='h-4 w-4' />
                   </button>
                 </div>
 
-                <div className="flex space-x-2">
+                <div className='flex space-x-2'>
                   {stream.status === 'SCHEDULED' && (
                     <Button
-                      size="sm"
+                      size='sm'
                       onClick={() => handleStartStream(stream.id)}
-                      className="flex items-center space-x-1"
+                      className='flex items-center space-x-1'
                     >
-                      <PlayIcon className="h-4 w-4" />
+                      <PlayIcon className='h-4 w-4' />
                       <span>Start</span>
                     </Button>
                   )}
                   {stream.status === 'LIVE' && (
                     <Button
-                      size="sm"
-                      variant="outline"
+                      size='sm'
+                      variant='outline'
                       onClick={() => handleEndStream(stream.id)}
-                      className="flex items-center space-x-1 border-red-300 text-red-600 hover:bg-red-50"
+                      className='flex items-center space-x-1 border-red-300 text-red-600 hover:bg-red-50'
                     >
-                      <StopIcon className="h-4 w-4" />
+                      <StopIcon className='h-4 w-4' />
                       <span>End</span>
                     </Button>
                   )}
@@ -597,17 +592,14 @@ export default function StreamScheduler() {
 
       {/* Empty State */}
       {streams.length === 0 && (
-        <div className="text-center py-12">
-          <VideoCameraIcon className="mx-auto h-16 w-16 text-gray-300" />
-          <h3 className="mt-4 text-lg font-medium text-gray-900">No streams scheduled</h3>
-          <p className="mt-2 text-gray-500">
+        <div className='text-center py-12'>
+          <VideoCameraIcon className='mx-auto h-16 w-16 text-gray-300' />
+          <h3 className='mt-4 text-lg font-medium text-gray-900'>No streams scheduled</h3>
+          <p className='mt-2 text-gray-500'>
             Schedule your first live stream to engage with your fans in real-time.
           </p>
-          <Button
-            onClick={() => setShowForm(true)}
-            className="mt-4"
-          >
-            <PlusIcon className="h-5 w-5 mr-2" />
+          <Button onClick={() => setShowForm(true)} className='mt-4'>
+            <PlusIcon className='h-5 w-5 mr-2' />
             Schedule Your First Stream
           </Button>
         </div>

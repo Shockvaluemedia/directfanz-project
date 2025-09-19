@@ -1,7 +1,7 @@
 {
   "version": 2,
   "buildCommand": "npm run build",
-  "devCommand": "npm run dev",
+  "devCommand": "npm run dev:next",
   "installCommand": "npm ci",
   "framework": "nextjs",
   "regions": ["iad1"],
@@ -66,7 +66,7 @@
     },
     {
       "path": "/api/health/cron",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 6 * * *"
     }
   ]
 }

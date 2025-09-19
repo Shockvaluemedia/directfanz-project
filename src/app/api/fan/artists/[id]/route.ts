@@ -3,35 +3,26 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Get user and verify they are a fan
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: { id: session.user.id },
     });
 
     if (!user || user.role !== 'FAN') {
-      return NextResponse.json(
-        { error: 'Only fans can view artist profiles' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'Only fans can view artist profiles' }, { status: 403 });
     }
 
     // Get artist details with tiers and content
-    const artist = await prisma.user.findUnique({
-      where: { 
+    const artist = await prisma.users.findUnique({
+      where: {
         id: params.id,
         role: 'ARTIST',
       },
@@ -42,7 +33,7 @@ export async function GET(
         avatar: true,
         socialLinks: true,
         createdAt: true,
-        artistProfile: {
+        artists: {
           select: {
             totalSubscribers: true,
             isStripeOnboarded: true,
@@ -78,13 +69,10 @@ export async function GET(
     });
 
     if (!artist) {
-      return NextResponse.json(
-        { error: 'Artist not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Artist not found' }, { status: 404 });
     }
 
-    if (!artist.artistProfile?.isStripeOnboarded) {
+    if (!artist.artists?.isStripeOnboarded) {
       return NextResponse.json(
         { error: 'Artist is not accepting subscriptions yet' },
         { status: 400 }
@@ -92,7 +80,7 @@ export async function GET(
     }
 
     // Check if fan has any existing subscriptions to this artist
-    const existingSubscriptions = await prisma.subscription.findMany({
+    const existingSubscriptions = await prisma.subscriptions.findMany({
       where: {
         fanId: user.id,
         artistId: artist.id,
@@ -118,9 +106,6 @@ export async function GET(
     });
   } catch (error) {
     console.error('Get artist error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch artist' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch artist' }, { status: 500 });
   }
 }

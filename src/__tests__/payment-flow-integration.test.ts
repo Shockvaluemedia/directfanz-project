@@ -1,12 +1,12 @@
 /**
  * Payment Flow Integration Tests
- * 
+ *
  * End-to-end tests for the complete payment and subscription lifecycle
  * including business metrics tracking and error scenarios
  */
 
 import { NextRequest } from 'next/server';
-import { 
+import {
   setupTestEnvironment,
   createMockUser,
   createMockArtist,
@@ -29,8 +29,8 @@ jest.mock('next/headers', () => ({
         return 'test-signature';
       }
       return null;
-    })
-  }))
+    }),
+  })),
 }));
 
 // Mock Prisma
@@ -54,7 +54,7 @@ jest.mock('@/lib/prisma', () => ({
     paymentFailure: {
       create: jest.fn(),
     },
-  }
+  },
 }));
 
 // Mock NextAuth
@@ -85,7 +85,7 @@ jest.mock('@/lib/business-metrics', () => ({
   businessMetrics: {
     track: jest.fn(),
     trackPayment: jest.fn(),
-  }
+  },
 }));
 
 jest.mock('@/lib/payment-monitoring', () => ({
@@ -97,13 +97,13 @@ jest.mock('@/lib/payment-monitoring', () => ({
     trackInvoicePaymentFailed: jest.fn(),
     trackSubscriptionUpdated: jest.fn(),
     trackSubscriptionCancelled: jest.fn(),
-  }
+  },
 }));
 
 jest.mock('@/lib/user-engagement-tracking', () => ({
   userEngagementTracker: {
     trackEvent: jest.fn(),
-  }
+  },
 }));
 
 // Import the modules we're testing after mocking
@@ -138,7 +138,7 @@ jest.mock('stripe', () => {
       constructEvent: jest.fn(),
     },
   };
-  
+
   return jest.fn(() => mockStripe);
 });
 
@@ -147,24 +147,30 @@ describe('Payment Flow Integration Tests', () => {
 
   const mockUser = createMockUser({ id: 'fan-123', role: 'FAN' });
   const mockArtist = createMockArtist({ id: 'artist-123' });
-  const mockTier = createMockTier({ 
-    id: 'tier-123', 
-    artistId: 'artist-123', 
+  const mockTier = createMockTier({
+    id: 'tier-123',
+    artistId: 'artist-123',
     price: 29.99,
     minimumPrice: 5.0,
     isActive: true,
-    stripePriceId: 'price_test_123'
+    stripePriceId: 'price_test_123',
   });
 
   // Get the mocked services
   const { getServerSession } = require('next-auth');
   const { prisma } = require('@/lib/prisma');
-  const { stripe, createOrRetrieveCustomer, createStripeProduct, createStripePrice, createCheckoutSession } = require('@/lib/stripe');
+  const {
+    stripe,
+    createOrRetrieveCustomer,
+    createStripeProduct,
+    createStripePrice,
+    createCheckoutSession,
+  } = require('@/lib/stripe');
   const { sendEmail } = require('@/lib/notifications');
-  
+
   // Get the mocked Stripe instance from our setup
   let mockStripe: any;
-  
+
   beforeAll(() => {
     // Get the Stripe constructor mock
     const StripeConstructor = require('stripe');
@@ -175,25 +181,25 @@ describe('Payment Flow Integration Tests', () => {
   beforeEach(() => {
     // Reset all mocks
     jest.clearAllMocks();
-    
+
     // Setup default mock implementations
     getServerSession.mockResolvedValue({
-      user: mockUser
+      user: mockUser,
     });
-    
+
     // Setup Prisma mocks
-    prisma.user.findUnique.mockResolvedValue(mockUser);
-    prisma.tier.findUnique.mockResolvedValue({
+    prisma.users.findUnique.mockResolvedValue(mockUser);
+    prisma.tiers.findUnique.mockResolvedValue({
       ...mockTier,
       artist: {
         ...mockArtist,
-        artistProfile: {
+        artists: {
           stripeAccountId: 'acct_test_123',
-          isStripeOnboarded: true
-        }
-      }
+          isStripeOnboarded: true,
+        },
+      },
     });
-    prisma.subscription.findUnique.mockImplementation((args: any) => {
+    prisma.subscriptions.findUnique.mockImplementation((args: any) => {
       // Handle different query patterns
       if (args.where?.stripeSubscriptionId) {
         return Promise.resolve({
@@ -205,32 +211,32 @@ describe('Payment Flow Integration Tests', () => {
       }
       return Promise.resolve(null); // No existing subscription for fanId_tierId lookup
     });
-    prisma.subscription.create.mockResolvedValue({ id: 'sub_123' });
-    prisma.tier.update.mockResolvedValue({});
-    prisma.artist.update.mockResolvedValue({});
-    
+    prisma.subscriptions.create.mockResolvedValue({ id: 'sub_123' });
+    prisma.tiers.update.mockResolvedValue({});
+    prisma.artists.update.mockResolvedValue({});
+
     // Setup Stripe service mocks
     createOrRetrieveCustomer.mockResolvedValue('cus_test_123');
     createStripeProduct.mockResolvedValue('prod_test_123');
     createStripePrice.mockResolvedValue('price_test_123');
     createCheckoutSession.mockResolvedValue('https://checkout.stripe.com/pay/cs_test_123');
-    
+
     // Setup email mock
     sendEmail.mockResolvedValue(true);
-    
+
     // Reset business metrics and payment monitoring mocks
     Object.values(businessMetrics).forEach((method: any) => {
       if (jest.isMockFunction(method)) {
         method.mockReset();
       }
     });
-    
+
     Object.values(paymentMonitor).forEach((method: any) => {
       if (jest.isMockFunction(method)) {
         method.mockReset();
       }
     });
-    
+
     // Reset Stripe mocks
     if (mockStripe) {
       Object.values(mockStripe).forEach((service: any) => {
@@ -255,10 +261,14 @@ describe('Payment Flow Integration Tests', () => {
       });
 
       // Create authenticated request
-      const request = mockAuthenticatedRequest('POST', {
-        tierId: 'tier-123',
-        amount: 29.99,
-      }, mockSession({ user: mockUser }));
+      const request = mockAuthenticatedRequest(
+        'POST',
+        {
+          tierId: 'tier-123',
+          amount: 29.99,
+        },
+        mockSession({ user: mockUser })
+      );
 
       // Execute the checkout creation
       const response = await createCheckout(request);
@@ -279,11 +289,7 @@ describe('Payment Flow Integration Tests', () => {
         mockTier.description,
         'acct_test_123'
       );
-      expect(createStripePrice).toHaveBeenCalledWith(
-        'prod_test_123',
-        29.99,
-        'acct_test_123'
-      );
+      expect(createStripePrice).toHaveBeenCalledWith('prod_test_123', 29.99, 'acct_test_123');
       expect(createCheckoutSession).toHaveBeenCalledWith(
         'price_test_123',
         'cus_test_123',
@@ -344,7 +350,7 @@ describe('Payment Flow Integration Tests', () => {
       expect(response.status).toBe(200);
 
       // Verify Prisma operations were called for subscription creation
-      expect(prisma.subscription.create).toHaveBeenCalledWith({
+      expect(prisma.subscriptions.create).toHaveBeenCalledWith({
         data: {
           fanId: 'fan-123',
           artistId: 'artist-123',
@@ -356,8 +362,8 @@ describe('Payment Flow Integration Tests', () => {
           currentPeriodEnd: expect.any(Date),
         },
       });
-      
-      expect(prisma.tier.update).toHaveBeenCalledWith({
+
+      expect(prisma.tiers.update).toHaveBeenCalledWith({
         where: { id: 'tier-123' },
         data: {
           subscriberCount: {
@@ -403,7 +409,7 @@ describe('Payment Flow Integration Tests', () => {
       expect(response.status).toBe(200);
 
       // Verify subscription update
-      expect(prisma.subscription.update).toHaveBeenCalledWith({
+      expect(prisma.subscriptions.update).toHaveBeenCalledWith({
         where: { id: 'sub_internal_123' },
         data: {
           status: 'ACTIVE',
@@ -414,7 +420,7 @@ describe('Payment Flow Integration Tests', () => {
 
       // Verify artist earnings update (amount - 5% platform fee)
       const expectedEarnings = (2999 / 100) * 0.95; // $29.99 - 5% platform fee
-      expect(prisma.artist.update).toHaveBeenCalledWith({
+      expect(prisma.artists.update).toHaveBeenCalledWith({
         where: { userId: 'artist-123' },
         data: {
           totalEarnings: {
@@ -488,10 +494,10 @@ describe('Payment Flow Integration Tests', () => {
           artist: {
             id: 'artist-123',
             displayName: 'Test Artist',
-          }
-        }
+          },
+        },
       };
-      prisma.subscription.findUnique.mockResolvedValueOnce(mockSubscription);
+      prisma.subscriptions.findUnique.mockResolvedValueOnce(mockSubscription);
       prisma.paymentFailure = {
         create: jest.fn().mockResolvedValue({ id: 'pf_123' }),
       } as any;
@@ -519,7 +525,7 @@ describe('Payment Flow Integration Tests', () => {
       expect(response.status).toBe(200);
 
       // Verify subscription was marked as past due
-      expect(prisma.subscription.update).toHaveBeenCalledWith({
+      expect(prisma.subscriptions.update).toHaveBeenCalledWith({
         where: { id: 'sub_internal_123' },
         data: {
           status: 'PAST_DUE',
@@ -554,7 +560,7 @@ describe('Payment Flow Integration Tests', () => {
       };
 
       // The global mock will handle this subscription lookup
-      
+
       stripe.webhooks.constructEvent.mockReturnValue(mockEvent);
 
       const request = new NextRequest('http://localhost:3000/api/payments/webhooks', {
@@ -567,9 +573,9 @@ describe('Payment Flow Integration Tests', () => {
 
       const response = await handleWebhook(request);
       expect(response.status).toBe(200);
-      
+
       // Verify subscription update in database
-      expect(prisma.subscription.update).toHaveBeenCalledWith({
+      expect(prisma.subscriptions.update).toHaveBeenCalledWith({
         where: { id: 'sub_internal_123' },
         data: {
           status: 'ACTIVE',
@@ -601,7 +607,7 @@ describe('Payment Flow Integration Tests', () => {
       };
 
       // The global mock will handle this subscription lookup
-      
+
       stripe.webhooks.constructEvent.mockReturnValue(mockEvent);
 
       const request = new NextRequest('http://localhost:3000/api/payments/webhooks', {
@@ -616,13 +622,13 @@ describe('Payment Flow Integration Tests', () => {
       expect(response.status).toBe(200);
 
       // Verify subscription cancellation in database
-      expect(prisma.subscription.update).toHaveBeenCalledWith({
+      expect(prisma.subscriptions.update).toHaveBeenCalledWith({
         where: { id: 'sub_internal_123' },
         data: { status: 'CANCELED' },
       });
-      
+
       // Verify tier subscriber count decrement
-      expect(prisma.tier.update).toHaveBeenCalledWith({
+      expect(prisma.tiers.update).toHaveBeenCalledWith({
         where: { id: 'tier-123' },
         data: {
           subscriberCount: {
@@ -630,9 +636,9 @@ describe('Payment Flow Integration Tests', () => {
           },
         },
       });
-      
+
       // Verify artist subscriber count decrement
-      expect(prisma.artist.update).toHaveBeenCalledWith({
+      expect(prisma.artists.update).toHaveBeenCalledWith({
         where: { userId: 'artist-123' },
         data: {
           totalSubscribers: {
@@ -645,10 +651,14 @@ describe('Payment Flow Integration Tests', () => {
 
   describe('Business Metrics Integration', () => {
     it('should complete checkout session flow successfully', async () => {
-      const checkoutRequest = mockAuthenticatedRequest('POST', {
-        tierId: 'tier-123',
-        amount: 29.99,
-      }, mockSession({ user: mockUser }));
+      const checkoutRequest = mockAuthenticatedRequest(
+        'POST',
+        {
+          tierId: 'tier-123',
+          amount: 29.99,
+        },
+        mockSession({ user: mockUser })
+      );
 
       const response = await createCheckout(checkoutRequest);
       const data = await response.json();
@@ -699,9 +709,9 @@ describe('Payment Flow Integration Tests', () => {
       expect(response.status).toBe(200);
 
       // Verify the core database operations were performed
-      expect(prisma.subscription.create).toHaveBeenCalled();
-      expect(prisma.tier.update).toHaveBeenCalled();
-      expect(prisma.artist.update).toHaveBeenCalled();
+      expect(prisma.subscriptions.create).toHaveBeenCalled();
+      expect(prisma.tiers.update).toHaveBeenCalled();
+      expect(prisma.artists.update).toHaveBeenCalled();
     });
   });
 

@@ -38,18 +38,18 @@ export const getRedisClient = async () => {
   if (!redisClient) {
     try {
       const url = process.env.REDIS_URL;
-      
+
       if (!url) {
         logger.warn('Redis URL not configured, caching disabled');
         return null;
       }
-      
+
       redisClient = createClient({ url });
-      
-      redisClient.on('error', (err) => {
+
+      redisClient.on('error', err => {
         logger.error('Redis client error', {}, err);
       });
-      
+
       await redisClient.connect();
       logger.info('Redis client connected');
     } catch (error) {
@@ -57,7 +57,7 @@ export const getRedisClient = async () => {
       redisClient = null;
     }
   }
-  
+
   return redisClient;
 };
 
@@ -70,9 +70,9 @@ export const getCachedData = async <T>(key: string): Promise<T | null> => {
   try {
     const client = await getRedisClient();
     if (!client) return null;
-    
+
     const data = await client.get(key);
-    return data ? JSON.parse(data) as T : null;
+    return data ? (JSON.parse(data) as T) : null;
   } catch (error) {
     logger.error('Error getting cached data', { key }, error as Error);
     return null;
@@ -86,14 +86,14 @@ export const getCachedData = async <T>(key: string): Promise<T | null> => {
  * @param ttl Time to live in seconds
  */
 export const setCachedData = async <T>(
-  key: string, 
-  data: T, 
+  key: string,
+  data: T,
   ttl: number = CACHE_TTL.MEDIUM
 ): Promise<void> => {
   try {
     const client = await getRedisClient();
     if (!client) return;
-    
+
     await client.set(key, JSON.stringify(data), { EX: ttl });
   } catch (error) {
     logger.error('Error setting cached data', { key }, error as Error);
@@ -108,7 +108,7 @@ export const deleteCachedData = async (key: string): Promise<void> => {
   try {
     const client = await getRedisClient();
     if (!client) return;
-    
+
     await client.del(key);
   } catch (error) {
     logger.error('Error deleting cached data', { key }, error as Error);
@@ -123,7 +123,7 @@ export const deleteCachedPattern = async (pattern: string): Promise<void> => {
   try {
     const client = await getRedisClient();
     if (!client) return;
-    
+
     // Use SCAN to find keys matching pattern
     let cursor = 0;
     do {
@@ -131,9 +131,9 @@ export const deleteCachedPattern = async (pattern: string): Promise<void> => {
         MATCH: pattern,
         COUNT: 100,
       });
-      
+
       cursor = nextCursor;
-      
+
       if (keys.length > 0) {
         await client.del(keys);
       }
@@ -157,17 +157,17 @@ export const withCache = async <T>(
 ): Promise<T> => {
   // Try to get from cache first
   const cachedData = await getCachedData<T>(key);
-  
+
   if (cachedData !== null) {
     return cachedData;
   }
-  
+
   // Cache miss, execute function
   const result = await fn();
-  
+
   // Cache the result
   await setCachedData(key, result, ttl);
-  
+
   return result;
 };
 
@@ -204,5 +204,5 @@ export const redis = {
   info: async () => {
     const client = await getRedisClient();
     return client ? await client.info() : 'redis_unavailable';
-  }
+  },
 };

@@ -12,11 +12,11 @@ export function secureRandomInt(min: number, max: number): number {
   if (min > max) {
     throw new Error('min must be less than or equal to max');
   }
-  
+
   const range = max - min + 1;
   const bytesNeeded = Math.ceil(Math.log2(range) / 8);
   const maxValid = Math.floor(Math.pow(256, bytesNeeded) / range) * range - 1;
-  
+
   let randomValue: number;
   do {
     const randomBytes = crypto.randomBytes(bytesNeeded);
@@ -25,7 +25,7 @@ export function secureRandomInt(min: number, max: number): number {
       randomValue = (randomValue << 8) + randomBytes[i];
     }
   } while (randomValue > maxValid);
-  
+
   return min + (randomValue % range);
 }
 
@@ -35,7 +35,7 @@ export function secureRandomInt(min: number, max: number): number {
  */
 export function secureRandom(): number {
   const bytes = crypto.randomBytes(4);
-  const max = 0xFFFFFFFF;
+  const max = 0xffffffff;
   const value = bytes.readUInt32BE(0);
   return value / (max + 1);
 }
@@ -47,8 +47,8 @@ export function secureRandomFloat(min: number, max: number): number {
   if (min > max) {
     throw new Error('min must be less than or equal to max');
   }
-  
-  return min + (secureRandom() * (max - min));
+
+  return min + secureRandom() * (max - min);
 }
 
 /**
@@ -57,13 +57,13 @@ export function secureRandomFloat(min: number, max: number): number {
 export function secureRandomString(length: number, charset?: string): string {
   const defaultCharset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   const chars = charset || defaultCharset;
-  
+
   let result = '';
   for (let i = 0; i < length; i++) {
     const randomIndex = secureRandomInt(0, chars.length - 1);
     result += chars[randomIndex];
   }
-  
+
   return result;
 }
 
@@ -86,7 +86,10 @@ export function secureUUID(): string {
  * Generate a cryptographically secure random ID for various use cases
  */
 export function generateSecureId(prefix?: string, length: number = 16): string {
-  const randomPart = secureRandomString(length, 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789');
+  const randomPart = secureRandomString(
+    length,
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+  );
   return prefix ? `${prefix}_${randomPart}` : randomPart;
 }
 
@@ -95,12 +98,12 @@ export function generateSecureId(prefix?: string, length: number = 16): string {
  */
 export function secureArrayShuffle<T>(array: T[]): T[] {
   const shuffled = [...array];
-  
+
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = secureRandomInt(0, i);
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
-  
+
   return shuffled;
 }
 
@@ -111,7 +114,7 @@ export function secureRandomChoice<T>(array: T[]): T {
   if (array.length === 0) {
     throw new Error('Cannot select from empty array');
   }
-  
+
   const index = secureRandomInt(0, array.length - 1);
   return array[index];
 }

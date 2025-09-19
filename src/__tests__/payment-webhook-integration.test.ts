@@ -1,10 +1,10 @@
 /**
  * Payment Webhook Integration Tests
- * 
+ *
  * Simplified tests for payment webhook processing and business logic
  */
 
-import { 
+import {
   setupTestEnvironment,
   createMockUser,
   createMockArtist,
@@ -27,14 +27,14 @@ const processStripeWebhookEvent = (event: any) => {
         creatorId: paymentIntent.metadata.creator_id,
         source: 'webhook',
       });
-      
+
       businessMetrics.trackPayment({
         event: 'payment_succeeded',
         amount: paymentIntent.amount / 100,
         currency: paymentIntent.currency.toUpperCase(),
         paymentId: paymentIntent.id,
       });
-      
+
       businessMetrics.track({
         event: 'conversion_completed',
         userId: paymentIntent.metadata.fan_id,
@@ -46,7 +46,7 @@ const processStripeWebhookEvent = (event: any) => {
         currency: paymentIntent.currency,
       });
       break;
-      
+
     case 'customer.subscription.created':
       const subscription = event.data.object;
       paymentMonitor.trackSubscriptionCreated(subscription, {
@@ -56,7 +56,7 @@ const processStripeWebhookEvent = (event: any) => {
         source: 'webhook',
       });
       break;
-      
+
     case 'invoice.payment_succeeded':
       const invoice = event.data.object;
       paymentMonitor.trackInvoicePaid(invoice, {
@@ -65,7 +65,7 @@ const processStripeWebhookEvent = (event: any) => {
         source: 'webhook',
       });
       break;
-      
+
     case 'payment_intent.payment_failed':
       const failedPayment = event.data.object;
       paymentMonitor.trackPaymentFailure(failedPayment, {
@@ -73,7 +73,7 @@ const processStripeWebhookEvent = (event: any) => {
         creatorId: failedPayment.metadata.creator_id,
         source: 'webhook',
       });
-      
+
       businessMetrics.trackPayment({
         event: 'payment_failed',
         amount: failedPayment.amount / 100,
@@ -84,16 +84,20 @@ const processStripeWebhookEvent = (event: any) => {
         },
       });
       break;
-      
+
     case 'customer.subscription.deleted':
       const canceledSubscription = event.data.object;
-      paymentMonitor.trackSubscriptionCancelled(canceledSubscription, {
-        userId: canceledSubscription.metadata.fan_id,
-        creatorId: canceledSubscription.metadata.creator_id,
-        subscriptionTier: canceledSubscription.metadata.tier_name,
-        source: 'webhook',
-      }, 'subscription_cancelled');
-      
+      paymentMonitor.trackSubscriptionCancelled(
+        canceledSubscription,
+        {
+          userId: canceledSubscription.metadata.fan_id,
+          creatorId: canceledSubscription.metadata.creator_id,
+          subscriptionTier: canceledSubscription.metadata.tier_name,
+          source: 'webhook',
+        },
+        'subscription_cancelled'
+      );
+
       businessMetrics.track({
         event: 'churn_event',
         userId: canceledSubscription.metadata.fan_id,
@@ -105,7 +109,7 @@ const processStripeWebhookEvent = (event: any) => {
         },
       });
       break;
-      
+
     default:
       // Unknown event type - just log for now
       console.log(`Unhandled webhook event type: ${event.type}`);
@@ -365,9 +369,7 @@ describe('Payment Webhook Integration Tests', () => {
 
       processStripeWebhookEvent(unknownEvent);
 
-      expect(consoleSpy).toHaveBeenCalledWith(
-        'Unhandled webhook event type: unknown.event.type'
-      );
+      expect(consoleSpy).toHaveBeenCalledWith('Unhandled webhook event type: unknown.event.type');
 
       // Ensure no tracking methods were called
       expect(paymentMonitor.trackPaymentSuccess).not.toHaveBeenCalled();

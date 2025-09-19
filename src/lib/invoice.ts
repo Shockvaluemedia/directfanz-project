@@ -94,40 +94,40 @@ export async function updateInvoice(id: string, params: InvoiceUpdateParams): Pr
 export async function getInvoices(filters: InvoiceFilterParams): Promise<any[]> {
   try {
     const where: any = {};
-    
+
     if (filters.subscriptionId) {
       where.subscriptionId = filters.subscriptionId;
     }
-    
+
     if (filters.artistId) {
       where.subscription = {
         artistId: filters.artistId,
       };
     }
-    
+
     if (filters.fanId) {
       where.subscription = {
         ...(where.subscription || {}),
         fanId: filters.fanId,
       };
     }
-    
+
     if (filters.status) {
       where.status = filters.status;
     }
-    
+
     if (filters.startDate || filters.endDate) {
       where.dueDate = {};
-      
+
       if (filters.startDate) {
         where.dueDate.gte = filters.startDate;
       }
-      
+
       if (filters.endDate) {
         where.dueDate.lte = filters.endDate;
       }
     }
-    
+
     const invoices = await prisma.invoice.findMany({
       where,
       orderBy: {
@@ -155,7 +155,7 @@ export async function getInvoices(filters: InvoiceFilterParams): Promise<any[]> 
         },
       },
     });
-    
+
     return invoices;
   } catch (error) {
     logger.error('Error getting invoices:', {}, error as Error);
@@ -190,11 +190,11 @@ export async function getInvoiceById(id: string): Promise<any> {
         },
       },
     });
-    
+
     if (!invoice) {
       throw new Error('Invoice not found');
     }
-    
+
     return invoice;
   } catch (error) {
     logger.error(`Error getting invoice ${id}:`, { invoiceId: id }, error as Error);
@@ -209,28 +209,28 @@ export async function generateAndStoreInvoice(stripeInvoiceId: string): Promise<
   try {
     // Get invoice data from Stripe
     const invoiceData = await generateInvoiceData(stripeInvoiceId);
-    
+
     // Get subscription from database
-    const subscription = await prisma.subscription.findUnique({
+    const subscription = await prisma.subscriptions.findUnique({
       where: { stripeSubscriptionId: invoiceData.subscriptionId },
     });
-    
+
     if (!subscription) {
       throw new Error('Subscription not found');
     }
-    
+
     // Calculate proration amount if any
     const prorationAmount = invoiceData.items.some(item => item.description.includes('Proration'))
       ? invoiceData.items
           .filter(item => item.description.includes('Proration'))
           .reduce((sum, item) => sum + item.amount, 0)
       : null;
-    
+
     // Check if invoice already exists
     const existingInvoice = await prisma.invoice.findUnique({
       where: { stripeInvoiceId },
     });
-    
+
     if (existingInvoice) {
       // Update existing invoice
       return await updateInvoice(existingInvoice.id, {
@@ -256,7 +256,11 @@ export async function generateAndStoreInvoice(stripeInvoiceId: string): Promise<
       });
     }
   } catch (error) {
-    logger.error(`Error generating and storing invoice ${stripeInvoiceId}:`, { stripeInvoiceId }, error as Error);
+    logger.error(
+      `Error generating and storing invoice ${stripeInvoiceId}:`,
+      { stripeInvoiceId },
+      error as Error
+    );
     throw new Error('Failed to generate and store invoice');
   }
 }
@@ -267,25 +271,29 @@ export async function generateAndStoreInvoice(stripeInvoiceId: string): Promise<
 export async function sendInvoiceNotification(invoiceId: string): Promise<void> {
   try {
     const invoice = await getInvoiceById(invoiceId);
-    
-    if (!invoice.subscription.fan.email) {
-      logger.warn(`Cannot send invoice notification: no email for fan ${invoice.subscription.fan.id}`);
+
+    if (!invoice.subscription.users.email) {
+      logger.warn(
+        `Cannot send invoice notification: no email for fan ${invoice.subscription.users.id}`
+      );
       return;
     }
-    
-    const prefs = invoice.subscription.fan.notificationPreferences as any;
+
+    const prefs = invoice.subscription.users.notificationPreferences as any;
     if (prefs?.billing === false) {
-      logger.info(`Skipping invoice notification: billing notifications disabled for fan ${invoice.subscription.fan.id}`);
+      logger.info(
+        `Skipping invoice notification: billing notifications disabled for fan ${invoice.subscription.users.id}`
+      );
       return;
     }
-    
+
     const formattedAmount = parseFloat(invoice.amount.toString()).toFixed(2);
     const formattedDate = invoice.dueDate.toLocaleDateString();
     const invoiceStatus = invoice.status.toLowerCase();
-    const tierName = invoice.subscription.tier.name;
-    
+    const tierName = invoice.subscription.tiers.name;
+
     await sendEmail({
-      to: invoice.subscription.fan.email,
+      to: invoice.subscription.users.email,
       subject: `Invoice ${invoiceStatus === 'paid' ? 'Receipt' : 'Due'} - ${tierName} Subscription`,
       html: `
         <h1>Invoice ${invoiceStatus === 'paid' ? 'Receipt' : ''}</h1>
@@ -295,10 +303,14 @@ export async function sendInvoiceNotification(invoiceId: string): Promise<void> 
         ${invoice.prorationAmount ? `<p>Includes proration amount: $${parseFloat(invoice.prorationAmount.toString()).toFixed(2)}</p>` : ''}
         <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions">Manage your subscriptions</a></p>
       `,
-      text: `Invoice ${invoiceStatus === 'paid' ? 'Receipt' : ''}\n\nYour ${tierName} subscription invoice is ${invoiceStatus === 'paid' ? 'paid' : 'due'}.\n\nAmount: $${formattedAmount}\nDue date: ${formattedDate}\n${invoice.prorationAmount ? `Includes proration amount: $${parseFloat(invoice.prorationAmount.toString()).toFixed(2)}\n` : ''}Manage your subscriptions: ${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions`
+      text: `Invoice ${invoiceStatus === 'paid' ? 'Receipt' : ''}\n\nYour ${tierName} subscription invoice is ${invoiceStatus === 'paid' ? 'paid' : 'due'}.\n\nAmount: $${formattedAmount}\nDue date: ${formattedDate}\n${invoice.prorationAmount ? `Includes proration amount: $${parseFloat(invoice.prorationAmount.toString()).toFixed(2)}\n` : ''}Manage your subscriptions: ${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions`,
     });
   } catch (error) {
-    logger.error(`Error sending invoice notification for ${invoiceId}:`, { invoiceId }, error as Error);
+    logger.error(
+      `Error sending invoice notification for ${invoiceId}:`,
+      { invoiceId },
+      error as Error
+    );
     throw new Error('Failed to send invoice notification');
   }
 }
@@ -309,26 +321,30 @@ export async function sendInvoiceNotification(invoiceId: string): Promise<void> 
 export async function processInvoicePayment(invoiceId: string): Promise<any> {
   try {
     const invoice = await getInvoiceById(invoiceId);
-    
+
     if (invoice.status === 'PAID') {
       return { success: true, alreadyPaid: true, invoice };
     }
-    
+
     // Pay the invoice in Stripe
     const stripeInvoice = await stripe.invoices.pay(invoice.stripeInvoiceId);
-    
+
     // Update local invoice
     const updatedInvoice = await updateInvoice(invoiceId, {
       status: 'PAID',
       paidAt: new Date(),
     });
-    
+
     // Send receipt notification
     await sendInvoiceNotification(invoiceId);
-    
+
     return { success: true, invoice: updatedInvoice };
   } catch (error) {
-    logger.error(`Error processing payment for invoice ${invoiceId}:`, { invoiceId }, error as Error);
+    logger.error(
+      `Error processing payment for invoice ${invoiceId}:`,
+      { invoiceId },
+      error as Error
+    );
     throw new Error('Failed to process invoice payment');
   }
 }
@@ -338,38 +354,46 @@ export async function processInvoicePayment(invoiceId: string): Promise<any> {
  */
 export async function getUpcomingInvoice(subscriptionId: string): Promise<InvoiceData> {
   try {
-    const subscription = await prisma.subscription.findUnique({
+    const subscription = await prisma.subscriptions.findUnique({
       where: { id: subscriptionId },
     });
-    
+
     if (!subscription) {
       throw new Error('Subscription not found');
     }
-    
+
     const upcomingInvoice = await stripe.invoices.retrieveUpcoming({
       subscription: subscription.stripeSubscriptionId,
     });
-    
+
     const invoiceData: InvoiceData = {
       id: 'upcoming',
       subscriptionId: subscription.stripeSubscriptionId,
       amount: (upcomingInvoice.amount_due || 0) / 100,
       status: upcomingInvoice.status || 'draft',
-      dueDate: new Date(upcomingInvoice.due_date ? upcomingInvoice.due_date * 1000 : Date.now() + 30 * 24 * 60 * 60 * 1000),
+      dueDate: new Date(
+        upcomingInvoice.due_date
+          ? upcomingInvoice.due_date * 1000
+          : Date.now() + 30 * 24 * 60 * 60 * 1000
+      ),
       items: upcomingInvoice.lines.data.map(line => ({
         description: line.description || 'Subscription',
         amount: (line.amount || 0) / 100,
         quantity: line.quantity || 1,
         period: {
           start: new Date((line.period?.start || 0) * 1000),
-          end: new Date((line.period?.end || 0) * 1000)
-        }
-      }))
+          end: new Date((line.period?.end || 0) * 1000),
+        },
+      })),
     };
-    
+
     return invoiceData;
   } catch (error) {
-    logger.error(`Error getting upcoming invoice for subscription ${subscriptionId}:`, { subscriptionId }, error as Error);
+    logger.error(
+      `Error getting upcoming invoice for subscription ${subscriptionId}:`,
+      { subscriptionId },
+      error as Error
+    );
     throw new Error('Failed to get upcoming invoice');
   }
 }

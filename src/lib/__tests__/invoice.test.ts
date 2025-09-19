@@ -59,7 +59,9 @@ import { Decimal } from '@prisma/client/runtime/library';
 const mockPrisma = prisma as jest.Mocked<typeof prisma>;
 const mockStripe = stripe as jest.Mocked<typeof stripe>;
 const mockSendEmail = sendEmail as jest.MockedFunction<typeof sendEmail>;
-const mockGenerateInvoiceData = generateInvoiceData as jest.MockedFunction<typeof generateInvoiceData>;
+const mockGenerateInvoiceData = generateInvoiceData as jest.MockedFunction<
+  typeof generateInvoiceData
+>;
 const mockLogger = logger as jest.Mocked<typeof logger>;
 
 describe('Invoice Functions', () => {
@@ -78,7 +80,7 @@ describe('Invoice Functions', () => {
         id: 'inv_123',
         subscriptionId: 'sub_123',
         stripeInvoiceId: 'in_stripe_123',
-        amount: 10.00,
+        amount: 10.0,
         status: 'OPEN' as const,
         dueDate: new Date('2022-01-01'),
         periodStart: new Date('2022-01-01'),
@@ -91,7 +93,7 @@ describe('Invoice Functions', () => {
       const result = await createInvoice({
         subscriptionId: 'sub_123',
         stripeInvoiceId: 'in_stripe_123',
-        amount: 10.00,
+        amount: 10.0,
         status: 'OPEN',
         dueDate: new Date('2022-01-01'),
         periodStart: new Date('2022-01-01'),
@@ -104,7 +106,7 @@ describe('Invoice Functions', () => {
         data: {
           subscriptionId: 'sub_123',
           stripeInvoiceId: 'in_stripe_123',
-          amount: new Decimal(10.00),
+          amount: new Decimal(10.0),
           status: 'OPEN',
           dueDate: new Date('2022-01-01'),
           paidAt: undefined,
@@ -123,7 +125,7 @@ describe('Invoice Functions', () => {
         createInvoice({
           subscriptionId: 'sub_123',
           stripeInvoiceId: 'in_stripe_123',
-          amount: 10.00,
+          amount: 10.0,
           status: 'OPEN',
           dueDate: new Date('2022-01-01'),
           periodStart: new Date('2022-01-01'),
@@ -140,14 +142,14 @@ describe('Invoice Functions', () => {
     it('should update an invoice in the database', async () => {
       const mockInvoiceData = {
         id: 'inv_123',
-        amount: new Decimal(15.00),
+        amount: new Decimal(15.0),
         status: 'PAID',
       };
 
       mockPrisma.invoice.update.mockResolvedValue(mockInvoiceData as any);
 
       const result = await updateInvoice('inv_123', {
-        amount: 15.00,
+        amount: 15.0,
         status: 'PAID',
       });
 
@@ -155,7 +157,7 @@ describe('Invoice Functions', () => {
       expect(mockPrisma.invoice.update).toHaveBeenCalledWith({
         where: { id: 'inv_123' },
         data: {
-          amount: new Decimal(15.00),
+          amount: new Decimal(15.0),
           status: 'PAID',
           updatedAt: expect.any(Date),
         },
@@ -165,9 +167,9 @@ describe('Invoice Functions', () => {
     it('should handle errors when updating an invoice', async () => {
       mockPrisma.invoice.update.mockRejectedValue(new Error('Database error'));
 
-      await expect(
-        updateInvoice('inv_123', { status: 'PAID' })
-      ).rejects.toThrow('Failed to update invoice');
+      await expect(updateInvoice('inv_123', { status: 'PAID' })).rejects.toThrow(
+        'Failed to update invoice'
+      );
 
       expect(mockLogger.error).toHaveBeenCalled();
     });
@@ -176,8 +178,8 @@ describe('Invoice Functions', () => {
   describe('getInvoices', () => {
     it('should get invoices with filters', async () => {
       const mockInvoices = [
-        { id: 'inv_1', amount: new Decimal(10.00) },
-        { id: 'inv_2', amount: new Decimal(15.00) },
+        { id: 'inv_1', amount: new Decimal(10.0) },
+        { id: 'inv_2', amount: new Decimal(15.0) },
       ];
 
       mockPrisma.invoice.findMany.mockResolvedValue(mockInvoices as any);
@@ -206,7 +208,7 @@ describe('Invoice Functions', () => {
     it('should handle date range filters', async () => {
       const startDate = new Date('2022-01-01');
       const endDate = new Date('2022-01-31');
-      
+
       mockPrisma.invoice.findMany.mockResolvedValue([]);
 
       await getInvoices({
@@ -233,9 +235,7 @@ describe('Invoice Functions', () => {
     it('should handle errors when getting invoices', async () => {
       mockPrisma.invoice.findMany.mockRejectedValue(new Error('Database error'));
 
-      await expect(
-        getInvoices({})
-      ).rejects.toThrow('Failed to get invoices');
+      await expect(getInvoices({})).rejects.toThrow('Failed to get invoices');
 
       expect(mockLogger.error).toHaveBeenCalled();
     });
@@ -245,7 +245,7 @@ describe('Invoice Functions', () => {
     it('should get an invoice by ID', async () => {
       const mockInvoice = {
         id: 'inv_123',
-        amount: new Decimal(10.00),
+        amount: new Decimal(10.0),
         subscription: {
           fan: { id: 'fan_123', email: 'fan@example.com' },
           tier: { name: 'Premium' },
@@ -266,17 +266,13 @@ describe('Invoice Functions', () => {
     it('should throw error if invoice not found', async () => {
       mockPrisma.invoice.findUnique.mockResolvedValue(null);
 
-      await expect(
-        getInvoiceById('nonexistent')
-      ).rejects.toThrow('Failed to get invoice');
+      await expect(getInvoiceById('nonexistent')).rejects.toThrow('Failed to get invoice');
     });
 
     it('should handle errors when getting an invoice', async () => {
       mockPrisma.invoice.findUnique.mockRejectedValue(new Error('Database error'));
 
-      await expect(
-        getInvoiceById('inv_123')
-      ).rejects.toThrow('Failed to get invoice');
+      await expect(getInvoiceById('inv_123')).rejects.toThrow('Failed to get invoice');
 
       expect(mockLogger.error).toHaveBeenCalled();
     });
@@ -287,13 +283,13 @@ describe('Invoice Functions', () => {
       const mockInvoiceData = {
         id: 'in_stripe_123',
         subscriptionId: 'stripe_sub_123',
-        amount: 10.00,
+        amount: 10.0,
         status: 'paid',
         dueDate: new Date('2022-01-01'),
         items: [
           {
             description: 'Monthly subscription',
-            amount: 10.00,
+            amount: 10.0,
             quantity: 1,
             period: {
               start: new Date('2022-01-01'),
@@ -323,7 +319,7 @@ describe('Invoice Functions', () => {
       const mockInvoiceData = {
         id: 'in_stripe_123',
         subscriptionId: 'stripe_sub_123',
-        amount: 10.00,
+        amount: 10.0,
         status: 'paid',
         dueDate: new Date('2022-01-01'),
         paidAt: new Date('2022-01-01'),
@@ -355,13 +351,13 @@ describe('Invoice Functions', () => {
       const mockInvoiceData = {
         id: 'in_stripe_123',
         subscriptionId: 'stripe_sub_123',
-        amount: 15.00,
+        amount: 15.0,
         status: 'paid',
         dueDate: new Date('2022-01-01'),
         items: [
           {
             description: 'Monthly subscription',
-            amount: 10.00,
+            amount: 10.0,
             quantity: 1,
             period: {
               start: new Date('2022-01-01'),
@@ -370,7 +366,7 @@ describe('Invoice Functions', () => {
           },
           {
             description: 'Proration adjustment',
-            amount: 5.00,
+            amount: 5.0,
             quantity: 1,
             period: {
               start: new Date('2022-01-01'),
@@ -394,7 +390,7 @@ describe('Invoice Functions', () => {
 
       expect(mockPrisma.invoice.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
-          prorationAmount: new Decimal(5.00),
+          prorationAmount: new Decimal(5.0),
         }),
       });
     });
@@ -406,9 +402,9 @@ describe('Invoice Functions', () => {
       } as any);
       mockPrisma.subscription.findUnique.mockResolvedValue(null);
 
-      await expect(
-        generateAndStoreInvoice('in_stripe_123')
-      ).rejects.toThrow('Failed to generate and store invoice');
+      await expect(generateAndStoreInvoice('in_stripe_123')).rejects.toThrow(
+        'Failed to generate and store invoice'
+      );
     });
   });
 
@@ -416,7 +412,7 @@ describe('Invoice Functions', () => {
     it('should send invoice notification email', async () => {
       const mockInvoice = {
         id: 'inv_123',
-        amount: new Decimal(10.00),
+        amount: new Decimal(10.0),
         status: 'PAID',
         dueDate: new Date('2022-01-01'),
         subscription: {
@@ -495,7 +491,7 @@ describe('Invoice Functions', () => {
       const mockInvoice = {
         id: 'inv_123',
         stripeInvoiceId: 'in_stripe_123',
-        amount: new Decimal(10.00),
+        amount: new Decimal(10.0),
         status: 'OPEN',
         dueDate: new Date('2022-01-01'),
         subscription: {
@@ -588,20 +584,20 @@ describe('Invoice Functions', () => {
 
       expect(result.id).toBe('upcoming');
       expect(result.subscriptionId).toBe('stripe_sub_123');
-      expect(result.amount).toBe(10.00);
+      expect(result.amount).toBe(10.0);
       expect(result.status).toBe('draft');
       expect(result.dueDate).toEqual(new Date('2022-02-01'));
       expect(result.items).toHaveLength(1);
       expect(result.items[0].description).toBe('Monthly subscription');
-      expect(result.items[0].amount).toBe(10.00);
+      expect(result.items[0].amount).toBe(10.0);
     });
 
     it('should throw error if subscription not found', async () => {
       mockPrisma.subscription.findUnique.mockResolvedValue(null);
 
-      await expect(
-        getUpcomingInvoice('nonexistent')
-      ).rejects.toThrow('Failed to get upcoming invoice');
+      await expect(getUpcomingInvoice('nonexistent')).rejects.toThrow(
+        'Failed to get upcoming invoice'
+      );
     });
   });
 });

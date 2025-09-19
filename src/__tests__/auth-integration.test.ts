@@ -1,6 +1,6 @@
 /**
  * Authentication and User Management Integration Tests
- * 
+ *
  * End-to-end tests for authentication flows including signup, login,
  * password reset, role changes, and session management
  */
@@ -11,7 +11,7 @@ import { NextRequest } from 'next/server';
 jest.mock('next-auth', () => {
   const mockHandler = jest.fn();
   const mockNextAuth = jest.fn().mockImplementation(() => mockHandler);
-  
+
   return {
     __esModule: true,
     default: mockNextAuth,
@@ -29,7 +29,7 @@ jest.mock('@/lib/database', () => ({
     },
     artist: {
       create: jest.fn(),
-    }
+    },
   },
 }));
 
@@ -42,7 +42,7 @@ jest.mock('@/lib/db', () => ({
     },
     artist: {
       create: jest.fn(),
-    }
+    },
   },
 }));
 
@@ -56,7 +56,7 @@ jest.mock('@/lib/prisma', () => ({
     },
     artist: {
       create: jest.fn(),
-    }
+    },
   },
 }));
 
@@ -75,14 +75,14 @@ const mockCreateUser = jest.fn();
 jest.mock('@/lib/auth-utils', () => ({
   createUser: mockCreateUser,
   signUpSchema: {
-    parse: jest.fn().mockImplementation((data) => data),
+    parse: jest.fn().mockImplementation(data => data),
   },
 }));
 
 // Mock validations
 jest.mock('@/lib/validations', () => ({
   registerSchema: {
-    parse: jest.fn().mockImplementation((data) => data),
+    parse: jest.fn().mockImplementation(data => data),
   },
 }));
 
@@ -96,7 +96,7 @@ jest.mock('@/lib/business-metrics', () => ({
   businessMetrics: {
     track: jest.fn(),
     trackPayment: jest.fn(),
-  }
+  },
 }));
 
 // Mock user engagement tracking
@@ -105,10 +105,10 @@ jest.mock('@/lib/user-engagement-tracking', () => ({
     trackLogin: jest.fn(),
     trackSignup: jest.fn(),
     trackEvent: jest.fn(),
-  }
+  },
 }));
 
-import { 
+import {
   setupTestEnvironment,
   createMockUser,
   createMockArtist,
@@ -222,7 +222,7 @@ describe('Authentication Integration Tests', () => {
         role: 'artist',
         profileComplete: false,
       });
-      
+
       const mockArtist = createMockArtist({
         id: 'artist-profile-123',
         userId: 'new-artist-123',
@@ -257,7 +257,7 @@ describe('Authentication Integration Tests', () => {
       expect(response.status).toBe(201);
       expect(data.user.role).toBe('artist');
       expect(data.user.artist).toBeDefined();
-      expect(data.user.artist.stage_name).toBe('New Artist');
+      expect(data.user.users.stage_name).toBe('New Artist');
 
       // Verify the createUser function was called with correct data
       expect(mockCreateUser).toHaveBeenCalledWith({
@@ -298,15 +298,15 @@ describe('Authentication Integration Tests', () => {
       // Mock signUpSchema to throw validation error for weak password
       const mockSignUpSchema = require('@/lib/auth-utils').signUpSchema;
       mockSignUpSchema.parse.mockImplementation(() => {
-        throw new (require('zod')).ZodError([
+        throw new (require('zod').ZodError)([
           {
             code: 'too_small',
             minimum: 8,
             type: 'string',
             inclusive: true,
             message: 'Password must be at least 8 characters',
-            path: ['password']
-          }
+            path: ['password'],
+          },
         ]);
       });
 
@@ -339,7 +339,7 @@ describe('Authentication Integration Tests', () => {
         role: 'fan',
       });
 
-      (prisma.user.findUnique as jest.Mock).mockResolvedValue(mockUser);
+      (prisma.users.findUnique as jest.Mock).mockResolvedValue(mockUser);
 
       const request = new NextRequest('http://localhost:3000/api/auth/login', {
         method: 'POST',
@@ -382,8 +382,8 @@ describe('Authentication Integration Tests', () => {
         password: 'hashed-password',
       });
 
-      (prisma.user.findUnique as jest.Mock).mockResolvedValue(mockUser);
-      
+      (prisma.users.findUnique as jest.Mock).mockResolvedValue(mockUser);
+
       // Mock bcrypt to return false for incorrect password
       const bcrypt = require('bcryptjs');
       bcrypt.compare.mockResolvedValueOnce(false);
@@ -415,7 +415,7 @@ describe('Authentication Integration Tests', () => {
     });
 
     it('should reject login for non-existent user', async () => {
-      (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
+      (prisma.users.findUnique as jest.Mock).mockResolvedValue(null);
 
       const request = new NextRequest('http://localhost:3000/api/auth/login', {
         method: 'POST',
@@ -451,8 +451,8 @@ describe('Authentication Integration Tests', () => {
         email: 'user@example.com',
       });
 
-      (prisma.user.findUnique as jest.Mock).mockResolvedValue(mockUser);
-      (prisma.user.update as jest.Mock).mockResolvedValue(mockUser);
+      (prisma.users.findUnique as jest.Mock).mockResolvedValue(mockUser);
+      (prisma.users.update as jest.Mock).mockResolvedValue(mockUser);
 
       const request = new NextRequest('http://localhost:3000/api/auth/forgot-password', {
         method: 'POST',
@@ -469,7 +469,7 @@ describe('Authentication Integration Tests', () => {
       expect(data.message).toContain('Password reset email sent');
 
       // Verify reset token was saved
-      expect(prisma.user.update).toHaveBeenCalledWith({
+      expect(prisma.users.update).toHaveBeenCalledWith({
         where: { email: 'user@example.com' },
         data: {
           resetToken: expect.any(String),
@@ -491,7 +491,7 @@ describe('Authentication Integration Tests', () => {
     });
 
     it('should handle password reset for non-existent user gracefully', async () => {
-      (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
+      (prisma.users.findUnique as jest.Mock).mockResolvedValue(null);
 
       const request = new NextRequest('http://localhost:3000/api/auth/forgot-password', {
         method: 'POST',
@@ -510,7 +510,7 @@ describe('Authentication Integration Tests', () => {
 
       // But no email should actually be sent
       expect(mockSendEmail).not.toHaveBeenCalled();
-      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(prisma.users.update).not.toHaveBeenCalled();
     });
 
     it('should successfully reset password with valid token', async () => {
@@ -521,8 +521,8 @@ describe('Authentication Integration Tests', () => {
         resetTokenExpiry: new Date(Date.now() + 3600000), // 1 hour from now
       });
 
-      (prisma.user.findFirst as jest.Mock).mockResolvedValue(mockUser);
-      (prisma.user.update as jest.Mock).mockResolvedValue({
+      (prisma.users.findFirst as jest.Mock).mockResolvedValue(mockUser);
+      (prisma.users.update as jest.Mock).mockResolvedValue({
         ...mockUser,
         password: 'new-hashed-password',
         resetToken: null,
@@ -545,7 +545,7 @@ describe('Authentication Integration Tests', () => {
       expect(data.message).toContain('Password reset successful');
 
       // Verify password was updated and token cleared
-      expect(prisma.user.update).toHaveBeenCalledWith({
+      expect(prisma.users.update).toHaveBeenCalledWith({
         where: { id: 'user-123' },
         data: {
           password: 'hashed-password',
@@ -570,7 +570,7 @@ describe('Authentication Integration Tests', () => {
         resetTokenExpiry: new Date(Date.now() - 3600000), // 1 hour ago
       });
 
-      (prisma.user.findFirst as jest.Mock).mockResolvedValue(mockUser);
+      (prisma.users.findFirst as jest.Mock).mockResolvedValue(mockUser);
 
       const request = new NextRequest('http://localhost:3000/api/auth/reset-password', {
         method: 'POST',
@@ -586,35 +586,39 @@ describe('Authentication Integration Tests', () => {
 
       expect(response.status).toBe(400);
       expect(data.error).toContain('Invalid or expired reset token');
-      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(prisma.users.update).not.toHaveBeenCalled();
     });
   });
 
   describe('Role Management', () => {
     it('should allow admin to change user role from fan to artist', async () => {
       const adminUser = createMockUser({ id: 'admin-123', role: 'admin' });
-      const targetUser = createMockUser({ 
-        id: 'user-123', 
+      const targetUser = createMockUser({
+        id: 'user-123',
         email: 'user@example.com',
-        role: 'fan' 
+        role: 'fan',
       });
 
-      (prisma.user.findUnique as jest.Mock)
+      (prisma.users.findUnique as jest.Mock)
         .mockResolvedValueOnce(targetUser) // First call for target user
         .mockResolvedValueOnce({ ...targetUser, role: 'artist' }); // Second call for updated user
 
-      (prisma.user.update as jest.Mock).mockResolvedValue({
+      (prisma.users.update as jest.Mock).mockResolvedValue({
         ...targetUser,
         role: 'artist',
         artist: createMockArtist({ userId: 'user-123' }),
       });
 
-      const request = mockAuthenticatedRequest('POST', {
-        userId: 'user-123',
-        newRole: 'artist',
-        stageName: 'New Artist Name',
-        genre: 'Pop',
-      }, mockSession({ user: adminUser }));
+      const request = mockAuthenticatedRequest(
+        'POST',
+        {
+          userId: 'user-123',
+          newRole: 'artist',
+          stageName: 'New Artist Name',
+          genre: 'Pop',
+        },
+        mockSession({ user: adminUser })
+      );
 
       const response = await changeRoleHandler(request);
       const data = await response.json();
@@ -623,7 +627,7 @@ describe('Authentication Integration Tests', () => {
       expect(data.user.role).toBe('artist');
 
       // Verify user was updated
-      expect(prisma.user.update).toHaveBeenCalledWith({
+      expect(prisma.users.update).toHaveBeenCalledWith({
         where: { id: 'user-123' },
         data: {
           role: 'artist',
@@ -653,33 +657,41 @@ describe('Authentication Integration Tests', () => {
     it('should prevent non-admin from changing user roles', async () => {
       const regularUser = createMockUser({ id: 'user-123', role: 'fan' });
 
-      const request = mockAuthenticatedRequest('POST', {
-        userId: 'other-user-123',
-        newRole: 'artist',
-      }, mockSession({ user: regularUser }));
+      const request = mockAuthenticatedRequest(
+        'POST',
+        {
+          userId: 'other-user-123',
+          newRole: 'artist',
+        },
+        mockSession({ user: regularUser })
+      );
 
       const response = await changeRoleHandler(request);
       const data = await response.json();
 
       expect(response.status).toBe(403);
       expect(data.error).toContain('Admin access required');
-      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(prisma.users.update).not.toHaveBeenCalled();
     });
 
     it('should prevent invalid role changes', async () => {
       const adminUser = createMockUser({ id: 'admin-123', role: 'admin' });
 
-      const request = mockAuthenticatedRequest('POST', {
-        userId: 'user-123',
-        newRole: 'invalid_role',
-      }, mockSession({ user: adminUser }));
+      const request = mockAuthenticatedRequest(
+        'POST',
+        {
+          userId: 'user-123',
+          newRole: 'invalid_role',
+        },
+        mockSession({ user: adminUser })
+      );
 
       const response = await changeRoleHandler(request);
       const data = await response.json();
 
       expect(response.status).toBe(400);
       expect(data.error).toContain('Invalid role');
-      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(prisma.users.update).not.toHaveBeenCalled();
     });
   });
 
@@ -688,7 +700,7 @@ describe('Authentication Integration Tests', () => {
       const mockUser = createMockUser({ id: 'user-123', role: 'fan' });
 
       // Mock successful login to create session
-      (prisma.user.findUnique as jest.Mock).mockResolvedValue(mockUser);
+      (prisma.users.findUnique as jest.Mock).mockResolvedValue(mockUser);
 
       const loginRequest = new NextRequest('http://localhost:3000/api/auth/login', {
         method: 'POST',
@@ -714,24 +726,24 @@ describe('Authentication Integration Tests', () => {
 
     it('should handle concurrent login attempts gracefully', async () => {
       const mockUser = createMockUser({ id: 'user-123' });
-      (prisma.user.findUnique as jest.Mock).mockResolvedValue(mockUser);
+      (prisma.users.findUnique as jest.Mock).mockResolvedValue(mockUser);
 
       // Simulate multiple concurrent login requests
-      const loginRequests = Array.from({ length: 3 }, () => 
-        new NextRequest('http://localhost:3000/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: mockUser.email,
-            password: 'password123',
-          }),
-        })
+      const loginRequests = Array.from(
+        { length: 3 },
+        () =>
+          new NextRequest('http://localhost:3000/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: mockUser.email,
+              password: 'password123',
+            }),
+          })
       );
 
       // Execute all requests concurrently
-      const responses = await Promise.all(
-        loginRequests.map(request => loginHandler(request))
-      );
+      const responses = await Promise.all(loginRequests.map(request => loginHandler(request)));
 
       // All should succeed
       responses.forEach(response => {

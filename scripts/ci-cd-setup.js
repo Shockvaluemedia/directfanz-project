@@ -5,14 +5,14 @@
  * Automates the creation and configuration of CI/CD pipelines
  */
 
-const fs = require('fs');
-const path = require('path');
-const { execSync } = require('child_process');
-const readline = require('readline');
+import fs from 'fs';
+import path from 'path';
+import { execSync } from 'child_process';
+import readline from 'readline';
 
 const rl = readline.createInterface({
   input: process.stdin,
-  output: process.stdout
+  output: process.stdout,
 });
 
 const colors = {
@@ -30,7 +30,7 @@ function log(message, color = colors.reset) {
 }
 
 function question(query) {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     rl.question(query, resolve);
   });
 }
@@ -301,7 +301,7 @@ jobs:
       uses: github/codeql-action/upload-sarif@v2
       with:
         sarif_file: 'trivy-results.sarif'
-`
+`,
 };
 
 // Docker deployment scripts
@@ -433,30 +433,32 @@ if [[ \$REPLY =~ ^[Yy]$ ]]; then
 else
     echo -e "\${BLUE}Rollback cancelled.\${NC}"
 fi
-`
+`,
 };
 
 async function setupCICD() {
   log('🔧 CI/CD Pipeline Setup', colors.cyan);
   log('========================', colors.cyan);
-  
-  const platform = await question('Which CI/CD platform do you want to set up? (github/gitlab/jenkins): ');
-  
+
+  const platform = await question(
+    'Which CI/CD platform do you want to set up? (github/gitlab/jenkins): '
+  );
+
   if (platform.toLowerCase() === 'github') {
     // Create .github/workflows directory
     const workflowsDir = '.github/workflows';
     if (!fs.existsSync(workflowsDir)) {
       fs.mkdirSync(workflowsDir, { recursive: true });
     }
-    
+
     log('Creating GitHub Actions workflows...', colors.blue);
-    
+
     for (const [filename, content] of Object.entries(githubActionsWorkflows)) {
       const filePath = path.join(workflowsDir, filename);
       fs.writeFileSync(filePath, content);
       log(`✅ Created ${filename}`, colors.green);
     }
-    
+
     log('\\n📝 Next steps for GitHub Actions:', colors.yellow);
     log('1. Add the following secrets to your GitHub repository:', colors.yellow);
     log('   - VERCEL_TOKEN', colors.yellow);
@@ -466,11 +468,11 @@ async function setupCICD() {
     log('   - SLACK_WEBHOOK_URL (optional)', colors.yellow);
     log('   - SNYK_TOKEN (optional)', colors.yellow);
   }
-  
+
   // Create Docker deployment scripts
   const scriptsDir = 'scripts';
   log('\\nCreating Docker deployment scripts...', colors.blue);
-  
+
   for (const [filename, content] of Object.entries(dockerScripts)) {
     const filePath = path.join(scriptsDir, filename);
     fs.writeFileSync(filePath, content);

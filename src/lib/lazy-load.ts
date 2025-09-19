@@ -10,30 +10,30 @@ import { useEffect, useState, useRef } from 'react';
  * @returns [ref, isIntersecting] - Ref to attach to element and boolean indicating if element is visible
  */
 export function useIntersectionObserver<T extends HTMLElement = HTMLDivElement>(
-  options: IntersectionObserverInit = { 
+  options: IntersectionObserverInit = {
     rootMargin: '200px', // Load when element is within 200px of viewport
-    threshold: 0.1 // Trigger when at least 10% of element is visible
+    threshold: 0.1, // Trigger when at least 10% of element is visible
   }
 ): [React.RefObject<T>, boolean] {
   const [isIntersecting, setIntersecting] = useState(false);
   const elementRef = useRef<T>(null);
-  
+
   useEffect(() => {
     const element = elementRef.current;
     if (!element) return;
-    
+
     const observer = new IntersectionObserver(([entry]) => {
       setIntersecting(entry.isIntersecting);
     }, options);
-    
+
     observer.observe(element);
-    
+
     return () => {
       observer.unobserve(element);
       observer.disconnect();
     };
   }, [options]);
-  
+
   return [elementRef, isIntersecting];
 }
 
@@ -49,7 +49,7 @@ export function useLazyImage(
 ): [string, boolean, () => void] {
   const [imgSrc, setImgSrc] = useState(placeholderSrc || src);
   const [isLoaded, setIsLoaded] = useState(false);
-  
+
   useEffect(() => {
     // Reset state if src changes
     if (src !== imgSrc) {
@@ -57,14 +57,14 @@ export function useLazyImage(
       setImgSrc(placeholderSrc || src);
     }
   }, [src, placeholderSrc, imgSrc]);
-  
+
   const onLoad = () => {
     setIsLoaded(true);
     if (placeholderSrc && imgSrc === placeholderSrc) {
       setImgSrc(src);
     }
   };
-  
+
   return [imgSrc, isLoaded, onLoad];
 }
 

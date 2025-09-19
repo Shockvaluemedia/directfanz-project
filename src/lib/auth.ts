@@ -1,130 +1,191 @@
-import { NextAuthOptions } from "next-auth"
-import CredentialsProvider from "next-auth/providers/credentials"
-import GoogleProvider from "next-auth/providers/google"
-import FacebookProvider from "next-auth/providers/facebook"
-import bcrypt from "bcryptjs"
-import { db } from "./db"
+import { NextAuthOptions } from 'next-auth';
+import CredentialsProvider from 'next-auth/providers/credentials';
+// OAuth providers removed - add back when credentials are configured
+import bcrypt from 'bcryptjs';
+import { prisma } from './prisma';
 
 export const authOptions: NextAuthOptions = {
   debug: process.env.NODE_ENV === 'development',
   providers: [
     CredentialsProvider({
-      name: "credentials",
+      name: 'credentials',
       credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
+        email: { label: 'Email', type: 'email' },
+        password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          return null
+          return null;
         }
 
-        const user = await db.users.findUnique({
-          where: {
-            email: credentials.email,
-          },
-          include: {
-            artists: true,
-          },
-        })
+        try {
+          const user = await prisma.users.findUnique({
+            where: {
+              email: credentials.email,
+            },
+            include: {
+              artists: true,
+            },
+          });
 
-        if (!user || !user.password) {
-          return null
-        }
+          if (!user || !user.password) {
+            return null;
+          }
 
-        const isPasswordValid = await bcrypt.compare(
-          credentials.password,
-          user.password
-        )
+          const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
 
-        if (!isPasswordValid) {
-          return null
-        }
+          console.log(
+            '🔐 NextAuth: Password validation for',
+            credentials.email,
+            ':',
+            isPasswordValid
+          );
 
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.displayName,
-          image: user.avatar,
-          role: user.role,
+          if (!isPasswordValid) {
+            return null;
+          }
+
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.displayName,
+            image: user.avatar,
+            role: user.role,
+          };
+        } catch (error) {
+          console.error('🔐 NextAuth: Error during authorization:', error);
+          return null;
         }
       },
     }),
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
-    FacebookProvider({
-      clientId: process.env.FACEBOOK_CLIENT_ID!,
-      clientSecret: process.env.FACEBOOK_CLIENT_SECRET!,
-    }),
+    // OAuth providers removed - add back when credentials are configured
   ],
   session: {
-    strategy: "jwt",
+    strategy: 'jwt',
     maxAge: 2 * 60 * 60, // 2 hours for better security
     updateAge: 15 * 60, // Update every 15 minutes
+  },
+  jwt: {
+    maxAge: 2 * 60 * 60, // Match session maxAge
+    // Enhanced JWT encoding with security context
+    encode: async ({ token, secret }) => {
+      const jwt = await import('jsonwebtoken');
+      const crypto = await import('crypto');
+
+      return jwt.sign(
+        {
+          ...token,
+          // Add security context
+          iat: Math.floor(Date.now() / 1000),
+          exp: Math.floor(Date.now() / 1000) + 2 * 60 * 60,
+          jti: crypto.randomUUID(), // JWT ID for revocation support
+          iss: process.env.NEXTAUTH_URL || 'nahvee-even',
+          aud: 'nahvee-even-platform',
+        },
+        secret,
+        {
+          algorithm: 'HS256',
+        }
+      );
+    },
+    decode: async ({ token, secret }) => {
+      const jwt = await import('jsonwebtoken');
+
+      try {
+        return jwt.verify(token!, secret, {
+          algorithms: ['HS256'],
+          issuer: process.env.NEXTAUTH_URL || 'nahvee-even',
+          audience: 'nahvee-even-platform',
+        }) as any;
+      } catch (error) {
+        console.error('JWT verification failed:', error);
+        return null;
+      }
+    },
   },
   // Use NextAuth's secure cookie defaults
   // (no custom cookie overrides in development)
   callbacks: {
     async redirect({ url, baseUrl }) {
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || baseUrl
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || baseUrl;
       try {
-        const target = new URL(url, appUrl)
-        const normalizedBase = new URL(appUrl)
+        const target = new URL(url, appUrl);
+        const normalizedBase = new URL(appUrl);
         // Force host/port to appUrl
-        target.host = normalizedBase.host
-        target.protocol = normalizedBase.protocol
-        return target.toString()
+        target.host = normalizedBase.host;
+        target.protocol = normalizedBase.protocol;
+        return target.toString();
       } catch {
-        return appUrl
+        return appUrl;
       }
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, account, profile, trigger }) {
       if (user) {
-        const u: any = user
-        token.id = u.id
-        token.role = u.role
-        token.name = u.name || u.displayName || token.name
-        token.email = u.email || token.email
-        token.picture = u.image || u.avatar || token.picture
+        const u: any = user;
+        token.id = u.id;
+        token.role = u.role;
+        token.name = u.name || u.displayName || token.name;
+        token.email = u.email || token.email;
+        token.picture = u.image || u.avatar || token.picture;
+
+        // Add security context for session validation
+        token.lastActivity = Date.now();
+        token.sessionStart = Date.now();
       }
-      return token
+
+      // Update last activity on token refresh
+      if (trigger === 'update') {
+        token.lastActivity = Date.now();
+      }
+
+      // Check for suspicious activity (optional - can be enhanced later)
+      if (token.lastActivity) {
+        const timeSinceLastActivity = Date.now() - (token.lastActivity as number);
+        if (timeSinceLastActivity > 4 * 60 * 60 * 1000) {
+          // 4 hours
+          console.warn('Suspicious: Long inactive session detected', {
+            userId: token.id,
+            timeSinceLastActivity: Math.round(timeSinceLastActivity / 1000 / 60),
+          });
+        }
+      }
+
+      return token;
     },
     async session({ session, token }) {
       if (token && session?.user) {
-        (session.user as any).id = (token as any).id as string
-        ;(session.user as any).role = (token as any).role as string
-        session.user.name = (token as any).name || session.user.name
-        session.user.email = (token as any).email || session.user.email
-        session.user.image = (token as any).picture || session.user.image
+        (session.user as any).id = (token as any).id as string;
+        (session.user as any).role = (token as any).role as string;
+        session.user.name = (token as any).name || session.user.name;
+        session.user.email = (token as any).email || session.user.email;
+        session.user.image = (token as any).picture || session.user.image;
       }
-      return session
+      return session;
     },
     async signIn({ user, account }) {
       // For OAuth providers, create user profile if it doesn't exist
-      if (account?.provider !== "credentials" && user.email) {
-        const existingUser = await db.users.findUnique({
+      if (account?.provider !== 'credentials' && user.email) {
+        const existingUser = await prisma.users.findUnique({
           where: { email: user.email },
-        })
+        });
         if (!existingUser) {
-          await db.users.create({
+          await prisma.users.create({
             data: {
               email: user.email,
-              displayName: user.name || user.email.split("@")[0],
+              displayName: user.name || user.email.split('@')[0],
               avatar: user.image,
-              role: "FAN",
+              role: 'FAN',
               emailVerified: new Date(),
             },
-          })
+          });
         }
       }
-      return true
+      return true;
     },
   },
   pages: {
-    signIn: "/auth/signin",
-    error: "/auth/error",
+    signIn: '/auth/signin',
+    error: '/auth/error',
   },
   secret: process.env.NEXTAUTH_SECRET,
   trustHost: true,
@@ -134,65 +195,94 @@ export const authOptions: NextAuthOptions = {
 async function storeOAuthTokens(userId: string, account: any) {
   try {
     // Encrypt tokens before storing
-    const encryptedAccessToken = await encryptToken(account.access_token)
-    const encryptedRefreshToken = account.refresh_token ? 
-      await encryptToken(account.refresh_token) : null
-    
+    const encryptedAccessToken = await encryptToken(account.access_token);
+    const encryptedRefreshToken = account.refresh_token
+      ? await encryptToken(account.refresh_token)
+      : null;
+
     // Store in database with expiration
-    await db.oauth_tokens.upsert({
+    await prisma.oauth_tokens.upsert({
       where: {
         userId_provider: {
           userId,
-          provider: account.provider
-        }
+          provider: account.provider,
+        },
       },
       update: {
         encryptedAccessToken,
         encryptedRefreshToken,
         expiresAt: account.expires_at ? new Date(account.expires_at * 1000) : null,
-        updatedAt: new Date()
+        updatedAt: new Date(),
       },
       create: {
         userId,
         provider: account.provider,
         encryptedAccessToken,
         encryptedRefreshToken,
-        expiresAt: account.expires_at ? new Date(account.expires_at * 1000) : null
-      }
-    })
+        expiresAt: account.expires_at ? new Date(account.expires_at * 1000) : null,
+      },
+    });
   } catch (error) {
-    console.error('Error storing OAuth tokens:', error)
+    console.error('Error storing OAuth tokens:', error);
   }
 }
 
-// Token encryption utility
+// Token encryption utility - SECURE IMPLEMENTATION
 async function encryptToken(token: string): Promise<string> {
-  const crypto = await import('crypto')
-  const algorithm = 'aes-256-cbc' // Use CBC instead of GCM for broader compatibility
-  const secretKey = crypto.createHash('sha256').update(process.env.TOKEN_ENCRYPTION_KEY!).digest()
-  
-  const iv = crypto.randomBytes(16)
-  const cipher = crypto.createCipher(algorithm, secretKey)
-  
-  let encrypted = cipher.update(token, 'utf8', 'hex')
-  encrypted += cipher.final('hex')
-  
-  return `${iv.toString('hex')}:${encrypted}`
+  const crypto = await import('crypto');
+  const algorithm = 'aes-256-gcm'; // Use GCM for authenticated encryption
+
+  // Ensure we have the encryption key
+  if (!process.env.TOKEN_ENCRYPTION_KEY) {
+    throw new Error('TOKEN_ENCRYPTION_KEY environment variable is required for token encryption');
+  }
+
+  const secretKey = crypto.createHash('sha256').update(process.env.TOKEN_ENCRYPTION_KEY).digest();
+  const iv = crypto.randomBytes(16); // 128-bit IV for GCM
+
+  const cipher = crypto.createCipheriv(algorithm, secretKey, iv);
+
+  let encrypted = cipher.update(token, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+
+  const authTag = cipher.getAuthTag(); // Get authentication tag for GCM
+
+  // Return format: iv:authTag:encrypted
+  return `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted}`;
 }
 
-// Token decryption utility
+// Token decryption utility - SECURE IMPLEMENTATION
 async function decryptToken(encryptedToken: string): Promise<string> {
-  const crypto = await import('crypto')
-  const algorithm = 'aes-256-cbc' // Use CBC instead of GCM for broader compatibility
-  const secretKey = crypto.createHash('sha256').update(process.env.TOKEN_ENCRYPTION_KEY!).digest()
-  
-  const [ivHex, encrypted] = encryptedToken.split(':')
-  const iv = Buffer.from(ivHex, 'hex')
-  
-  const decipher = crypto.createDecipher(algorithm, secretKey)
-  
-  let decrypted = decipher.update(encrypted, 'hex', 'utf8')
-  decrypted += decipher.final('utf8')
-  
-  return decrypted
+  const crypto = await import('crypto');
+  const algorithm = 'aes-256-gcm';
+
+  // Ensure we have the encryption key
+  if (!process.env.TOKEN_ENCRYPTION_KEY) {
+    throw new Error('TOKEN_ENCRYPTION_KEY environment variable is required for token decryption');
+  }
+
+  const secretKey = crypto.createHash('sha256').update(process.env.TOKEN_ENCRYPTION_KEY).digest();
+
+  try {
+    const [ivHex, authTagHex, encrypted] = encryptedToken.split(':');
+
+    if (!ivHex || !authTagHex || !encrypted) {
+      throw new Error('Invalid encrypted token format');
+    }
+
+    const iv = Buffer.from(ivHex, 'hex');
+    const authTag = Buffer.from(authTagHex, 'hex');
+
+    const decipher = crypto.createDecipheriv(algorithm, secretKey, iv);
+    decipher.setAuthTag(authTag); // Set authentication tag for verification
+
+    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+
+    return decrypted;
+  } catch (error) {
+    // Log security event but don't expose details
+    console.error('Token decryption failed - possible tampering detected');
+    throw new Error('Invalid or tampered token');
+  }
 }

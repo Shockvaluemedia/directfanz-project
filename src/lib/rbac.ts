@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from "next/server"
-import { getToken } from "next-auth/jwt"
-import { UserRole } from "@/types/database"
+import { NextRequest, NextResponse } from 'next/server';
+import { getToken } from 'next-auth/jwt';
+import { UserRole } from '@/types/database';
 
 // Define permissions for different roles
 export const ROLE_PERMISSIONS = {
@@ -40,25 +40,25 @@ export const ROLE_PERMISSIONS = {
     'user:profile:read',
     'user:profile:write',
   ],
-} as const
+} as const;
 
-export type Permission = typeof ROLE_PERMISSIONS[keyof typeof ROLE_PERMISSIONS][number]
+export type Permission = (typeof ROLE_PERMISSIONS)[keyof typeof ROLE_PERMISSIONS][number];
 
 // Check if a role has a specific permission
 export function hasPermission(role: UserRole, permission: Permission): boolean {
-  const rolePermissions = ROLE_PERMISSIONS[role as keyof typeof ROLE_PERMISSIONS]
-  if (!rolePermissions) return false
-  return (rolePermissions as readonly string[]).includes(permission)
+  const rolePermissions = ROLE_PERMISSIONS[role as keyof typeof ROLE_PERMISSIONS];
+  if (!rolePermissions) return false;
+  return (rolePermissions as readonly string[]).includes(permission);
 }
 
 // Check if a role has any of the specified permissions
 export function hasAnyPermission(role: UserRole, permissions: Permission[]): boolean {
-  return permissions.some(permission => hasPermission(role, permission))
+  return permissions.some(permission => hasPermission(role, permission));
 }
 
 // Check if a role has all of the specified permissions
 export function hasAllPermissions(role: UserRole, permissions: Permission[]): boolean {
-  return permissions.every(permission => hasPermission(role, permission))
+  return permissions.every(permission => hasPermission(role, permission));
 }
 
 // Middleware function to check role-based access
@@ -68,106 +68,102 @@ export async function checkRoleAccess(
   requiredPermissions?: Permission[]
 ): Promise<NextResponse | null> {
   try {
-    const token = await getToken({ 
-      req: request, 
-      secret: process.env.NEXTAUTH_SECRET 
-    })
+    const token = await getToken({
+      req: request,
+      secret: process.env.NEXTAUTH_SECRET,
+    });
 
     if (!token) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    const userRole = token.role as UserRole
+    const userRole = token.role as UserRole;
 
     // Check if specific role is required
     if (requiredRole && userRole !== requiredRole) {
       return NextResponse.json(
-        { 
-          error: "Insufficient permissions",
-          details: `${requiredRole} role required`
+        {
+          error: 'Insufficient permissions',
+          details: `${requiredRole} role required`,
         },
         { status: 403 }
-      )
+      );
     }
 
     // Check if specific permissions are required
     if (requiredPermissions && requiredPermissions.length > 0) {
-      const hasRequiredPermissions = hasAllPermissions(userRole, requiredPermissions)
-      
+      const hasRequiredPermissions = hasAllPermissions(userRole, requiredPermissions);
+
       if (!hasRequiredPermissions) {
         return NextResponse.json(
-          { 
-            error: "Insufficient permissions",
-            details: "Required permissions not met"
+          {
+            error: 'Insufficient permissions',
+            details: 'Required permissions not met',
           },
           { status: 403 }
-        )
+        );
       }
     }
 
     // Access granted
-    return null
+    return null;
   } catch (error) {
-    console.error("Role access check error:", error)
-    return NextResponse.json(
-      { error: "Authorization check failed" },
-      { status: 500 }
-    )
+    console.error('Role access check error:', error);
+    return NextResponse.json({ error: 'Authorization check failed' }, { status: 500 });
   }
 }
 
 // Higher-order function to create role-specific middleware
-export function withRoleAuth(
-  requiredRole?: UserRole,
-  requiredPermissions?: Permission[]
-) {
-  return async function(request: NextRequest) {
-    const accessDenied = await checkRoleAccess(request, requiredRole, requiredPermissions)
-    return accessDenied
-  }
+export function withRoleAuth(requiredRole?: UserRole, requiredPermissions?: Permission[]) {
+  return async function (request: NextRequest) {
+    const accessDenied = await checkRoleAccess(request, requiredRole, requiredPermissions);
+    return accessDenied;
+  };
 }
 
 // Specific middleware creators for common use cases
-export const withArtistAuth = () => withRoleAuth(UserRole.ARTIST)
-export const withFanAuth = () => withRoleAuth(UserRole.FAN)
+export const withArtistAuth = () => withRoleAuth(UserRole.ARTIST);
+export const withFanAuth = () => withRoleAuth(UserRole.FAN);
 
 // Permission-based middleware creators
-export const withArtistContentPermissions = () => withRoleAuth(
-  undefined,
-  ['artist:content:create', 'artist:content:read', 'artist:content:update', 'artist:content:delete']
-)
+export const withArtistContentPermissions = () =>
+  withRoleAuth(undefined, [
+    'artist:content:create',
+    'artist:content:read',
+    'artist:content:update',
+    'artist:content:delete',
+  ]);
 
-export const withFanSubscriptionPermissions = () => withRoleAuth(
-  undefined,
-  ['fan:subscriptions:create', 'fan:subscriptions:read', 'fan:subscriptions:update']
-)
+export const withFanSubscriptionPermissions = () =>
+  withRoleAuth(undefined, [
+    'fan:subscriptions:create',
+    'fan:subscriptions:read',
+    'fan:subscriptions:update',
+  ]);
 
 // Route protection configuration
 export const PROTECTED_ROUTES = {
   // Artist-only routes
   '/dashboard/artist': { role: UserRole.ARTIST },
   '/api/artist': { role: UserRole.ARTIST },
-  
+
   // Fan-only routes
   '/dashboard/fan': { role: UserRole.FAN },
   '/api/fan': { role: UserRole.FAN },
-  
+
   // General protected routes (any authenticated user)
   '/dashboard': { authenticated: true },
   '/api/user': { authenticated: true },
-} as const
+} as const;
 
 // Check if a route requires specific role or authentication
 export function getRouteProtection(pathname: string) {
   // Find the most specific matching route
   const matchingRoutes = Object.entries(PROTECTED_ROUTES)
     .filter(([route]) => pathname.startsWith(route))
-    .sort((a, b) => b[0].length - a[0].length) // Sort by specificity (longer paths first)
+    .sort((a, b) => b[0].length - a[0].length); // Sort by specificity (longer paths first)
 
-  return matchingRoutes[0]?.[1] || null
+  return matchingRoutes[0]?.[1] || null;
 }
 
 // Simplified permission check function for backwards compatibility

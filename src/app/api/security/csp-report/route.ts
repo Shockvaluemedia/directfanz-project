@@ -9,20 +9,24 @@ import { logger } from '@/lib/logger';
 export const POST = withErrorHandling(async (context, request: NextRequest) => {
   try {
     const report = await request.json();
-    
+
     logger.securityEvent('CSP violation reported', 'medium', {
       requestId: context.requestId,
       ip: context.ip,
       userAgent: context.userAgent,
       report,
     });
-    
+
     return { success: true };
   } catch (error) {
-    logger.error('Failed to process CSP report', {
-      requestId: context.requestId,
-    }, error as Error);
-    
+    logger.error(
+      'Failed to process CSP report',
+      {
+        requestId: context.requestId,
+      },
+      error as Error
+    );
+
     return { success: false };
   }
 });

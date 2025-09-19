@@ -14,12 +14,22 @@ import {
 } from '../types/websocket';
 
 export class WebSocketHandler {
-  private io: SocketIOServer<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>;
+  private io: SocketIOServer<
+    ClientToServerEvents,
+    ServerToClientEvents,
+    InterServerEvents,
+    SocketData
+  >;
   private onlineUsers = new Map<string, { socketId: string; lastSeen: Date; user: User }>();
-  private typingUsers = new Map<string, { userId: string; displayName: string; timestamp: number }>();
+  private typingUsers = new Map<
+    string,
+    { userId: string; displayName: string; timestamp: number }
+  >();
   private webrtcHandler: WebRTCHandler;
 
-  constructor(io: SocketIOServer<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>) {
+  constructor(
+    io: SocketIOServer<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>
+  ) {
     this.io = io;
     this.webrtcHandler = new WebRTCHandler(io);
   }
@@ -28,13 +38,15 @@ export class WebSocketHandler {
     this.io.use(async (socket, next) => {
       try {
         // Extract token from handshake
-        const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace('Bearer ', '');
-        
+        const token =
+          socket.handshake.auth.token ||
+          socket.handshake.headers.authorization?.replace('Bearer ', '');
+
         if (!token) {
           return next(new Error('Authentication token required'));
         }
 
-        // Verify JWT token using Next-Auth  
+        // Verify JWT token using Next-Auth
         // Create a mock request object for getToken
         const mockReq = {
           headers: {
@@ -43,7 +55,7 @@ export class WebSocketHandler {
           },
           cookies: {},
         } as any;
-        
+
         const decoded = await getToken({
           req: mockReq,
           secret: process.env.NEXTAUTH_SECRET!,
@@ -54,7 +66,7 @@ export class WebSocketHandler {
         }
 
         // Fetch user data from database
-        const user = await prisma.user.findUnique({
+        const user = await prisma.users.findUnique({
           where: { id: decoded.id as string },
           select: {
             id: true,
@@ -81,7 +93,7 @@ export class WebSocketHandler {
       }
     });
 
-    this.io.on('connection', (socket) => {
+    this.io.on('connection', socket => {
       this.handleConnection(socket);
     });
 
@@ -91,7 +103,9 @@ export class WebSocketHandler {
     }, 5000);
   }
 
-  private handleConnection(socket: Socket<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>) {
+  private handleConnection(
+    socket: Socket<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>
+  ) {
     const { userId, user } = socket.data;
 
     logger.info('User connected to WebSocket', { userId, socketId: socket.id });
@@ -113,7 +127,7 @@ export class WebSocketHandler {
     socket.emit('auth:success', { userId });
 
     // Handle message sending
-    socket.on('message:send', async (data) => {
+    socket.on('message:send', async data => {
       try {
         await this.handleSendMessage(socket, data);
       } catch (error) {
@@ -123,7 +137,7 @@ export class WebSocketHandler {
     });
 
     // Handle message read status
-    socket.on('message:mark_read', async (data) => {
+    socket.on('message:mark_read', async data => {
       try {
         await this.handleMarkMessageRead(socket, data);
       } catch (error) {
@@ -133,28 +147,28 @@ export class WebSocketHandler {
     });
 
     // Handle typing indicators
-    socket.on('typing:start', (data) => {
+    socket.on('typing:start', data => {
       this.handleTypingStart(socket, data);
     });
 
-    socket.on('typing:stop', (data) => {
+    socket.on('typing:stop', data => {
       this.handleTypingStop(socket, data);
     });
 
     // Handle conversation room management
-    socket.on('conversation:join', (data) => {
+    socket.on('conversation:join', data => {
       const conversationId = createConversationId(userId, data.conversationWith);
       socket.join(conversationId);
       socket.data.activeConversations.add(conversationId);
-      
+
       logger.info('User joined conversation', { userId, conversationId });
     });
 
-    socket.on('conversation:leave', (data) => {
+    socket.on('conversation:leave', data => {
       const conversationId = createConversationId(userId, data.conversationWith);
       socket.leave(conversationId);
       socket.data.activeConversations.delete(conversationId);
-      
+
       logger.info('User left conversation', { userId, conversationId });
     });
 
@@ -178,10 +192,15 @@ export class WebSocketHandler {
 
   private async handleSendMessage(
     socket: Socket<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>,
-    data: { recipientId: string; content: string; type?: 'TEXT' | 'IMAGE' | 'AUDIO'; attachmentUrl?: string }
+    data: {
+      recipientId: string;
+      content: string;
+      type?: 'TEXT' | 'IMAGE' | 'AUDIO';
+      attachmentUrl?: string;
+    }
   ) {
     const { userId } = socket.data;
-    
+
     // Basic validation
     if (!data.recipientId || !data.content.trim()) {
       socket.emit('error', 'Invalid message data');
@@ -189,7 +208,7 @@ export class WebSocketHandler {
     }
 
     // Check if recipient exists
-    const recipient = await prisma.user.findUnique({
+    const recipient = await prisma.users.findUnique({
       where: { id: data.recipientId },
       select: { id: true, displayName: true, role: true, notificationPreferences: true },
     });
@@ -200,7 +219,7 @@ export class WebSocketHandler {
     }
 
     // Create message in database
-    const message = await prisma.message.create({
+    const message = await prisma.messages.create({
       data: {
         senderId: userId,
         recipientId: data.recipientId,
@@ -249,7 +268,7 @@ export class WebSocketHandler {
   ) {
     const { userId } = socket.data;
 
-    const message = await prisma.message.findUnique({
+    const message = await prisma.messages.findUnique({
       where: { id: data.messageId },
       select: { id: true, senderId: true, recipientId: true },
     });
@@ -267,7 +286,7 @@ export class WebSocketHandler {
 
     // Update message read status
     const readAt = new Date();
-    await prisma.message.update({
+    await prisma.messages.update({
       where: { id: data.messageId },
       data: { readAt },
     });
@@ -326,7 +345,9 @@ export class WebSocketHandler {
     });
   }
 
-  private handleDisconnection(socket: Socket<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>) {
+  private handleDisconnection(
+    socket: Socket<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>
+  ) {
     const { userId } = socket.data;
 
     logger.info('User disconnected from WebSocket', { userId, socketId: socket.id });
@@ -361,7 +382,7 @@ export class WebSocketHandler {
     Array.from(this.typingUsers.entries()).forEach(([key, typingData]) => {
       if (now - typingData.timestamp > TYPING_TIMEOUT) {
         this.typingUsers.delete(key);
-        
+
         // Emit typing stop
         const [conversationId] = key.split(':');
         this.io.to(conversationId).emit('typing:stop', {
@@ -380,7 +401,12 @@ export class WebSocketHandler {
     }
   }
 
-  public emitToConversation(userId1: string, userId2: string, event: keyof ServerToClientEvents, data: any) {
+  public emitToConversation(
+    userId1: string,
+    userId2: string,
+    event: keyof ServerToClientEvents,
+    data: any
+  ) {
     const conversationId = createConversationId(userId1, userId2);
     this.io.to(conversationId).emit(event as any, data);
   }
@@ -402,4 +428,3 @@ export class WebSocketHandler {
     return this.webrtcHandler.isStreamLive(streamId);
   }
 }
-

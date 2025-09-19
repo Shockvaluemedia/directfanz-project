@@ -1,7 +1,14 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
-import { CloudArrowUpIcon, XMarkIcon, DocumentIcon, MusicalNoteIcon, VideoCameraIcon, PhotoIcon } from '@heroicons/react/24/outline';
+import {
+  CloudArrowUpIcon,
+  XMarkIcon,
+  DocumentIcon,
+  MusicalNoteIcon,
+  VideoCameraIcon,
+  PhotoIcon,
+} from '@heroicons/react/24/outline';
 import { useFileUpload } from '@/hooks/use-file-upload';
 import { secureUUID } from '@/lib/crypto-utils';
 import { toast } from 'react-hot-toast';
@@ -29,18 +36,18 @@ const SUPPORTED_TYPES = {
   'audio/wav': { icon: MusicalNoteIcon, label: 'WAV Audio' },
   'audio/flac': { icon: MusicalNoteIcon, label: 'FLAC Audio' },
   'audio/aac': { icon: MusicalNoteIcon, label: 'AAC Audio' },
-  
+
   // Video
   'video/mp4': { icon: VideoCameraIcon, label: 'MP4 Video' },
   'video/webm': { icon: VideoCameraIcon, label: 'WebM Video' },
   'video/quicktime': { icon: VideoCameraIcon, label: 'MOV Video' },
-  
+
   // Images
   'image/jpeg': { icon: PhotoIcon, label: 'JPEG Image' },
   'image/png': { icon: PhotoIcon, label: 'PNG Image' },
   'image/webp': { icon: PhotoIcon, label: 'WebP Image' },
   'image/gif': { icon: PhotoIcon, label: 'GIF Image' },
-  
+
   // Documents
   'application/pdf': { icon: DocumentIcon, label: 'PDF Document' },
   'text/plain': { icon: DocumentIcon, label: 'Text Document' },
@@ -84,7 +91,7 @@ export default function FileUpload({
     const sizeLimits = {
       'audio/': 100 * 1024 * 1024, // 100MB
       'video/': 500 * 1024 * 1024, // 500MB
-      'image/': 10 * 1024 * 1024,  // 10MB
+      'image/': 10 * 1024 * 1024, // 10MB
       'application/': 25 * 1024 * 1024, // 25MB
       'text/': 25 * 1024 * 1024, // 25MB
     };
@@ -104,60 +111,70 @@ export default function FileUpload({
     return secureUUID();
   };
 
-  const handleFiles = useCallback(async (fileList: FileList) => {
-    const newFiles: FileUploadItem[] = [];
-    const filesToUpload: File[] = [];
-    
-    for (let i = 0; i < fileList.length && newFiles.length + selectedFiles.length < maxFiles; i++) {
-      const file = fileList[i];
-      const validationError = validateFile(file);
-      
-      const fileItem: FileUploadItem = {
-        id: generateFileId(),
-        file,
-        progress: 0,
-        status: validationError ? 'error' : 'pending',
-        error: validationError || undefined,
-      };
-      
-      newFiles.push(fileItem);
-      if (!validationError) {
-        filesToUpload.push(file);
-      }
-    }
+  const handleFiles = useCallback(
+    async (fileList: FileList) => {
+      const newFiles: FileUploadItem[] = [];
+      const filesToUpload: File[] = [];
 
-    setSelectedFiles(prev => [...prev, ...newFiles]);
+      for (
+        let i = 0;
+        i < fileList.length && newFiles.length + selectedFiles.length < maxFiles;
+        i++
+      ) {
+        const file = fileList[i];
+        const validationError = validateFile(file);
 
-    // Start uploading valid files using the hook
-    if (filesToUpload.length > 0) {
-      try {
-        const uploadedFiles = await uploadMultipleFiles(filesToUpload);
-        // Convert UploadedFile to FileUploadItem
-        const uploadedItems: FileUploadItem[] = uploadedFiles.map((uploaded, index) => ({
+        const fileItem: FileUploadItem = {
           id: generateFileId(),
-          file: filesToUpload[index], // Use the original file
-          progress: 100,
-          status: 'completed',
-          fileUrl: uploaded.fileUrl,
-        }));
-        onFilesUploaded(uploadedItems);
-        toast.success(`Successfully uploaded ${uploadedFiles.length} files`);
-      } catch (error) {
-        console.error('Upload error:', error);
-        toast.error('Some files failed to upload');
-      }
-    }
-  }, [selectedFiles, maxFiles, onFilesUploaded, uploadMultipleFiles]);
+          file,
+          progress: 0,
+          status: validationError ? 'error' : 'pending',
+          error: validationError || undefined,
+        };
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    
-    const droppedFiles = e.dataTransfer.files;
-    if (droppedFiles.length > 0) {
-      handleFiles(droppedFiles);
-    }
-  }, [handleFiles]);
+        newFiles.push(fileItem);
+        if (!validationError) {
+          filesToUpload.push(file);
+        }
+      }
+
+      setSelectedFiles(prev => [...prev, ...newFiles]);
+
+      // Start uploading valid files using the hook
+      if (filesToUpload.length > 0) {
+        try {
+          const uploadedFiles = await uploadMultipleFiles(filesToUpload);
+          // Convert UploadedFile to FileUploadItem
+          const uploadedItems: FileUploadItem[] = uploadedFiles.map((uploaded, index) => ({
+            id: generateFileId(),
+            file: filesToUpload[index], // Use the original file
+            progress: 100,
+            status: 'completed',
+            fileUrl: uploaded.fileUrl,
+          }));
+          onFilesUploaded(uploadedItems);
+          toast.success(`Successfully uploaded ${uploadedFiles.length} files`);
+        } catch (error) {
+          console.error('Upload error:', error);
+          toast.error('Some files failed to upload');
+        }
+      }
+    },
+    [selectedFiles, maxFiles, onFilesUploaded, uploadMultipleFiles]
+  );
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragOver(false);
+
+      const droppedFiles = e.dataTransfer.files;
+      if (droppedFiles.length > 0) {
+        handleFiles(droppedFiles);
+      }
+    },
+    [handleFiles]
+  );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -169,16 +186,19 @@ export default function FileUpload({
     setIsDragOver(false);
   }, []);
 
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = e.target.files;
-    if (selectedFiles && selectedFiles.length > 0) {
-      handleFiles(selectedFiles);
-    }
-    // Reset input value to allow selecting the same file again
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  }, [handleFiles]);
+  const handleFileSelect = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const selectedFiles = e.target.files;
+      if (selectedFiles && selectedFiles.length > 0) {
+        handleFiles(selectedFiles);
+      }
+      // Reset input value to allow selecting the same file again
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    },
+    [handleFiles]
+  );
 
   const removeFile = (fileId: string) => {
     setSelectedFiles(prev => prev.filter(f => f.id !== fileId));
@@ -216,98 +236,89 @@ export default function FileUpload({
         onClick={() => fileInputRef.current?.click()}
         className={`
           relative border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors
-          ${isDragOver 
-            ? 'border-blue-400 bg-blue-50' 
-            : 'border-gray-300 hover:border-gray-400'
-          }
+          ${isDragOver ? 'border-blue-400 bg-blue-50' : 'border-gray-300 hover:border-gray-400'}
         `}
       >
-        <CloudArrowUpIcon className="mx-auto h-12 w-12 text-gray-400" />
-        <p className="mt-2 text-sm text-gray-600">
-          <span className="font-medium text-blue-600">Click to upload</span> or drag and drop
+        <CloudArrowUpIcon className='mx-auto h-12 w-12 text-gray-400' />
+        <p className='mt-2 text-sm text-gray-600'>
+          <span className='font-medium text-blue-600'>Click to upload</span> or drag and drop
         </p>
-        <p className="text-xs text-gray-500 mt-1">
+        <p className='text-xs text-gray-500 mt-1'>
           Audio, Video, Images, or Documents up to various size limits
         </p>
-        
+
         <input
           ref={fileInputRef}
-          type="file"
+          type='file'
           multiple
           accept={acceptedTypes.join(',')}
           onChange={handleFileSelect}
-          className="hidden"
+          className='hidden'
         />
       </div>
 
       {/* File List */}
       {selectedFiles.length > 0 && (
-        <div className="space-y-2">
-          <h4 className="text-sm font-medium text-gray-900">
+        <div className='space-y-2'>
+          <h4 className='text-sm font-medium text-gray-900'>
             Files ({selectedFiles.length}/{maxFiles})
           </h4>
-          
-          <div className="space-y-2">
-            {selectedFiles.map((fileItem) => {
+
+          <div className='space-y-2'>
+            {selectedFiles.map(fileItem => {
               const FileIcon = getFileIcon(fileItem.file.type);
-              
+
               return (
                 <div
                   key={fileItem.id}
-                  className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg"
+                  className='flex items-center space-x-3 p-3 bg-gray-50 rounded-lg'
                 >
-                  <FileIcon className="h-8 w-8 text-gray-400 flex-shrink-0" />
-                  
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
+                  <FileIcon className='h-8 w-8 text-gray-400 flex-shrink-0' />
+
+                  <div className='flex-1 min-w-0'>
+                    <p className='text-sm font-medium text-gray-900 truncate'>
                       {fileItem.file.name}
                     </p>
-                    <p className="text-xs text-gray-500">
-                      {formatFileSize(fileItem.file.size)}
-                    </p>
-                    
+                    <p className='text-xs text-gray-500'>{formatFileSize(fileItem.file.size)}</p>
+
                     {/* Progress Bar */}
                     {fileItem.status === 'uploading' && (
-                      <div className="mt-2">
-                        <div className="bg-gray-200 rounded-full h-2">
+                      <div className='mt-2'>
+                        <div className='bg-gray-200 rounded-full h-2'>
                           <div
-                            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                            className='bg-blue-600 h-2 rounded-full transition-all duration-300'
                             style={{ width: `${fileItem.progress}%` }}
                           />
                         </div>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {fileItem.progress}% uploaded
-                        </p>
+                        <p className='text-xs text-gray-500 mt-1'>{fileItem.progress}% uploaded</p>
                       </div>
                     )}
-                    
+
                     {/* Error Message */}
                     {fileItem.status === 'error' && (
-                      <p className="text-xs text-red-600 mt-1">
-                        {fileItem.error}
-                      </p>
+                      <p className='text-xs text-red-600 mt-1'>{fileItem.error}</p>
                     )}
                   </div>
-                  
+
                   {/* Status Indicator */}
-                  <div className="flex items-center space-x-2">
+                  <div className='flex items-center space-x-2'>
                     {fileItem.status === 'completed' && (
-                      <div className="h-2 w-2 bg-green-500 rounded-full" />
+                      <div className='h-2 w-2 bg-green-500 rounded-full' />
                     )}
                     {fileItem.status === 'error' && (
                       <button
                         onClick={() => retryUpload(fileItem.id)}
-                        className="text-xs text-blue-600 hover:text-blue-800"
+                        className='text-xs text-blue-600 hover:text-blue-800'
                       >
                         Retry
                       </button>
                     )}
-                    
+
                     <button
                       onClick={() => removeFile(fileItem.id)}
-                      className="text-gray-400 hover:text-gray-600"
+                      className='text-gray-400 hover:text-gray-600'
                     >
-                      <XMarkIcon className="h-4 w-4" />
+                      <XMarkIcon className='h-4 w-4' />
                     </button>
                   </div>
                 </div>

@@ -15,24 +15,18 @@ const searchSchema = z.object({
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Get user and verify they are a fan
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: { id: session.user.id },
     });
 
     if (!user || user.role !== 'FAN') {
-      return NextResponse.json(
-        { error: 'Only fans can discover artists' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'Only fans can discover artists' }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);
@@ -49,7 +43,7 @@ export async function GET(request: NextRequest) {
     // Build where clause for filtering
     const whereClause: any = {
       role: 'ARTIST',
-      artistProfile: {
+      artists: {
         isStripeOnboarded: true, // Only show artists who can accept payments
       },
       tiers: {
@@ -78,7 +72,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get artists with their tiers and basic stats
-    const artists = await prisma.user.findMany({
+    const artists = await prisma.users.findMany({
       where: whereClause,
       select: {
         id: true,
@@ -87,7 +81,7 @@ export async function GET(request: NextRequest) {
         avatar: true,
         socialLinks: true,
         createdAt: true,
-        artistProfile: {
+        artists: {
           select: {
             totalSubscribers: true,
             totalEarnings: true,
@@ -117,16 +111,13 @@ export async function GET(request: NextRequest) {
           take: 3, // Show latest 3 public content items
         },
       },
-      orderBy: [
-        { artistProfile: { totalSubscribers: 'desc' } },
-        { createdAt: 'desc' },
-      ],
+      orderBy: [{ artists: { totalSubscribers: 'desc' } }, { createdAt: 'desc' }],
       skip: offset,
       take: limit,
     });
 
     // Get total count for pagination
-    const totalCount = await prisma.user.count({
+    const totalCount = await prisma.users.count({
       where: whereClause,
     });
 
@@ -141,7 +132,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Get artists error:', error);
-    
+
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: 'Invalid request parameters', details: error.errors },
@@ -149,9 +140,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(
-      { error: 'Failed to fetch artists' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch artists' }, { status: 500 });
   }
 }

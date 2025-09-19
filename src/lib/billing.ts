@@ -61,9 +61,9 @@ export async function calculateTierChangeProration(
 ): Promise<ProrationCalculation> {
   try {
     // Get current subscription details
-    const subscription = await prisma.subscription.findUnique({
+    const subscription = await prisma.subscriptions.findUnique({
       where: { id: subscriptionId },
-      include: { tier: true }
+      include: { tiers: true },
     });
 
     if (!subscription) {
@@ -78,15 +78,17 @@ export async function calculateTierChangeProration(
     const currentAmount = parseFloat(subscription.amount.toString());
     const currentPeriodStart = new Date(stripeSubscription.current_period_start * 1000);
     const currentPeriodEnd = new Date(stripeSubscription.current_period_end * 1000);
-    
+
     // Calculate time-based proration
     const effectiveDate = options?.effectiveDate || new Date();
-    const totalDaysInPeriod = Math.max(1, Math.ceil(
-      (currentPeriodEnd.getTime() - currentPeriodStart.getTime()) / (1000 * 60 * 60 * 24)
-    ));
-    const daysRemaining = Math.max(0, Math.ceil(
-      (currentPeriodEnd.getTime() - effectiveDate.getTime()) / (1000 * 60 * 60 * 24)
-    ));
+    const totalDaysInPeriod = Math.max(
+      1,
+      Math.ceil((currentPeriodEnd.getTime() - currentPeriodStart.getTime()) / (1000 * 60 * 60 * 24))
+    );
+    const daysRemaining = Math.max(
+      0,
+      Math.ceil((currentPeriodEnd.getTime() - effectiveDate.getTime()) / (1000 * 60 * 60 * 24))
+    );
 
     // Prevent division by zero
     if (totalDaysInPeriod <= 0) {
@@ -96,10 +98,10 @@ export async function calculateTierChangeProration(
     // Calculate proration amounts
     const dailyCurrentRate = currentAmount / totalDaysInPeriod;
     const dailyNewRate = newAmount / totalDaysInPeriod;
-    
+
     const unusedCurrentAmount = dailyCurrentRate * daysRemaining;
     const newAmountForRemainingPeriod = dailyNewRate * daysRemaining;
-    
+
     const prorationAmount = Number((newAmountForRemainingPeriod - unusedCurrentAmount).toFixed(2));
     const nextInvoiceAmount = newAmount; // Full amount for next period
 
@@ -110,7 +112,7 @@ export async function calculateTierChangeProration(
       nextInvoiceAmount,
       daysRemaining,
       totalDaysInPeriod,
-      effectiveDate
+      effectiveDate,
     };
   } catch (error) {
     console.error('Error calculating proration:', error);
@@ -123,8 +125,8 @@ export async function calculateTierChangeProration(
  */
 export async function getBillingCycleInfo(subscriptionId: string): Promise<BillingCycleInfo> {
   try {
-    const subscription = await prisma.subscription.findUnique({
-      where: { id: subscriptionId }
+    const subscription = await prisma.subscriptions.findUnique({
+      where: { id: subscriptionId },
     });
 
     if (!subscription) {
@@ -140,12 +142,14 @@ export async function getBillingCycleInfo(subscriptionId: string): Promise<Billi
     const nextBillingDate = currentPeriodEnd;
 
     const now = new Date();
-    const daysInCurrentPeriod = Math.max(1, Math.ceil(
-      (currentPeriodEnd.getTime() - currentPeriodStart.getTime()) / (1000 * 60 * 60 * 24)
-    ));
-    const daysRemaining = Math.max(0, Math.ceil(
-      (currentPeriodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
-    ));
+    const daysInCurrentPeriod = Math.max(
+      1,
+      Math.ceil((currentPeriodEnd.getTime() - currentPeriodStart.getTime()) / (1000 * 60 * 60 * 24))
+    );
+    const daysRemaining = Math.max(
+      0,
+      Math.ceil((currentPeriodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+    );
 
     // Validate billing period
     if (daysInCurrentPeriod <= 0) {
@@ -157,7 +161,7 @@ export async function getBillingCycleInfo(subscriptionId: string): Promise<Billi
       currentPeriodEnd,
       nextBillingDate,
       daysInCurrentPeriod,
-      daysRemaining
+      daysRemaining,
     };
   } catch (error) {
     console.error('Error getting billing cycle info:', error);
@@ -173,23 +177,23 @@ export async function changeTier(
   newTierId: string,
   newAmount: number,
   options: TierChangeOptions = {}
-): Promise<{ 
-  success: boolean; 
+): Promise<{
+  success: boolean;
   prorationAmount: number;
   invoiceId?: string;
   effectiveDate: Date;
 }> {
   try {
-    const subscription = await prisma.subscription.findUnique({
+    const subscription = await prisma.subscriptions.findUnique({
       where: { id: subscriptionId },
-      include: { 
+      include: {
         fan: true,
         tier: {
           include: {
-            artist: true
-          }
-        }
-      }
+            artist: true,
+          },
+        },
+      },
     });
 
     if (!subscription) {
@@ -201,11 +205,11 @@ export async function changeTier(
     }
 
     // Get new tier details
-    const newTier = await prisma.tier.findUnique({
+    const newTier = await prisma.tiers.findUnique({
       where: { id: newTierId },
       include: {
-        artist: true
-      }
+        artist: true,
+      },
     });
 
     if (!newTier) {
@@ -222,17 +226,15 @@ export async function changeTier(
     const isUpgrade = newAmount > currentAmount;
 
     // Set effective date based on options
-    const effectiveDate = options.effectiveDate === 'next_billing_cycle'
-      ? new Date(subscription.currentPeriodEnd)
-      : new Date();
+    const effectiveDate =
+      options.effectiveDate === 'next_billing_cycle'
+        ? new Date(subscription.currentPeriodEnd)
+        : new Date();
 
     // Calculate proration
-    const proration = await calculateTierChangeProration(
-      subscriptionId, 
-      newTierId, 
-      newAmount,
-      { effectiveDate }
-    );
+    const proration = await calculateTierChangeProration(subscriptionId, newTierId, newAmount, {
+      effectiveDate,
+    });
 
     // Update Stripe subscription
     const stripeSubscription = await stripe.subscriptions.retrieve(
@@ -240,17 +242,19 @@ export async function changeTier(
     );
 
     const updateParams: Stripe.SubscriptionUpdateParams = {
-      items: [{
-        id: stripeSubscription.items.data[0].id,
-        price_data: {
-          currency: 'usd',
-          product: stripeSubscription.items.data[0].price.product as string,
-          unit_amount: Math.round(newAmount * 100),
-          recurring: {
-            interval: 'month',
+      items: [
+        {
+          id: stripeSubscription.items.data[0].id,
+          price_data: {
+            currency: 'usd',
+            product: stripeSubscription.items.data[0].price.product as string,
+            unit_amount: Math.round(newAmount * 100),
+            recurring: {
+              interval: 'month',
+            },
           },
         },
-      }],
+      ],
       proration_behavior: options.prorationBehavior || 'create_prorations',
     };
 
@@ -271,9 +275,9 @@ export async function changeTier(
 
     if (latestInvoice) {
       const invoiceData = await generateInvoiceData(latestInvoice);
-      
+
       // Store invoice in database
-      const invoice = await prisma.$queryRaw`
+      const invoice = (await prisma.$queryRaw`
         INSERT INTO "invoices" (
           "id", "subscriptionId", "stripeInvoiceId", "amount", "status", 
           "dueDate", "paidAt", "periodStart", "periodEnd", "prorationAmount", 
@@ -295,48 +299,48 @@ export async function changeTier(
           NOW()
         )
         RETURNING "id"
-      ` as any[];
-      
+      `) as any[];
+
       invoiceId = invoice[0]?.id;
     }
 
     // Update local database
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async tx => {
       // Update subscription
       await tx.subscription.update({
         where: { id: subscriptionId },
         data: {
           tierId: newTierId,
-          amount: new Decimal(newAmount)
-        }
+          amount: new Decimal(newAmount),
+        },
       });
 
       // Update tier subscriber counts
-      await tx.tier.update({
+      await tx.tiers.update({
         where: { id: subscription.tierId },
-        data: { subscriberCount: { decrement: 1 } }
+        data: { subscriberCount: { decrement: 1 } },
       });
 
-      await tx.tier.update({
+      await tx.tiers.update({
         where: { id: newTierId },
-        data: { subscriberCount: { increment: 1 } }
+        data: { subscriberCount: { increment: 1 } },
       });
     });
 
     // Send notification if requested
     if (options.sendNotification && subscription.fan?.email) {
       await sendEmail({
-        to: subscription.fan.email!,
+        to: subscription.users.email!,
         subject: `Subscription ${isUpgrade ? 'Upgraded' : 'Changed'} - ${newTier.artist?.displayName}`,
         html: `
           <h1>Subscription ${isUpgrade ? 'Upgraded' : 'Changed'}</h1>
-          <p>Your subscription to ${subscription.tier.artist?.displayName}'s content has been changed from ${subscription.tier.name} tier to ${newTier.name} tier.</p>
+          <p>Your subscription to ${subscription.tiers.artist?.displayName}'s content has been changed from ${subscription.tiers.name} tier to ${newTier.name} tier.</p>
           <p>New amount: $${newAmount.toFixed(2)}</p>
           ${proration.prorationAmount !== 0 ? `<p>Proration amount: $${proration.prorationAmount.toFixed(2)}</p>` : ''}
           <p>Next billing date: ${subscription.currentPeriodEnd.toLocaleDateString()}</p>
           <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions">Manage your subscriptions</a></p>
         `,
-        text: `Subscription ${isUpgrade ? 'Upgraded' : 'Changed'}\n\nYour subscription to ${subscription.tier.artist?.displayName}'s content has been changed from ${subscription.tier.name} tier to ${newTier.name} tier.\n\nNew amount: $${newAmount.toFixed(2)}\n${proration.prorationAmount !== 0 ? `Proration amount: $${proration.prorationAmount.toFixed(2)}\n` : ''}Next billing date: ${subscription.currentPeriodEnd.toLocaleDateString()}\n\nManage your subscriptions: ${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions`
+        text: `Subscription ${isUpgrade ? 'Upgraded' : 'Changed'}\n\nYour subscription to ${subscription.tiers.artist?.displayName}'s content has been changed from ${subscription.tiers.name} tier to ${newTier.name} tier.\n\nNew amount: $${newAmount.toFixed(2)}\n${proration.prorationAmount !== 0 ? `Proration amount: $${proration.prorationAmount.toFixed(2)}\n` : ''}Next billing date: ${subscription.currentPeriodEnd.toLocaleDateString()}\n\nManage your subscriptions: ${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions`,
       });
     }
 
@@ -344,7 +348,7 @@ export async function changeTier(
       success: true,
       prorationAmount: proration.prorationAmount,
       invoiceId,
-      effectiveDate
+      effectiveDate,
     };
   } catch (error) {
     console.error('Error changing subscription tier:', error);
@@ -363,12 +367,12 @@ export async function upgradeSubscription(
   const result = await changeTier(subscriptionId, newTierId, newAmount, {
     effectiveDate: 'now',
     prorationBehavior: 'create_prorations',
-    sendNotification: true
+    sendNotification: true,
   });
-  
+
   return {
     success: result.success,
-    prorationAmount: result.prorationAmount
+    prorationAmount: result.prorationAmount,
   };
 }
 
@@ -383,12 +387,12 @@ export async function downgradeSubscription(
   const result = await changeTier(subscriptionId, newTierId, newAmount, {
     effectiveDate: 'now',
     prorationBehavior: 'create_prorations',
-    sendNotification: true
+    sendNotification: true,
   });
-  
+
   return {
     success: result.success,
-    prorationAmount: result.prorationAmount
+    prorationAmount: result.prorationAmount,
   };
 }
 
@@ -398,7 +402,7 @@ export async function downgradeSubscription(
 export async function generateInvoiceData(stripeInvoiceId: string): Promise<InvoiceData> {
   try {
     const invoice = await stripe.invoices.retrieve(stripeInvoiceId, {
-      expand: ['lines.data.price.product']
+      expand: ['lines.data.price.product'],
     });
 
     const items: InvoiceItem[] = invoice.lines.data.map(line => ({
@@ -407,8 +411,8 @@ export async function generateInvoiceData(stripeInvoiceId: string): Promise<Invo
       quantity: line.quantity || 1,
       period: {
         start: new Date((line.period?.start || 0) * 1000),
-        end: new Date((line.period?.end || 0) * 1000)
-      }
+        end: new Date((line.period?.end || 0) * 1000),
+      },
     }));
 
     const result: InvoiceData = {
@@ -418,11 +422,12 @@ export async function generateInvoiceData(stripeInvoiceId: string): Promise<Invo
       status: invoice.status || 'draft',
       dueDate: new Date((invoice.due_date || invoice.created) * 1000),
       items,
-      paidAt: (invoice.status_transitions && typeof invoice.status_transitions.paid_at === 'number')
-        ? new Date(invoice.status_transitions.paid_at * 1000)
-        : undefined
+      paidAt:
+        invoice.status_transitions && typeof invoice.status_transitions.paid_at === 'number'
+          ? new Date(invoice.status_transitions.paid_at * 1000)
+          : undefined,
     };
-    
+
     return result;
   } catch (error) {
     console.error('Error generating invoice data:', error);
@@ -437,23 +442,23 @@ export async function scheduleTierChange(
   subscriptionId: string,
   newTierId: string,
   newAmount: number
-): Promise<{ 
+): Promise<{
   success: boolean;
   scheduledDate: Date;
   invoiceId?: string;
 }> {
   try {
     // Get current subscription details
-    const subscription = await prisma.subscription.findUnique({
+    const subscription = await prisma.subscriptions.findUnique({
       where: { id: subscriptionId },
-      include: { 
+      include: {
         fan: true,
         tier: {
           include: {
-            artist: true
-          }
-        }
-      }
+            artist: true,
+          },
+        },
+      },
     });
 
     if (!subscription) {
@@ -465,11 +470,11 @@ export async function scheduleTierChange(
     }
 
     // Get new tier details
-    const newTier = await prisma.tier.findUnique({
+    const newTier = await prisma.tiers.findUnique({
       where: { id: newTierId },
       include: {
-        artist: true
-      }
+        artist: true,
+      },
     });
 
     if (!newTier) {
@@ -503,8 +508,8 @@ export async function scheduleTierChange(
           scheduled_tier_change: 'true',
           scheduled_tier_id: newTierId,
           scheduled_amount: newAmount.toString(),
-          scheduled_date: effectiveDate.toISOString()
-        }
+          scheduled_date: effectiveDate.toISOString(),
+        },
       }
     );
 
@@ -527,13 +532,13 @@ export async function scheduleTierChange(
           toAmount: newAmount,
           scheduledDate: effectiveDate,
           isUpgrade,
-          processed: false
-        }
-      }
+          processed: false,
+        },
+      },
     };
 
     // Store scheduled change in database
-    const invoice = await prisma.$queryRaw`
+    const invoice = (await prisma.$queryRaw`
       INSERT INTO "invoices" (
         "id", "subscriptionId", "stripeInvoiceId", "amount", "status", 
         "dueDate", "paidAt", "periodStart", "periodEnd", "prorationAmount", 
@@ -555,31 +560,31 @@ export async function scheduleTierChange(
         NOW()
       )
       RETURNING "id"
-    ` as any[];
+    `) as any[];
 
     // Send notification if requested
     if (subscription.fan?.email) {
       await sendEmail({
-        to: subscription.fan.email,
+        to: subscription.users.email,
         subject: `Subscription Change Scheduled - ${newTier.artist?.displayName}`,
         html: `
           <h1>Subscription Change Scheduled</h1>
-          <p>Your subscription to ${subscription.tier.artist?.displayName}'s content will be changed from ${subscription.tier.name} tier to ${newTier.name} tier on your next billing date.</p>
-          <p>Current tier: ${subscription.tier.name}</p>
+          <p>Your subscription to ${subscription.tiers.artist?.displayName}'s content will be changed from ${subscription.tiers.name} tier to ${newTier.name} tier on your next billing date.</p>
+          <p>Current tier: ${subscription.tiers.name}</p>
           <p>New tier: ${newTier.name}</p>
           <p>Current amount: ${currentAmount.toFixed(2)}</p>
           <p>New amount: ${newAmount.toFixed(2)}</p>
           <p>Effective date: ${effectiveDate.toLocaleDateString()}</p>
           <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions">Manage your subscriptions</a></p>
         `,
-        text: `Subscription Change Scheduled\n\nYour subscription to ${subscription.tier.artist?.displayName}'s content will be changed from ${subscription.tier.name} tier to ${newTier.name} tier on your next billing date.\n\nCurrent tier: ${subscription.tier.name}\nNew tier: ${newTier.name}\nCurrent amount: ${currentAmount.toFixed(2)}\nNew amount: ${newAmount.toFixed(2)}\nEffective date: ${effectiveDate.toLocaleDateString()}\n\nManage your subscriptions: ${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions`
+        text: `Subscription Change Scheduled\n\nYour subscription to ${subscription.tiers.artist?.displayName}'s content will be changed from ${subscription.tiers.name} tier to ${newTier.name} tier on your next billing date.\n\nCurrent tier: ${subscription.tiers.name}\nNew tier: ${newTier.name}\nCurrent amount: ${currentAmount.toFixed(2)}\nNew amount: ${newAmount.toFixed(2)}\nEffective date: ${effectiveDate.toLocaleDateString()}\n\nManage your subscriptions: ${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions`,
       });
     }
 
     return {
       success: true,
       scheduledDate: effectiveDate,
-      invoiceId: invoice[0]?.id
+      invoiceId: invoice[0]?.id,
     };
   } catch (error) {
     console.error('Error scheduling tier change:', error);
@@ -598,8 +603,8 @@ export async function getSubscriptionInvoices(
   hasMore: boolean;
 }> {
   try {
-    const subscription = await prisma.subscription.findUnique({
-      where: { id: subscriptionId }
+    const subscription = await prisma.subscriptions.findUnique({
+      where: { id: subscriptionId },
     });
 
     if (!subscription) {
@@ -607,15 +612,15 @@ export async function getSubscriptionInvoices(
     }
 
     const limit = options.limit || 10;
-    
+
     const stripeInvoices = await stripe.invoices.list({
       subscription: subscription.stripeSubscriptionId,
       limit,
-      ...(options.startingAfter ? { starting_after: options.startingAfter } : {})
+      ...(options.startingAfter ? { starting_after: options.startingAfter } : {}),
     });
 
     const invoices: InvoiceData[] = [];
-    
+
     for (const invoice of stripeInvoices.data) {
       try {
         const invoiceData = await generateInvoiceData(invoice.id);
@@ -628,7 +633,7 @@ export async function getSubscriptionInvoices(
 
     return {
       invoices,
-      hasMore: stripeInvoices.has_more || false
+      hasMore: stripeInvoices.has_more || false,
     };
   } catch (error) {
     console.error('Error getting subscription invoices:', error);
@@ -639,16 +644,14 @@ export async function getSubscriptionInvoices(
 /**
  * Sync invoices from Stripe to local database
  */
-export async function syncInvoices(
-  subscriptionId: string
-): Promise<{
+export async function syncInvoices(subscriptionId: string): Promise<{
   created: number;
   updated: number;
   total: number;
 }> {
   try {
-    const subscription = await prisma.subscription.findUnique({
-      where: { id: subscriptionId }
+    const subscription = await prisma.subscriptions.findUnique({
+      where: { id: subscriptionId },
     });
 
     if (!subscription) {
@@ -665,17 +668,17 @@ export async function syncInvoices(
       const stripeInvoices = await stripe.invoices.list({
         subscription: subscription.stripeSubscriptionId,
         limit,
-        ...(startingAfter ? { starting_after: startingAfter } : {})
+        ...(startingAfter ? { starting_after: startingAfter } : {}),
       });
 
       for (const invoice of stripeInvoices.data) {
         try {
           const invoiceData = await generateInvoiceData(invoice.id);
-          
+
           // Check if invoice already exists
-          const existingInvoice = await prisma.$queryRaw`
+          const existingInvoice = (await prisma.$queryRaw`
             SELECT * FROM "invoices" WHERE "stripeInvoiceId" = ${invoice.id}
-          ` as any[];
+          `) as any[];
 
           if (existingInvoice && existingInvoice.length > 0) {
             // Update existing invoice
@@ -692,12 +695,14 @@ export async function syncInvoices(
             updated++;
           } else {
             // Create new invoice
-            const prorationAmount = invoiceData.items.some(item => item.description.includes('Proration'))
+            const prorationAmount = invoiceData.items.some(item =>
+              item.description.includes('Proration')
+            )
               ? invoiceData.items
                   .filter(item => item.description.includes('Proration'))
                   .reduce((sum, item) => sum + item.amount, 0)
               : null;
-              
+
             await prisma.$executeRaw`
               INSERT INTO "invoices" (
                 "id", "subscriptionId", "stripeInvoiceId", "amount", "status", 
@@ -737,7 +742,7 @@ export async function syncInvoices(
     return {
       created,
       updated,
-      total: created + updated
+      total: created + updated,
     };
   } catch (error) {
     console.error('Error syncing invoices:', error);

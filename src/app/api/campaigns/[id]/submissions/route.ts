@@ -18,10 +18,7 @@ const createSubmissionSchema = z.object({
 });
 
 // GET /api/campaigns/[id]/submissions - List submissions for a campaign
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const { id: campaignId } = params;
     const { searchParams } = new URL(request.url);
@@ -35,9 +32,9 @@ export async function GET(
     const session = await getServerSession(authOptions);
 
     // Check if campaign exists
-    const campaign = await prisma.campaign.findUnique({
+    const campaign = await prisma.campaigns.findUnique({
       where: { id: campaignId },
-      select: { id: true, status: true, artistId: true }
+      select: { id: true, status: true, artistId: true },
     });
 
     if (!campaign) {
@@ -47,26 +44,28 @@ export async function GET(
     // Build where clause
     const where: any = {
       challenge: {
-        campaignId: campaignId
-      }
+        campaignId: campaignId,
+      },
     };
 
     if (challengeId) where.challengeId = challengeId;
     if (status) where.status = status;
-    
+
     // If userId is specified, only show that user's submissions (for privacy)
     if (userId) {
       if (!session?.user?.id) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       }
-      
+
       // Users can only view their own submissions, unless they're the artist or admin
-      if (userId !== session.user.id && 
-          campaign.artistId !== session.user.id && 
-          session.user.role !== 'ADMIN') {
+      if (
+        userId !== session.user.id &&
+        campaign.artistId !== session.user.id &&
+        session.user.role !== 'ADMIN'
+      ) {
         return NextResponse.json({ error: 'Access denied' }, { status: 403 });
       }
-      
+
       where.submitterId = userId;
     } else {
       // For public submissions list, only show approved submissions
@@ -75,24 +74,21 @@ export async function GET(
     }
 
     const [submissions, total] = await Promise.all([
-      prisma.challengeSubmission.findMany({
+      prisma.challenge_submissions.findMany({
         where,
         skip,
         take: limit,
-        orderBy: [
-          { totalScore: 'desc' },
-          { submittedAt: 'desc' }
-        ],
+        orderBy: [{ totalScore: 'desc' }, { submittedAt: 'desc' }],
         include: {
           submitter: {
-            select: { id: true, displayName: true, avatar: true }
+            select: { id: true, displayName: true, avatar: true },
           },
           challenge: {
-            select: { id: true, title: true, type: true }
-          }
+            select: { id: true, title: true, type: true },
+          },
         },
       }),
-      prisma.challengeSubmission.count({ where }),
+      prisma.challenge_submissions.count({ where }),
     ]);
 
     return NextResponse.json({
@@ -104,21 +100,14 @@ export async function GET(
         pages: Math.ceil(total / limit),
       },
     });
-
   } catch (error) {
     logger.error('Error fetching campaign submissions', { campaignId: params.id }, error as Error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 // POST /api/campaigns/[id]/submissions - Submit content to a campaign
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   let session: any;
   try {
     const { id: campaignId } = params;
@@ -137,25 +126,25 @@ export async function POST(
     const validatedData = createSubmissionSchema.parse(body);
 
     // Check if campaign exists and is active
-    const campaign = await prisma.campaign.findUnique({
+    const campaign = await prisma.campaigns.findUnique({
       where: { id: campaignId },
-      select: { 
-        id: true, 
-        status: true, 
-        startDate: true, 
+      select: {
+        id: true,
+        status: true,
+        startDate: true,
         endDate: true,
         challenges: {
           where: { id: validatedData.challengeId },
-          select: { 
-            id: true, 
-            status: true, 
-            endDate: true, 
+          select: {
+            id: true,
+            status: true,
+            endDate: true,
             submissionDeadline: true,
             maxSubmissions: true,
-            submissionTypes: true
-          }
-        }
-      }
+            submissionTypes: true,
+          },
+        },
+      },
     });
 
     if (!campaign) {
@@ -172,7 +161,10 @@ export async function POST(
     }
 
     if (challenge.status !== 'ACTIVE') {
-      return NextResponse.json({ error: 'Challenge is not accepting submissions' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Challenge is not accepting submissions' },
+        { status: 400 }
+      );
     }
 
     // Check submission deadline
@@ -182,14 +174,14 @@ export async function POST(
     }
 
     // Check if user is participating in the challenge
-    const participation = await prisma.challengeParticipation.findUnique({
+    const participation = await prisma.challenge_participations.findUnique({
       where: {
         challengeId_participantId: {
           challengeId: challenge.id,
-          participantId: session.user.id
-        }
+          participantId: session.user.id,
+        },
       },
-      select: { id: true, submissionCount: true, status: true }
+      select: { id: true, submissionCount: true, status: true },
     });
 
     if (!participation) {
@@ -202,25 +194,31 @@ export async function POST(
 
     // Check submission limits
     if (challenge.maxSubmissions && participation.submissionCount >= challenge.maxSubmissions) {
-      return NextResponse.json({ 
-        error: `Maximum ${challenge.maxSubmissions} submissions allowed` 
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: `Maximum ${challenge.maxSubmissions} submissions allowed`,
+        },
+        { status: 400 }
+      );
     }
 
     // Validate content type is allowed
     if (challenge.submissionTypes) {
       const allowedTypes = JSON.parse(challenge.submissionTypes);
       if (!allowedTypes.includes(validatedData.contentType)) {
-        return NextResponse.json({ 
-          error: `Content type ${validatedData.contentType} not allowed for this challenge` 
-        }, { status: 400 });
+        return NextResponse.json(
+          {
+            error: `Content type ${validatedData.contentType} not allowed for this challenge`,
+          },
+          { status: 400 }
+        );
       }
     }
 
     // Use transaction to ensure data consistency
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async tx => {
       // Create submission
-      const submission = await tx.challengeSubmission.create({
+      const submission = await tx.challenge_submissions.create({
         data: {
           challengeId: challenge.id,
           participationId: participation.id,
@@ -232,31 +230,31 @@ export async function POST(
           thumbnailUrl: validatedData.thumbnailUrl,
           metadata: validatedData.metadata ? JSON.stringify(validatedData.metadata) : null,
           status: 'PENDING',
-          reviewStatus: 'PENDING'
+          reviewStatus: 'PENDING',
         },
         include: {
           submitter: {
-            select: { id: true, displayName: true, avatar: true }
+            select: { id: true, displayName: true, avatar: true },
           },
           challenge: {
-            select: { id: true, title: true, type: true }
-          }
-        }
+            select: { id: true, title: true, type: true },
+          },
+        },
       });
 
       // Update participation submission count
-      await tx.challengeParticipation.update({
+      await tx.challenge_participations.update({
         where: { id: participation.id },
-        data: { 
+        data: {
           submissionCount: { increment: 1 },
-          lastActiveAt: new Date()
-        }
+          lastActiveAt: new Date(),
+        },
       });
 
       // Update challenge submission count
       await tx.challenge.update({
         where: { id: challenge.id },
-        data: { submissionCount: { increment: 1 } }
+        data: { submissionCount: { increment: 1 } },
       });
 
       return submission;
@@ -267,11 +265,10 @@ export async function POST(
       challengeId: challenge.id,
       submissionId: result.id,
       userId: session.user.id,
-      contentType: validatedData.contentType
+      contentType: validatedData.contentType,
     });
 
     return NextResponse.json(result, { status: 201 });
-
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -280,14 +277,15 @@ export async function POST(
       );
     }
 
-    logger.error('Error creating submission', { 
-      campaignId: params.id, 
-      userId: session?.user?.id 
-    }, error as Error);
-    
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+    logger.error(
+      'Error creating submission',
+      {
+        campaignId: params.id,
+        userId: session?.user?.id,
+      },
+      error as Error
     );
+
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

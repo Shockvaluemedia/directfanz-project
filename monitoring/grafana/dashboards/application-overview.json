@@ -1,8 +1,8 @@
 {
   "dashboard": {
     "id": null,
-    "title": "Direct Fan Platform - Application Overview",
-    "tags": ["direct-fan-platform", "overview"],
+    "title": "DirectFanz - Application Overview",
+    "tags": ["directfanz", "overview"],
     "style": "dark",
     "timezone": "browser",
     "refresh": "30s",
@@ -15,7 +15,7 @@
         "id": 1,
         "title": "System Health Status",
         "type": "stat",
-        "gridPos": {"h": 6, "w": 6, "x": 0, "y": 0},
+        "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
         "targets": [
           {
             "expr": "direct_fan_platform_database_connection",
@@ -61,7 +61,7 @@
         "id": 2,
         "title": "HTTP Request Rate",
         "type": "graph",
-        "gridPos": {"h": 6, "w": 12, "x": 6, "y": 0},
+        "gridPos": { "h": 6, "w": 12, "x": 6, "y": 0 },
         "targets": [
           {
             "expr": "rate(http_request_total[5m])",
@@ -83,7 +83,7 @@
         "id": 3,
         "title": "Response Time Percentiles",
         "type": "graph",
-        "gridPos": {"h": 6, "w": 6, "x": 18, "y": 0},
+        "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
         "targets": [
           {
             "expr": "histogram_quantile(0.50, rate(http_request_duration_ms_bucket[5m]))",
@@ -112,7 +112,7 @@
         "id": 4,
         "title": "Active Users",
         "type": "stat",
-        "gridPos": {"h": 4, "w": 4, "x": 0, "y": 6},
+        "gridPos": { "h": 4, "w": 4, "x": 0, "y": 6 },
         "targets": [
           {
             "expr": "direct_fan_platform_users_total",
@@ -133,7 +133,7 @@
         "id": 5,
         "title": "Active Artists",
         "type": "stat",
-        "gridPos": {"h": 4, "w": 4, "x": 4, "y": 6},
+        "gridPos": { "h": 4, "w": 4, "x": 4, "y": 6 },
         "targets": [
           {
             "expr": "direct_fan_platform_artists_total",
@@ -154,7 +154,7 @@
         "id": 6,
         "title": "Active Subscriptions",
         "type": "stat",
-        "gridPos": {"h": 4, "w": 4, "x": 8, "y": 6},
+        "gridPos": { "h": 4, "w": 4, "x": 8, "y": 6 },
         "targets": [
           {
             "expr": "direct_fan_platform_active_subscriptions_total",
@@ -175,7 +175,7 @@
         "id": 7,
         "title": "Error Rate",
         "type": "graph",
-        "gridPos": {"h": 4, "w": 12, "x": 12, "y": 6},
+        "gridPos": { "h": 4, "w": 12, "x": 12, "y": 6 },
         "targets": [
           {
             "expr": "rate(http_request_total{status=~\"4..|5..\"}[5m]) / rate(http_request_total[5m])",
@@ -223,7 +223,7 @@
         "id": 8,
         "title": "Database Performance",
         "type": "graph",
-        "gridPos": {"h": 6, "w": 12, "x": 0, "y": 10},
+        "gridPos": { "h": 6, "w": 12, "x": 0, "y": 10 },
         "targets": [
           {
             "expr": "histogram_quantile(0.95, rate(database_operation_duration_ms_bucket[5m]))",
@@ -242,7 +242,7 @@
         "id": 9,
         "title": "Memory Usage",
         "type": "graph",
-        "gridPos": {"h": 6, "w": 12, "x": 12, "y": 10},
+        "gridPos": { "h": 6, "w": 12, "x": 12, "y": 10 },
         "targets": [
           {
             "expr": "nodejs_memory_usage_bytes{type=\"heap_used\"}",
@@ -271,7 +271,7 @@
         "id": 10,
         "title": "Business Events",
         "type": "graph",
-        "gridPos": {"h": 6, "w": 24, "x": 0, "y": 16},
+        "gridPos": { "h": 6, "w": 24, "x": 0, "y": 16 },
         "targets": [
           {
             "expr": "rate(business_events_total[5m])",

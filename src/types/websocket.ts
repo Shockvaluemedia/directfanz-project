@@ -29,24 +29,24 @@ export interface ServerToClientEvents {
   'message:new': (message: Message) => void;
   'message:read': (data: { messageId: string; readAt: string; readBy: string }) => void;
   'message:delivered': (data: { messageId: string; deliveredAt: string }) => void;
-  
+
   // Typing events
   'typing:start': (data: { userId: string; displayName: string; conversationId: string }) => void;
   'typing:stop': (data: { userId: string; conversationId: string }) => void;
-  
+
   // Presence events
   'user:online': (data: { userId: string; lastSeen: string }) => void;
   'user:offline': (data: { userId: string; lastSeen: string }) => void;
-  
+
   // Connection events
-  'connect' : () => void;
-  'disconnect': () => void;
+  connect: () => void;
+  disconnect: () => void;
   'auth:success': (data: { userId: string }) => void;
   'auth:error': (error: string) => void;
-  
+
   // WebRTC Signaling Events
-  'offer': (data: { offer: RTCSessionDescriptionInit; senderId: string }) => void;
-  'answer': (data: { answer: RTCSessionDescriptionInit; senderId: string }) => void;
+  offer: (data: { offer: RTCSessionDescriptionInit; senderId: string }) => void;
+  answer: (data: { answer: RTCSessionDescriptionInit; senderId: string }) => void;
   'ice-candidate': (data: { candidate: RTCIceCandidateInit; senderId: string }) => void;
   'broadcaster-joined': () => void;
   'broadcaster-left': () => void;
@@ -58,15 +58,15 @@ export interface ServerToClientEvents {
   'stream-ended': () => void;
   'stream-request': (data: { viewerId: string }) => void;
   'quality-changed': (data: { quality: string; bitrate?: number }) => void;
-  
+
   // Error events
-  'error': (error: string) => void;
+  error: (error: string) => void;
 }
 
 export interface ClientToServerEvents {
   // Authentication
-  'auth': (token: string) => void;
-  
+  auth: (token: string) => void;
+
   // Message events
   'message:send': (data: {
     recipientId: string;
@@ -75,27 +75,27 @@ export interface ClientToServerEvents {
     attachmentUrl?: string;
   }) => void;
   'message:mark_read': (data: { messageId: string }) => void;
-  
+
   // Typing events
   'typing:start': (data: { conversationWith: string }) => void;
   'typing:stop': (data: { conversationWith: string }) => void;
-  
+
   // Conversation events
   'conversation:join': (data: { conversationWith: string }) => void;
   'conversation:leave': (data: { conversationWith: string }) => void;
-  
+
   // WebRTC Signaling Events
   'stream:join': (data: { streamId: string; isOwner: boolean }) => void;
   'stream:leave': (data: { streamId: string }) => void;
-  'offer': (data: { offer: RTCSessionDescriptionInit; targetId: string }) => void;
-  'answer': (data: { answer: RTCSessionDescriptionInit; targetId: string }) => void;
+  offer: (data: { offer: RTCSessionDescriptionInit; targetId: string }) => void;
+  answer: (data: { answer: RTCSessionDescriptionInit; targetId: string }) => void;
   'ice-candidate': (data: { candidate: RTCIceCandidateInit; targetId: string }) => void;
   'broadcaster-ready': () => void;
   'request-stream': () => void;
   'start-stream': () => void;
   'stop-stream': () => void;
   'stream-quality-change': (data: { quality: string; bitrate?: number }) => void;
-  
+
   // Presence events
   'presence:update': () => void;
 }
@@ -109,7 +109,7 @@ export interface SocketData {
   user: User;
   activeConversations: Set<string>;
   lastSeen: Date;
-  
+
   // WebRTC specific data
   streamId?: string;
   isStreamOwner?: boolean;
@@ -141,7 +141,7 @@ export enum ConnectionStatus {
   CONNECTING = 'connecting',
   CONNECTED = 'connected',
   RECONNECTING = 'reconnecting',
-  ERROR = 'error'
+  ERROR = 'error',
 }
 
 // Helper functions

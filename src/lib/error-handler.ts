@@ -5,7 +5,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 import { Prisma } from '@prisma/client';
-import { AppError, ErrorCode, isAppError, getUserFriendlyMessage, createInternalError, createValidationError, createDatabaseError } from './errors';
+import {
+  AppError,
+  ErrorCode,
+  isAppError,
+  getUserFriendlyMessage,
+  createInternalError,
+  createValidationError,
+  createDatabaseError,
+} from './errors';
 import { logger, generateRequestId, LogContext } from './logger';
 
 export interface ApiResponse<T = any> {
@@ -32,7 +40,11 @@ export interface RequestContext {
 }
 
 // Create request context from NextRequest
-export const createRequestContext = (request: NextRequest, userId?: string, userRole?: string): RequestContext => {
+export const createRequestContext = (
+  request: NextRequest,
+  userId?: string,
+  userRole?: string
+): RequestContext => {
   return {
     requestId: generateRequestId(),
     userId,
@@ -74,7 +86,11 @@ export const createErrorResponse = (error: AppError, requestId: string): NextRes
 };
 
 // Success response creator
-export const createSuccessResponse = <T>(data: T, requestId: string, statusCode: number = 200): NextResponse => {
+export const createSuccessResponse = <T>(
+  data: T,
+  requestId: string,
+  statusCode: number = 200
+): NextResponse => {
   const response: ApiResponse<T> = {
     success: true,
     data,
@@ -103,13 +119,8 @@ export const normalizeError = (error: unknown, context: RequestContext): AppErro
     };
 
     logger.warn('Validation error occurred', logContext, { zodError: error.errors });
-    
-    return createValidationError(
-      'Validation failed',
-      details,
-      context.requestId,
-      context.userId
-    );
+
+    return createValidationError('Validation failed', details, context.requestId, context.userId);
   }
 
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -153,7 +164,7 @@ export const normalizeError = (error: unknown, context: RequestContext): AppErro
 
   if (error instanceof Prisma.PrismaClientUnknownRequestError) {
     logger.error('Unknown Prisma error occurred', logContext, error);
-    
+
     return createDatabaseError(
       'Database error occurred',
       { prismaError: error.message },
@@ -164,7 +175,7 @@ export const normalizeError = (error: unknown, context: RequestContext): AppErro
 
   if (error instanceof Error) {
     logger.error('Unexpected error occurred', logContext, error);
-    
+
     return createInternalError(
       'An unexpected error occurred',
       { originalMessage: error.message },
@@ -174,7 +185,7 @@ export const normalizeError = (error: unknown, context: RequestContext): AppErro
   }
 
   logger.error('Unknown error type occurred', logContext, undefined, { error });
-  
+
   return createInternalError(
     'An unknown error occurred',
     { error: String(error) },
@@ -195,7 +206,7 @@ export const withErrorHandling = <T extends any[], R>(
       logger.info(`API Request started`, logContext);
 
       const result = await handler(context, ...args);
-      
+
       const duration = Date.now() - context.startTime;
       logger.apiRequest(context.method, context.url, 200, duration, logContext);
 
@@ -203,7 +214,7 @@ export const withErrorHandling = <T extends any[], R>(
     } catch (error) {
       const appError = normalizeError(error, context);
       const duration = Date.now() - context.startTime;
-      
+
       logger.apiError(context.method, context.url, appError, {
         ...logContext,
         duration,
@@ -216,9 +227,7 @@ export const withErrorHandling = <T extends any[], R>(
 };
 
 // Async error handler for non-API functions
-export const handleAsync = <T extends any[], R>(
-  fn: (...args: T) => Promise<R>
-) => {
+export const handleAsync = <T extends any[], R>(fn: (...args: T) => Promise<R>) => {
   return async (...args: T): Promise<R> => {
     try {
       return await fn(...args);
@@ -281,14 +290,18 @@ export const withDatabaseErrorHandling = async <T>(
 ): Promise<T> => {
   try {
     logger.debug(`Database operation started: ${operationName}`, toLogContext(context));
-    
+
     const result = await operation();
-    
+
     logger.debug(`Database operation completed: ${operationName}`, toLogContext(context));
-    
+
     return result;
   } catch (error) {
-    logger.error(`Database operation failed: ${operationName}`, toLogContext(context), error as Error);
+    logger.error(
+      `Database operation failed: ${operationName}`,
+      toLogContext(context),
+      error as Error
+    );
     throw normalizeError(error, context);
   }
 };

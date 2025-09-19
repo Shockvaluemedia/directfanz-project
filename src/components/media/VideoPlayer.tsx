@@ -4,16 +4,16 @@ import React, { useRef, useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import { 
-  Play, 
-  Pause, 
-  Volume2, 
-  VolumeX, 
-  Maximize, 
+import {
+  Play,
+  Pause,
+  Volume2,
+  VolumeX,
+  Maximize,
   Settings,
   SkipBack,
   SkipForward,
-  Loader2
+  Loader2,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -34,20 +34,20 @@ interface VideoPlayerProps {
   className?: string;
 }
 
-export function VideoPlayer({ 
-  src, 
-  poster, 
-  title, 
+export function VideoPlayer({
+  src,
+  poster,
+  title,
   contentId,
   onTimeUpdate,
   onPlay,
   onPause,
   onEnded,
-  className 
+  className,
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  
+
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -58,7 +58,7 @@ export function VideoPlayer({
   const [showControls, setShowControls] = useState(true);
   const [quality, setQuality] = useState('auto');
   const [playbackRate, setPlaybackRate] = useState(1);
-  
+
   // Auto-hide controls timer
   const hideControlsTimer = useRef<NodeJS.Timeout>();
 
@@ -154,7 +154,7 @@ export function VideoPlayer({
 
   const togglePlay = () => {
     if (!videoRef.current) return;
-    
+
     if (isPlaying) {
       videoRef.current.pause();
     } else {
@@ -184,7 +184,7 @@ export function VideoPlayer({
 
   const toggleFullscreen = () => {
     if (!containerRef.current) return;
-    
+
     if (!isFullscreen) {
       containerRef.current.requestFullscreen();
     } else {
@@ -212,7 +212,7 @@ export function VideoPlayer({
     const hours = Math.floor(time / 3600);
     const minutes = Math.floor((time % 3600) / 60);
     const seconds = Math.floor(time % 60);
-    
+
     if (hours > 0) {
       return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     }
@@ -221,111 +221,111 @@ export function VideoPlayer({
 
   return (
     <Card className={`relative overflow-hidden bg-black group ${className}`}>
-      <div 
+      <div
         ref={containerRef}
-        className="relative w-full h-full"
+        className='relative w-full h-full'
         onMouseMove={resetControlsTimer}
         onMouseEnter={resetControlsTimer}
       >
         {/* Video Element */}
         <video
           ref={videoRef}
-          className="w-full h-full object-contain"
+          className='w-full h-full object-contain'
           poster={poster}
-          preload="metadata"
+          preload='metadata'
           playsInline
           onClick={togglePlay}
         >
-          <source src={src} type="video/mp4" />
+          <source src={src} type='video/mp4' />
           Your browser does not support the video tag.
         </video>
 
         {/* Loading Overlay */}
         {loading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-            <Loader2 className="h-8 w-8 animate-spin text-white" />
+          <div className='absolute inset-0 flex items-center justify-center bg-black/50'>
+            <Loader2 className='h-8 w-8 animate-spin text-white' />
           </div>
         )}
 
         {/* Play Button Overlay */}
         {!isPlaying && !loading && (
-          <div className="absolute inset-0 flex items-center justify-center">
+          <div className='absolute inset-0 flex items-center justify-center'>
             <Button
-              size="lg"
-              className="rounded-full w-16 h-16 bg-white/20 hover:bg-white/30 backdrop-blur-sm"
+              size='lg'
+              className='rounded-full w-16 h-16 bg-white/20 hover:bg-white/30 backdrop-blur-sm'
               onClick={togglePlay}
             >
-              <Play className="h-8 w-8 text-white ml-1" />
+              <Play className='h-8 w-8 text-white ml-1' />
             </Button>
           </div>
         )}
 
         {/* Controls Overlay */}
-        <div 
+        <div
           className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 transition-opacity duration-300 ${
             showControls || !isPlaying ? 'opacity-100' : 'opacity-0'
           }`}
         >
           {/* Progress Bar */}
-          <div className="mb-4">
+          <div className='mb-4'>
             <Slider
               value={[duration ? (currentTime / duration) * 100 : 0]}
               onValueChange={handleSeek}
               max={100}
               step={0.1}
-              className="w-full"
+              className='w-full'
             />
-            <div className="flex justify-between text-xs text-white/70 mt-1">
+            <div className='flex justify-between text-xs text-white/70 mt-1'>
               <span>{formatTime(currentTime)}</span>
               <span>{formatTime(duration)}</span>
             </div>
           </div>
 
           {/* Control Buttons */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
+          <div className='flex items-center justify-between'>
+            <div className='flex items-center space-x-2'>
               <Button
-                variant="ghost"
-                size="sm"
+                variant='ghost'
+                size='sm'
                 onClick={skipBackward}
-                className="text-white hover:bg-white/20"
+                className='text-white hover:bg-white/20'
               >
-                <SkipBack className="h-4 w-4" />
+                <SkipBack className='h-4 w-4' />
               </Button>
-              
+
               <Button
-                variant="ghost"
-                size="sm"
+                variant='ghost'
+                size='sm'
                 onClick={togglePlay}
-                className="text-white hover:bg-white/20"
+                className='text-white hover:bg-white/20'
               >
-                {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                {isPlaying ? <Pause className='h-4 w-4' /> : <Play className='h-4 w-4' />}
               </Button>
-              
+
               <Button
-                variant="ghost"
-                size="sm"
+                variant='ghost'
+                size='sm'
                 onClick={skipForward}
-                className="text-white hover:bg-white/20"
+                className='text-white hover:bg-white/20'
               >
-                <SkipForward className="h-4 w-4" />
+                <SkipForward className='h-4 w-4' />
               </Button>
 
               {/* Volume Control */}
-              <div className="flex items-center space-x-2">
+              <div className='flex items-center space-x-2'>
                 <Button
-                  variant="ghost"
-                  size="sm"
+                  variant='ghost'
+                  size='sm'
                   onClick={toggleMute}
-                  className="text-white hover:bg-white/20"
+                  className='text-white hover:bg-white/20'
                 >
                   {isMuted || volume === 0 ? (
-                    <VolumeX className="h-4 w-4" />
+                    <VolumeX className='h-4 w-4' />
                   ) : (
-                    <Volume2 className="h-4 w-4" />
+                    <Volume2 className='h-4 w-4' />
                   )}
                 </Button>
-                <div className="w-20">
+                <div className='w-20'>
                   <Slider
                     value={[isMuted ? 0 : volume * 100]}
                     onValueChange={handleVolumeChange}
@@ -336,21 +336,17 @@ export function VideoPlayer({
               </div>
             </div>
 
-            <div className="flex items-center space-x-2">
+            <div className='flex items-center space-x-2'>
               {/* Settings Menu */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-white hover:bg-white/20"
-                  >
-                    <Settings className="h-4 w-4" />
+                  <Button variant='ghost' size='sm' className='text-white hover:bg-white/20'>
+                    <Settings className='h-4 w-4' />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
-                  <div className="px-2 py-1 text-sm font-semibold">Playback Speed</div>
-                  {[0.25, 0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => (
+                  <div className='px-2 py-1 text-sm font-semibold'>Playback Speed</div>
+                  {[0.25, 0.5, 0.75, 1, 1.25, 1.5, 2].map(rate => (
                     <DropdownMenuItem
                       key={rate}
                       onClick={() => changePlaybackRate(rate)}
@@ -364,12 +360,12 @@ export function VideoPlayer({
 
               {/* Fullscreen Button */}
               <Button
-                variant="ghost"
-                size="sm"
+                variant='ghost'
+                size='sm'
                 onClick={toggleFullscreen}
-                className="text-white hover:bg-white/20"
+                className='text-white hover:bg-white/20'
               >
-                <Maximize className="h-4 w-4" />
+                <Maximize className='h-4 w-4' />
               </Button>
             </div>
           </div>
@@ -377,12 +373,12 @@ export function VideoPlayer({
 
         {/* Title Overlay */}
         {title && (
-          <div className={`absolute top-4 left-4 right-4 transition-opacity duration-300 ${
-            showControls || !isPlaying ? 'opacity-100' : 'opacity-0'
-          }`}>
-            <h3 className="text-white font-semibold text-lg drop-shadow-lg">
-              {title}
-            </h3>
+          <div
+            className={`absolute top-4 left-4 right-4 transition-opacity duration-300 ${
+              showControls || !isPlaying ? 'opacity-100' : 'opacity-0'
+            }`}
+          >
+            <h3 className='text-white font-semibold text-lg drop-shadow-lg'>{title}</h3>
           </div>
         )}
       </div>

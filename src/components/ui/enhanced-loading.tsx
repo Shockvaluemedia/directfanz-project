@@ -2,7 +2,17 @@
 
 import React from 'react';
 import { cn } from '@/lib/utils';
-import { Loader2, Upload, Download, Music, Video, Image, FileText, Wifi, WifiOff } from 'lucide-react';
+import {
+  Loader2,
+  Upload,
+  Download,
+  Music,
+  Video,
+  Image,
+  FileText,
+  Wifi,
+  WifiOff,
+} from 'lucide-react';
 import { ProgressRing } from './animations';
 
 interface LoadingStateProps {
@@ -13,28 +23,28 @@ interface LoadingStateProps {
   size?: 'sm' | 'md' | 'lg';
 }
 
-export function LoadingState({ 
-  type = 'default', 
-  message, 
-  progress, 
+export function LoadingState({
+  type = 'default',
+  message,
+  progress,
   className,
-  size = 'md' 
+  size = 'md',
 }: LoadingStateProps) {
   const sizeClasses = {
     sm: 'text-sm',
     md: 'text-base',
-    lg: 'text-lg'
+    lg: 'text-lg',
   };
 
   const iconSizes = {
     sm: 'h-4 w-4',
     md: 'h-6 w-6',
-    lg: 'h-8 w-8'
+    lg: 'h-8 w-8',
   };
 
   const getLoadingIcon = () => {
     const iconClass = `${iconSizes[size]} animate-spin text-blue-500`;
-    
+
     switch (type) {
       case 'upload':
         return <Upload className={iconClass} />;
@@ -53,12 +63,18 @@ export function LoadingState({
 
   const getDefaultMessage = () => {
     switch (type) {
-      case 'upload': return 'Uploading files...';
-      case 'download': return 'Downloading...';
-      case 'processing': return 'Processing...';
-      case 'connecting': return 'Connecting...';
-      case 'syncing': return 'Syncing data...';
-      default: return 'Loading...';
+      case 'upload':
+        return 'Uploading files...';
+      case 'download':
+        return 'Downloading...';
+      case 'processing':
+        return 'Processing...';
+      case 'connecting':
+        return 'Connecting...';
+      case 'syncing':
+        return 'Syncing data...';
+      default:
+        return 'Loading...';
     }
   };
 
@@ -73,15 +89,13 @@ export function LoadingState({
       ) : (
         getLoadingIcon()
       )}
-      
-      <div className="text-center space-y-1">
+
+      <div className='text-center space-y-1'>
         <p className={cn('font-medium text-gray-700 dark:text-gray-300', sizeClasses[size])}>
           {message || getDefaultMessage()}
         </p>
         {type === 'upload' && (
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            Please don't close this window
-          </p>
+          <p className='text-xs text-gray-500 dark:text-gray-400'>Please don't close this window</p>
         )}
       </div>
     </div>
@@ -97,39 +111,46 @@ interface ContentLoadingProps {
 
 export function ContentLoading({ type, title, className }: ContentLoadingProps) {
   const getIcon = () => {
-    const iconClass = "h-12 w-12 text-gray-400 dark:text-gray-600";
+    const iconClass = 'h-12 w-12 text-gray-400 dark:text-gray-600';
     switch (type) {
-      case 'audio': return <Music className={iconClass} />;
-      case 'video': return <Video className={iconClass} />;
-      case 'image': return <Image className={iconClass} />;
-      case 'document': return <FileText className={iconClass} />;
+      case 'audio':
+        return <Music className={iconClass} />;
+      case 'video':
+        return <Video className={iconClass} />;
+      case 'image':
+        return <Image className={iconClass} />;
+      case 'document':
+        return <FileText className={iconClass} />;
     }
   };
 
   const getTitle = () => {
     switch (type) {
-      case 'audio': return 'Loading audio...';
-      case 'video': return 'Loading video...';
-      case 'image': return 'Loading image...';
-      case 'document': return 'Loading document...';
+      case 'audio':
+        return 'Loading audio...';
+      case 'video':
+        return 'Loading video...';
+      case 'image':
+        return 'Loading image...';
+      case 'document':
+        return 'Loading document...';
     }
   };
 
   return (
-    <div className={cn('flex flex-col items-center justify-center p-8 space-y-4 bg-gray-50 dark:bg-gray-900 rounded-lg', className)}>
-      <div className="relative">
+    <div
+      className={cn(
+        'flex flex-col items-center justify-center p-8 space-y-4 bg-gray-50 dark:bg-gray-900 rounded-lg',
+        className
+      )}
+    >
+      <div className='relative'>
         {getIcon()}
-        <div className="absolute inset-0 animate-ping opacity-25">
-          {getIcon()}
-        </div>
+        <div className='absolute inset-0 animate-ping opacity-25'>{getIcon()}</div>
       </div>
-      <div className="text-center">
-        <h3 className="font-medium text-gray-900 dark:text-gray-100">
-          {title || getTitle()}
-        </h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Preparing your content...
-        </p>
+      <div className='text-center'>
+        <h3 className='font-medium text-gray-900 dark:text-gray-100'>{title || getTitle()}</h3>
+        <p className='text-sm text-gray-500 dark:text-gray-400 mt-1'>Preparing your content...</p>
       </div>
     </div>
   );
@@ -142,12 +163,16 @@ interface ConnectionStatusProps {
   className?: string;
 }
 
-export function ConnectionStatus({ isConnected, isReconnecting, className }: ConnectionStatusProps) {
+export function ConnectionStatus({
+  isConnected,
+  isReconnecting,
+  className,
+}: ConnectionStatusProps) {
   if (isConnected) {
     return (
       <div className={cn('flex items-center space-x-1 text-green-600', className)}>
-        <Wifi className="h-3 w-3" />
-        <span className="text-xs">Connected</span>
+        <Wifi className='h-3 w-3' />
+        <span className='text-xs'>Connected</span>
       </div>
     );
   }
@@ -155,16 +180,16 @@ export function ConnectionStatus({ isConnected, isReconnecting, className }: Con
   if (isReconnecting) {
     return (
       <div className={cn('flex items-center space-x-1 text-yellow-600', className)}>
-        <Loader2 className="h-3 w-3 animate-spin" />
-        <span className="text-xs">Reconnecting...</span>
+        <Loader2 className='h-3 w-3 animate-spin' />
+        <span className='text-xs'>Reconnecting...</span>
       </div>
     );
   }
 
   return (
     <div className={cn('flex items-center space-x-1 text-red-600', className)}>
-      <WifiOff className="h-3 w-3" />
-      <span className="text-xs">Disconnected</span>
+      <WifiOff className='h-3 w-3' />
+      <span className='text-xs'>Disconnected</span>
     </div>
   );
 }
@@ -178,8 +203,8 @@ interface InlineLoadingProps {
 export function InlineLoading({ className, text }: InlineLoadingProps) {
   return (
     <div className={cn('flex items-center space-x-2', className)}>
-      <Loader2 className="h-4 w-4 animate-spin" />
-      {text && <span className="text-sm text-gray-600 dark:text-gray-400">{text}</span>}
+      <Loader2 className='h-4 w-4 animate-spin' />
+      {text && <span className='text-sm text-gray-600 dark:text-gray-400'>{text}</span>}
     </div>
   );
 }
@@ -191,17 +216,23 @@ interface LoadingOverlayProps {
   className?: string;
 }
 
-export function LoadingOverlay({ isVisible, message = 'Loading...', className }: LoadingOverlayProps) {
+export function LoadingOverlay({
+  isVisible,
+  message = 'Loading...',
+  className,
+}: LoadingOverlayProps) {
   if (!isVisible) return null;
 
   return (
-    <div className={cn(
-      'absolute inset-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm flex items-center justify-center z-50 rounded-lg',
-      className
-    )}>
-      <div className="flex flex-col items-center space-y-3">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-        <p className="font-medium text-gray-700 dark:text-gray-300">{message}</p>
+    <div
+      className={cn(
+        'absolute inset-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm flex items-center justify-center z-50 rounded-lg',
+        className
+      )}
+    >
+      <div className='flex flex-col items-center space-y-3'>
+        <Loader2 className='h-8 w-8 animate-spin text-blue-500' />
+        <p className='font-medium text-gray-700 dark:text-gray-300'>{message}</p>
       </div>
     </div>
   );
@@ -216,15 +247,15 @@ interface PulseLoadingProps {
 
 export function PulseLoading({ isLoading, children, className }: PulseLoadingProps) {
   return (
-    <div className={cn(
-      'relative transition-all duration-200',
-      isLoading && 'animate-pulse opacity-75 cursor-not-allowed',
-      className
-    )}>
-      {children}
-      {isLoading && (
-        <div className="absolute inset-0 bg-white/20 dark:bg-gray-800/20 rounded-md" />
+    <div
+      className={cn(
+        'relative transition-all duration-200',
+        isLoading && 'animate-pulse opacity-75 cursor-not-allowed',
+        className
       )}
+    >
+      {children}
+      {isLoading && <div className='absolute inset-0 bg-white/20 dark:bg-gray-800/20 rounded-md' />}
     </div>
   );
 }
@@ -237,7 +268,7 @@ interface ShimmerProps {
 
 export function Shimmer({ className, count = 1 }: ShimmerProps) {
   return (
-    <div className="space-y-2">
+    <div className='space-y-2'>
       {Array.from({ length: count }).map((_, i) => (
         <div
           key={i}
@@ -259,46 +290,52 @@ export function DataLoading({ type = 'table' }: { type?: 'table' | 'cards' | 'li
   switch (type) {
     case 'cards':
       return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-              <Shimmer className="h-4 w-3/4 mb-3" />
-              <Shimmer className="h-24 w-full mb-3" />
-              <Shimmer className="h-3 w-1/2" />
+            <div
+              key={i}
+              className='bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4'
+            >
+              <Shimmer className='h-4 w-3/4 mb-3' />
+              <Shimmer className='h-24 w-full mb-3' />
+              <Shimmer className='h-3 w-1/2' />
             </div>
           ))}
         </div>
       );
-      
+
     case 'list':
       return (
-        <div className="space-y-3">
+        <div className='space-y-3'>
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="flex items-center space-x-3 p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-              <Shimmer className="h-10 w-10 rounded-full" />
-              <div className="flex-1 space-y-2">
-                <Shimmer className="h-4 w-3/4" />
-                <Shimmer className="h-3 w-1/2" />
+            <div
+              key={i}
+              className='flex items-center space-x-3 p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700'
+            >
+              <Shimmer className='h-10 w-10 rounded-full' />
+              <div className='flex-1 space-y-2'>
+                <Shimmer className='h-4 w-3/4' />
+                <Shimmer className='h-3 w-1/2' />
               </div>
             </div>
           ))}
         </div>
       );
-      
+
     case 'table':
     default:
       return (
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-            <Shimmer className="h-4 w-32" />
+        <div className='bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700'>
+          <div className='p-4 border-b border-gray-200 dark:border-gray-700'>
+            <Shimmer className='h-4 w-32' />
           </div>
-          <div className="divide-y divide-gray-200 dark:divide-gray-700">
+          <div className='divide-y divide-gray-200 dark:divide-gray-700'>
             {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="p-4 flex items-center space-x-4">
-                <Shimmer className="h-3 w-1/4" />
-                <Shimmer className="h-3 w-1/4" />
-                <Shimmer className="h-3 w-1/4" />
-                <Shimmer className="h-3 w-1/4" />
+              <div key={i} className='p-4 flex items-center space-x-4'>
+                <Shimmer className='h-3 w-1/4' />
+                <Shimmer className='h-3 w-1/4' />
+                <Shimmer className='h-3 w-1/4' />
+                <Shimmer className='h-3 w-1/4' />
               </div>
             ))}
           </div>

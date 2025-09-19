@@ -19,9 +19,9 @@ async function getStreamData(streamId: string) {
             id: true,
             displayName: true,
             avatar: true,
-          }
-        }
-      }
+          },
+        },
+      },
     });
 
     return stream;
@@ -54,7 +54,7 @@ export async function generateMetadata({ params }: StreamPageProps): Promise<Met
       title: stream.title,
       description: stream.description || `Watch ${stream.artist.displayName}'s live stream`,
       images: stream.thumbnailUrl ? [stream.thumbnailUrl] : undefined,
-    }
+    },
   };
 }
 
@@ -66,8 +66,8 @@ export default async function StreamPage({ params }: StreamPageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
+    <div className='min-h-screen bg-gray-50'>
+      <div className='container mx-auto px-4 py-8'>
         <StreamPlayer
           streamId={params.streamId}
           autoplay={stream.status === 'LIVE'}

@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { 
-  calculateTierChangeProration, 
-  changeTier, 
+import {
+  calculateTierChangeProration,
+  changeTier,
   scheduleTierChange,
-  TierChangeOptions
+  TierChangeOptions,
 } from '@/lib/billing';
 import { z } from 'zod';
 
@@ -18,32 +18,21 @@ const changeTierSchema = z.object({
   sendNotification: z.boolean().optional().default(true),
 });
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
-    const { 
-      newTierId, 
-      newAmount, 
-      effectiveDate, 
-      prorationBehavior, 
-      sendNotification 
-    } = changeTierSchema.parse(body);
+    const { newTierId, newAmount, effectiveDate, prorationBehavior, sendNotification } =
+      changeTierSchema.parse(body);
 
     // Get subscription and verify ownership
-    const subscription = await prisma.subscription.findUnique({
-      where: { 
+    const subscription = await prisma.subscriptions.findUnique({
+      where: {
         id: params.id,
         fanId: session.user.id,
       },
@@ -53,10 +42,7 @@ export async function POST(
     });
 
     if (!subscription) {
-      return NextResponse.json(
-        { error: 'Subscription not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Subscription not found' }, { status: 404 });
     }
 
     if (subscription.status !== 'ACTIVE') {
@@ -67,19 +53,16 @@ export async function POST(
     }
 
     // Get new tier details
-    const newTier = await prisma.tier.findUnique({
-      where: { id: newTierId }
+    const newTier = await prisma.tiers.findUnique({
+      where: { id: newTierId },
     });
 
     if (!newTier) {
-      return NextResponse.json(
-        { error: 'New tier not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'New tier not found' }, { status: 404 });
     }
 
     // Validate that the new tier belongs to the same artist
-    if (newTier.artistId !== subscription.tier.artistId) {
+    if (newTier.artistId !== subscription.tiers.artistId) {
       return NextResponse.json(
         { error: 'Cannot change to a tier from a different artist' },
         { status: 400 }
@@ -101,41 +84,41 @@ export async function POST(
       const options: TierChangeOptions = {
         effectiveDate: effectiveDate as 'now' | 'next_billing_cycle',
         prorationBehavior: prorationBehavior as 'create_prorations' | 'none',
-        sendNotification
+        sendNotification,
       };
 
       let result;
       if (effectiveDate === 'next_billing_cycle') {
         result = await scheduleTierChange(subscription.id, newTierId, newAmount);
-        
+
         return NextResponse.json({
           success: true,
           message: `Subscription change scheduled for next billing cycle`,
           tierChange: {
-            fromTier: subscription.tier.name,
+            fromTier: subscription.tiers.name,
             toTier: newTier.name,
             fromAmount: currentAmount,
             toAmount: newAmount,
             scheduledDate: result.scheduledDate,
-            isUpgrade
-          }
+            isUpgrade,
+          },
         });
       } else {
         result = await changeTier(subscription.id, newTierId, newAmount, options);
-        
+
         return NextResponse.json({
           success: true,
           message: `Subscription ${isUpgrade ? 'upgraded' : 'downgraded'} successfully`,
           tierChange: {
-            fromTier: subscription.tier.name,
+            fromTier: subscription.tiers.name,
             toTier: newTier.name,
             fromAmount: currentAmount,
             toAmount: newAmount,
             prorationAmount: result.prorationAmount,
             invoiceId: result.invoiceId,
             effectiveDate: result.effectiveDate,
-            isUpgrade
-          }
+            isUpgrade,
+          },
         });
       }
     } catch (error) {
@@ -147,7 +130,7 @@ export async function POST(
     }
   } catch (error) {
     console.error('Change tier error:', error);
-    
+
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: 'Invalid request data', details: error.errors },
@@ -155,25 +138,16 @@ export async function POST(
       );
     }
 
-    return NextResponse.json(
-      { error: 'Failed to change subscription tier' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to change subscription tier' }, { status: 500 });
   }
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const url = new URL(request.url);
@@ -190,15 +164,12 @@ export async function GET(
 
     const newAmountNum = parseFloat(newAmount);
     if (isNaN(newAmountNum) || newAmountNum <= 0) {
-      return NextResponse.json(
-        { error: 'Invalid amount' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid amount' }, { status: 400 });
     }
 
     // Get subscription and verify ownership
-    const subscription = await prisma.subscription.findUnique({
-      where: { 
+    const subscription = await prisma.subscriptions.findUnique({
+      where: {
         id: params.id,
         fanId: session.user.id,
       },
@@ -208,29 +179,22 @@ export async function GET(
     });
 
     if (!subscription) {
-      return NextResponse.json(
-        { error: 'Subscription not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Subscription not found' }, { status: 404 });
     }
 
     // Get new tier details
-    const newTier = await prisma.tier.findUnique({
-      where: { id: newTierId }
+    const newTier = await prisma.tiers.findUnique({
+      where: { id: newTierId },
     });
 
     if (!newTier) {
-      return NextResponse.json(
-        { error: 'New tier not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'New tier not found' }, { status: 404 });
     }
 
     // Calculate proration preview
-    const effectiveDateObj = effectiveDate === 'next_billing_cycle' 
-      ? subscription.currentPeriodEnd 
-      : undefined;
-      
+    const effectiveDateObj =
+      effectiveDate === 'next_billing_cycle' ? subscription.currentPeriodEnd : undefined;
+
     const prorationPreview = await calculateTierChangeProration(
       subscription.id,
       newTierId,
@@ -243,20 +207,17 @@ export async function GET(
 
     return NextResponse.json({
       preview: {
-        currentTier: subscription.tier.name,
+        currentTier: subscription.tiers.name,
         newTier: newTier.name,
         currentAmount,
         newAmount: newAmountNum,
         isUpgrade,
         proration: prorationPreview,
-        effectiveDate: effectiveDate
-      }
+        effectiveDate: effectiveDate,
+      },
     });
   } catch (error) {
     console.error('Get tier change preview error:', error);
-    return NextResponse.json(
-      { error: 'Failed to get tier change preview' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to get tier change preview' }, { status: 500 });
   }
 }

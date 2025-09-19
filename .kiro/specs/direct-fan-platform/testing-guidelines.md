@@ -2,13 +2,16 @@
 
 ## Overview
 
-This document outlines the testing strategy and guidelines for the Direct Fan Platform. It covers end-to-end testing with Playwright, load testing, and best practices for ensuring application quality.
+This document outlines the testing strategy and guidelines for the Direct Fan
+Platform. It covers end-to-end testing with Playwright, load testing, and best
+practices for ensuring application quality.
 
 ## End-to-End Testing with Playwright
 
 ### Setup and Configuration
 
-The project uses Playwright for end-to-end testing. The configuration is defined in `playwright.config.ts` at the root of the project.
+The project uses Playwright for end-to-end testing. The configuration is defined
+in `playwright.config.ts` at the root of the project.
 
 To run the tests:
 
@@ -64,10 +67,13 @@ The following critical user journeys are covered by E2E tests:
 
 ### Best Practices for E2E Tests
 
-1. **Test Independence**: Each test should be independent and not rely on the state from previous tests.
+1. **Test Independence**: Each test should be independent and not rely on the
+   state from previous tests.
 2. **Realistic Data**: Use realistic test data that mimics production scenarios.
-3. **Selectors**: Use data attributes for test selectors (e.g., `data-testid`, `data-tier-id`) rather than CSS classes or element text.
-4. **Assertions**: Include meaningful assertions that verify the expected behavior.
+3. **Selectors**: Use data attributes for test selectors (e.g., `data-testid`,
+   `data-tier-id`) rather than CSS classes or element text.
+4. **Assertions**: Include meaningful assertions that verify the expected
+   behavior.
 5. **Timeouts**: Use appropriate timeouts for asynchronous operations.
 6. **Error Handling**: Include proper error handling in tests.
 7. **Screenshots**: Configure screenshots on test failures for easier debugging.
@@ -76,7 +82,8 @@ The following critical user journeys are covered by E2E tests:
 
 ### Setup and Configuration
 
-The project includes a custom load testing script in `scripts/load-test.js` that simulates concurrent users performing various actions on the platform.
+The project includes a custom load testing script in `scripts/load-test.js` that
+simulates concurrent users performing various actions on the platform.
 
 To run load tests:
 
@@ -120,7 +127,8 @@ E2E tests are integrated into the CI/CD pipeline with the following workflow:
 
 ### Test Reports
 
-Test reports are generated automatically and stored as artifacts in the CI/CD pipeline. They include:
+Test reports are generated automatically and stored as artifacts in the CI/CD
+pipeline. They include:
 
 - Test results summary
 - Screenshots of failures
@@ -185,4 +193,7 @@ Accessibility testing ensures WCAG AA compliance:
 
 ## Conclusion
 
-Following these testing guidelines will help ensure the Direct Fan Platform meets its quality, performance, and reliability requirements. Regular testing and continuous improvement of the test suite are essential for maintaining a high-quality application.
+Following these testing guidelines will help ensure the Direct Fan Platform
+meets its quality, performance, and reliability requirements. Regular testing
+and continuous improvement of the test suite are essential for maintaining a
+high-quality application.

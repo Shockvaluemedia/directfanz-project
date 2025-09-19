@@ -1,13 +1,14 @@
 # New API Endpoints - Core Functionality Implementation
 
-This document describes the newly implemented API endpoints that were missing from the core functionality of the Nahvee Even platform.
+This document describes the newly implemented API endpoints that were missing
+from the core functionality of the Nahvee Even platform.
 
 ## Overview
 
 The following core API endpoints have been implemented:
 
 1. **Search & Discovery** - `/api/search`
-2. **Admin Management** - `/api/admin/*` 
+2. **Admin Management** - `/api/admin/*`
 3. **Messaging System** - `/api/messages`
 4. **Recommendations Engine** - `/api/recommendations`
 5. **Content Moderation** - `/api/moderation/reports`
@@ -17,19 +18,24 @@ The following core API endpoints have been implemented:
 
 **Endpoint:** `GET /api/search`
 
-**Description:** Comprehensive search functionality for artists, content, and tiers.
+**Description:** Comprehensive search functionality for artists, content, and
+tiers.
 
 **Parameters:**
+
 - `query` (string, required): Search term
 - `type` (enum): 'artists' | 'content' | 'all' (default: 'all')
 - `limit` (number): Results per page (1-50, default: 20)
 - `offset` (number): Pagination offset (default: 0)
-- `sortBy` (enum): 'relevance' | 'newest' | 'popular' | 'price_low' | 'price_high'
-- `contentType` (enum): Filter by content type ('AUDIO' | 'VIDEO' | 'IMAGE' | 'DOCUMENT')
+- `sortBy` (enum): 'relevance' | 'newest' | 'popular' | 'price_low' |
+  'price_high'
+- `contentType` (enum): Filter by content type ('AUDIO' | 'VIDEO' | 'IMAGE' |
+  'DOCUMENT')
 - `minPrice` (number): Minimum price filter
 - `maxPrice` (number): Maximum price filter
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -49,6 +55,7 @@ The following core API endpoints have been implemented:
 ```
 
 **Features:**
+
 - Full-text search across artist names, bios, content titles, and tags
 - Advanced filtering by price range and content type
 - Intelligent sorting algorithms
@@ -58,11 +65,13 @@ The following core API endpoints have been implemented:
 ## 2. Admin Management APIs
 
 ### User Management
+
 **Endpoint:** `GET/POST /api/admin/users`
 
 **Authorization:** Admin role required
 
 **GET Parameters:**
+
 - `role` (enum): Filter by 'ARTIST' | 'FAN'
 - `status` (enum): 'active' | 'suspended' | 'all'
 - `search` (string): Search users by name/email
@@ -70,6 +79,7 @@ The following core API endpoints have been implemented:
 - `limit` & `offset`: Pagination
 
 **POST Body (User Actions):**
+
 ```json
 {
   "userId": "user_123",
@@ -80,15 +90,18 @@ The following core API endpoints have been implemented:
 ```
 
 ### Platform Analytics
+
 **Endpoint:** `GET /api/admin/analytics`
 
 **Authorization:** Admin role required
 
 **Parameters:**
+
 - `period` (enum): '7d' | '30d' | '90d' | '1y' | 'all'
 - `metrics` (array): ['users', 'revenue', 'content', 'subscriptions']
 
 **Features:**
+
 - User registration trends
 - Revenue analytics with daily breakdowns
 - Content upload statistics
@@ -103,6 +116,7 @@ The following core API endpoints have been implemented:
 **Authorization:** Authenticated users
 
 ### Send Message (POST)
+
 ```json
 {
   "recipientId": "user_456",
@@ -113,13 +127,16 @@ The following core API endpoints have been implemented:
 ```
 
 ### Get Messages (GET)
+
 **Parameters:**
+
 - `conversationWith` (string, required): Other user's ID
 - `limit` (number): Messages per page
 - `offset` (number): Pagination offset
 - `before` (string): Message ID for cursor pagination
 
 **Business Rules:**
+
 - Fans can only message artists they're subscribed to
 - Artists can reply to any fan who messaged them first
 - Message read receipts supported
@@ -134,6 +151,7 @@ The following core API endpoints have been implemented:
 **Authorization:** Authenticated users
 
 **Parameters:**
+
 - `type` (enum): 'artists' | 'content' | 'tiers' | 'mixed'
 - `limit` (number): Recommendations count (1-50)
 - `includeSubscribed` (boolean): Include already subscribed artists
@@ -141,13 +159,16 @@ The following core API endpoints have been implemented:
 - `priceRange`: Min/max price filters
 
 **Algorithm Features:**
+
 - **Collaborative Filtering:** Users with similar tastes
-- **Content-Based Filtering:** Similar artists/content based on tags and metadata
+- **Content-Based Filtering:** Similar artists/content based on tags and
+  metadata
 - **Hybrid Approach:** Combines multiple recommendation strategies
 - **Personalized Scoring:** Individual recommendation scores and reasons
 - **Price Sensitivity:** Recommendations based on user's spending patterns
 
 **Response includes:**
+
 - Recommendation score (0-10)
 - Reasons for recommendation
 - Value proposition analysis
@@ -158,6 +179,7 @@ The following core API endpoints have been implemented:
 **Endpoint:** `GET/POST/PUT /api/moderation/reports`
 
 ### Submit Report (POST)
+
 **Authorization:** Any authenticated user
 
 ```json
@@ -171,14 +193,17 @@ The following core API endpoints have been implemented:
 ```
 
 ### View Reports (GET)
+
 **Authorization:** Admin role required
 
 **Parameters:**
+
 - `status`: 'pending' | 'reviewing' | 'resolved' | 'dismissed'
 - `targetType`: Filter by report type
 - `priority`: 'low' | 'medium' | 'high' | 'all'
 
 ### Update Report (PUT)
+
 **Authorization:** Admin role required
 
 ```json
@@ -191,6 +216,7 @@ The following core API endpoints have been implemented:
 ```
 
 **Safety Features:**
+
 - Auto-flagging for severe violations
 - Priority classification based on report type
 - Automated moderator notifications
@@ -200,22 +226,26 @@ The following core API endpoints have been implemented:
 ## 6. Enhanced Authentication System
 
 **New Features Added:**
+
 - `ADMIN` role support added to `UserRole` enum
 - `withAdminApi()` middleware for admin-only endpoints
 - `withApi()` middleware for general authenticated endpoints
 - `createAdminApiHandler()` helper function
 
 **Updated Files:**
+
 - `/src/types/database.ts` - Added ADMIN role
 - `/src/lib/api-auth.ts` - Added admin middleware functions
 
 ## Database Schema Requirements
 
-Several endpoints require new database models that aren't currently in the schema:
+Several endpoints require new database models that aren't currently in the
+schema:
 
 ### Required New Models
 
 1. **Message Model** (for messaging system)
+
 ```prisma
 model Message {
   id          String    @id @default(cuid())
@@ -227,10 +257,10 @@ model Message {
   readAt      DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
-  
+
   sender      User @relation("SentMessages", fields: [senderId], references: [id])
   recipient   User @relation("ReceivedMessages", fields: [recipientId], references: [id])
-  
+
   @@map("messages")
 }
 
@@ -242,6 +272,7 @@ enum MessageType {
 ```
 
 2. **Report Model** (for content moderation)
+
 ```prisma
 model Report {
   id          String      @id @default(cuid())
@@ -259,10 +290,10 @@ model Report {
   reviewedAt  DateTime?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
-  
+
   reporter    User @relation(fields: [reporterId], references: [id])
   reviewer    User? @relation("ReviewedReports", fields: [reviewedBy], references: [id])
-  
+
   @@map("reports")
 }
 
@@ -306,11 +337,12 @@ enum ModerationAction {
 ```
 
 3. **User Model Updates** (for admin role and relationships)
+
 ```prisma
 model User {
   // ... existing fields ...
   role UserRole @default(FAN)
-  
+
   // New relations for messaging and reports
   sentMessages     Message[] @relation("SentMessages")
   receivedMessages Message[] @relation("ReceivedMessages")
@@ -327,17 +359,23 @@ enum UserRole {
 
 ## Implementation Notes
 
-1. **Production Readiness:** All endpoints include comprehensive error handling, logging, and security measures.
+1. **Production Readiness:** All endpoints include comprehensive error handling,
+   logging, and security measures.
 
-2. **Scalability:** Endpoints are designed with pagination, filtering, and efficient database queries.
+2. **Scalability:** Endpoints are designed with pagination, filtering, and
+   efficient database queries.
 
-3. **Security:** Proper role-based access control, input validation, and rate limiting considerations.
+3. **Security:** Proper role-based access control, input validation, and rate
+   limiting considerations.
 
-4. **Analytics:** All major actions are logged for monitoring and analytics purposes.
+4. **Analytics:** All major actions are logged for monitoring and analytics
+   purposes.
 
-5. **Notifications:** Integration with the notification system for user engagement.
+5. **Notifications:** Integration with the notification system for user
+   engagement.
 
-6. **Testing:** Each endpoint should be thoroughly tested with unit and integration tests.
+6. **Testing:** Each endpoint should be thoroughly tested with unit and
+   integration tests.
 
 ## Next Steps
 
@@ -345,7 +383,8 @@ enum UserRole {
 2. **Frontend Integration:** Create UI components for these new features
 3. **Testing Suite:** Implement comprehensive API testing
 4. **Documentation:** Create user-facing documentation for the new features
-5. **Performance Optimization:** Add caching and optimization for high-traffic endpoints
+5. **Performance Optimization:** Add caching and optimization for high-traffic
+   endpoints
 6. **Mobile API:** Ensure all endpoints work well with mobile applications
 
 ## API Rate Limiting Recommendations
@@ -356,4 +395,5 @@ enum UserRole {
 - **Recommendations API:** 20 requests per hour per user
 - **Moderation API:** 10 reports per day per user
 
-This implementation provides a solid foundation for a comprehensive fan-artist platform with all major functionality covered.
+This implementation provides a solid foundation for a comprehensive fan-artist
+platform with all major functionality covered.

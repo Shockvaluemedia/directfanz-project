@@ -3,6 +3,7 @@ import { withApi } from '@/lib/api-auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
+import crypto from 'crypto';
 
 const trackViewSchema = z.object({
   contentId: z.string().cuid(),
@@ -19,7 +20,7 @@ const analyticsQuerySchema = z.object({
 
 // POST /api/analytics/content - Track content view/engagement
 export async function POST(request: NextRequest) {
-  return withApi(request, async (req) => {
+  return withApi(request, async req => {
     try {
       const body = await request.json();
       const { contentId, duration, percentage } = trackViewSchema.parse(body);
@@ -39,10 +40,7 @@ export async function POST(request: NextRequest) {
       });
 
       if (!content) {
-        return NextResponse.json(
-          { error: 'Content not found' },
-          { status: 404 }
-        );
+        return NextResponse.json({ error: 'Content not found' }, { status: 404 });
       }
 
       // Check access permissions
@@ -54,7 +52,7 @@ export async function POST(request: NextRequest) {
         hasAccess = true; // Artist viewing their own content
       } else if (req.user.role === 'FAN' && content.tiers.length > 0) {
         // Check if fan has subscription to any of the content's tiers
-        const subscriptions = await prisma.subscription.findMany({
+        const subscriptions = await prisma.subscriptions.findMany({
           where: {
             fanId: req.user.id,
             status: 'ACTIVE',
@@ -65,10 +63,7 @@ export async function POST(request: NextRequest) {
       }
 
       if (!hasAccess) {
-        return NextResponse.json(
-          { error: 'Access denied' },
-          { status: 403 }
-        );
+        return NextResponse.json({ error: 'Access denied' }, { status: 403 });
       }
 
       // Don't track views for artists viewing their own content
@@ -82,7 +77,7 @@ export async function POST(request: NextRequest) {
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
 
-      const existingView = await prisma.contentView.findFirst({
+      const existingView = await prisma.content_views.findFirst({
         where: {
           contentId,
           viewerId: req.user.id,
@@ -95,25 +90,29 @@ export async function POST(request: NextRequest) {
 
       if (existingView) {
         // Update existing view with new metrics
-        await prisma.contentView.update({
+        await prisma.content_views.update({
           where: { id: existingView.id },
           data: {
             viewCount: { increment: 1 },
             totalDuration: duration ? { increment: duration } : undefined,
             lastViewedAt: new Date(),
-            maxPercentage: percentage ? Math.max(existingView.maxPercentage || 0, percentage) : existingView.maxPercentage,
+            maxPercentage: percentage
+              ? Math.max(existingView.maxPercentage || 0, percentage)
+              : existingView.maxPercentage,
           },
         });
       } else {
         // Create new view record
-        await prisma.contentView.create({
+        await prisma.content_views.create({
           data: {
-            contentId,
-            viewerId: req.user.id,
+            id: crypto.randomUUID(),
+            content: { connect: { id: contentId } },
+            users: { connect: { id: req.user.id } },
             viewCount: 1,
             totalDuration: duration || 0,
             maxPercentage: percentage || 0,
             lastViewedAt: new Date(),
+            updatedAt: new Date(),
           },
         });
 
@@ -145,7 +144,6 @@ export async function POST(request: NextRequest) {
       });
 
       return NextResponse.json({ success: true, tracked: true });
-
     } catch (error) {
       if (error instanceof z.ZodError) {
         return NextResponse.json(
@@ -158,17 +156,14 @@ export async function POST(request: NextRequest) {
       }
 
       logger.error('Analytics tracking error', { userId: req.user?.id }, error as Error);
-      return NextResponse.json(
-        { error: 'Failed to track view' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to track view' }, { status: 500 });
     }
   });
 }
 
 // GET /api/analytics/content - Get content analytics
 export async function GET(request: NextRequest) {
-  return withApi(request, async (req) => {
+  return withApi(request, async req => {
     try {
       const { searchParams } = new URL(request.url);
       const query = analyticsQuerySchema.parse({
@@ -195,7 +190,7 @@ export async function GET(request: NextRequest) {
       if (!query.startDate && !query.endDate) {
         const now = new Date();
         const periodStart = new Date();
-        
+
         switch (query.period) {
           case 'day':
             periodStart.setDate(now.getDate() - 1);
@@ -210,7 +205,7 @@ export async function GET(request: NextRequest) {
             periodStart.setFullYear(now.getFullYear() - 1);
             break;
         }
-        
+
         dateFilter.gte = periodStart;
         dateFilter.lte = now;
       }
@@ -252,13 +247,13 @@ export async function GET(request: NextRequest) {
         }),
 
         // Recent views
-        prisma.contentView.findMany({
+        prisma.content_views.findMany({
           where: {
             content: contentWhere,
             createdAt: dateFilter,
           },
           include: {
-            viewer: {
+            users: {
               select: {
                 id: true,
                 displayName: true,
@@ -278,7 +273,7 @@ export async function GET(request: NextRequest) {
         }),
 
         // Views over time (grouped by day for the period)
-        prisma.$queryRaw<Array<{date: string; views: bigint; unique_viewers: bigint}>>`
+        prisma.$queryRaw<Array<{ date: string; views: bigint; unique_viewers: bigint }>>`
           SELECT 
             DATE(cv.created_at) as date,
             COUNT(*) as views,
@@ -297,7 +292,7 @@ export async function GET(request: NextRequest) {
       // Get engagement metrics if specific content is requested
       let engagementMetrics = null;
       if (query.contentId) {
-        engagementMetrics = await prisma.contentView.aggregate({
+        engagementMetrics = await prisma.content_views.aggregate({
           where: {
             contentId: query.contentId,
             createdAt: dateFilter,
@@ -314,13 +309,17 @@ export async function GET(request: NextRequest) {
       }
 
       // Calculate additional metrics
-      const avgViewsPerContent = contentStats._count.id > 0 
-        ? Math.round((contentStats._sum.totalViews || 0) / contentStats._count.id) 
-        : 0;
+      const avgViewsPerContent =
+        contentStats._count.id > 0
+          ? Math.round((contentStats._sum.totalViews || 0) / contentStats._count.id)
+          : 0;
 
-      const engagementRate = contentStats._sum.totalViews && contentStats._sum.uniqueViews
-        ? Math.round(((contentStats._sum.uniqueViews || 0) / (contentStats._sum.totalViews || 1)) * 100)
-        : 0;
+      const engagementRate =
+        contentStats._sum.totalViews && contentStats._sum.uniqueViews
+          ? Math.round(
+              ((contentStats._sum.uniqueViews || 0) / (contentStats._sum.totalViews || 1)) * 100
+            )
+          : 0;
 
       return NextResponse.json({
         success: true,
@@ -334,17 +333,19 @@ export async function GET(request: NextRequest) {
           },
           topContent,
           recentViews,
-          viewsOverTime: viewsOverTime.map((row) => ({
+          viewsOverTime: viewsOverTime.map(row => ({
             date: row.date,
             views: Number(row.views),
             uniqueViewers: Number(row.unique_viewers),
           })),
-          engagementMetrics: engagementMetrics ? {
-            averageDuration: engagementMetrics._avg.totalDuration || 0,
-            averageCompletion: engagementMetrics._avg.maxPercentage || 0,
-            totalWatchTime: engagementMetrics._sum.totalDuration || 0,
-            totalViews: engagementMetrics._sum.viewCount || 0,
-          } : null,
+          engagementMetrics: engagementMetrics
+            ? {
+                averageDuration: engagementMetrics._avg.totalDuration || 0,
+                averageCompletion: engagementMetrics._avg.maxPercentage || 0,
+                totalWatchTime: engagementMetrics._sum.totalDuration || 0,
+                totalViews: engagementMetrics._sum.viewCount || 0,
+              }
+            : null,
           period: query.period,
           dateRange: {
             start: dateFilter.gte?.toISOString(),
@@ -352,7 +353,6 @@ export async function GET(request: NextRequest) {
           },
         },
       });
-
     } catch (error) {
       if (error instanceof z.ZodError) {
         return NextResponse.json(
@@ -365,10 +365,7 @@ export async function GET(request: NextRequest) {
       }
 
       logger.error('Analytics fetch error', { userId: req.user?.id }, error as Error);
-      return NextResponse.json(
-        { error: 'Failed to fetch analytics' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to fetch analytics' }, { status: 500 });
     }
   });
 }

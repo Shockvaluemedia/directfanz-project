@@ -12,10 +12,7 @@ const sendMessageSchema = z.object({
 });
 
 // GET /api/livestream/[streamId]/chat - Get chat messages
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { streamId: string } }
-) {
+export async function GET(request: NextRequest, { params }: { params: { streamId: string } }) {
   let session: any;
   try {
     session = await getServerSession(authOptions);
@@ -24,7 +21,7 @@ export async function GET(
     const before = searchParams.get('before'); // Cursor for pagination
 
     // Verify stream exists and user has access
-    const stream = await prisma.liveStream.findUnique({
+    const stream = await prisma.live_streams.findUnique({
       where: { id: params.streamId },
       select: {
         id: true,
@@ -32,7 +29,7 @@ export async function GET(
         isPublic: true,
         tierIds: true,
         status: true,
-      }
+      },
     });
 
     if (!stream) {
@@ -44,9 +41,9 @@ export async function GET(
 
     // Check access for non-public streams
     if (!stream.isPublic && session?.user?.id) {
-      const hasAccess = stream.artistId === session.user.id || 
-                       await checkStreamAccess(session.user.id, stream);
-      
+      const hasAccess =
+        stream.artistId === session.user.id || (await checkStreamAccess(session.user.id, stream));
+
       if (!hasAccess) {
         return NextResponse.json(
           { success: false, error: { message: 'Access denied' } },
@@ -66,7 +63,7 @@ export async function GET(
       };
     }
 
-    const messages = await prisma.streamChatMessage.findMany({
+    const messages = await prisma.stream_chat_messages.findMany({
       where,
       orderBy: {
         createdAt: 'desc',
@@ -79,9 +76,9 @@ export async function GET(
             displayName: true,
             avatar: true,
             role: true,
-          }
-        }
-      }
+          },
+        },
+      },
     });
 
     // Reverse to show oldest first
@@ -94,12 +91,14 @@ export async function GET(
       type: msg.type,
       isHighlighted: msg.isHighlighted,
       createdAt: msg.createdAt,
-      sender: msg.sender ? {
-        id: msg.sender.id,
-        displayName: msg.sender.displayName,
-        avatar: msg.sender.avatar,
-        role: msg.sender.role,
-      } : null,
+      sender: msg.sender
+        ? {
+            id: msg.users_messages_senderIdTousers.id,
+            displayName: msg.users_messages_senderIdTousers.displayName,
+            avatar: msg.users_messages_senderIdTousers.avatar,
+            role: msg.users_messages_senderIdTousers.role,
+          }
+        : null,
     }));
 
     return NextResponse.json({
@@ -108,15 +107,18 @@ export async function GET(
         messages: formattedMessages,
         hasMore: messages.length === limit,
         cursor: messages.length > 0 ? messages[messages.length - 1].createdAt : null,
-      }
+      },
     });
-
   } catch (error) {
-    logger.error('Failed to fetch chat messages', { 
-      streamId: params.streamId,
-      userId: session?.user?.id 
-    }, error as Error);
-    
+    logger.error(
+      'Failed to fetch chat messages',
+      {
+        streamId: params.streamId,
+        userId: session?.user?.id,
+      },
+      error as Error
+    );
+
     return NextResponse.json(
       { success: false, error: { message: 'Internal server error' } },
       { status: 500 }
@@ -125,10 +127,7 @@ export async function GET(
 }
 
 // POST /api/livestream/[streamId]/chat - Send chat message
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { streamId: string } }
-) {
+export async function POST(request: NextRequest, { params }: { params: { streamId: string } }) {
   let session: any;
   try {
     session = await getServerSession(authOptions);
@@ -136,7 +135,7 @@ export async function POST(
     const validatedData = sendMessageSchema.parse(body);
 
     // Verify stream exists and is live
-    const stream = await prisma.liveStream.findUnique({
+    const stream = await prisma.live_streams.findUnique({
       where: { id: params.streamId },
       select: {
         id: true,
@@ -144,7 +143,7 @@ export async function POST(
         isPublic: true,
         tierIds: true,
         status: true,
-      }
+      },
     });
 
     if (!stream) {
@@ -163,9 +162,9 @@ export async function POST(
 
     // Check access for non-public streams
     if (!stream.isPublic && session?.user?.id) {
-      const hasAccess = stream.artistId === session.user.id || 
-                       await checkStreamAccess(session.user.id, stream);
-      
+      const hasAccess =
+        stream.artistId === session.user.id || (await checkStreamAccess(session.user.id, stream));
+
       if (!hasAccess) {
         return NextResponse.json(
           { success: false, error: { message: 'Access denied' } },
@@ -185,17 +184,18 @@ export async function POST(
 
     // Rate limiting: Check if user sent too many messages recently
     if (senderId) {
-      const recentMessages = await prisma.streamChatMessage.count({
+      const recentMessages = await prisma.stream_chat_messages.count({
         where: {
           streamId: params.streamId,
           senderId,
           createdAt: {
             gte: new Date(Date.now() - 30 * 1000), // Last 30 seconds
-          }
-        }
+          },
+        },
       });
 
-      if (recentMessages >= 5) { // Max 5 messages per 30 seconds
+      if (recentMessages >= 5) {
+        // Max 5 messages per 30 seconds
         return NextResponse.json(
           { success: false, error: { message: 'Rate limit exceeded' } },
           { status: 429 }
@@ -204,7 +204,7 @@ export async function POST(
     }
 
     // Create the message
-    const message = await prisma.streamChatMessage.create({
+    const message = await prisma.stream_chat_messages.create({
       data: {
         streamId: params.streamId,
         senderId,
@@ -219,19 +219,19 @@ export async function POST(
             displayName: true,
             avatar: true,
             role: true,
-          }
-        }
-      }
+          },
+        },
+      },
     });
 
     // Update stream message count
-    await prisma.liveStream.update({
+    await prisma.live_streams.update({
       where: { id: params.streamId },
       data: {
         totalMessages: {
           increment: 1,
-        }
-      }
+        },
+      },
     });
 
     const formattedMessage = {
@@ -243,12 +243,14 @@ export async function POST(
       type: message.type,
       isHighlighted: message.isHighlighted,
       createdAt: message.createdAt,
-      sender: message.sender ? {
-        id: message.sender.id,
-        displayName: message.sender.displayName,
-        avatar: message.sender.avatar,
-        role: message.sender.role,
-      } : null,
+      sender: message.sender
+        ? {
+            id: message.users_messages_senderIdTousers.id,
+            displayName: message.users_messages_senderIdTousers.displayName,
+            avatar: message.users_messages_senderIdTousers.avatar,
+            role: message.users_messages_senderIdTousers.role,
+          }
+        : null,
     };
 
     logger.info('Chat message sent', {
@@ -258,11 +260,13 @@ export async function POST(
       senderName,
     });
 
-    return NextResponse.json({
-      success: true,
-      data: { message: formattedMessage }
-    }, { status: 201 });
-
+    return NextResponse.json(
+      {
+        success: true,
+        data: { message: formattedMessage },
+      },
+      { status: 201 }
+    );
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -271,11 +275,15 @@ export async function POST(
       );
     }
 
-    logger.error('Failed to send chat message', { 
-      streamId: params.streamId,
-      userId: session?.user?.id 
-    }, error as Error);
-    
+    logger.error(
+      'Failed to send chat message',
+      {
+        streamId: params.streamId,
+        userId: session?.user?.id,
+      },
+      error as Error
+    );
+
     return NextResponse.json(
       { success: false, error: { message: 'Internal server error' } },
       { status: 500 }
@@ -291,12 +299,12 @@ async function checkStreamAccess(userId: string, stream: any): Promise<boolean> 
   if (tierIds.length === 0) return true;
 
   // Check if user has subscription to any required tier
-  const hasAccess = await prisma.subscription.findFirst({
+  const hasAccess = await prisma.subscriptions.findFirst({
     where: {
       fanId: userId,
       tierId: { in: tierIds },
       status: 'ACTIVE',
-    }
+    },
   });
 
   return !!hasAccess;

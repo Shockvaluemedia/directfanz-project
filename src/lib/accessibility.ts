@@ -14,7 +14,7 @@ export function handleKeyboardNavigation(
   actions: Record<string, () => void>
 ) {
   const { key } = event;
-  
+
   if (actions[key]) {
     event.preventDefault();
     actions[key]();
@@ -32,7 +32,7 @@ export function announceToScreenReader(
 ) {
   // Find or create the live region element
   let liveRegion = document.getElementById('a11y-live-region');
-  
+
   if (!liveRegion) {
     liveRegion = document.createElement('div');
     liveRegion.id = 'a11y-live-region';
@@ -41,10 +41,10 @@ export function announceToScreenReader(
     liveRegion.setAttribute('aria-atomic', 'true');
     document.body.appendChild(liveRegion);
   }
-  
+
   // Set the message
   liveRegion.textContent = message;
-  
+
   // Clear the message after a delay to prevent multiple readings
   setTimeout(() => {
     liveRegion.textContent = '';
@@ -56,24 +56,21 @@ export function announceToScreenReader(
  * @param containerRef Ref to the container element
  * @param isActive Whether the focus trap is active
  */
-export function useFocusTrap(
-  containerRef: React.RefObject<HTMLElement>,
-  isActive: boolean
-) {
+export function useFocusTrap(containerRef: React.RefObject<HTMLElement>, isActive: boolean) {
   React.useEffect(() => {
     if (!isActive || !containerRef.current) return;
-    
+
     const container = containerRef.current;
     const focusableElements = container.querySelectorAll(
       'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
     );
-    
+
     const firstElement = focusableElements[0] as HTMLElement;
     const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
-    
+
     function handleTabKey(e: KeyboardEvent) {
       if (e.key !== 'Tab') return;
-      
+
       if (e.shiftKey) {
         // If shift + tab and on first element, move to last
         if (document.activeElement === firstElement) {
@@ -88,13 +85,13 @@ export function useFocusTrap(
         }
       }
     }
-    
+
     // Focus the first element when trap activates
     firstElement?.focus();
-    
+
     // Add event listener
     document.addEventListener('keydown', handleTabKey);
-    
+
     // Cleanup
     return () => {
       document.removeEventListener('keydown', handleTabKey);
@@ -122,7 +119,7 @@ export function checkContrast(foreground: string, background: string): number {
     const shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
     const fullHex = hex.replace(shorthandRegex, (_, r, g, b) => r + r + g + g + b + b);
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(fullHex);
-    
+
     return result
       ? {
           r: parseInt(result[1], 16),
@@ -131,7 +128,7 @@ export function checkContrast(foreground: string, background: string): number {
         }
       : { r: 0, g: 0, b: 0 };
   };
-  
+
   // Calculate relative luminance
   const luminance = (r: number, g: number, b: number) => {
     const a = [r, g, b].map(v => {
@@ -140,16 +137,16 @@ export function checkContrast(foreground: string, background: string): number {
     });
     return a[0] * 0.2126 + a[1] * 0.7152 + a[2] * 0.0722;
   };
-  
+
   const rgb1 = hexToRgb(foreground);
   const rgb2 = hexToRgb(background);
-  
+
   const l1 = luminance(rgb1.r, rgb1.g, rgb1.b);
   const l2 = luminance(rgb2.r, rgb2.g, rgb2.b);
-  
+
   // Calculate contrast ratio
   const ratio = (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
-  
+
   return parseFloat(ratio.toFixed(2));
 }
 

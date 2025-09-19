@@ -1,10 +1,10 @@
 import { describe, it, beforeAll, afterAll } from '@jest/globals';
-import { 
-  generatePresignedUrl, 
-  validateFileUpload, 
+import {
+  generatePresignedUrl,
+  validateFileUpload,
   extractKeyFromUrl,
   SUPPORTED_FILE_TYPES,
-  FILE_SIZE_LIMITS 
+  FILE_SIZE_LIMITS,
 } from '../s3';
 
 // Mock AWS SDK
@@ -91,22 +91,26 @@ describe('S3 Utils', () => {
     });
 
     it('should throw error for unsupported file type', async () => {
-      await expect(generatePresignedUrl({
-        fileName: 'test.exe',
-        fileType: 'application/exe',
-        fileSize: 1024,
-        artistId: 'artist-123',
-      })).rejects.toThrow('Unsupported file type: application/exe');
+      await expect(
+        generatePresignedUrl({
+          fileName: 'test.exe',
+          fileType: 'application/exe',
+          fileSize: 1024,
+          artistId: 'artist-123',
+        })
+      ).rejects.toThrow('Unsupported file type: application/exe');
     });
 
     it('should throw error for oversized file', async () => {
       const largeSize = FILE_SIZE_LIMITS.AUDIO + 1;
-      await expect(generatePresignedUrl({
-        fileName: 'test.mp3',
-        fileType: 'audio/mpeg',
-        fileSize: largeSize,
-        artistId: 'artist-123',
-      })).rejects.toThrow('File size exceeds limit of 100MB for AUDIO files');
+      await expect(
+        generatePresignedUrl({
+          fileName: 'test.mp3',
+          fileType: 'audio/mpeg',
+          fileSize: largeSize,
+          artistId: 'artist-123',
+        })
+      ).rejects.toThrow('File size exceeds limit of 100MB for AUDIO files');
     });
   });
 
@@ -129,32 +133,32 @@ describe('S3 Utils', () => {
     it('should include all expected audio types', () => {
       expect(SUPPORTED_FILE_TYPES['audio/mpeg']).toEqual({
         extension: 'mp3',
-        category: 'AUDIO'
+        category: 'AUDIO',
       });
       expect(SUPPORTED_FILE_TYPES['audio/wav']).toEqual({
         extension: 'wav',
-        category: 'AUDIO'
+        category: 'AUDIO',
       });
     });
 
     it('should include all expected video types', () => {
       expect(SUPPORTED_FILE_TYPES['video/mp4']).toEqual({
         extension: 'mp4',
-        category: 'VIDEO'
+        category: 'VIDEO',
       });
     });
 
     it('should include all expected image types', () => {
       expect(SUPPORTED_FILE_TYPES['image/jpeg']).toEqual({
         extension: 'jpg',
-        category: 'IMAGE'
+        category: 'IMAGE',
       });
     });
 
     it('should include all expected document types', () => {
       expect(SUPPORTED_FILE_TYPES['application/pdf']).toEqual({
         extension: 'pdf',
-        category: 'DOCUMENT'
+        category: 'DOCUMENT',
       });
     });
   });
@@ -163,7 +167,7 @@ describe('S3 Utils', () => {
     it('should have appropriate size limits for each category', () => {
       expect(FILE_SIZE_LIMITS.AUDIO).toBe(100 * 1024 * 1024); // 100MB
       expect(FILE_SIZE_LIMITS.VIDEO).toBe(500 * 1024 * 1024); // 500MB
-      expect(FILE_SIZE_LIMITS.IMAGE).toBe(10 * 1024 * 1024);  // 10MB
+      expect(FILE_SIZE_LIMITS.IMAGE).toBe(10 * 1024 * 1024); // 10MB
       expect(FILE_SIZE_LIMITS.DOCUMENT).toBe(25 * 1024 * 1024); // 25MB
     });
   });

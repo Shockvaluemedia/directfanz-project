@@ -1,6 +1,6 @@
-import { 
-  calculateEarningsData, 
-  calculateSubscriberMetrics, 
+import {
+  calculateEarningsData,
+  calculateSubscriberMetrics,
   calculateTierAnalytics,
   getRecentActivity,
   getArtistAnalytics,
@@ -8,7 +8,7 @@ import {
   getSubscriberGrowthForPeriod,
   getDailyEarningsSummary,
   getSubscriberCountPerTier,
-  getChurnAnalysis
+  getChurnAnalysis,
 } from '../analytics';
 import { prisma } from '../prisma';
 
@@ -51,10 +51,10 @@ describe('Analytics Library', () => {
   describe('calculateEarningsData', () => {
     it('should calculate earnings data correctly', async () => {
       // Mock artist data
-      mockPrisma.artist.findUnique.mockResolvedValue({
+      mockPrisma.users.findUnique.mockResolvedValue({
         id: 'artist-profile-123',
         userId: artistId,
-        totalEarnings: 1000.50,
+        totalEarnings: 1000.5,
         totalSubscribers: 10,
         stripeAccountId: 'acct_123',
         isStripeOnboarded: true,
@@ -65,38 +65,39 @@ describe('Analytics Library', () => {
       // Mock active subscriptions
       // Current date is 2024-01-15T10:00:00Z, so last 7 days is from 2024-01-08T10:00:00Z
       const mockSubscriptions = [
-        { amount: 10.00, createdAt: new Date('2024-01-07T10:00:00Z') }, // This month, not this week (before Jan 8)
-        { amount: 15.00, createdAt: new Date('2024-01-12T10:00:00Z') }, // This month, this week
-        { amount: 20.00, createdAt: new Date('2024-01-14T10:00:00Z') }, // This week
-        { amount: 25.00, createdAt: new Date('2024-01-15T09:00:00Z') }, // Today
+        { amount: 10.0, createdAt: new Date('2024-01-07T10:00:00Z') }, // This month, not this week (before Jan 8)
+        { amount: 15.0, createdAt: new Date('2024-01-12T10:00:00Z') }, // This month, this week
+        { amount: 20.0, createdAt: new Date('2024-01-14T10:00:00Z') }, // This week
+        { amount: 25.0, createdAt: new Date('2024-01-15T09:00:00Z') }, // Today
       ];
 
       mockPrisma.subscription.findMany
         .mockResolvedValueOnce(mockSubscriptions) // Active subscriptions
-        .mockResolvedValueOnce([ // Previous month subscriptions
-          { amount: 30.00 },
-          { amount: 20.00 },
+        .mockResolvedValueOnce([
+          // Previous month subscriptions
+          { amount: 30.0 },
+          { amount: 20.0 },
         ]);
 
       const result = await calculateEarningsData(artistId);
 
       expect(result).toEqual({
-        totalEarnings: 1000.50,
-        monthlyEarnings: 70.00, // 10 + 15 + 20 + 25
-        weeklyEarnings: 60.00,  // 15 + 20 + 25 (last 7 days from Jan 8-15)
-        dailyEarnings: 25.00,   // 25 (today)
-        yearlyEarnings: 70.00,  // Same as monthly for this year
-        earningsGrowth: 40.00,  // (70 - 50) / 50 * 100
+        totalEarnings: 1000.5,
+        monthlyEarnings: 70.0, // 10 + 15 + 20 + 25
+        weeklyEarnings: 60.0, // 15 + 20 + 25 (last 7 days from Jan 8-15)
+        dailyEarnings: 25.0, // 25 (today)
+        yearlyEarnings: 70.0, // Same as monthly for this year
+        earningsGrowth: 40.0, // (70 - 50) / 50 * 100
       });
 
-      expect(mockPrisma.artist.findUnique).toHaveBeenCalledWith({
+      expect(mockPrisma.users.findUnique).toHaveBeenCalledWith({
         where: { userId: artistId },
         select: { totalEarnings: true },
       });
     });
 
     it('should handle zero earnings correctly', async () => {
-      mockPrisma.artist.findUnique.mockResolvedValue({
+      mockPrisma.users.findUnique.mockResolvedValue({
         id: 'artist-profile-123',
         userId: artistId,
         totalEarnings: 0,
@@ -129,7 +130,7 @@ describe('Analytics Library', () => {
       mockPrisma.subscription.count
         .mockResolvedValueOnce(25) // Total subscribers
         .mockResolvedValueOnce(20) // Active subscribers
-        .mockResolvedValueOnce(5)  // New subscribers this month
+        .mockResolvedValueOnce(5) // New subscribers this month
         .mockResolvedValueOnce(2); // Canceled subscribers this month
 
       const result = await calculateSubscriberMetrics(artistId);
@@ -177,33 +178,28 @@ describe('Analytics Library', () => {
           name: 'Basic',
           artistId,
           description: 'Basic tier',
-          minimumPrice: 5.00,
+          minimumPrice: 5.0,
           isActive: true,
           subscriberCount: 0,
           createdAt: new Date(),
           updatedAt: new Date(),
-          subscriptions: [
-            { amount: 10.00 },
-            { amount: 15.00 },
-          ],
+          subscriptions: [{ amount: 10.0 }, { amount: 15.0 }],
         },
         {
           id: 'tier-2',
           name: 'Premium',
           artistId,
           description: 'Premium tier',
-          minimumPrice: 15.00,
+          minimumPrice: 15.0,
           isActive: true,
           subscriberCount: 0,
           createdAt: new Date(),
           updatedAt: new Date(),
-          subscriptions: [
-            { amount: 20.00 },
-          ],
+          subscriptions: [{ amount: 20.0 }],
         },
       ];
 
-      mockPrisma.tier.findMany.mockResolvedValue(mockTiers);
+      mockPrisma.tiers.findMany.mockResolvedValue(mockTiers);
 
       const result = await calculateTierAnalytics(artistId);
 
@@ -212,16 +208,16 @@ describe('Analytics Library', () => {
         tierId: 'tier-1',
         tierName: 'Basic',
         subscriberCount: 2,
-        monthlyRevenue: 25.00,
-        averageAmount: 12.50,
+        monthlyRevenue: 25.0,
+        averageAmount: 12.5,
         conversionRate: 0, // Placeholder
       });
       expect(result[1]).toEqual({
         tierId: 'tier-2',
         tierName: 'Premium',
         subscriberCount: 1,
-        monthlyRevenue: 20.00,
-        averageAmount: 20.00,
+        monthlyRevenue: 20.0,
+        averageAmount: 20.0,
         conversionRate: 0, // Placeholder
       });
 
@@ -236,7 +232,7 @@ describe('Analytics Library', () => {
         {
           id: 'sub-1',
           status: 'ACTIVE',
-          amount: 10.00,
+          amount: 10.0,
           createdAt: new Date('2024-01-14T10:00:00Z'),
           fan: { displayName: 'John Doe' },
           tier: { name: 'Basic' },
@@ -244,7 +240,7 @@ describe('Analytics Library', () => {
         {
           id: 'sub-2',
           status: 'CANCELED',
-          amount: 15.00,
+          amount: 15.0,
           createdAt: new Date('2024-01-13T10:00:00Z'),
           fan: { displayName: 'Jane Smith' },
           tier: { name: 'Premium' },
@@ -270,14 +266,14 @@ describe('Analytics Library', () => {
         id: 'sub-1',
         type: 'subscription',
         description: 'John Doe subscribed to Basic',
-        amount: 10.00,
+        amount: 10.0,
         timestamp: new Date('2024-01-14T10:00:00Z'),
       });
       expect(result[1]).toEqual({
         id: 'sub-2',
         type: 'cancellation',
         description: 'Jane Smith canceled subscription to Premium',
-        amount: 15.00,
+        amount: 15.0,
         timestamp: new Date('2024-01-13T10:00:00Z'),
       });
       expect(result[2]).toEqual({
@@ -292,7 +288,7 @@ describe('Analytics Library', () => {
   describe('getArtistAnalytics', () => {
     it('should get comprehensive analytics', async () => {
       // Mock all the individual functions
-      mockPrisma.artist.findUnique.mockResolvedValue({
+      mockPrisma.users.findUnique.mockResolvedValue({
         id: 'artist-profile-123',
         userId: artistId,
         totalEarnings: 1000,
@@ -308,7 +304,8 @@ describe('Analytics Library', () => {
         .mockResolvedValueOnce([{ amount: 100, createdAt: new Date() }]) // Active subscriptions for earnings
         .mockResolvedValueOnce([]) // Previous month subscriptions for earnings
         // Mock for getRecentActivity calls
-        .mockResolvedValueOnce([ // Recent subscriptions with proper relations
+        .mockResolvedValueOnce([
+          // Recent subscriptions with proper relations
           {
             id: 'sub-1',
             status: 'ACTIVE',
@@ -316,16 +313,16 @@ describe('Analytics Library', () => {
             createdAt: new Date(),
             fan: { displayName: 'Test Fan' },
             tier: { name: 'Test Tier' },
-          }
+          },
         ]);
 
       mockPrisma.subscription.count
         .mockResolvedValueOnce(10) // Total subscribers
-        .mockResolvedValueOnce(8)  // Active subscribers
-        .mockResolvedValueOnce(3)  // New subscribers
+        .mockResolvedValueOnce(8) // Active subscribers
+        .mockResolvedValueOnce(3) // New subscribers
         .mockResolvedValueOnce(1); // Canceled subscribers
 
-      mockPrisma.tier.findMany.mockResolvedValue([]);
+      mockPrisma.tiers.findMany.mockResolvedValue([]);
       mockPrisma.content.findMany.mockResolvedValue([]);
 
       const result = await getArtistAnalytics(artistId);
@@ -345,9 +342,9 @@ describe('Analytics Library', () => {
       const endDate = new Date('2024-01-31');
 
       const mockSubscriptions = [
-        { amount: 10.00, createdAt: new Date('2024-01-05') },
-        { amount: 15.00, createdAt: new Date('2024-01-05') },
-        { amount: 20.00, createdAt: new Date('2024-01-10') },
+        { amount: 10.0, createdAt: new Date('2024-01-05') },
+        { amount: 15.0, createdAt: new Date('2024-01-05') },
+        { amount: 20.0, createdAt: new Date('2024-01-10') },
       ];
 
       mockPrisma.subscription.findMany.mockResolvedValue(mockSubscriptions);
@@ -357,11 +354,11 @@ describe('Analytics Library', () => {
       expect(result).toHaveLength(2);
       expect(result[0]).toEqual({
         date: '2024-01-05',
-        earnings: 25.00, // 10 + 15
+        earnings: 25.0, // 10 + 15
       });
       expect(result[1]).toEqual({
         date: '2024-01-10',
-        earnings: 20.00,
+        earnings: 20.0,
       });
     });
   });
@@ -372,20 +369,20 @@ describe('Analytics Library', () => {
       const endDate = new Date('2024-01-31');
 
       const mockSubscriptions = [
-        { 
-          status: 'ACTIVE', 
-          createdAt: new Date('2024-01-05'), 
-          updatedAt: new Date('2024-01-05') 
+        {
+          status: 'ACTIVE',
+          createdAt: new Date('2024-01-05'),
+          updatedAt: new Date('2024-01-05'),
         },
-        { 
-          status: 'CANCELED', 
-          createdAt: new Date('2024-01-03'), 
-          updatedAt: new Date('2024-01-10') 
+        {
+          status: 'CANCELED',
+          createdAt: new Date('2024-01-03'),
+          updatedAt: new Date('2024-01-10'),
         },
-        { 
-          status: 'ACTIVE', 
-          createdAt: new Date('2024-01-10'), 
-          updatedAt: new Date('2024-01-10') 
+        {
+          status: 'ACTIVE',
+          createdAt: new Date('2024-01-10'),
+          updatedAt: new Date('2024-01-10'),
         },
       ];
 
@@ -395,16 +392,16 @@ describe('Analytics Library', () => {
 
       // Should have 3 entries: one for each date with activity
       expect(result).toHaveLength(3);
-      
+
       // Check that dates are sorted and data is correct
       expect(result[0].date).toBe('2024-01-03');
       expect(result[0].newSubscribers).toBe(1); // Created on this date
       expect(result[0].canceledSubscribers).toBe(0);
-      
+
       expect(result[1].date).toBe('2024-01-05');
       expect(result[1].newSubscribers).toBe(1);
       expect(result[1].canceledSubscribers).toBe(0);
-      
+
       expect(result[2].date).toBe('2024-01-10');
       expect(result[2].newSubscribers).toBe(1);
       expect(result[2].canceledSubscribers).toBe(1); // Canceled on this date
@@ -413,11 +410,16 @@ describe('Analytics Library', () => {
 
   describe('getDailyEarningsSummary', () => {
     it('should get daily earnings summary correctly', async () => {
-      const mockTodaysSubs = [{ amount: 25.00 }];
-      const mockYesterdaysSubs = [{ amount: 20.00 }];
-      const mockWeekSubs = [{ amount: 100.00 }, { amount: 25.00 }];
-      const mockMonthSubs = [{ amount: 200.00 }, { amount: 100.00 }, { amount: 25.00 }];
-      const mockLast30DaysSubs = [{ amount: 300.00 }, { amount: 200.00 }, { amount: 100.00 }, { amount: 25.00 }];
+      const mockTodaysSubs = [{ amount: 25.0 }];
+      const mockYesterdaysSubs = [{ amount: 20.0 }];
+      const mockWeekSubs = [{ amount: 100.0 }, { amount: 25.0 }];
+      const mockMonthSubs = [{ amount: 200.0 }, { amount: 100.0 }, { amount: 25.0 }];
+      const mockLast30DaysSubs = [
+        { amount: 300.0 },
+        { amount: 200.0 },
+        { amount: 100.0 },
+        { amount: 25.0 },
+      ];
 
       mockPrisma.subscription.findMany
         .mockResolvedValueOnce(mockTodaysSubs)
@@ -429,21 +431,21 @@ describe('Analytics Library', () => {
       const result = await getDailyEarningsSummary(artistId);
 
       expect(result).toEqual({
-        today: 25.00,
-        yesterday: 20.00,
-        thisWeek: 125.00, // 100 + 25
-        thisMonth: 325.00, // 200 + 100 + 25
+        today: 25.0,
+        yesterday: 20.0,
+        thisWeek: 125.0, // 100 + 25
+        thisMonth: 325.0, // 200 + 100 + 25
         dailyAverage: expect.closeTo(20.83, 2), // 625 / 30
         trend: 'up', // today > yesterday and today > dailyAverage
       });
     });
 
     it('should calculate trend correctly for down trend', async () => {
-      const mockTodaysSubs = [{ amount: 10.00 }];
-      const mockYesterdaysSubs = [{ amount: 25.00 }];
-      const mockWeekSubs = [{ amount: 35.00 }];
-      const mockMonthSubs = [{ amount: 35.00 }];
-      const mockLast30DaysSubs = [{ amount: 600.00 }]; // High average
+      const mockTodaysSubs = [{ amount: 10.0 }];
+      const mockYesterdaysSubs = [{ amount: 25.0 }];
+      const mockWeekSubs = [{ amount: 35.0 }];
+      const mockMonthSubs = [{ amount: 35.0 }];
+      const mockLast30DaysSubs = [{ amount: 600.0 }]; // High average
 
       mockPrisma.subscription.findMany
         .mockResolvedValueOnce(mockTodaysSubs)
@@ -455,15 +457,15 @@ describe('Analytics Library', () => {
       const result = await getDailyEarningsSummary(artistId);
 
       expect(result.trend).toBe('down'); // today < yesterday and today < dailyAverage
-      expect(result.dailyAverage).toBe(20.00); // 600 / 30
+      expect(result.dailyAverage).toBe(20.0); // 600 / 30
     });
 
     it('should calculate stable trend correctly', async () => {
-      const mockTodaysSubs = [{ amount: 20.00 }];
-      const mockYesterdaysSubs = [{ amount: 20.00 }];
-      const mockWeekSubs = [{ amount: 40.00 }];
-      const mockMonthSubs = [{ amount: 40.00 }];
-      const mockLast30DaysSubs = [{ amount: 600.00 }];
+      const mockTodaysSubs = [{ amount: 20.0 }];
+      const mockYesterdaysSubs = [{ amount: 20.0 }];
+      const mockWeekSubs = [{ amount: 40.0 }];
+      const mockMonthSubs = [{ amount: 40.0 }];
+      const mockLast30DaysSubs = [{ amount: 600.0 }];
 
       mockPrisma.subscription.findMany
         .mockResolvedValueOnce(mockTodaysSubs)
@@ -475,7 +477,7 @@ describe('Analytics Library', () => {
       const result = await getDailyEarningsSummary(artistId);
 
       expect(result.trend).toBe('stable'); // today == yesterday
-      expect(result.dailyAverage).toBe(20.00);
+      expect(result.dailyAverage).toBe(20.0);
     });
   });
 
@@ -487,32 +489,32 @@ describe('Analytics Library', () => {
           name: 'Basic',
           artistId,
           description: 'Basic tier',
-          minimumPrice: 5.00,
+          minimumPrice: 5.0,
           isActive: true,
           subscriberCount: 0,
           createdAt: new Date(),
           updatedAt: new Date(),
           subscriptions: [
-            { 
-              id: 'sub-1', 
-              status: 'ACTIVE', 
-              amount: 10.00, 
+            {
+              id: 'sub-1',
+              status: 'ACTIVE',
+              amount: 10.0,
               createdAt: new Date('2024-01-10T10:00:00Z'),
-              updatedAt: new Date('2024-01-10T10:00:00Z')
+              updatedAt: new Date('2024-01-10T10:00:00Z'),
             },
-            { 
-              id: 'sub-2', 
-              status: 'ACTIVE', 
-              amount: 15.00, 
+            {
+              id: 'sub-2',
+              status: 'ACTIVE',
+              amount: 15.0,
               createdAt: new Date('2024-01-12T10:00:00Z'),
-              updatedAt: new Date('2024-01-12T10:00:00Z')
+              updatedAt: new Date('2024-01-12T10:00:00Z'),
             },
-            { 
-              id: 'sub-3', 
-              status: 'CANCELED', 
-              amount: 12.00, 
+            {
+              id: 'sub-3',
+              status: 'CANCELED',
+              amount: 12.0,
               createdAt: new Date('2023-12-15T10:00:00Z'),
-              updatedAt: new Date('2024-01-05T10:00:00Z') // Canceled this month
+              updatedAt: new Date('2024-01-05T10:00:00Z'), // Canceled this month
             },
           ],
         },
@@ -521,24 +523,24 @@ describe('Analytics Library', () => {
           name: 'Premium',
           artistId,
           description: 'Premium tier',
-          minimumPrice: 15.00,
+          minimumPrice: 15.0,
           isActive: true,
           subscriberCount: 0,
           createdAt: new Date(),
           updatedAt: new Date(),
           subscriptions: [
-            { 
-              id: 'sub-4', 
-              status: 'ACTIVE', 
-              amount: 20.00, 
+            {
+              id: 'sub-4',
+              status: 'ACTIVE',
+              amount: 20.0,
               createdAt: new Date('2024-01-08T10:00:00Z'),
-              updatedAt: new Date('2024-01-08T10:00:00Z')
+              updatedAt: new Date('2024-01-08T10:00:00Z'),
             },
           ],
         },
       ];
 
-      mockPrisma.tier.findMany.mockResolvedValue(mockTiers);
+      mockPrisma.tiers.findMany.mockResolvedValue(mockTiers);
 
       const result = await getSubscriberCountPerTier(artistId);
 
@@ -550,7 +552,7 @@ describe('Analytics Library', () => {
         activeSubscribers: 2, // Only active
         newThisMonth: 2, // Created in January 2024
         churnThisMonth: 1, // Canceled in January 2024
-        revenue: 25.00, // 10 + 15 (only active)
+        revenue: 25.0, // 10 + 15 (only active)
       });
       expect(result[1]).toEqual({
         tierId: 'tier-2',
@@ -559,7 +561,7 @@ describe('Analytics Library', () => {
         activeSubscribers: 1,
         newThisMonth: 1,
         churnThisMonth: 0,
-        revenue: 20.00,
+        revenue: 20.0,
       });
     });
   });
@@ -567,11 +569,41 @@ describe('Analytics Library', () => {
   describe('getChurnAnalysis', () => {
     it('should get comprehensive churn analysis', async () => {
       const mockAllSubs = [
-        { id: 'sub-1', status: 'ACTIVE', createdAt: new Date('2024-01-01'), updatedAt: new Date('2024-01-01'), tierId: 'tier-1' },
-        { id: 'sub-2', status: 'ACTIVE', createdAt: new Date('2024-01-05'), updatedAt: new Date('2024-01-05'), tierId: 'tier-1' },
-        { id: 'sub-3', status: 'CANCELED', createdAt: new Date('2023-12-01'), updatedAt: new Date('2024-01-10'), tierId: 'tier-1' },
-        { id: 'sub-4', status: 'CANCELED', createdAt: new Date('2023-11-01'), updatedAt: new Date('2023-12-15'), tierId: 'tier-2' },
-        { id: 'sub-5', status: 'ACTIVE', createdAt: new Date('2024-01-12'), updatedAt: new Date('2024-01-12'), tierId: 'tier-2' },
+        {
+          id: 'sub-1',
+          status: 'ACTIVE',
+          createdAt: new Date('2024-01-01'),
+          updatedAt: new Date('2024-01-01'),
+          tierId: 'tier-1',
+        },
+        {
+          id: 'sub-2',
+          status: 'ACTIVE',
+          createdAt: new Date('2024-01-05'),
+          updatedAt: new Date('2024-01-05'),
+          tierId: 'tier-1',
+        },
+        {
+          id: 'sub-3',
+          status: 'CANCELED',
+          createdAt: new Date('2023-12-01'),
+          updatedAt: new Date('2024-01-10'),
+          tierId: 'tier-1',
+        },
+        {
+          id: 'sub-4',
+          status: 'CANCELED',
+          createdAt: new Date('2023-11-01'),
+          updatedAt: new Date('2023-12-15'),
+          tierId: 'tier-2',
+        },
+        {
+          id: 'sub-5',
+          status: 'ACTIVE',
+          createdAt: new Date('2024-01-12'),
+          updatedAt: new Date('2024-01-12'),
+          tierId: 'tier-2',
+        },
       ];
 
       const mockTiers = [
@@ -580,18 +612,18 @@ describe('Analytics Library', () => {
       ];
 
       mockPrisma.subscription.findMany.mockResolvedValue(mockAllSubs);
-      mockPrisma.tier.findMany.mockResolvedValue(mockTiers);
+      mockPrisma.tiers.findMany.mockResolvedValue(mockTiers);
 
       const result = await getChurnAnalysis(artistId);
 
       expect(result).toEqual({
-        overallChurnRate: 40.00, // 2 canceled out of 5 total = 40%
+        overallChurnRate: 40.0, // 2 canceled out of 5 total = 40%
         monthlyChurnRate: expect.any(Number), // 1 canceled this month
         churnByTier: [
           { tierId: 'tier-1', tierName: 'Basic', churnRate: expect.closeTo(33.33, 2) }, // 1 canceled out of 3 total
-          { tierId: 'tier-2', tierName: 'Premium', churnRate: 50.00 }, // 1 canceled out of 2 total
+          { tierId: 'tier-2', tierName: 'Premium', churnRate: 50.0 }, // 1 canceled out of 2 total
         ],
-        retentionRate: 60.00, // 100 - 40
+        retentionRate: 60.0, // 100 - 40
         averageLifetime: expect.any(Number), // Average days between creation and cancellation
         churnReasons: expect.any(Array),
       });
@@ -602,16 +634,26 @@ describe('Analytics Library', () => {
 
     it('should handle zero churn correctly', async () => {
       const mockAllSubs = [
-        { id: 'sub-1', status: 'ACTIVE', createdAt: new Date('2024-01-01'), updatedAt: new Date('2024-01-01'), tierId: 'tier-1' },
-        { id: 'sub-2', status: 'ACTIVE', createdAt: new Date('2024-01-05'), updatedAt: new Date('2024-01-05'), tierId: 'tier-1' },
+        {
+          id: 'sub-1',
+          status: 'ACTIVE',
+          createdAt: new Date('2024-01-01'),
+          updatedAt: new Date('2024-01-01'),
+          tierId: 'tier-1',
+        },
+        {
+          id: 'sub-2',
+          status: 'ACTIVE',
+          createdAt: new Date('2024-01-05'),
+          updatedAt: new Date('2024-01-05'),
+          tierId: 'tier-1',
+        },
       ];
 
-      const mockTiers = [
-        { id: 'tier-1', name: 'Basic' },
-      ];
+      const mockTiers = [{ id: 'tier-1', name: 'Basic' }];
 
       mockPrisma.subscription.findMany.mockResolvedValue(mockAllSubs);
-      mockPrisma.tier.findMany.mockResolvedValue(mockTiers);
+      mockPrisma.tiers.findMany.mockResolvedValue(mockTiers);
 
       const result = await getChurnAnalysis(artistId);
 

@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
 
     // Build where clause
     const where: any = {
-      visibility: 'PUBLIC' // Only show public content in discovery
+      visibility: 'PUBLIC', // Only show public content in discovery
     };
 
     // Add search filter
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
         { title: { contains: search, mode: 'insensitive' } },
         { description: { contains: search, mode: 'insensitive' } },
         { tags: { contains: search, mode: 'insensitive' } },
-        { artist: { displayName: { contains: search, mode: 'insensitive' } } }
+        { users: { displayName: { contains: search, mode: 'insensitive' } } },
       ];
     }
 
@@ -33,7 +33,12 @@ export async function GET(request: NextRequest) {
 
     // Build order by clause
     const orderBy: any = {};
-    if (sortBy === 'createdAt' || sortBy === 'updatedAt' || sortBy === 'totalViews' || sortBy === 'totalLikes') {
+    if (
+      sortBy === 'createdAt' ||
+      sortBy === 'updatedAt' ||
+      sortBy === 'totalViews' ||
+      sortBy === 'totalLikes'
+    ) {
       orderBy[sortBy] = sortOrder;
     } else if (sortBy === 'title') {
       orderBy.title = sortOrder;
@@ -64,19 +69,19 @@ export async function GET(request: NextRequest) {
             select: {
               id: true,
               displayName: true,
-              avatar: true
-            }
+              avatar: true,
+            },
           },
           tiers: {
             select: {
               id: true,
               name: true,
-              minimumPrice: true
-            }
-          }
-        }
+              minimumPrice: true,
+            },
+          },
+        },
       }),
-      prisma.content.count({ where })
+      prisma.content.count({ where }),
     ]);
 
     // Transform tags from JSON string to array
@@ -85,15 +90,15 @@ export async function GET(request: NextRequest) {
       tags: item.tags ? JSON.parse(item.tags) : [],
       likes: item.totalLikes,
       artist: {
-        id: item.artist.id,
-        name: item.artist.displayName,
-        profileImage: item.artist.avatar
+        id: item.users.id,
+        name: item.users.displayName,
+        profileImage: item.users.avatar,
       },
       tiers: item.tiers.map(tier => ({
         id: tier.id,
         name: tier.name,
-        price: Number(tier.minimumPrice)
-      }))
+        price: Number(tier.minimumPrice),
+      })),
     }));
 
     return NextResponse.json({
@@ -102,15 +107,11 @@ export async function GET(request: NextRequest) {
         total,
         limit,
         offset,
-        hasMore: offset + limit < total
-      }
+        hasMore: offset + limit < total,
+      },
     });
-
   } catch (error) {
     console.error('Error fetching discovery content:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch content' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch content' }, { status: 500 });
   }
 }

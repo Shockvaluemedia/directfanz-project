@@ -1,6 +1,6 @@
 /**
  * Email Service
- * 
+ *
  * Handles sending emails for authentication, notifications, and business communications
  */
 
@@ -37,7 +37,7 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
  */
 export async function sendPasswordResetEmail(options: PasswordResetEmailOptions): Promise<boolean> {
   const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password?token=${options.resetToken}`;
-  
+
   return sendEmail({
     to: options.email,
     subject: 'Password Reset Request',
@@ -58,16 +58,17 @@ export async function sendPasswordResetEmail(options: PasswordResetEmailOptions)
  */
 export async function sendWelcomeEmail(options: WelcomeEmailOptions): Promise<boolean> {
   const loginUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/login`;
-  
+
   return sendEmail({
     to: options.email,
     subject: `Welcome to ${process.env.NEXT_PUBLIC_APP_NAME || 'Direct Fan Platform'}!`,
     html: `
       <h2>Welcome ${options.userName}!</h2>
       <p>Thanks for joining our platform as a ${options.role}.</p>
-      ${options.role === 'artist' ? 
-        '<p>You can now create tiers, upload content, and connect with your fans!</p>' :
-        '<p>You can now discover and support your favorite artists!</p>'
+      ${
+        options.role === 'artist'
+          ? '<p>You can now create tiers, upload content, and connect with your fans!</p>'
+          : '<p>You can now discover and support your favorite artists!</p>'
       }
       <a href="${loginUrl}" style="background-color: #28a745; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Get Started</a>
       <p>If you have any questions, feel free to reach out to our support team.</p>

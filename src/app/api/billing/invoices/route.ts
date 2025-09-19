@@ -9,12 +9,9 @@ import { randomUUID } from 'crypto';
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const url = new URL(request.url);
@@ -23,28 +20,19 @@ export async function GET(request: NextRequest) {
     const startingAfter = url.searchParams.get('startingAfter');
 
     if (!subscriptionId) {
-      return NextResponse.json(
-        { error: 'Missing subscriptionId parameter' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Missing subscriptionId parameter' }, { status: 400 });
     }
 
     // Get subscription and verify ownership
-    const subscription = await prisma.subscription.findUnique({
-      where: { 
+    const subscription = await prisma.subscriptions.findUnique({
+      where: {
         id: subscriptionId,
-        OR: [
-          { fanId: session.user.id },
-          { artistId: session.user.id }
-        ]
+        OR: [{ fanId: session.user.id }, { artistId: session.user.id }],
       },
     });
 
     if (!subscription) {
-      return NextResponse.json(
-        { error: 'Subscription not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Subscription not found' }, { status: 404 });
     }
 
     // Get invoices from Stripe
@@ -72,53 +60,38 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error retrieving invoices:', error);
-    return NextResponse.json(
-      { error: 'Failed to retrieve invoices' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to retrieve invoices' }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
     const { stripeInvoiceId } = body;
 
     if (!stripeInvoiceId) {
-      return NextResponse.json(
-        { error: 'Missing stripeInvoiceId parameter' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Missing stripeInvoiceId parameter' }, { status: 400 });
     }
 
     // Get invoice from Stripe
     const stripeInvoice = await stripe.invoices.retrieve(stripeInvoiceId);
-    
+
     // Verify ownership
-    const subscription = await prisma.subscription.findUnique({
-      where: { 
+    const subscription = await prisma.subscriptions.findUnique({
+      where: {
         stripeSubscriptionId: stripeInvoice.subscription as string,
-        OR: [
-          { fanId: session.user.id },
-          { artistId: session.user.id }
-        ]
+        OR: [{ fanId: session.user.id }, { artistId: session.user.id }],
       },
     });
 
     if (!subscription) {
-      return NextResponse.json(
-        { error: 'Subscription not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Subscription not found' }, { status: 404 });
     }
 
     // Generate invoice data
@@ -161,9 +134,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error storing invoice:', error);
-    return NextResponse.json(
-      { error: 'Failed to store invoice' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to store invoice' }, { status: 500 });
   }
 }

@@ -12,12 +12,12 @@ interface FadeInProps {
   className?: string;
 }
 
-export function FadeIn({ 
-  children, 
-  delay = 0, 
-  duration = 500, 
+export function FadeIn({
+  children,
+  delay = 0,
+  duration = 500,
   direction = 'up',
-  className 
+  className,
 }: FadeInProps) {
   const [isVisible, setIsVisible] = useState(false);
 
@@ -46,7 +46,7 @@ export function FadeIn({
   };
 
   return (
-    <div 
+    <div
       className={cn(getDirectionClasses(), className)}
       style={{ transitionDuration: `${duration}ms` }}
     >
@@ -67,11 +67,7 @@ export function Stagger({ children, delay = 0, staggerDelay = 100, className }: 
   return (
     <div className={className}>
       {React.Children.map(children, (child, index) => (
-        <FadeIn 
-          key={index} 
-          delay={delay + (index * staggerDelay)}
-          direction="up"
-        >
+        <FadeIn key={index} delay={delay + index * staggerDelay} direction='up'>
           {child}
         </FadeIn>
       ))}
@@ -87,23 +83,25 @@ interface HoverScaleProps {
   disabled?: boolean;
 }
 
-export function HoverScale({ 
-  children, 
-  scale = 1.05, 
+export function HoverScale({
+  children,
+  scale = 1.05,
   className,
-  disabled = false 
+  disabled = false,
 }: HoverScaleProps) {
   return (
-    <div 
+    <div
       className={cn(
         'transition-transform duration-200 ease-in-out cursor-pointer',
         !disabled && 'hover:scale-105 active:scale-95',
         className
       )}
-      style={{ 
-        '--tw-scale-x': disabled ? '1' : scale.toString(),
-        '--tw-scale-y': disabled ? '1' : scale.toString(),
-      } as React.CSSProperties}
+      style={
+        {
+          '--tw-scale-x': disabled ? '1' : scale.toString(),
+          '--tw-scale-y': disabled ? '1' : scale.toString(),
+        } as React.CSSProperties
+      }
     >
       {children}
     </div>
@@ -120,19 +118,20 @@ interface PulseProps {
 export function Pulse({ children, className, color = 'blue' }: PulseProps) {
   const getColorClasses = () => {
     switch (color) {
-      case 'green': return 'animate-pulse bg-green-100 dark:bg-green-900';
-      case 'red': return 'animate-pulse bg-red-100 dark:bg-red-900';
-      case 'yellow': return 'animate-pulse bg-yellow-100 dark:bg-yellow-900';
-      case 'purple': return 'animate-pulse bg-purple-100 dark:bg-purple-900';
-      default: return 'animate-pulse bg-blue-100 dark:bg-blue-900';
+      case 'green':
+        return 'animate-pulse bg-green-100 dark:bg-green-900';
+      case 'red':
+        return 'animate-pulse bg-red-100 dark:bg-red-900';
+      case 'yellow':
+        return 'animate-pulse bg-yellow-100 dark:bg-yellow-900';
+      case 'purple':
+        return 'animate-pulse bg-purple-100 dark:bg-purple-900';
+      default:
+        return 'animate-pulse bg-blue-100 dark:bg-blue-900';
     }
   };
 
-  return (
-    <div className={cn(getColorClasses(), 'rounded-full', className)}>
-      {children}
-    </div>
-  );
+  return <div className={cn(getColorClasses(), 'rounded-full', className)}>{children}</div>;
 }
 
 // Floating Animation
@@ -143,25 +142,25 @@ interface FloatingProps {
   duration?: number;
 }
 
-export function Floating({ 
-  children, 
-  className, 
-  amplitude = 10, 
-  duration = 3 
-}: FloatingProps) {
+export function Floating({ children, className, amplitude = 10, duration = 3 }: FloatingProps) {
   return (
-    <div 
+    <div
       className={cn('animate-bounce', className)}
       style={{
         animation: `float ${duration}s ease-in-out infinite`,
-        animationDelay: `${crypto.getRandomValues(new Uint32Array(1))[0] / (0xffffffff + 1) * 2}s`
+        animationDelay: `${(crypto.getRandomValues(new Uint32Array(1))[0] / (0xffffffff + 1)) * 2}s`,
       }}
     >
       {children}
       <style jsx>{`
         @keyframes float {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-${amplitude}px); }
+          0%,
+          100% {
+            transform: translateY(0px);
+          }
+          50% {
+            transform: translateY(-${amplitude}px);
+          }
         }
       `}</style>
     </div>
@@ -175,11 +174,7 @@ interface SkeletonShimmerProps {
   height?: string;
 }
 
-export function SkeletonShimmer({ 
-  className, 
-  lines = 1, 
-  height = 'h-4' 
-}: SkeletonShimmerProps) {
+export function SkeletonShimmer({ className, lines = 1, height = 'h-4' }: SkeletonShimmerProps) {
   return (
     <div className={cn('space-y-2', className)}>
       {Array.from({ length: lines }).map((_, i) => (
@@ -204,12 +199,7 @@ interface TypewriterProps {
   onComplete?: () => void;
 }
 
-export function Typewriter({ 
-  text, 
-  speed = 100, 
-  className,
-  onComplete 
-}: TypewriterProps) {
+export function Typewriter({ text, speed = 100, className, onComplete }: TypewriterProps) {
   const [displayText, setDisplayText] = useState('');
   const [currentIndex, setCurrentIndex] = useState(0);
 
@@ -229,9 +219,7 @@ export function Typewriter({
   return (
     <span className={className}>
       {displayText}
-      {currentIndex < text.length && (
-        <span className="animate-pulse">|</span>
-      )}
+      {currentIndex < text.length && <span className='animate-pulse'>|</span>}
     </span>
   );
 }
@@ -251,10 +239,10 @@ export function Magnetic({ children, className, intensity = 0.3 }: MagneticProps
     const rect = e.currentTarget.getBoundingClientRect();
     const centerX = rect.left + rect.width / 2;
     const centerY = rect.top + rect.height / 2;
-    
+
     const deltaX = (e.clientX - centerX) * intensity;
     const deltaY = (e.clientY - centerY) * intensity;
-    
+
     setPosition({ x: deltaX, y: deltaY });
   };
 
@@ -269,12 +257,9 @@ export function Magnetic({ children, className, intensity = 0.3 }: MagneticProps
 
   return (
     <div
-      className={cn(
-        'transition-transform duration-200 ease-out',
-        className
-      )}
+      className={cn('transition-transform duration-200 ease-out', className)}
       style={{
-        transform: `translate(${position.x}px, ${position.y}px) ${isHovered ? 'scale(1.02)' : 'scale(1)'}`
+        transform: `translate(${position.x}px, ${position.y}px) ${isHovered ? 'scale(1.02)' : 'scale(1)'}`,
       }}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
@@ -289,13 +274,13 @@ export function Magnetic({ children, className, intensity = 0.3 }: MagneticProps
 export function LoadingDots({ className }: { className?: string }) {
   return (
     <div className={cn('flex space-x-1', className)}>
-      {[0, 1, 2].map((i) => (
+      {[0, 1, 2].map(i => (
         <div
           key={i}
-          className="w-2 h-2 bg-current rounded-full animate-bounce"
+          className='w-2 h-2 bg-current rounded-full animate-bounce'
           style={{
             animationDelay: `${i * 0.1}s`,
-            animationDuration: '1.4s'
+            animationDuration: '1.4s',
           }}
         />
       ))}
@@ -327,22 +312,19 @@ export function Ripple({ children, className, color = 'rgba(255, 255, 255, 0.6)'
   };
 
   return (
-    <div
-      className={cn('relative overflow-hidden', className)}
-      onClick={createRipple}
-    >
+    <div className={cn('relative overflow-hidden', className)} onClick={createRipple}>
       {children}
       {ripples.map(ripple => (
         <span
           key={ripple.id}
-          className="absolute rounded-full pointer-events-none animate-ping"
+          className='absolute rounded-full pointer-events-none animate-ping'
           style={{
             left: ripple.x - 10,
             top: ripple.y - 10,
             width: 20,
             height: 20,
             backgroundColor: color,
-            animation: 'ripple 0.6s linear'
+            animation: 'ripple 0.6s linear',
           }}
         />
       ))}
@@ -367,12 +349,12 @@ interface ProgressRingProps {
   children?: React.ReactNode;
 }
 
-export function ProgressRing({ 
-  progress, 
-  size = 120, 
-  strokeWidth = 8, 
+export function ProgressRing({
+  progress,
+  size = 120,
+  strokeWidth = 8,
   className,
-  children 
+  children,
 }: ProgressRingProps) {
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
@@ -380,37 +362,31 @@ export function ProgressRing({
 
   return (
     <div className={cn('relative', className)} style={{ width: size, height: size }}>
-      <svg
-        className="transform -rotate-90"
-        width={size}
-        height={size}
-      >
+      <svg className='transform -rotate-90' width={size} height={size}>
         <circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke="currentColor"
+          stroke='currentColor'
           strokeWidth={strokeWidth}
-          fill="transparent"
-          className="opacity-20"
+          fill='transparent'
+          className='opacity-20'
         />
         <circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke="currentColor"
+          stroke='currentColor'
           strokeWidth={strokeWidth}
-          fill="transparent"
+          fill='transparent'
           strokeDasharray={circumference}
           strokeDashoffset={offset}
-          strokeLinecap="round"
-          className="transition-all duration-300 ease-in-out"
+          strokeLinecap='round'
+          className='transition-all duration-300 ease-in-out'
         />
       </svg>
       {children && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          {children}
-        </div>
+        <div className='absolute inset-0 flex items-center justify-center'>{children}</div>
       )}
     </div>
   );

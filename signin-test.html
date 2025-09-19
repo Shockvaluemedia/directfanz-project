@@ -1,163 +1,187 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
+  <head>
     <title>NextAuth Signin Test</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 40px; }
-        .log { background: #f5f5f5; padding: 10px; margin: 10px 0; border-left: 4px solid #ccc; }
-        .error { border-left-color: #ff4444; }
-        .success { border-left-color: #44ff44; }
-        .warning { border-left-color: #ffaa00; }
-        form { margin: 20px 0; }
-        input { margin: 5px; padding: 8px; }
-        button { padding: 10px 20px; margin: 5px; }
+      body {
+        font-family: Arial, sans-serif;
+        margin: 40px;
+      }
+      .log {
+        background: #f5f5f5;
+        padding: 10px;
+        margin: 10px 0;
+        border-left: 4px solid #ccc;
+      }
+      .error {
+        border-left-color: #ff4444;
+      }
+      .success {
+        border-left-color: #44ff44;
+      }
+      .warning {
+        border-left-color: #ffaa00;
+      }
+      form {
+        margin: 20px 0;
+      }
+      input {
+        margin: 5px;
+        padding: 8px;
+      }
+      button {
+        padding: 10px 20px;
+        margin: 5px;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <h1>NextAuth Signin Test</h1>
-    
+
     <form id="signinForm">
-        <div>
-            <input type="email" id="email" placeholder="Email" value="indie.artist@example.com" />
-        </div>
-        <div>
-            <input type="password" id="password" placeholder="Password" value="password123" />
-        </div>
-        <div>
-            <button type="submit">Sign In</button>
-            <button type="button" onclick="checkSession()">Check Session</button>
-            <button type="button" onclick="signOut()">Sign Out</button>
-            <button type="button" onclick="clearLogs()">Clear Logs</button>
-        </div>
+      <div>
+        <input type="email" id="email" placeholder="Email" value="indie.artist@example.com" />
+      </div>
+      <div>
+        <input type="password" id="password" placeholder="Password" value="password123" />
+      </div>
+      <div>
+        <button type="submit">Sign In</button>
+        <button type="button" onclick="checkSession()">Check Session</button>
+        <button type="button" onclick="signOut()">Sign Out</button>
+        <button type="button" onclick="clearLogs()">Clear Logs</button>
+      </div>
     </form>
 
     <div id="logs"></div>
 
     <script>
-        let csrfToken = null;
+      let csrfToken = null;
 
-        function log(message, type = 'log') {
-            const logs = document.getElementById('logs');
-            const logDiv = document.createElement('div');
-            logDiv.className = `log ${type}`;
-            logDiv.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
-            logs.appendChild(logDiv);
-            console.log(message);
-            logs.scrollTop = logs.scrollHeight;
+      function log(message, type = 'log') {
+        const logs = document.getElementById('logs');
+        const logDiv = document.createElement('div');
+        logDiv.className = `log ${type}`;
+        logDiv.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
+        logs.appendChild(logDiv);
+        console.log(message);
+        logs.scrollTop = logs.scrollHeight;
+      }
+
+      function clearLogs() {
+        document.getElementById('logs').innerHTML = '';
+      }
+
+      async function fetchCsrfToken() {
+        try {
+          const response = await fetch('/api/auth/csrf', {
+            credentials: 'include',
+          });
+          const data = await response.json();
+          csrfToken = data.csrfToken;
+          log(`✅ CSRF token fetched: ${csrfToken.substring(0, 16)}...`, 'success');
+          return csrfToken;
+        } catch (error) {
+          log(`❌ Failed to fetch CSRF token: ${error.message}`, 'error');
+          throw error;
         }
+      }
 
-        function clearLogs() {
-            document.getElementById('logs').innerHTML = '';
+      async function checkSession() {
+        try {
+          const response = await fetch('/api/auth/session', {
+            credentials: 'include',
+          });
+
+          log(`📊 Session check status: ${response.status}`, 'log');
+
+          if (response.status === 200) {
+            const session = await response.json();
+            log(`✅ Session found: ${JSON.stringify(session, null, 2)}`, 'success');
+          } else {
+            const errorText = await response.text();
+            log(`❌ No session (${response.status}): ${errorText}`, 'warning');
+          }
+        } catch (error) {
+          log(`❌ Session check failed: ${error.message}`, 'error');
         }
+      }
 
-        async function fetchCsrfToken() {
-            try {
-                const response = await fetch('/api/auth/csrf', {
-                    credentials: 'include'
-                });
-                const data = await response.json();
-                csrfToken = data.csrfToken;
-                log(`✅ CSRF token fetched: ${csrfToken.substring(0, 16)}...`, 'success');
-                return csrfToken;
-            } catch (error) {
-                log(`❌ Failed to fetch CSRF token: ${error.message}`, 'error');
-                throw error;
-            }
+      async function signOut() {
+        try {
+          const response = await fetch('/api/auth/signout', {
+            method: 'POST',
+            credentials: 'include',
+          });
+
+          if (response.ok) {
+            log('✅ Signed out successfully', 'success');
+          } else {
+            log(`❌ Sign out failed: ${response.status}`, 'error');
+          }
+        } catch (error) {
+          log(`❌ Sign out error: ${error.message}`, 'error');
         }
+      }
 
-        async function checkSession() {
-            try {
-                const response = await fetch('/api/auth/session', {
-                    credentials: 'include'
-                });
-                
-                log(`📊 Session check status: ${response.status}`, 'log');
-                
-                if (response.status === 200) {
-                    const session = await response.json();
-                    log(`✅ Session found: ${JSON.stringify(session, null, 2)}`, 'success');
-                } else {
-                    const errorText = await response.text();
-                    log(`❌ No session (${response.status}): ${errorText}`, 'warning');
-                }
-            } catch (error) {
-                log(`❌ Session check failed: ${error.message}`, 'error');
-            }
+      document.getElementById('signinForm').addEventListener('submit', async e => {
+        e.preventDefault();
+
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+
+        log(`🚀 Starting signin for: ${email}`, 'log');
+
+        try {
+          // Get CSRF token first
+          await fetchCsrfToken();
+
+          // Perform signin
+          const signinResponse = await fetch('/api/auth/callback/credentials', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            credentials: 'include',
+            body: new URLSearchParams({
+              email: email,
+              password: password,
+              csrfToken: csrfToken,
+              callbackUrl: 'http://localhost:3000',
+              redirect: 'false',
+            }),
+          });
+
+          log(`📝 Signin response status: ${signinResponse.status}`, 'log');
+          log(
+            `📝 Signin response headers: ${JSON.stringify([...signinResponse.headers.entries()])}`,
+            'log'
+          );
+
+          const signinResult = await signinResponse.text();
+          log(`📝 Signin response body: ${signinResult}`, 'log');
+
+          if (signinResponse.ok) {
+            log('✅ Signin request completed successfully', 'success');
+
+            // Check session immediately after signin
+            setTimeout(() => {
+              log('🔍 Checking session after signin...', 'log');
+              checkSession();
+            }, 1000);
+          } else {
+            log(`❌ Signin failed with status: ${signinResponse.status}`, 'error');
+          }
+        } catch (error) {
+          log(`❌ Signin error: ${error.message}`, 'error');
         }
+      });
 
-        async function signOut() {
-            try {
-                const response = await fetch('/api/auth/signout', {
-                    method: 'POST',
-                    credentials: 'include'
-                });
-                
-                if (response.ok) {
-                    log('✅ Signed out successfully', 'success');
-                } else {
-                    log(`❌ Sign out failed: ${response.status}`, 'error');
-                }
-            } catch (error) {
-                log(`❌ Sign out error: ${error.message}`, 'error');
-            }
-        }
-
-        document.getElementById('signinForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            
-            log(`🚀 Starting signin for: ${email}`, 'log');
-            
-            try {
-                // Get CSRF token first
-                await fetchCsrfToken();
-                
-                // Perform signin
-                const signinResponse = await fetch('/api/auth/callback/credentials', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    credentials: 'include',
-                    body: new URLSearchParams({
-                        email: email,
-                        password: password,
-                        csrfToken: csrfToken,
-                        callbackUrl: 'http://localhost:3000',
-                        redirect: 'false'
-                    })
-                });
-                
-                log(`📝 Signin response status: ${signinResponse.status}`, 'log');
-                log(`📝 Signin response headers: ${JSON.stringify([...signinResponse.headers.entries()])}`, 'log');
-                
-                const signinResult = await signinResponse.text();
-                log(`📝 Signin response body: ${signinResult}`, 'log');
-                
-                if (signinResponse.ok) {
-                    log('✅ Signin request completed successfully', 'success');
-                    
-                    // Check session immediately after signin
-                    setTimeout(() => {
-                        log('🔍 Checking session after signin...', 'log');
-                        checkSession();
-                    }, 1000);
-                } else {
-                    log(`❌ Signin failed with status: ${signinResponse.status}`, 'error');
-                }
-                
-            } catch (error) {
-                log(`❌ Signin error: ${error.message}`, 'error');
-            }
-        });
-
-        // Check session on page load
-        window.onload = () => {
-            log('🏁 Page loaded, checking initial session...', 'log');
-            checkSession();
-        };
+      // Check session on page load
+      window.onload = () => {
+        log('🏁 Page loaded, checking initial session...', 'log');
+        checkSession();
+      };
     </script>
-</body>
+  </body>
 </html>

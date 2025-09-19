@@ -42,7 +42,7 @@ async function checkDatabaseHealth(): Promise<any> {
     // const startTime = Date.now();
     // await prisma.$queryRaw`SELECT 1`;
     // const responseTime = Date.now() - startTime;
-    
+
     return {
       status: 'pass',
       time: new Date().toISOString(),
@@ -69,7 +69,7 @@ async function checkRedisHealth(): Promise<any> {
     // const startTime = Date.now();
     // await redis.ping();
     // const responseTime = Date.now() - startTime;
-    
+
     return {
       status: 'pass',
       time: new Date().toISOString(),
@@ -91,7 +91,7 @@ async function checkRedisHealth(): Promise<any> {
 
 async function checkExternalDependencies(): Promise<{ [key: string]: any }> {
   const dependencies: { [key: string]: any } = {};
-  
+
   // Check Stripe connectivity
   try {
     // This would typically make a test API call to Stripe
@@ -143,7 +143,7 @@ async function checkExternalDependencies(): Promise<{ [key: string]: any }> {
 function getPerformanceMetrics() {
   const memoryUsage = process.memoryUsage();
   const uptime = process.uptime();
-  
+
   return {
     memory: memoryUsage,
     uptime,
@@ -152,7 +152,10 @@ function getPerformanceMetrics() {
   };
 }
 
-function checkSystemThresholds(performance: any): { status: 'pass' | 'warn' | 'fail'; issues: string[] } {
+function checkSystemThresholds(performance: any): {
+  status: 'pass' | 'warn' | 'fail';
+  issues: string[];
+} {
   const issues: string[] = [];
   let status: 'pass' | 'warn' | 'fail' = 'pass';
 
@@ -181,13 +184,17 @@ function checkSystemThresholds(performance: any): { status: 'pass' | 'warn' | 'f
     const load1 = performance.loadAverage[0];
     const cpuCount = require('os').cpus().length;
     const normalizedLoad = load1 / cpuCount;
-    
+
     if (normalizedLoad > 2) {
       status = 'fail';
-      issues.push(`Critical system load: ${load1.toFixed(2)} (${Math.round(normalizedLoad * 100)}% of CPU capacity)`);
+      issues.push(
+        `Critical system load: ${load1.toFixed(2)} (${Math.round(normalizedLoad * 100)}% of CPU capacity)`
+      );
     } else if (normalizedLoad > 1) {
       if (status === 'pass') status = 'warn';
-      issues.push(`High system load: ${load1.toFixed(2)} (${Math.round(normalizedLoad * 100)}% of CPU capacity)`);
+      issues.push(
+        `High system load: ${load1.toFixed(2)} (${Math.round(normalizedLoad * 100)}% of CPU capacity)`
+      );
     }
   }
 
@@ -196,7 +203,7 @@ function checkSystemThresholds(performance: any): { status: 'pass' | 'warn' | 'f
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const startTime = Date.now();
-  
+
   try {
     // Collect all health data
     const [databaseHealth, redisHealth, dependencies] = await Promise.all([
@@ -213,8 +220,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     // Determine overall system status
     const allChecks = [databaseHealth, redisHealth, systemCheck];
     const hasFailures = allChecks.some(check => check.status === 'fail');
-    const hasWarnings = allChecks.some(check => check.status === 'warn' || check.status === 'warning');
-    const hasDependencyIssues = Object.values(dependencies).some((dep: any) => dep.status === 'down');
+    const hasWarnings = allChecks.some(
+      check => check.status === 'warn' || check.status === 'warning'
+    );
+    const hasDependencyIssues = Object.values(dependencies).some(
+      (dep: any) => dep.status === 'down'
+    );
 
     let overallStatus: 'healthy' | 'degraded' | 'unhealthy';
     if (hasFailures) {
@@ -238,7 +249,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           status: systemCheck.status,
           time: new Date().toISOString(),
           componentType: 'system',
-          output: systemCheck.issues.length > 0 ? systemCheck.issues.join('; ') : 'System resources within normal limits',
+          output:
+            systemCheck.issues.length > 0
+              ? systemCheck.issues.join('; ')
+              : 'System resources within normal limits',
         },
       },
       telemetry: telemetryHealth,
@@ -247,7 +261,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     };
 
     const totalTime = Date.now() - startTime;
-    
+
     // Log health check
     logger.info('System health check completed', {
       status: overallStatus,
@@ -258,26 +272,28 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     });
 
     // Return appropriate HTTP status
-    const httpStatus = overallStatus === 'healthy' ? 200 : 
-                      overallStatus === 'degraded' ? 200 : 503;
+    const httpStatus = overallStatus === 'healthy' ? 200 : overallStatus === 'degraded' ? 200 : 503;
 
     return NextResponse.json(healthData, {
       status: httpStatus,
       headers: {
         'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0',
+        Pragma: 'no-cache',
+        Expires: '0',
         'Content-Type': 'application/json',
         'X-Response-Time': `${totalTime}ms`,
       },
     });
-
   } catch (error) {
     const totalTime = Date.now() - startTime;
-    
-    logger.error('Health check failed', {
-      duration: totalTime,
-    }, error as Error);
+
+    logger.error(
+      'Health check failed',
+      {
+        duration: totalTime,
+      },
+      error as Error
+    );
 
     const errorResponse = {
       status: 'unhealthy',
@@ -292,8 +308,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       status: 503,
       headers: {
         'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0',
+        Pragma: 'no-cache',
+        Expires: '0',
         'Content-Type': 'application/json',
         'X-Response-Time': `${totalTime}ms`,
       },
@@ -307,13 +323,13 @@ export async function HEAD(request: NextRequest): Promise<NextResponse> {
     // Quick system check
     const memoryUsage = process.memoryUsage();
     const heapUsedMB = memoryUsage.heapUsed / (1024 * 1024);
-    
+
     // Simple threshold check
     if (heapUsedMB > 1024) {
       return new NextResponse(null, { status: 503 });
     }
-    
-    return new NextResponse(null, { 
+
+    return new NextResponse(null, {
       status: 200,
       headers: {
         'Cache-Control': 'no-cache',

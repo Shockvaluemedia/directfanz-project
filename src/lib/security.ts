@@ -1,6 +1,6 @@
 /**
  * Server-side security utilities and middleware for implementing OWASP best practices
- * 
+ *
  * WARNING: This module uses Node.js crypto and should only be imported in server-side code.
  * For client-safe security utilities, use './security-client.ts' instead.
  */
@@ -10,10 +10,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { logger } from './logger';
 import { createRateLimitResponse } from './error-handler';
 import { AppError, ErrorCode } from './errors';
-import { SECURITY_CONSTANTS, generateCSP, sanitizeInput, generateSecureDownloadHeaders } from './security-client';
+import {
+  SECURITY_CONSTANTS,
+  generateCSP,
+  sanitizeInput,
+  generateSecureDownloadHeaders,
+} from './security-client';
 
 // Re-export client-safe utilities for convenience
-export { SECURITY_CONSTANTS, generateCSP, sanitizeInput, generateSecureDownloadHeaders } from './security-client';
+export {
+  SECURITY_CONSTANTS,
+  generateCSP,
+  sanitizeInput,
+  generateSecureDownloadHeaders,
+} from './security-client';
 
 // === SERVER-SIDE ONLY FUNCTIONS (require Node.js crypto) ===
 
@@ -25,10 +35,7 @@ export const generateSecureToken = (bytes = 32): string => {
 // Hash sensitive data
 export const hashData = (data: string, salt?: string): { hash: string; salt: string } => {
   const useSalt = salt || crypto.randomBytes(16).toString('hex');
-  const hash = crypto
-    .createHmac('sha256', useSalt)
-    .update(data)
-    .digest('hex');
+  const hash = crypto.createHmac('sha256', useSalt).update(data).digest('hex');
 
   return { hash, salt: useSalt };
 };
@@ -107,7 +114,7 @@ export const generateCsrfToken = (sessionId: string): { token: string; expires: 
   const expires = new Date(Date.now() + SECURITY_CONSTANTS.CSRF_TOKEN_EXPIRY * 1000);
   const data = `${sessionId}:${expires.getTime()}`;
   const { hash } = hashData(data);
-  
+
   return {
     token: `${hash}:${expires.getTime()}`,
     expires,
@@ -118,21 +125,18 @@ export const validateCsrfToken = (token: string, sessionId: string): boolean => 
   try {
     const [hash, expiresTimestamp] = token.split(':');
     const expires = parseInt(expiresTimestamp, 10);
-    
+
     // Check if token has expired
     if (Date.now() > expires) {
       return false;
     }
-    
+
     // Recreate the data that was used to generate the hash
     const data = `${sessionId}:${expires}`;
     const { hash: expectedHash } = hashData(data);
-    
+
     // Compare the hashes using a timing-safe comparison
-    return crypto.timingSafeEqual(
-      Buffer.from(hash, 'hex'),
-      Buffer.from(expectedHash, 'hex')
-    );
+    return crypto.timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(expectedHash, 'hex'));
   } catch (error) {
     logger.error('CSRF token validation failed', {}, error as Error);
     return false;
@@ -166,7 +170,7 @@ export const initiateUserDataDeletion = async (userId: string): Promise<void> =>
   // This would implement the actual data deletion process
   // For now, we'll just log the request
   logger.info(`GDPR data deletion initiated for user ${userId}`, { userId });
-  
+
   // In a real implementation, this would:
   // 1. Anonymize user data that must be retained (e.g., for financial records)
   // 2. Delete personal data that can be removed
@@ -178,27 +182,30 @@ export const initiateUserDataDeletion = async (userId: string): Promise<void> =>
 export const addSecurityHeaders = (response: NextResponse): NextResponse => {
   // Content Security Policy
   response.headers.set('Content-Security-Policy', generateCSP());
-  
+
   // Prevent MIME type sniffing
   response.headers.set('X-Content-Type-Options', 'nosniff');
-  
+
   // Prevent clickjacking
   response.headers.set('X-Frame-Options', 'DENY');
-  
+
   // Enable XSS protection in browsers
   response.headers.set('X-XSS-Protection', '1; mode=block');
-  
+
   // Control browser features
   response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-  
+
   // Referrer policy
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-  
+
   // HSTS (HTTP Strict Transport Security)
   if (process.env.NODE_ENV === 'production') {
-    response.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+    response.headers.set(
+      'Strict-Transport-Security',
+      'max-age=63072000; includeSubDomains; preload'
+    );
   }
-  
+
   return response;
 };
 
@@ -235,29 +242,29 @@ if (typeof setInterval !== 'undefined') {
 // Rate limiting middleware factory
 export const createRateLimiter = (config: Partial<RateLimitConfig> = {}) => {
   const options: RateLimitConfig = { ...defaultRateLimitConfig, ...config };
-  
+
   return (request: NextRequest, key?: string): { limited: boolean; response?: NextResponse } => {
     const ip = request.ip || request.headers.get('x-forwarded-for') || 'unknown';
     const limitKey = key || `${ip}:${request.nextUrl.pathname}`;
     const now = Date.now();
-    
-    const currentData = rateLimitStore.get(limitKey) || { 
-      count: 0, 
-      resetTime: now + options.windowMs 
+
+    const currentData = rateLimitStore.get(limitKey) || {
+      count: 0,
+      resetTime: now + options.windowMs,
     };
-    
+
     // Reset if window has passed
     if (currentData.resetTime <= now) {
       currentData.count = 0;
       currentData.resetTime = now + options.windowMs;
     }
-    
+
     currentData.count += 1;
     rateLimitStore.set(limitKey, currentData);
-    
+
     if (currentData.count > options.maxRequests) {
       const retryAfter = Math.ceil((currentData.resetTime - now) / 1000);
-      
+
       logger.warn('Rate limit exceeded', {
         ip,
         path: request.nextUrl.pathname,
@@ -265,7 +272,7 @@ export const createRateLimiter = (config: Partial<RateLimitConfig> = {}) => {
         count: currentData.count,
         limit: options.maxRequests,
       });
-      
+
       return {
         limited: true,
         response: createRateLimitResponse(
@@ -274,32 +281,42 @@ export const createRateLimiter = (config: Partial<RateLimitConfig> = {}) => {
         ),
       };
     }
-    
+
     return { limited: false };
   };
 };
 
 // Detect suspicious activities
 export const detectSuspiciousActivity = (request: NextRequest, userId?: string): boolean => {
+  // In development mode, be less restrictive to allow testing with curl/postman
+  if (process.env.NODE_ENV === 'development') {
+    return false;
+  }
+
   // This would implement more sophisticated detection logic
   // For now, we'll use a simple check for unusual headers or patterns
-  
+
   const userAgent = request.headers.get('user-agent') || '';
   const acceptLanguage = request.headers.get('accept-language') || '';
   const referer = request.headers.get('referer') || '';
-  
+
   // Check for missing or suspicious user agent
-  if (!userAgent || userAgent.length < 10 || userAgent.includes('bot') || userAgent.includes('crawl')) {
-    logger.warn('Suspicious user agent detected', { 
-      userId, 
+  if (
+    !userAgent ||
+    userAgent.length < 10 ||
+    userAgent.includes('bot') ||
+    userAgent.includes('crawl')
+  ) {
+    logger.warn('Suspicious user agent detected', {
+      userId,
       userAgent,
       ip: request.ip || request.headers.get('x-forwarded-for') || 'unknown',
       path: request.nextUrl.pathname,
     });
     return true;
   }
-  
+
   // Add more sophisticated checks here
-  
+
   return false;
 };

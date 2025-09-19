@@ -3,11 +3,15 @@
 ## Pre-Deployment Requirements
 
 ### ✅ Environment Setup
+
 - [ ] Copy `.env.example` to configure your production environment variables
-- [ ] Generate secure secrets using `openssl rand -base64 32` and `openssl rand -hex 32`
-- [ ] Verify all environment variables are properly set in your deployment platform
+- [ ] Generate secure secrets using `openssl rand -base64 32` and
+      `openssl rand -hex 32`
+- [ ] Verify all environment variables are properly set in your deployment
+      platform
 
 ### ✅ Database Configuration
+
 - [ ] **Option 1: Railway (Recommended for beginners)**
   - [ ] Create Railway account at [railway.app](https://railway.app)
   - [ ] Install Railway CLI: `npm install -g @railway/cli`
@@ -26,6 +30,7 @@
   - [ ] Copy connection string
 
 ### ✅ File Storage (AWS S3)
+
 - [ ] Create AWS account and S3 bucket
 - [ ] Configure bucket for public read access
 - [ ] Set up CORS policy (use provided `s3-cors-policy.json`)
@@ -33,6 +38,7 @@
 - [ ] Generate and save access keys
 
 ### ✅ Email Service
+
 - [ ] **Option 1: SendGrid**
   - [ ] Create SendGrid account
   - [ ] Generate API key
@@ -43,6 +49,7 @@
   - [ ] Configure SMTP settings
 
 ### ✅ Payment Processing (Stripe)
+
 - [ ] Create Stripe account
 - [ ] Get publishable and secret keys (live keys for production)
 - [ ] Set up webhook endpoint: `https://yourdomain.com/api/webhooks/stripe`
@@ -54,21 +61,25 @@
 ### 🚀 Option 1: Vercel Deployment (Recommended)
 
 #### Prerequisites
+
 - [ ] GitHub repository with your code
 - [ ] Vercel account connected to GitHub
 
 #### Steps
+
 1. **Build and Test Locally**
+
    ```bash
    npm run build
    npm start
    ```
 
 2. **Deploy to Vercel**
+
    ```bash
    # Install Vercel CLI
    npm install -g vercel
-   
+
    # Deploy
    vercel --prod
    ```
@@ -86,13 +97,16 @@
 ### 🚀 Option 2: Railway Deployment
 
 #### Steps
+
 1. **Install Railway CLI**
+
    ```bash
    npm install -g @railway/cli
    railway login
    ```
 
 2. **Initialize and Deploy**
+
    ```bash
    railway init
    railway up
@@ -106,11 +120,13 @@
 ### 🚀 Option 3: Automated Deployment Script
 
 Run the provided deployment script:
+
 ```bash
 ./scripts/deploy-production.sh
 ```
 
 The script will guide you through:
+
 - Generating secure secrets
 - Setting up database and S3
 - Deploying to your chosen platform
@@ -119,7 +135,9 @@ The script will guide you through:
 ## Post-Deployment Steps
 
 ### ✅ Database Setup
+
 1. **Run Migrations**
+
    ```bash
    npx prisma migrate deploy
    ```
@@ -130,17 +148,20 @@ The script will guide you through:
    ```
 
 ### ✅ Domain and SSL Configuration
+
 - [ ] Configure custom domain with your DNS provider
 - [ ] Verify SSL certificates are active
 - [ ] Test HTTPS redirect
 - [ ] Update NEXTAUTH_URL to your production domain
 
 ### ✅ Webhook Configuration
+
 - [ ] Update Stripe webhook endpoint URL
 - [ ] Test webhook delivery
 - [ ] Verify payment flows work end-to-end
 
 ### ✅ Testing & Verification
+
 - [ ] **Authentication Flow**
   - [ ] User registration
   - [ ] Email verification
@@ -167,6 +188,7 @@ The script will guide you through:
   - [ ] Admin dashboard
 
 ### ✅ Monitoring & Security
+
 - [ ] Configure Sentry for error tracking
 - [ ] Set up uptime monitoring (UptimeRobot, Pingdom)
 - [ ] Enable security headers (already configured in middleware)
@@ -174,6 +196,7 @@ The script will guide you through:
 - [ ] Verify CSRF protection
 
 ### ✅ Performance Optimization
+
 - [ ] Enable CDN (CloudFront for S3, Vercel Edge for static assets)
 - [ ] Configure Redis for caching (Upstash recommended)
 - [ ] Optimize images and static assets
@@ -182,27 +205,31 @@ The script will guide you through:
 ## Environment Variables Checklist
 
 ### Required for Basic Functionality
+
 - [ ] `DATABASE_URL`
 - [ ] `NEXTAUTH_SECRET`
 - [ ] `NEXTAUTH_URL`
 
 ### Required for Payments
+
 - [ ] `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
 - [ ] `STRIPE_SECRET_KEY`
 - [ ] `STRIPE_WEBHOOK_SECRET`
 
 ### Required for File Uploads
+
 - [ ] `AWS_ACCESS_KEY_ID`
 - [ ] `AWS_SECRET_ACCESS_KEY`
 - [ ] `AWS_S3_BUCKET_NAME`
 - [ ] `AWS_REGION`
 
 ### Required for Emails
-- [ ] `SENDGRID_API_KEY` and `SENDGRID_FROM_EMAIL`
-  OR
+
+- [ ] `SENDGRID_API_KEY` and `SENDGRID_FROM_EMAIL` OR
 - [ ] `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`
 
 ### Recommended for Production
+
 - [ ] `REDIS_URL`
 - [ ] `SENTRY_DSN`
 - [ ] `ENCRYPTION_KEY`
@@ -233,6 +260,7 @@ The script will guide you through:
    - Ensure AWS credentials are correct
 
 ### Support Resources
+
 - Vercel Documentation: [vercel.com/docs](https://vercel.com/docs)
 - Railway Documentation: [docs.railway.app](https://docs.railway.app)
 - Prisma Documentation: [prisma.io/docs](https://prisma.io/docs)

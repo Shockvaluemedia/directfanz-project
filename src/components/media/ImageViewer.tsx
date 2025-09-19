@@ -3,17 +3,17 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { 
-  ZoomIn, 
-  ZoomOut, 
-  Maximize, 
-  Download, 
-  Share2, 
+import {
+  ZoomIn,
+  ZoomOut,
+  Maximize,
+  Download,
+  Share2,
   RotateCw,
   Move,
   ChevronLeft,
   ChevronRight,
-  X
+  X,
 } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 
@@ -36,7 +36,7 @@ export function ImageViewer({
   images = [],
   currentIndex = 0,
   onImageChange,
-  className
+  className,
 }: ImageViewerProps) {
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
@@ -46,7 +46,7 @@ export function ImageViewer({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasTrackedView, setHasTrackedView] = useState(false);
-  
+
   const imageRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -95,7 +95,7 @@ export function ImageViewer({
     setIsDragging(true);
     setDragStart({
       x: e.clientX - position.x,
-      y: e.clientY - position.y
+      y: e.clientY - position.y,
     });
   };
 
@@ -103,7 +103,7 @@ export function ImageViewer({
     if (!isDragging || zoom <= 1) return;
     setPosition({
       x: e.clientX - dragStart.x,
-      y: e.clientY - dragStart.y
+      y: e.clientY - dragStart.y,
     });
   };
 
@@ -147,9 +147,9 @@ export function ImageViewer({
   return (
     <>
       <Card className={`overflow-hidden ${className}`}>
-        <div 
+        <div
           ref={containerRef}
-          className="relative bg-black group cursor-zoom-in"
+          className='relative bg-black group cursor-zoom-in'
           onWheel={handleWheel}
           style={{ aspectRatio: '16/9' }}
         >
@@ -157,10 +157,10 @@ export function ImageViewer({
             ref={imageRef}
             src={currentImage.src}
             alt={currentImage.alt}
-            className="w-full h-full object-contain transition-transform duration-200 ease-out select-none"
+            className='w-full h-full object-contain transition-transform duration-200 ease-out select-none'
             style={{
               transform: `translate(${position.x}px, ${position.y}px) scale(${zoom}) rotate(${rotation}deg)`,
-              cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'zoom-in'
+              cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'zoom-in',
             }}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
@@ -171,48 +171,48 @@ export function ImageViewer({
           />
 
           {/* Controls Overlay */}
-          <div className="absolute top-4 left-4 right-4 flex justify-between items-start opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          <div className='absolute top-4 left-4 right-4 flex justify-between items-start opacity-0 group-hover:opacity-100 transition-opacity duration-200'>
             {title && (
-              <div className="bg-black/60 backdrop-blur-sm rounded-lg px-3 py-2">
-                <h3 className="text-white font-semibold">{title}</h3>
+              <div className='bg-black/60 backdrop-blur-sm rounded-lg px-3 py-2'>
+                <h3 className='text-white font-semibold'>{title}</h3>
               </div>
             )}
-            
-            <div className="flex items-center space-x-2">
+
+            <div className='flex items-center space-x-2'>
               <Button
-                variant="secondary"
-                size="sm"
+                variant='secondary'
+                size='sm'
                 onClick={handleZoomOut}
                 disabled={zoom <= 0.1}
-                className="bg-black/60 backdrop-blur-sm border-none text-white hover:bg-black/80"
+                className='bg-black/60 backdrop-blur-sm border-none text-white hover:bg-black/80'
               >
-                <ZoomOut className="h-4 w-4" />
+                <ZoomOut className='h-4 w-4' />
               </Button>
               <Button
-                variant="secondary"
-                size="sm"
+                variant='secondary'
+                size='sm'
                 onClick={handleZoomIn}
                 disabled={zoom >= 5}
-                className="bg-black/60 backdrop-blur-sm border-none text-white hover:bg-black/80"
+                className='bg-black/60 backdrop-blur-sm border-none text-white hover:bg-black/80'
               >
-                <ZoomIn className="h-4 w-4" />
+                <ZoomIn className='h-4 w-4' />
               </Button>
               <Button
-                variant="secondary"
-                size="sm"
+                variant='secondary'
+                size='sm'
                 onClick={handleRotate}
-                className="bg-black/60 backdrop-blur-sm border-none text-white hover:bg-black/80"
+                className='bg-black/60 backdrop-blur-sm border-none text-white hover:bg-black/80'
               >
-                <RotateCw className="h-4 w-4" />
+                <RotateCw className='h-4 w-4' />
               </Button>
               <Button
-                variant="secondary"
-                size="sm"
+                variant='secondary'
+                size='sm'
                 onClick={handleReset}
                 disabled={zoom === 1 && rotation === 0 && position.x === 0 && position.y === 0}
-                className="bg-black/60 backdrop-blur-sm border-none text-white hover:bg-black/80"
+                className='bg-black/60 backdrop-blur-sm border-none text-white hover:bg-black/80'
               >
-                <Move className="h-4 w-4" />
+                <Move className='h-4 w-4' />
               </Button>
             </div>
           </div>
@@ -221,55 +221,55 @@ export function ImageViewer({
           {images.length > 1 && (
             <>
               <Button
-                variant="secondary"
-                size="sm"
+                variant='secondary'
+                size='sm'
                 onClick={handlePreviousImage}
-                className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-black/60 backdrop-blur-sm border-none text-white hover:bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                className='absolute left-4 top-1/2 transform -translate-y-1/2 bg-black/60 backdrop-blur-sm border-none text-white hover:bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity duration-200'
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className='h-4 w-4' />
               </Button>
               <Button
-                variant="secondary"
-                size="sm"
+                variant='secondary'
+                size='sm'
                 onClick={handleNextImage}
-                className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-black/60 backdrop-blur-sm border-none text-white hover:bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                className='absolute right-4 top-1/2 transform -translate-y-1/2 bg-black/60 backdrop-blur-sm border-none text-white hover:bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity duration-200'
               >
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className='h-4 w-4' />
               </Button>
             </>
           )}
 
           {/* Bottom Controls */}
-          <div className="absolute bottom-4 left-4 right-4 flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          <div className='absolute bottom-4 left-4 right-4 flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity duration-200'>
             {images.length > 1 && (
-              <div className="bg-black/60 backdrop-blur-sm rounded-lg px-3 py-2 text-white text-sm">
+              <div className='bg-black/60 backdrop-blur-sm rounded-lg px-3 py-2 text-white text-sm'>
                 {currentIndex + 1} of {images.length}
               </div>
             )}
-            
-            <div className="flex items-center space-x-2 ml-auto">
+
+            <div className='flex items-center space-x-2 ml-auto'>
               <Button
-                variant="secondary"
-                size="sm"
+                variant='secondary'
+                size='sm'
                 onClick={handleDownload}
-                className="bg-black/60 backdrop-blur-sm border-none text-white hover:bg-black/80"
+                className='bg-black/60 backdrop-blur-sm border-none text-white hover:bg-black/80'
               >
-                <Download className="h-4 w-4" />
+                <Download className='h-4 w-4' />
               </Button>
               <Button
-                variant="secondary"
-                size="sm"
-                className="bg-black/60 backdrop-blur-sm border-none text-white hover:bg-black/80"
+                variant='secondary'
+                size='sm'
+                className='bg-black/60 backdrop-blur-sm border-none text-white hover:bg-black/80'
               >
-                <Share2 className="h-4 w-4" />
+                <Share2 className='h-4 w-4' />
               </Button>
               <Button
-                variant="secondary"
-                size="sm"
+                variant='secondary'
+                size='sm'
                 onClick={handleFullscreen}
-                className="bg-black/60 backdrop-blur-sm border-none text-white hover:bg-black/80"
+                className='bg-black/60 backdrop-blur-sm border-none text-white hover:bg-black/80'
               >
-                <Maximize className="h-4 w-4" />
+                <Maximize className='h-4 w-4' />
               </Button>
             </div>
           </div>
@@ -278,15 +278,15 @@ export function ImageViewer({
 
       {/* Fullscreen Modal */}
       <Dialog open={isFullscreen} onOpenChange={setIsFullscreen}>
-        <DialogContent className="max-w-screen max-h-screen w-screen h-screen p-0 bg-black border-none">
-          <div className="relative w-full h-full flex items-center justify-center">
+        <DialogContent className='max-w-screen max-h-screen w-screen h-screen p-0 bg-black border-none'>
+          <div className='relative w-full h-full flex items-center justify-center'>
             <img
               src={currentImage.src}
               alt={currentImage.alt}
-              className="max-w-full max-h-full object-contain transition-transform duration-200 ease-out select-none"
+              className='max-w-full max-h-full object-contain transition-transform duration-200 ease-out select-none'
               style={{
                 transform: `translate(${position.x}px, ${position.y}px) scale(${zoom}) rotate(${rotation}deg)`,
-                cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default'
+                cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default',
               }}
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
@@ -295,56 +295,56 @@ export function ImageViewer({
             />
 
             {/* Fullscreen Controls */}
-            <div className="absolute top-4 left-4 right-4 flex justify-between items-start">
+            <div className='absolute top-4 left-4 right-4 flex justify-between items-start'>
               {title && (
-                <div className="bg-black/60 backdrop-blur-sm rounded-lg px-3 py-2">
-                  <h3 className="text-white font-semibold">{title}</h3>
+                <div className='bg-black/60 backdrop-blur-sm rounded-lg px-3 py-2'>
+                  <h3 className='text-white font-semibold'>{title}</h3>
                 </div>
               )}
-              
-              <div className="flex items-center space-x-2">
+
+              <div className='flex items-center space-x-2'>
                 <Button
-                  variant="secondary"
-                  size="sm"
+                  variant='secondary'
+                  size='sm'
                   onClick={handleZoomOut}
                   disabled={zoom <= 0.1}
-                  className="bg-black/60 backdrop-blur-sm border-none text-white hover:bg-black/80"
+                  className='bg-black/60 backdrop-blur-sm border-none text-white hover:bg-black/80'
                 >
-                  <ZoomOut className="h-4 w-4" />
+                  <ZoomOut className='h-4 w-4' />
                 </Button>
                 <Button
-                  variant="secondary"
-                  size="sm"
+                  variant='secondary'
+                  size='sm'
                   onClick={handleZoomIn}
                   disabled={zoom >= 5}
-                  className="bg-black/60 backdrop-blur-sm border-none text-white hover:bg-black/80"
+                  className='bg-black/60 backdrop-blur-sm border-none text-white hover:bg-black/80'
                 >
-                  <ZoomIn className="h-4 w-4" />
+                  <ZoomIn className='h-4 w-4' />
                 </Button>
                 <Button
-                  variant="secondary"
-                  size="sm"
+                  variant='secondary'
+                  size='sm'
                   onClick={handleRotate}
-                  className="bg-black/60 backdrop-blur-sm border-none text-white hover:bg-black/80"
+                  className='bg-black/60 backdrop-blur-sm border-none text-white hover:bg-black/80'
                 >
-                  <RotateCw className="h-4 w-4" />
+                  <RotateCw className='h-4 w-4' />
                 </Button>
                 <Button
-                  variant="secondary"
-                  size="sm"
+                  variant='secondary'
+                  size='sm'
                   onClick={handleReset}
                   disabled={zoom === 1 && rotation === 0 && position.x === 0 && position.y === 0}
-                  className="bg-black/60 backdrop-blur-sm border-none text-white hover:bg-black/80"
+                  className='bg-black/60 backdrop-blur-sm border-none text-white hover:bg-black/80'
                 >
-                  <Move className="h-4 w-4" />
+                  <Move className='h-4 w-4' />
                 </Button>
                 <Button
-                  variant="secondary"
-                  size="sm"
+                  variant='secondary'
+                  size='sm'
                   onClick={() => setIsFullscreen(false)}
-                  className="bg-black/60 backdrop-blur-sm border-none text-white hover:bg-black/80"
+                  className='bg-black/60 backdrop-blur-sm border-none text-white hover:bg-black/80'
                 >
-                  <X className="h-4 w-4" />
+                  <X className='h-4 w-4' />
                 </Button>
               </div>
             </div>
@@ -353,23 +353,23 @@ export function ImageViewer({
             {images.length > 1 && (
               <>
                 <Button
-                  variant="secondary"
-                  size="lg"
+                  variant='secondary'
+                  size='lg'
                   onClick={handlePreviousImage}
-                  className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-black/60 backdrop-blur-sm border-none text-white hover:bg-black/80"
+                  className='absolute left-4 top-1/2 transform -translate-y-1/2 bg-black/60 backdrop-blur-sm border-none text-white hover:bg-black/80'
                 >
-                  <ChevronLeft className="h-6 w-6" />
+                  <ChevronLeft className='h-6 w-6' />
                 </Button>
                 <Button
-                  variant="secondary"
-                  size="lg"
+                  variant='secondary'
+                  size='lg'
                   onClick={handleNextImage}
-                  className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-black/60 backdrop-blur-sm border-none text-white hover:bg-black/80"
+                  className='absolute right-4 top-1/2 transform -translate-y-1/2 bg-black/60 backdrop-blur-sm border-none text-white hover:bg-black/80'
                 >
-                  <ChevronRight className="h-6 w-6" />
+                  <ChevronRight className='h-6 w-6' />
                 </Button>
-                
-                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black/60 backdrop-blur-sm rounded-lg px-3 py-2 text-white text-sm">
+
+                <div className='absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black/60 backdrop-blur-sm rounded-lg px-3 py-2 text-white text-sm'>
                   {currentIndex + 1} of {images.length}
                 </div>
               </>

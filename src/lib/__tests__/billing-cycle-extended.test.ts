@@ -68,7 +68,9 @@ import { Decimal } from '@prisma/client/runtime/library';
 const mockPrisma = prisma as jest.Mocked<typeof prisma>;
 const mockStripe = stripe as jest.Mocked<typeof stripe>;
 const mockSendEmail = sendEmail as jest.MockedFunction<typeof sendEmail>;
-const mockGenerateInvoiceData = generateInvoiceData as jest.MockedFunction<typeof generateInvoiceData>;
+const mockGenerateInvoiceData = generateInvoiceData as jest.MockedFunction<
+  typeof generateInvoiceData
+>;
 
 describe('Extended Billing Cycle Functions', () => {
   beforeEach(() => {
@@ -82,8 +84,9 @@ describe('Extended Billing Cycle Functions', () => {
 
   describe('processScheduledTierChanges', () => {
     it('should process scheduled tier changes', async () => {
-      const OriginalDate = Date; const now = new OriginalDate('2022-01-31T12:00:00Z');
-      
+      const OriginalDate = Date;
+      const now = new OriginalDate('2022-01-31T12:00:00Z');
+
       jest.spyOn(global, 'Date').mockImplementation((dateString?: string) => {
         if (dateString) return new OriginalDate(dateString) as any;
         return now as any;
@@ -96,18 +99,18 @@ describe('Extended Billing Cycle Functions', () => {
           items: {
             scheduledTierChange: {
               newTierId: 'tier2',
-              newAmount: 20.00,
-            }
+              newAmount: 20.0,
+            },
           },
           subscription: {
             id: 'sub1',
             tierId: 'tier1',
-            amount: new Decimal(10.00),
+            amount: new Decimal(10.0),
             fan: {
               email: 'fan@example.com',
               notificationPreferences: { billing: true },
             },
-          }
+          },
         },
       ];
 
@@ -122,35 +125,35 @@ describe('Extended Billing Cycle Functions', () => {
           id: 'invoice1',
           subscriptionId: 'sub1',
           tierId: 'tier1',
-          amount: new Decimal(10.00),
+          amount: new Decimal(10.0),
           fanId: 'fan1',
-          artistId: 'artist1', 
+          artistId: 'artist1',
           email: 'fan@example.com',
           notificationPreferences: { billing: true },
           tierName: 'Current Tier',
           items: {
             scheduledTierChange: {
               newTierId: 'tier2',
-              newAmount: 20.00,
-            }
+              newAmount: 20.0,
+            },
           },
           subscription: {
             id: 'sub1',
             tierId: 'tier1',
-            amount: new Decimal(10.00),
+            amount: new Decimal(10.0),
             fan: {
               email: 'fan@example.com',
               notificationPreferences: { billing: true },
-            }
-          }
-        }
+            },
+          },
+        },
       ]);
-      
+
       mockPrisma.invoice.findMany.mockResolvedValue(mockInvoices as any);
-      mockPrisma.tier.findUnique.mockResolvedValue(mockNewTier as any);
-      
+      mockPrisma.tiers.findUnique.mockResolvedValue(mockNewTier as any);
+
       // Mock transaction
-      mockPrisma.$transaction.mockImplementation(async (callback) => {
+      mockPrisma.$transaction.mockImplementation(async callback => {
         return await callback({
           subscription: {
             update: jest.fn().mockResolvedValue({}),
@@ -194,18 +197,18 @@ describe('Extended Billing Cycle Functions', () => {
           items: {
             scheduledTierChange: {
               newTierId: 'tier2',
-              newAmount: 20.00,
-            }
+              newAmount: 20.0,
+            },
           },
           subscription: {
             id: 'sub1',
             tierId: 'tier1',
-            amount: new Decimal(10.00),
+            amount: new Decimal(10.0),
             fan: {
               email: 'fan@example.com',
               notificationPreferences: { billing: true },
             },
-          }
+          },
         },
         {
           id: 'invoice2',
@@ -213,18 +216,18 @@ describe('Extended Billing Cycle Functions', () => {
           items: {
             scheduledTierChange: {
               newTierId: 'nonexistent',
-              newAmount: 15.00,
-            }
+              newAmount: 15.0,
+            },
           },
           subscription: {
             id: 'sub2',
             tierId: 'tier1',
-            amount: new Decimal(10.00),
+            amount: new Decimal(10.0),
             fan: {
               email: 'fan2@example.com',
               notificationPreferences: { billing: true },
             },
-          }
+          },
         },
       ];
 
@@ -236,18 +239,18 @@ describe('Extended Billing Cycle Functions', () => {
           items: {
             scheduledTierChange: {
               newTierId: 'tier2',
-              newAmount: 20.00,
-            }
+              newAmount: 20.0,
+            },
           },
           subscription: {
             id: 'sub1',
             tierId: 'tier1',
-            amount: new Decimal(10.00),
+            amount: new Decimal(10.0),
           },
           fan: {
             email: 'fan@example.com',
             notificationPreferences: { billing: true },
-          }
+          },
         },
         {
           id: 'invoice2',
@@ -255,28 +258,28 @@ describe('Extended Billing Cycle Functions', () => {
           items: {
             scheduledTierChange: {
               newTierId: 'nonexistent',
-              newAmount: 15.00,
-            }
+              newAmount: 15.0,
+            },
           },
           subscription: {
             id: 'sub2',
             tierId: 'tier1',
-            amount: new Decimal(10.00),
+            amount: new Decimal(10.0),
           },
           fan: {
             email: 'fan2@example.com',
             notificationPreferences: { billing: true },
-          }
-        }
+          },
+        },
       ]);
-      
+
       mockPrisma.invoice.findMany.mockResolvedValue(mockInvoices as any);
-      mockPrisma.tier.findUnique
+      mockPrisma.tiers.findUnique
         .mockResolvedValueOnce({ id: 'tier2', name: 'Premium Tier' } as any)
         .mockResolvedValueOnce(null); // Second tier doesn't exist
-      
+
       // Mock transaction
-      mockPrisma.$transaction.mockImplementation(async (callback) => {
+      mockPrisma.$transaction.mockImplementation(async callback => {
         return await callback({
           subscription: {
             update: jest.fn().mockResolvedValue({}),
@@ -310,21 +313,21 @@ describe('Extended Billing Cycle Functions', () => {
       mockPrisma.paymentFailure.create.mockResolvedValue({} as any);
       mockPrisma.subscription.update.mockResolvedValue({} as any);
 
-      await recordPaymentFailure('sub123', 'in_test123', 10.00, 'Card declined');
+      await recordPaymentFailure('sub123', 'in_test123', 10.0, 'Card declined');
 
       expect(mockPrisma.paymentFailure.create).toHaveBeenCalledWith({
         data: {
           subscriptionId: 'sub123',
           stripeInvoiceId: 'in_test123',
-          amount: new Decimal(10.00),
+          amount: new Decimal(10.0),
           failureReason: 'Card declined',
           nextRetryAt: new Date(now.getTime() + 24 * 60 * 60 * 1000),
-        }
+        },
       });
 
       expect(mockPrisma.subscription.update).toHaveBeenCalledWith({
         where: { id: 'sub123' },
-        data: { status: 'PAST_DUE' }
+        data: { status: 'PAST_DUE' },
       });
 
       jest.useRealTimers();
@@ -344,7 +347,7 @@ describe('Extended Billing Cycle Functions', () => {
       mockPrisma.paymentFailure.update.mockResolvedValue({} as any);
       mockPrisma.subscription.update.mockResolvedValue({} as any);
 
-      await recordPaymentFailure('sub123', 'in_test123', 10.00, 'Card declined');
+      await recordPaymentFailure('sub123', 'in_test123', 10.0, 'Card declined');
 
       expect(mockPrisma.paymentFailure.update).toHaveBeenCalledWith({
         where: { id: 'failure1' },
@@ -353,7 +356,7 @@ describe('Extended Billing Cycle Functions', () => {
           failureReason: 'Card declined',
           nextRetryAt: new Date(now.getTime() + 24 * 60 * 60 * 1000),
           updatedAt: now,
-        }
+        },
       });
 
       jest.useRealTimers();
@@ -368,48 +371,45 @@ describe('Extended Billing Cycle Functions', () => {
       };
 
       const mockStripeInvoices = {
-        data: [
-          { id: 'in_test1' },
-          { id: 'in_test2' },
-        ],
+        data: [{ id: 'in_test1' }, { id: 'in_test2' }],
         has_more: false,
       };
 
       const mockInvoiceData1 = {
         id: 'in_test1',
         subscriptionId: 'stripe_sub123',
-        amount: 10.00,
+        amount: 10.0,
         status: 'paid',
         dueDate: new Date('2022-01-01'),
         items: [
           {
             description: 'Monthly subscription',
-            amount: 10.00,
+            amount: 10.0,
             quantity: 1,
             period: {
               start: new Date('2022-01-01'),
               end: new Date('2022-02-01'),
-            }
-          }
+            },
+          },
         ],
       };
 
       const mockInvoiceData2 = {
         id: 'in_test2',
         subscriptionId: 'stripe_sub123',
-        amount: 10.00,
+        amount: 10.0,
         status: 'paid',
         dueDate: new Date('2022-02-01'),
         items: [
           {
             description: 'Monthly subscription',
-            amount: 10.00,
+            amount: 10.0,
             quantity: 1,
             period: {
               start: new Date('2022-02-01'),
               end: new Date('2022-03-01'),
-            }
-          }
+            },
+          },
         ],
       };
 
@@ -418,12 +418,12 @@ describe('Extended Billing Cycle Functions', () => {
       mockGenerateInvoiceData
         .mockResolvedValueOnce(mockInvoiceData1 as any)
         .mockResolvedValueOnce(mockInvoiceData2 as any);
-      
+
       // First invoice doesn't exist, second one does
       mockPrisma.invoice.findUnique
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce({ id: 'db_invoice2' } as any);
-      
+
       mockPrisma.invoice.create.mockResolvedValue({} as any);
       mockPrisma.invoice.update.mockResolvedValue({} as any);
 
@@ -456,19 +456,19 @@ describe('Extended Billing Cycle Functions', () => {
       const mockInvoiceData = {
         id: 'in_test1',
         subscriptionId: 'stripe_sub123',
-        amount: 10.00,
+        amount: 10.0,
         status: 'paid',
         dueDate: new Date('2022-01-01'),
         items: [
           {
             description: 'Monthly subscription',
-            amount: 10.00,
+            amount: 10.0,
             quantity: 1,
             period: {
               start: new Date('2022-01-01'),
               end: new Date('2022-02-01'),
-            }
-          }
+            },
+          },
         ],
       };
 
@@ -476,7 +476,7 @@ describe('Extended Billing Cycle Functions', () => {
       mockStripe.invoices.list
         .mockResolvedValueOnce(mockStripeInvoices1 as any)
         .mockResolvedValueOnce(mockStripeInvoices2 as any);
-      
+
       mockGenerateInvoiceData.mockResolvedValue(mockInvoiceData as any);
       mockPrisma.invoice.findUnique.mockResolvedValue(null);
       mockPrisma.invoice.create.mockResolvedValue({} as any);
@@ -491,9 +491,9 @@ describe('Extended Billing Cycle Functions', () => {
     it('should throw error if subscription not found', async () => {
       mockPrisma.subscription.findUnique.mockResolvedValue(null);
 
-      await expect(
-        syncSubscriptionInvoices('nonexistent')
-      ).rejects.toThrow('Failed to sync subscription invoices');
+      await expect(syncSubscriptionInvoices('nonexistent')).rejects.toThrow(
+        'Failed to sync subscription invoices'
+      );
     });
   });
 
@@ -505,20 +505,20 @@ describe('Extended Billing Cycle Functions', () => {
       ];
 
       mockPrisma.subscription.findMany.mockResolvedValue(mockSubscriptions as any);
-      
+
       // Mock syncSubscriptionInvoices behavior
       mockPrisma.subscription.findUnique
         .mockResolvedValueOnce(mockSubscriptions[0] as any)
         .mockResolvedValueOnce(mockSubscriptions[1] as any);
-      
+
       mockStripe.invoices.list.mockResolvedValue({ data: [], has_more: false } as any);
 
       const result = await syncArtistInvoices('artist123');
 
       expect(mockPrisma.subscription.findMany).toHaveBeenCalledWith({
-        where: { artistId: 'artist123' }
+        where: { artistId: 'artist123' },
       });
-      
+
       // Should have attempted to sync both subscriptions
       expect(mockPrisma.subscription.findUnique).toHaveBeenCalledTimes(2);
     });
@@ -530,16 +530,16 @@ describe('Extended Billing Cycle Functions', () => {
       ];
 
       mockPrisma.subscription.findMany.mockResolvedValue(mockSubscriptions as any);
-      
+
       // First subscription sync succeeds, second fails
       mockPrisma.subscription.findUnique
         .mockResolvedValueOnce(mockSubscriptions[0] as any)
         .mockRejectedValueOnce(new Error('Sync failed'));
-      
+
       mockStripe.invoices.list.mockResolvedValue({ data: [], has_more: false } as any);
 
       const result = await syncArtistInvoices('artist123');
-      
+
       // Should still return results from the successful sync
       expect(result.created).toBe(0);
       expect(result.updated).toBe(0);
@@ -548,75 +548,69 @@ describe('Extended Billing Cycle Functions', () => {
 
   describe('getArtistBillingSummary', () => {
     it('should return billing summary for artist', async () => {
-      const OriginalDate = Date; const now = new OriginalDate('2022-01-31T12:00:00Z');
+      const OriginalDate = Date;
+      const now = new OriginalDate('2022-01-31T12:00:00Z');
       const currentMonthStart = new Date('2022-01-01T00:00:00Z');
       const previousMonthStart = new Date('2021-12-01T00:00:00Z');
       const previousMonthEnd = new Date('2021-12-31T23:59:59Z');
-      
+
       jest.spyOn(global, 'Date').mockImplementation((dateString?: string) => {
         if (dateString) return new OriginalDate(dateString) as any;
         return now as any;
       });
 
       const mockCurrentMonthInvoices = [
-        { amount: new Decimal(10.00) },
-        { amount: new Decimal(20.00) },
+        { amount: new Decimal(10.0) },
+        { amount: new Decimal(20.0) },
       ];
 
-      const mockPreviousMonthInvoices = [
-        { amount: new Decimal(15.00) },
-      ];
+      const mockPreviousMonthInvoices = [{ amount: new Decimal(15.0) }];
 
       const mockTiers = [
         {
           id: 'tier1',
           name: 'Basic',
           subscriberCount: 10,
-          subscriptions: [
-            { amount: new Decimal(5.00) },
-            { amount: new Decimal(10.00) },
-          ]
+          subscriptions: [{ amount: new Decimal(5.0) }, { amount: new Decimal(10.0) }],
         },
         {
           id: 'tier2',
           name: 'Premium',
           subscriberCount: 5,
-          subscriptions: [
-            { amount: new Decimal(20.00) },
-          ]
+          subscriptions: [{ amount: new Decimal(20.0) }],
         },
       ];
 
       mockPrisma.invoice.findMany
         .mockResolvedValueOnce(mockCurrentMonthInvoices as any)
         .mockResolvedValueOnce(mockPreviousMonthInvoices as any);
-      
+
       mockPrisma.subscription.count
         .mockResolvedValueOnce(15) // Active subscriptions
         .mockResolvedValueOnce(3); // Upcoming renewals
-      
+
       mockPrisma.paymentFailure.count.mockResolvedValue(2);
-      
+
       mockPrisma.subscription.aggregate.mockResolvedValue({
-        _avg: { amount: new Decimal(12.50) }
+        _avg: { amount: new Decimal(12.5) },
       } as any);
-      
-      mockPrisma.tier.findMany.mockResolvedValue(mockTiers as any);
+
+      mockPrisma.tiers.findMany.mockResolvedValue(mockTiers as any);
 
       const result = await getArtistBillingSummary('artist123');
 
-      expect(result.currentMonthRevenue).toBe(30.00);
-      expect(result.previousMonthRevenue).toBe(15.00);
+      expect(result.currentMonthRevenue).toBe(30.0);
+      expect(result.previousMonthRevenue).toBe(15.0);
       expect(result.revenueChange).toBe(100); // 100% increase
       expect(result.activeSubscriptions).toBe(15);
       expect(result.upcomingRenewals).toBe(3);
       expect(result.failedPayments).toBe(2);
-      expect(result.averageSubscriptionValue).toBe(12.50);
+      expect(result.averageSubscriptionValue).toBe(12.5);
       expect(result.topTiers).toHaveLength(2);
       expect(result.topTiers[0].tierId).toBe('tier1');
-      expect(result.topTiers[0].revenue).toBe(15.00);
+      expect(result.topTiers[0].revenue).toBe(15.0);
       expect(result.topTiers[1].tierId).toBe('tier2');
-      expect(result.topTiers[1].revenue).toBe(20.00);
+      expect(result.topTiers[1].revenue).toBe(20.0);
 
       jest.useRealTimers();
     });
@@ -625,31 +619,27 @@ describe('Extended Billing Cycle Functions', () => {
       jest.useFakeTimers();
       jest.setSystemTime(new Date('2022-01-31T12:00:00Z'));
 
-      const mockCurrentMonthInvoices = [
-        { amount: new Decimal(10.00) },
-      ];
+      const mockCurrentMonthInvoices = [{ amount: new Decimal(10.0) }];
 
       const mockPreviousMonthInvoices = [];
 
       mockPrisma.invoice.findMany
         .mockResolvedValueOnce(mockCurrentMonthInvoices as any)
         .mockResolvedValueOnce(mockPreviousMonthInvoices as any);
-      
-      mockPrisma.subscription.count
-        .mockResolvedValueOnce(5)
-        .mockResolvedValueOnce(1);
-      
+
+      mockPrisma.subscription.count.mockResolvedValueOnce(5).mockResolvedValueOnce(1);
+
       mockPrisma.paymentFailure.count.mockResolvedValue(0);
-      
+
       mockPrisma.subscription.aggregate.mockResolvedValue({
-        _avg: { amount: new Decimal(10.00) }
+        _avg: { amount: new Decimal(10.0) },
       } as any);
-      
-      mockPrisma.tier.findMany.mockResolvedValue([] as any);
+
+      mockPrisma.tiers.findMany.mockResolvedValue([] as any);
 
       const result = await getArtistBillingSummary('artist123');
 
-      expect(result.currentMonthRevenue).toBe(10.00);
+      expect(result.currentMonthRevenue).toBe(10.0);
       expect(result.previousMonthRevenue).toBe(0);
       expect(result.revenueChange).toBe(100); // Consider it 100% growth
       expect(result.topTiers).toHaveLength(0);
@@ -661,21 +651,17 @@ describe('Extended Billing Cycle Functions', () => {
       jest.useFakeTimers();
       jest.setSystemTime(new Date('2022-01-31T12:00:00Z'));
 
-      mockPrisma.invoice.findMany
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([]);
-      
-      mockPrisma.subscription.count
-        .mockResolvedValueOnce(0)
-        .mockResolvedValueOnce(0);
-      
+      mockPrisma.invoice.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+
+      mockPrisma.subscription.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
+
       mockPrisma.paymentFailure.count.mockResolvedValue(0);
-      
+
       mockPrisma.subscription.aggregate.mockResolvedValue({
-        _avg: { amount: null }
+        _avg: { amount: null },
       } as any);
-      
-      mockPrisma.tier.findMany.mockResolvedValue([] as any);
+
+      mockPrisma.tiers.findMany.mockResolvedValue([] as any);
 
       const result = await getArtistBillingSummary('artist123');
 

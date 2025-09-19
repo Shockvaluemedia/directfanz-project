@@ -2,9 +2,9 @@ import { jest } from '@jest/globals';
 import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { GET, PUT } from '../route';
-import { 
-  getUserNotificationPreferences, 
-  updateUserNotificationPreferences 
+import {
+  getUserNotificationPreferences,
+  updateUserNotificationPreferences,
 } from '@/lib/notifications';
 
 // Mock dependencies
@@ -14,8 +14,13 @@ jest.mock('next-auth', () => ({
 
 // Use the globally mocked functions
 const mockGetServerSession = getServerSession as jest.MockedFunction<typeof getServerSession>;
-const mockGetUserNotificationPreferences = getUserNotificationPreferences as jest.MockedFunction<typeof getUserNotificationPreferences>;
-const mockUpdateUserNotificationPreferences = updateUserNotificationPreferences as jest.MockedFunction<typeof updateUserNotificationPreferences>;
+const mockGetUserNotificationPreferences = getUserNotificationPreferences as jest.MockedFunction<
+  typeof getUserNotificationPreferences
+>;
+const mockUpdateUserNotificationPreferences =
+  updateUserNotificationPreferences as jest.MockedFunction<
+    typeof updateUserNotificationPreferences
+  >;
 
 describe('/api/user/notifications/preferences', () => {
   beforeEach(() => {

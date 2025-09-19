@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
-import { CampaignType, CampaignStatus, CampaignMetric } from '@prisma/client';
+import { CampaignType, CampaignStatus, CampaignMetric } from '@/lib/types/enums';
 
 const updateCampaignSchema = z.object({
   title: z.string().min(1).max(200).optional(),
@@ -22,47 +22,47 @@ const updateCampaignSchema = z.object({
   hasDigitalPrizes: z.boolean().optional(),
   hasPhysicalPrizes: z.boolean().optional(),
   bannerImage: z.string().url().optional(),
-  brandColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+  brandColor: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/)
+    .optional(),
   tags: z.array(z.string()).optional(),
 });
 
 // GET /api/campaigns/[id] - Get single campaign
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const { id } = params;
     const session = await getServerSession(authOptions);
 
-    const campaign = await prisma.campaign.findUnique({
+    const campaign = await prisma.campaigns.findUnique({
       where: { id },
       include: {
         artist: {
-          select: { 
-            id: true, 
-            displayName: true, 
-            avatar: true, 
-            artistProfile: {
-              select: { isStripeOnboarded: true }
-            }
-          }
+          select: {
+            id: true,
+            displayName: true,
+            avatar: true,
+            artists: {
+              select: { isStripeOnboarded: true },
+            },
+          },
         },
         challenges: {
-          select: { 
-            id: true, 
-            title: true, 
+          select: {
+            id: true,
+            title: true,
             description: true,
             type: true,
-            status: true, 
-            participantCount: true, 
+            status: true,
+            participantCount: true,
             submissionCount: true,
             startDate: true,
             endDate: true,
-            maxScore: true
-          }
+            maxScore: true,
+          },
         },
-        rewards: {
+        campaign_rewards: {
           select: {
             id: true,
             title: true,
@@ -73,15 +73,15 @@ export async function GET(
             quantity: true,
             rankRequirement: true,
             scoreRequirement: true,
-            isActive: true
-          }
+            isActive: true,
+          },
         },
         _count: {
-          select: { 
-            challenges: true, 
-            rewards: true 
-          }
-        }
+          select: {
+            challenges: true,
+            campaign_rewards: true,
+          },
+        },
       },
     });
 
@@ -90,10 +90,10 @@ export async function GET(
     }
 
     // Check if user can access this campaign
-    const canAccess = 
-      campaign.status === 'ACTIVE' ||  // Public active campaigns
-      campaign.artistId === session?.user?.id ||  // Artist owns campaign
-      session?.user?.role === 'ADMIN';  // Admin access
+    const canAccess =
+      campaign.status === 'ACTIVE' || // Public active campaigns
+      campaign.artistId === session?.user?.id || // Artist owns campaign
+      session?.user?.role === 'ADMIN'; // Admin access
 
     if (!canAccess) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
@@ -102,25 +102,25 @@ export async function GET(
     // Add user-specific participation data if authenticated
     let userParticipation = null;
     if (session?.user?.id && campaign.status === 'ACTIVE') {
-      const participation = await prisma.challengeParticipation.findFirst({
+      const participation = await prisma.challenge_participations.findFirst({
         where: {
           participantId: session.user.id,
           challenge: {
-            campaignId: campaign.id
-          }
+            campaignId: campaign.id,
+          },
         },
         include: {
-          submissions: {
+          challenge_submissions: {
             select: {
               id: true,
               title: true,
               status: true,
               reviewStatus: true,
               totalScore: true,
-              submittedAt: true
-            }
-          }
-        }
+              submittedAt: true,
+            },
+          },
+        },
       });
 
       if (participation) {
@@ -130,7 +130,7 @@ export async function GET(
           currentScore: participation.currentScore,
           submissionCount: participation.submissionCount,
           rank: participation.rank,
-          submissions: participation.submissions
+          challenge_submissions: participation.submissions,
         };
       }
     }
@@ -138,23 +138,16 @@ export async function GET(
     return NextResponse.json({
       ...campaign,
       tags: campaign.tags ? JSON.parse(campaign.tags) : [],
-      userParticipation
+      userParticipation,
     });
-
   } catch (error) {
     logger.error('Error fetching campaign', { campaignId: params.id }, error as Error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 // PUT /api/campaigns/[id] - Update campaign
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const { id } = params;
     const session = await getServerSession(authOptions);
@@ -164,9 +157,9 @@ export async function PUT(
     }
 
     // Check if campaign exists and user owns it
-    const existingCampaign = await prisma.campaign.findUnique({
+    const existingCampaign = await prisma.campaigns.findUnique({
       where: { id },
-      select: { artistId: true, status: true }
+      select: { artistId: true, status: true },
     });
 
     if (!existingCampaign) {
@@ -184,7 +177,7 @@ export async function PUT(
     if (validatedData.startDate && validatedData.endDate) {
       const startDate = new Date(validatedData.startDate);
       const endDate = new Date(validatedData.endDate);
-      
+
       if (endDate <= startDate) {
         return NextResponse.json({ error: 'End date must be after start date' }, { status: 400 });
       }
@@ -193,8 +186,10 @@ export async function PUT(
     // Don't allow certain changes if campaign is already active
     if (existingCampaign.status === 'ACTIVE') {
       const restrictedFields = ['startDate', 'endDate', 'type', 'targetMetric', 'targetValue'];
-      const hasRestrictedChanges = restrictedFields.some(field => validatedData[field as keyof typeof validatedData] !== undefined);
-      
+      const hasRestrictedChanges = restrictedFields.some(
+        field => validatedData[field as keyof typeof validatedData] !== undefined
+      );
+
       if (hasRestrictedChanges && session.user.role !== 'ADMIN') {
         return NextResponse.json(
           { error: 'Cannot modify core campaign details while active' },
@@ -203,7 +198,7 @@ export async function PUT(
       }
     }
 
-    const updatedCampaign = await prisma.campaign.update({
+    const updatedCampaign = await prisma.campaigns.update({
       where: { id },
       data: {
         ...(() => {
@@ -216,42 +211,41 @@ export async function PUT(
       },
       include: {
         artist: {
-          select: { id: true, displayName: true, avatar: true }
+          select: { id: true, displayName: true, avatar: true },
         },
         challenges: {
-          select: { 
-            id: true, 
-            title: true, 
-            status: true, 
-            participantCount: true 
-          }
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            participantCount: true,
+          },
         },
-        rewards: {
+        campaign_rewards: {
           select: {
             id: true,
             title: true,
             type: true,
             value: true,
-            currency: true
-          }
+            currency: true,
+          },
         },
         _count: {
-          select: { challenges: true, rewards: true }
-        }
+          select: { challenges: true, campaign_rewards: true },
+        },
       },
     });
 
     logger.info('Campaign updated', {
       campaignId: id,
       artistId: session.user.id,
-      updatedFields: Object.keys(validatedData)
+      updatedFields: Object.keys(validatedData),
     });
 
     return NextResponse.json({
       ...updatedCampaign,
-      tags: updatedCampaign.tags ? JSON.parse(updatedCampaign.tags) : []
+      tags: updatedCampaign.tags ? JSON.parse(updatedCampaign.tags) : [],
     });
-
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -261,18 +255,12 @@ export async function PUT(
     }
 
     logger.error('Error updating campaign', { campaignId: params.id }, error as Error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 // DELETE /api/campaigns/[id] - Delete campaign
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const { id } = params;
     const session = await getServerSession(authOptions);
@@ -282,9 +270,9 @@ export async function DELETE(
     }
 
     // Check if campaign exists and user owns it
-    const existingCampaign = await prisma.campaign.findUnique({
+    const existingCampaign = await prisma.campaigns.findUnique({
       where: { id },
-      select: { artistId: true, status: true, totalParticipants: true }
+      select: { artistId: true, status: true, totalParticipants: true },
     });
 
     if (!existingCampaign) {
@@ -311,22 +299,18 @@ export async function DELETE(
       );
     }
 
-    await prisma.campaign.delete({
-      where: { id }
+    await prisma.campaigns.delete({
+      where: { id },
     });
 
     logger.info('Campaign deleted', {
       campaignId: id,
-      artistId: session.user.id
+      artistId: session.user.id,
     });
 
     return NextResponse.json({ success: true });
-
   } catch (error) {
     logger.error('Error deleting campaign', { campaignId: params.id }, error as Error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

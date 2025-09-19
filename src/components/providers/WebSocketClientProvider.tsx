@@ -1,7 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { WebSocketProvider } from './WebSocketProvider';
+import { setupConsoleFilter } from '@/lib/console-filter';
+import { ClientOnly } from '@/components/ui/ClientOnly';
 
 interface WebSocketClientProviderProps {
   children: React.ReactNode;
@@ -9,20 +11,14 @@ interface WebSocketClientProviderProps {
 }
 
 export function WebSocketClientProvider({ children, url }: WebSocketClientProviderProps) {
-  const [isClient, setIsClient] = useState(false);
-
   useEffect(() => {
-    setIsClient(true);
+    // Set up console filtering to suppress browser extension noise
+    setupConsoleFilter();
   }, []);
 
-  // Only render the WebSocketProvider on the client side
-  if (!isClient) {
-    return <>{children}</>;
-  }
-
   return (
-    <WebSocketProvider url={url}>
-      {children}
-    </WebSocketProvider>
+    <ClientOnly fallback={<>{children}</>}>
+      <WebSocketProvider url={url}>{children}</WebSocketProvider>
+    </ClientOnly>
   );
 }

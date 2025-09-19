@@ -5,14 +5,14 @@
  * Automates deployment of monitoring, logging, and alerting infrastructure
  */
 
-const { execSync } = require('child_process');
-const fs = require('fs');
-const path = require('path');
-const readline = require('readline');
+import { execSync } from 'child_process';
+import fs from 'fs';
+import path from 'path';
+import readline from 'readline';
 
 const rl = readline.createInterface({
   input: process.stdin,
-  output: process.stdout
+  output: process.stdout,
 });
 
 const colors = {
@@ -34,7 +34,7 @@ function executeCommand(command, options = {}) {
     const result = execSync(command, {
       stdio: options.silent ? 'pipe' : 'inherit',
       encoding: 'utf8',
-      ...options
+      ...options,
     });
     return result;
   } catch (error) {
@@ -48,7 +48,7 @@ function executeCommand(command, options = {}) {
 }
 
 function question(query) {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     rl.question(query, resolve);
   });
 }
@@ -156,76 +156,80 @@ scrape_configs:
       severity: warning
     annotations:
       summary: "Slow response time"
-      description: "95th percentile response time is above 2 seconds"`
+      description: "95th percentile response time is above 2 seconds"`,
   },
 
   grafana: {
-    'dashboards/app-dashboard.json': JSON.stringify({
-      dashboard: {
-        id: null,
-        title: "Direct Fan Platform - Application Dashboard",
-        tags: ["direct-fan-platform"],
-        timezone: "browser",
-        panels: [
-          {
-            id: 1,
-            title: "Request Rate",
-            type: "graph",
-            targets: [
-              {
-                expr: "rate(http_requests_total[5m])",
-                legendFormat: "{{ method }} {{ status }}"
-              }
-            ],
-            yAxes: [
-              {
-                label: "requests/sec"
-              }
-            ]
+    'dashboards/app-dashboard.json': JSON.stringify(
+      {
+        dashboard: {
+          id: null,
+          title: 'Direct Fan Platform - Application Dashboard',
+          tags: ['direct-fan-platform'],
+          timezone: 'browser',
+          panels: [
+            {
+              id: 1,
+              title: 'Request Rate',
+              type: 'graph',
+              targets: [
+                {
+                  expr: 'rate(http_requests_total[5m])',
+                  legendFormat: '{{ method }} {{ status }}',
+                },
+              ],
+              yAxes: [
+                {
+                  label: 'requests/sec',
+                },
+              ],
+            },
+            {
+              id: 2,
+              title: 'Response Time',
+              type: 'graph',
+              targets: [
+                {
+                  expr: 'histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))',
+                  legendFormat: '95th percentile',
+                },
+                {
+                  expr: 'histogram_quantile(0.50, rate(http_request_duration_seconds_bucket[5m]))',
+                  legendFormat: '50th percentile',
+                },
+              ],
+              yAxes: [
+                {
+                  label: 'seconds',
+                },
+              ],
+            },
+            {
+              id: 3,
+              title: 'Error Rate',
+              type: 'graph',
+              targets: [
+                {
+                  expr: 'rate(http_requests_total{status=~"5.."}[5m])',
+                  legendFormat: '5xx errors',
+                },
+                {
+                  expr: 'rate(http_requests_total{status=~"4.."}[5m])',
+                  legendFormat: '4xx errors',
+                },
+              ],
+            },
+          ],
+          time: {
+            from: 'now-1h',
+            to: 'now',
           },
-          {
-            id: 2,
-            title: "Response Time",
-            type: "graph",
-            targets: [
-              {
-                expr: "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
-                legendFormat: "95th percentile"
-              },
-              {
-                expr: "histogram_quantile(0.50, rate(http_request_duration_seconds_bucket[5m]))",
-                legendFormat: "50th percentile"
-              }
-            ],
-            yAxes: [
-              {
-                label: "seconds"
-              }
-            ]
-          },
-          {
-            id: 3,
-            title: "Error Rate",
-            type: "graph",
-            targets: [
-              {
-                expr: "rate(http_requests_total{status=~\"5..\"}[5m])",
-                legendFormat: "5xx errors"
-              },
-              {
-                expr: "rate(http_requests_total{status=~\"4..\"}[5m])",
-                legendFormat: "4xx errors"
-              }
-            ]
-          }
-        ],
-        time: {
-          from: "now-1h",
-          to: "now"
+          refresh: '5s',
         },
-        refresh: "5s"
-      }
-    }, null, 2),
+      },
+      null,
+      2
+    ),
 
     'provisioning/dashboards/dashboard.yml': `apiVersion: 1
 
@@ -248,7 +252,7 @@ datasources:
   access: proxy
   url: http://prometheus:9090
   isDefault: true
-  editable: true`
+  editable: true`,
   },
 
   loki: {
@@ -361,7 +365,7 @@ scrape_configs:
       - localhost
     labels:
       job: app
-      __path__: /app/logs/*.log`
+      __path__: /app/logs/*.log`,
   },
 
   alertmanager: {
@@ -406,39 +410,46 @@ inhibit_rules:
       severity: 'critical'
     target_match:
       severity: 'warning'
-    equal: ['alertname', 'dev', 'instance']`
-  }
+    equal: ['alertname', 'dev', 'instance']`,
+  },
 };
 
 async function createMonitoringStack() {
   log('📊 Setting up monitoring stack...', colors.cyan);
-  
+
   // Create monitoring directory structure
   const monitoringDir = 'monitoring';
-  
+
   if (!fs.existsSync(monitoringDir)) {
     fs.mkdirSync(monitoringDir, { recursive: true });
   }
-  
+
   // Create subdirectories
-  const subdirs = ['prometheus', 'grafana/dashboards', 'grafana/provisioning/dashboards', 'grafana/provisioning/datasources', 'loki', 'alertmanager'];
+  const subdirs = [
+    'prometheus',
+    'grafana/dashboards',
+    'grafana/provisioning/dashboards',
+    'grafana/provisioning/datasources',
+    'loki',
+    'alertmanager',
+  ];
   subdirs.forEach(subdir => {
     const fullPath = path.join(monitoringDir, subdir);
     if (!fs.existsSync(fullPath)) {
       fs.mkdirSync(fullPath, { recursive: true });
     }
   });
-  
+
   // Write configuration files
   for (const [service, configs] of Object.entries(monitoringConfigs)) {
     for (const [filename, content] of Object.entries(configs)) {
       const filePath = path.join(monitoringDir, service, filename);
       const fileDir = path.dirname(filePath);
-      
+
       if (!fs.existsSync(fileDir)) {
         fs.mkdirSync(fileDir, { recursive: true });
       }
-      
+
       fs.writeFileSync(filePath, content);
       log(`✅ Created ${filePath}`, colors.green);
     }
@@ -447,7 +458,7 @@ async function createMonitoringStack() {
 
 async function createDockerMonitoringCompose() {
   log('🐳 Creating Docker Compose for monitoring stack...', colors.cyan);
-  
+
   const composeContent = `version: '3.8'
 
 services:
@@ -563,16 +574,16 @@ networks:
   default:
     name: monitoring
     external: false`;
-  
+
   fs.writeFileSync('docker-compose.monitoring.yml', composeContent);
   log('✅ Created docker-compose.monitoring.yml', colors.green);
 }
 
 async function setupCloudMonitoring() {
   log('☁️ Setting up cloud monitoring...', colors.cyan);
-  
+
   const cloudProvider = await question('Which cloud provider are you using? (aws/gcp/azure): ');
-  
+
   switch (cloudProvider.toLowerCase()) {
     case 'aws':
       await setupAWSMonitoring();
@@ -591,71 +602,85 @@ async function setupCloudMonitoring() {
 
 async function setupAWSMonitoring() {
   log('Setting up AWS CloudWatch monitoring...', colors.blue);
-  
+
   // Create CloudWatch dashboard
   const dashboardBody = {
     widgets: [
       {
-        type: "metric",
-        x: 0, y: 0, width: 12, height: 6,
+        type: 'metric',
+        x: 0,
+        y: 0,
+        width: 12,
+        height: 6,
         properties: {
           metrics: [
-            ["AWS/ApplicationELB", "RequestCount", "LoadBalancer", "direct-fan-platform-alb"],
-            ["AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", "direct-fan-platform-alb"]
+            ['AWS/ApplicationELB', 'RequestCount', 'LoadBalancer', 'direct-fan-platform-alb'],
+            ['AWS/ApplicationELB', 'TargetResponseTime', 'LoadBalancer', 'direct-fan-platform-alb'],
           ],
           period: 300,
-          stat: "Sum",
-          region: "us-east-1",
-          title: "Application Load Balancer Metrics"
-        }
+          stat: 'Sum',
+          region: 'us-east-1',
+          title: 'Application Load Balancer Metrics',
+        },
       },
       {
-        type: "metric",
-        x: 0, y: 6, width: 12, height: 6,
+        type: 'metric',
+        x: 0,
+        y: 6,
+        width: 12,
+        height: 6,
         properties: {
           metrics: [
-            ["AWS/RDS", "CPUUtilization", "DBInstanceIdentifier", "direct-fan-platform-postgres"],
-            ["AWS/RDS", "DatabaseConnections", "DBInstanceIdentifier", "direct-fan-platform-postgres"],
-            ["AWS/RDS", "FreeableMemory", "DBInstanceIdentifier", "direct-fan-platform-postgres"]
+            ['AWS/RDS', 'CPUUtilization', 'DBInstanceIdentifier', 'direct-fan-platform-postgres'],
+            [
+              'AWS/RDS',
+              'DatabaseConnections',
+              'DBInstanceIdentifier',
+              'direct-fan-platform-postgres',
+            ],
+            ['AWS/RDS', 'FreeableMemory', 'DBInstanceIdentifier', 'direct-fan-platform-postgres'],
           ],
           period: 300,
-          stat: "Average",
-          region: "us-east-1",
-          title: "RDS PostgreSQL Metrics"
-        }
-      }
-    ]
+          stat: 'Average',
+          region: 'us-east-1',
+          title: 'RDS PostgreSQL Metrics',
+        },
+      },
+    ],
   };
-  
+
   fs.writeFileSync('/tmp/aws-dashboard.json', JSON.stringify(dashboardBody));
-  
+
   // Create dashboard
-  executeCommand(`aws cloudwatch put-dashboard --dashboard-name "DirectFanPlatform" --dashboard-body file:///tmp/aws-dashboard.json`, { ignoreError: true });
-  
+  executeCommand(
+    `aws cloudwatch put-dashboard --dashboard-name "DirectFanPlatform" --dashboard-body file:///tmp/aws-dashboard.json`,
+    { ignoreError: true }
+  );
+
   // Create CloudWatch alarms
   const alarms = [
     {
-      name: "DirectFanPlatform-HighCPU",
-      description: "High CPU usage alert",
-      metricName: "CPUUtilization",
-      namespace: "AWS/RDS",
-      statistic: "Average",
+      name: 'DirectFanPlatform-HighCPU',
+      description: 'High CPU usage alert',
+      metricName: 'CPUUtilization',
+      namespace: 'AWS/RDS',
+      statistic: 'Average',
       threshold: 80,
-      comparisonOperator: "GreaterThanThreshold",
-      dimensions: "Name=DBInstanceIdentifier,Value=direct-fan-platform-postgres"
+      comparisonOperator: 'GreaterThanThreshold',
+      dimensions: 'Name=DBInstanceIdentifier,Value=direct-fan-platform-postgres',
     },
     {
-      name: "DirectFanPlatform-HighConnections",
-      description: "High database connections",
-      metricName: "DatabaseConnections",
-      namespace: "AWS/RDS",
-      statistic: "Average",
+      name: 'DirectFanPlatform-HighConnections',
+      description: 'High database connections',
+      metricName: 'DatabaseConnections',
+      namespace: 'AWS/RDS',
+      statistic: 'Average',
       threshold: 50,
-      comparisonOperator: "GreaterThanThreshold",
-      dimensions: "Name=DBInstanceIdentifier,Value=direct-fan-platform-postgres"
-    }
+      comparisonOperator: 'GreaterThanThreshold',
+      dimensions: 'Name=DBInstanceIdentifier,Value=direct-fan-platform-postgres',
+    },
   ];
-  
+
   alarms.forEach(alarm => {
     const command = `aws cloudwatch put-metric-alarm \\
       --alarm-name "${alarm.name}" \\
@@ -668,10 +693,10 @@ async function setupAWSMonitoring() {
       --comparison-operator ${alarm.comparisonOperator} \\
       --dimensions ${alarm.dimensions} \\
       --evaluation-periods 2`;
-    
+
     executeCommand(command, { ignoreError: true });
   });
-  
+
   log('✅ AWS CloudWatch monitoring configured', colors.green);
 }
 
@@ -687,7 +712,7 @@ async function setupAzureMonitoring() {
 
 async function createHealthCheckEndpoint() {
   log('🏥 Creating health check endpoint...', colors.cyan);
-  
+
   const healthCheckContent = `// Health check endpoint for monitoring
 export default async function handler(req, res) {
   const checks = {
@@ -726,19 +751,19 @@ export default async function handler(req, res) {
     res.status(500).json(checks);
   }
 }`;
-  
+
   const healthDir = 'pages/api';
   if (!fs.existsSync(healthDir)) {
     fs.mkdirSync(healthDir, { recursive: true });
   }
-  
+
   fs.writeFileSync(path.join(healthDir, 'health.js'), healthCheckContent);
   log('✅ Created health check endpoint at /api/health', colors.green);
 }
 
 async function createMetricsEndpoint() {
   log('📈 Creating metrics endpoint for Prometheus...', colors.cyan);
-  
+
   const metricsContent = `// Prometheus metrics endpoint
 import client from 'prom-client';
 
@@ -803,12 +828,12 @@ export {
   activeUsers,
   databaseConnections
 };`;
-  
+
   const metricsDir = 'pages/api';
   if (!fs.existsSync(metricsDir)) {
     fs.mkdirSync(metricsDir, { recursive: true });
   }
-  
+
   fs.writeFileSync(path.join(metricsDir, 'metrics.js'), metricsContent);
   log('✅ Created metrics endpoint at /api/metrics', colors.green);
 }
@@ -816,33 +841,35 @@ export {
 async function main() {
   log('📊 Monitoring and Alerting Setup', colors.cyan);
   log('==================================', colors.cyan);
-  
+
   try {
     const setupLocal = await question('Set up local monitoring stack with Docker? (y/n): ');
     if (setupLocal.toLowerCase() === 'y') {
       await createMonitoringStack();
       await createDockerMonitoringCompose();
     }
-    
+
     const setupCloud = await question('Set up cloud monitoring? (y/n): ');
     if (setupCloud.toLowerCase() === 'y') {
       await setupCloudMonitoring();
     }
-    
+
     const createEndpoints = await question('Create health check and metrics endpoints? (y/n): ');
     if (createEndpoints.toLowerCase() === 'y') {
       await createHealthCheckEndpoint();
       await createMetricsEndpoint();
     }
-    
+
     log('\n🎉 Monitoring setup completed successfully!', colors.green);
     log('\nNext steps:', colors.yellow);
     log('1. Install prometheus client: npm install prom-client', colors.yellow);
-    log('2. Start monitoring stack: docker-compose -f docker-compose.monitoring.yml up -d', colors.yellow);
+    log(
+      '2. Start monitoring stack: docker-compose -f docker-compose.monitoring.yml up -d',
+      colors.yellow
+    );
     log('3. Access Grafana at http://localhost:3001 (admin/admin)', colors.yellow);
     log('4. Access Prometheus at http://localhost:9090', colors.yellow);
     log('5. Configure alerting channels in Grafana and AlertManager', colors.yellow);
-    
   } catch (error) {
     log(`❌ Setup failed: ${error.message}`, colors.red);
     process.exit(1);

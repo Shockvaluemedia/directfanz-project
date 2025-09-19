@@ -46,8 +46,10 @@ class Logger {
       const timestamp = new Date(entry.timestamp).toLocaleTimeString();
       const level = entry.level.toUpperCase().padEnd(5);
       const context = entry.context ? ` [${JSON.stringify(entry.context)}]` : '';
-      const error = entry.error ? `\n  Error: ${entry.error.message}\n  Stack: ${entry.error.stack}` : '';
-      
+      const error = entry.error
+        ? `\n  Error: ${entry.error.message}\n  Stack: ${entry.error.stack}`
+        : '';
+
       return `${timestamp} ${level} ${entry.message}${context}${error}`;
     } else {
       // JSON format for production
@@ -55,7 +57,13 @@ class Logger {
     }
   }
 
-  private log(level: LogLevel, message: string, context?: LogContext, error?: Error, metadata?: Record<string, any>) {
+  private log(
+    level: LogLevel,
+    message: string,
+    context?: LogContext,
+    error?: Error,
+    metadata?: Record<string, any>
+  ) {
     const entry: LogEntry = {
       level,
       message,
@@ -102,7 +110,7 @@ class Logger {
   private async sendToExternalService(entry: LogEntry) {
     // This is where you would integrate with external logging services
     // like Sentry, LogRocket, DataDog, etc.
-    
+
     // Send errors to Sentry
     if (entry.level === LogLevel.ERROR && entry.error) {
       try {
@@ -111,14 +119,11 @@ class Logger {
         const error = new Error(entry.error.message);
         // Attach the original error as a property
         (error as any).originalError = entry.error;
-        captureError(
-          error,
-          {
-            ...entry.context,
-            metadata: entry.metadata,
-            logger: true,
-          }
-        );
+        captureError(error, {
+          ...entry.context,
+          metadata: entry.metadata,
+          logger: true,
+        });
       } catch (error) {
         // If Sentry integration fails, just log to console
         console.error('Failed to send error to Sentry:', error);
@@ -143,7 +148,13 @@ class Logger {
   }
 
   // Specialized logging methods
-  apiRequest(method: string, url: string, statusCode: number, duration: number, context?: LogContext) {
+  apiRequest(
+    method: string,
+    url: string,
+    statusCode: number,
+    duration: number,
+    context?: LogContext
+  ) {
     this.info(`${method} ${url} ${statusCode}`, {
       ...context,
       method,
@@ -154,11 +165,15 @@ class Logger {
   }
 
   apiError(method: string, url: string, error: Error, context?: LogContext) {
-    this.error(`API Error: ${method} ${url}`, {
-      ...context,
-      method,
-      url,
-    }, error);
+    this.error(
+      `API Error: ${method} ${url}`,
+      {
+        ...context,
+        method,
+        url,
+      },
+      error
+    );
   }
 
   authEvent(event: string, userId?: string, context?: LogContext) {
@@ -194,7 +209,11 @@ class Logger {
     });
   }
 
-  securityEvent(event: string, severity: 'low' | 'medium' | 'high' | 'critical', context?: LogContext) {
+  securityEvent(
+    event: string,
+    severity: 'low' | 'medium' | 'high' | 'critical',
+    context?: LogContext
+  ) {
     const level = severity === 'critical' || severity === 'high' ? LogLevel.ERROR : LogLevel.WARN;
     this.log(level, `Security: ${event}`, {
       ...context,
@@ -213,9 +232,10 @@ export const generateRequestId = (): string => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return `req_${Date.now()}_${crypto.randomUUID().replace(/-/g, '').substring(0, 13)}`;
   }
-  
+
   // Fallback for environments without Web Crypto API
-  const randomStr = crypto.getRandomValues(new Uint32Array(1))[0] / (0xffffffff + 1).toString(36).substring(2, 15);
+  const randomStr =
+    crypto.getRandomValues(new Uint32Array(1))[0] / (0xffffffff + 1).toString(36).substring(2, 15);
   return `req_${Date.now()}_${randomStr}`;
 };
 
@@ -233,7 +253,7 @@ export class PerformanceMonitor {
 
   end(metadata?: Record<string, any>) {
     const duration = Date.now() - this.startTime;
-    
+
     if (duration > 1000) {
       logger.warn(`Slow operation: ${this.operation} took ${duration}ms`, this.context, {
         ...metadata,
@@ -268,7 +288,7 @@ export const logUnhandledError = (error: Error, context?: LogContext) => {
 // Process error handlers
 if (typeof process !== 'undefined' && process.on && typeof process.on === 'function') {
   try {
-    process.on('uncaughtException', (error) => {
+    process.on('uncaughtException', error => {
       logUnhandledError(error, { type: 'uncaught_exception' });
       // Don't exit the process in development to allow for hot reloading
       if (process.env.NODE_ENV === 'production') {
@@ -278,7 +298,7 @@ if (typeof process !== 'undefined' && process.on && typeof process.on === 'funct
 
     process.on('unhandledRejection', (reason, promise) => {
       const error = reason instanceof Error ? reason : new Error(String(reason));
-      logUnhandledError(error, { 
+      logUnhandledError(error, {
         type: 'unhandled_rejection',
         promise: String(promise),
       });

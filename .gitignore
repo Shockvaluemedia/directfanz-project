@@ -70,3 +70,4 @@ pids
 # Temporary folders
 tmp/
 temp/
+.vercel

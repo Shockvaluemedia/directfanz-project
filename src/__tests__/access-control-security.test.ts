@@ -1,10 +1,10 @@
 /**
  * Access Control Security Tests
- * 
+ *
  * Edge cases and security scenarios for content access control
  */
 
-import { 
+import {
   setupTestEnvironment,
   createMockUser,
   createMockArtist,
@@ -41,46 +41,46 @@ const jwt = require('jsonwebtoken');
 describe('Access Control Security Tests', () => {
   setupTestEnvironment();
 
-  const artistUser = createMockUser({ 
-    id: 'artist-123', 
+  const artistUser = createMockUser({
+    id: 'artist-123',
     role: 'ARTIST',
-    email: 'artist@example.com'
+    email: 'artist@example.com',
   });
-  
-  const fanUser = createMockUser({ 
-    id: 'fan-123', 
+
+  const fanUser = createMockUser({
+    id: 'fan-123',
     role: 'FAN',
-    email: 'fan@example.com'
+    email: 'fan@example.com',
   });
-  
-  const otherFanUser = createMockUser({ 
-    id: 'other-fan-456', 
+
+  const otherFanUser = createMockUser({
+    id: 'other-fan-456',
     role: 'FAN',
-    email: 'otherfan@example.com'
+    email: 'otherfan@example.com',
   });
-  
-  const basicTier = createMockTier({ 
-    id: 'basic-tier-123', 
+
+  const basicTier = createMockTier({
+    id: 'basic-tier-123',
     artistId: artistUser.id,
     name: 'Basic Access',
-    minimumPrice: 10.00,
-    isActive: true
+    minimumPrice: 10.0,
+    isActive: true,
   });
-  
-  const premiumTier = createMockTier({ 
-    id: 'premium-tier-123', 
+
+  const premiumTier = createMockTier({
+    id: 'premium-tier-123',
     artistId: artistUser.id,
     name: 'Premium Access',
-    minimumPrice: 25.00,
-    isActive: true
+    minimumPrice: 25.0,
+    isActive: true,
   });
 
   const expiredTier = createMockTier({
     id: 'expired-tier-456',
     artistId: artistUser.id,
     name: 'Expired Tier',
-    minimumPrice: 15.00,
-    isActive: false // Inactive tier
+    minimumPrice: 15.0,
+    isActive: false, // Inactive tier
   });
 
   beforeEach(() => {
@@ -91,7 +91,7 @@ describe('Access Control Security Tests', () => {
         method.mockClear();
       }
     });
-    
+
     // No longer needed since we're using real implementations
   });
 
@@ -107,9 +107,9 @@ describe('Access Control Security Tests', () => {
       const mockReturnValue = {
         ...publicContent,
         artist: { id: artistUser.id, role: 'ARTIST' },
-        tiers: []
+        tiers: [],
       };
-      
+
       (prisma.content.findUnique as jest.Mock).mockResolvedValue(mockReturnValue);
 
       const result = await checkContentAccess(fanUser.id, 'public-content-123');
@@ -138,7 +138,7 @@ describe('Access Control Security Tests', () => {
       (prisma.content.findUnique as jest.Mock).mockResolvedValue({
         ...privateContent,
         artist: { id: artistUser.id, role: 'ARTIST' },
-        tiers: [{ id: premiumTier.id, minimumPrice: premiumTier.minimumPrice, isActive: true }]
+        tiers: [{ id: premiumTier.id, minimumPrice: premiumTier.minimumPrice, isActive: true }],
       });
 
       const result = await checkContentAccess(artistUser.id, 'artist-content-123');
@@ -158,7 +158,7 @@ describe('Access Control Security Tests', () => {
       (prisma.content.findUnique as jest.Mock).mockResolvedValue({
         ...orphanedContent,
         artist: { id: artistUser.id, role: 'ARTIST' },
-        tiers: []
+        tiers: [],
       });
 
       const result = await checkContentAccess(fanUser.id, 'orphaned-content-123');
@@ -186,7 +186,7 @@ describe('Access Control Security Tests', () => {
 
       (prisma.content.findUnique as jest.Mock).mockResolvedValue(gatedContent);
       // The subscription is expired, so findMany with currentPeriodEnd >= now() should return empty array
-      (prisma.subscription.findMany as jest.Mock).mockResolvedValue([]);
+      (prisma.subscriptions.findMany as jest.Mock).mockResolvedValue([]);
 
       const result = await checkContentAccess(fanUser.id, 'gated-content-123');
 
@@ -212,8 +212,8 @@ describe('Access Control Security Tests', () => {
       });
 
       (prisma.content.findUnique as jest.Mock).mockResolvedValue(contentWithInactiveTier);
-      (prisma.subscription.findMany as jest.Mock).mockResolvedValue([
-        { ...activeSubscription, tier: expiredTier }
+      (prisma.subscriptions.findMany as jest.Mock).mockResolvedValue([
+        { ...activeSubscription, tier: expiredTier },
       ]);
 
       const result = await checkContentAccess(fanUser.id, 'inactive-tier-content-123');
@@ -237,12 +237,12 @@ describe('Access Control Security Tests', () => {
         tierId: basicTier.id,
         status: 'ACTIVE',
         currentPeriodEnd: new Date(Date.now() + 86400000),
-        amount: 15.00,
+        amount: 15.0,
       });
 
       (prisma.content.findUnique as jest.Mock).mockResolvedValue(multiTierContent);
-      (prisma.subscription.findMany as jest.Mock).mockResolvedValue([
-        { ...basicSubscription, tier: basicTier }
+      (prisma.subscriptions.findMany as jest.Mock).mockResolvedValue([
+        { ...basicSubscription, tier: basicTier },
       ]);
 
       const result = await checkContentAccess(fanUser.id, 'multi-tier-content-123');
@@ -254,7 +254,9 @@ describe('Access Control Security Tests', () => {
     });
 
     it('should handle database errors gracefully', async () => {
-      (prisma.content.findUnique as jest.Mock).mockRejectedValue(new Error('Database connection failed'));
+      (prisma.content.findUnique as jest.Mock).mockRejectedValue(
+        new Error('Database connection failed')
+      );
 
       const result = await checkContentAccess(fanUser.id, 'any-content-id');
 
@@ -269,7 +271,7 @@ describe('Access Control Security Tests', () => {
         userId: fanUser.id,
         contentId: 'content-123',
         iat: Math.floor(Date.now() / 1000),
-        exp: Math.floor(Date.now() / 1000) + 3600
+        exp: Math.floor(Date.now() / 1000) + 3600,
       };
 
       jwt.sign.mockReturnValue('signed-jwt-token');
@@ -282,7 +284,7 @@ describe('Access Control Security Tests', () => {
           userId: fanUser.id,
           contentId: 'content-123',
           iat: expect.any(Number),
-          exp: expect.any(Number)
+          exp: expect.any(Number),
         }),
         process.env.NEXTAUTH_SECRET,
         { algorithm: 'HS256' }
@@ -294,7 +296,7 @@ describe('Access Control Security Tests', () => {
         userId: fanUser.id,
         contentId: 'content-123',
         iat: Math.floor(Date.now() / 1000) - 300, // 5 minutes ago
-        exp: Math.floor(Date.now() / 1000) + 3300 // 55 minutes from now
+        exp: Math.floor(Date.now() / 1000) + 3300, // 55 minutes from now
       };
 
       jwt.verify.mockReturnValue(mockPayload);
@@ -330,7 +332,7 @@ describe('Access Control Security Tests', () => {
         userId: fanUser.id,
         contentId: 'content-123',
         iat: Math.floor(Date.now() / 1000),
-        exp: Math.floor(Date.now() / 1000) + 3600
+        exp: Math.floor(Date.now() / 1000) + 3600,
       };
 
       jwt.verify.mockReturnValue(mockPayload);
@@ -353,7 +355,7 @@ describe('Access Control Security Tests', () => {
         currentPeriodEnd: new Date(Date.now() + 86400000),
       });
 
-      (prisma.subscription.findFirst as jest.Mock).mockResolvedValue(activeSubscription);
+      (prisma.subscriptions.findFirst as jest.Mock).mockResolvedValue(activeSubscription);
 
       const hasAccess = await checkTierAccess(fanUser.id, basicTier.id);
 
@@ -362,7 +364,7 @@ describe('Access Control Security Tests', () => {
 
     it('should deny tier access for expired subscriptions', async () => {
       // Expired subscription would not be returned by findFirst with currentPeriodEnd >= now()
-      (prisma.subscription.findFirst as jest.Mock).mockResolvedValue(null);
+      (prisma.subscriptions.findFirst as jest.Mock).mockResolvedValue(null);
 
       const hasAccess = await checkTierAccess(fanUser.id, basicTier.id);
 
@@ -371,7 +373,7 @@ describe('Access Control Security Tests', () => {
 
     it('should deny tier access for inactive subscriptions', async () => {
       // Inactive subscription would not be returned by findFirst with status: ACTIVE
-      (prisma.subscription.findFirst as jest.Mock).mockResolvedValue(null);
+      (prisma.subscriptions.findFirst as jest.Mock).mockResolvedValue(null);
 
       const hasAccess = await checkTierAccess(fanUser.id, basicTier.id);
 
@@ -379,7 +381,7 @@ describe('Access Control Security Tests', () => {
     });
 
     it('should handle database errors in tier access checks', async () => {
-      (prisma.subscription.findFirst as jest.Mock).mockRejectedValue(new Error('Database error'));
+      (prisma.subscriptions.findFirst as jest.Mock).mockRejectedValue(new Error('Database error'));
 
       const hasAccess = await checkTierAccess(fanUser.id, basicTier.id);
 
@@ -390,19 +392,24 @@ describe('Access Control Security Tests', () => {
   describe('User Content Access Filtering', () => {
     it('should return only accessible content for user with basic subscription', async () => {
       const userSubscriptions = [{ tierId: basicTier.id }];
-      
+
       const allContent = [
         createMockContent({ id: 'public-1', visibility: 'PUBLIC', tiers: [] }),
         createMockContent({ id: 'basic-1', visibility: 'TIER_LOCKED', tiers: [basicTier] }),
         createMockContent({ id: 'premium-1', visibility: 'TIER_LOCKED', tiers: [premiumTier] }),
-        createMockContent({ id: 'multi-1', visibility: 'TIER_LOCKED', tiers: [basicTier, premiumTier] }),
+        createMockContent({
+          id: 'multi-1',
+          visibility: 'TIER_LOCKED',
+          tiers: [basicTier, premiumTier],
+        }),
       ];
 
-      const accessibleContent = allContent.filter(content => 
-        content.visibility === 'PUBLIC' || content.tiers.some(tier => tier.id === basicTier.id)
+      const accessibleContent = allContent.filter(
+        content =>
+          content.visibility === 'PUBLIC' || content.tiers.some(tier => tier.id === basicTier.id)
       );
 
-      (prisma.subscription.findMany as jest.Mock).mockResolvedValue(userSubscriptions);
+      (prisma.subscriptions.findMany as jest.Mock).mockResolvedValue(userSubscriptions);
       (prisma.content.findMany as jest.Mock).mockResolvedValue(accessibleContent);
       (prisma.content.count as jest.Mock).mockResolvedValue(accessibleContent.length);
 
@@ -421,7 +428,7 @@ describe('Access Control Security Tests', () => {
         createMockContent({ id: 'public-2', visibility: 'PUBLIC', tiers: [] }),
       ];
 
-      (prisma.subscription.findMany as jest.Mock).mockResolvedValue([]);
+      (prisma.subscriptions.findMany as jest.Mock).mockResolvedValue([]);
       (prisma.content.findMany as jest.Mock).mockResolvedValue(publicContent);
       (prisma.content.count as jest.Mock).mockResolvedValue(publicContent.length);
 
@@ -437,12 +444,12 @@ describe('Access Control Security Tests', () => {
         createMockContent({ id: 'audio-2', type: 'AUDIO', visibility: 'PUBLIC' }),
       ];
 
-      (prisma.subscription.findMany as jest.Mock).mockResolvedValue([]);
+      (prisma.subscriptions.findMany as jest.Mock).mockResolvedValue([]);
       (prisma.content.findMany as jest.Mock).mockResolvedValue(audioContent);
       (prisma.content.count as jest.Mock).mockResolvedValue(audioContent.length);
 
       const result = await getUserAccessibleContent(fanUser.id, artistUser.id, {
-        type: 'AUDIO'
+        type: 'AUDIO',
       });
 
       expect(result.content).toHaveLength(2);
@@ -455,13 +462,13 @@ describe('Access Control Security Tests', () => {
         createMockContent({ id: 'content-4', visibility: 'PUBLIC' }),
       ];
 
-      (prisma.subscription.findMany as jest.Mock).mockResolvedValue([]);
+      (prisma.subscriptions.findMany as jest.Mock).mockResolvedValue([]);
       (prisma.content.findMany as jest.Mock).mockResolvedValue(paginatedContent);
       (prisma.content.count as jest.Mock).mockResolvedValue(10); // Total content
 
       const result = await getUserAccessibleContent(fanUser.id, artistUser.id, {
         page: 2,
-        limit: 2
+        limit: 2,
       });
 
       expect(result.pagination.page).toBe(2);
@@ -482,17 +489,17 @@ describe('Access Control Security Tests', () => {
       const userSubscriptions = [
         {
           tierId: basicTier.id,
-          tier: { id: basicTier.id, name: basicTier.name }
-        }
+          tier: { id: basicTier.id, name: basicTier.name },
+        },
       ];
 
       // Mock the database calls
       (prisma.content.count as jest.Mock)
-        .mockResolvedValueOnce(mockCounts.totalContent)      // Total content
-        .mockResolvedValueOnce(mockCounts.publicContent)     // Public content
+        .mockResolvedValueOnce(mockCounts.totalContent) // Total content
+        .mockResolvedValueOnce(mockCounts.publicContent) // Public content
         .mockResolvedValueOnce(mockCounts.accessibleGatedContent); // Accessible gated content
 
-      (prisma.subscription.findMany as jest.Mock).mockResolvedValue(userSubscriptions);
+      (prisma.subscriptions.findMany as jest.Mock).mockResolvedValue(userSubscriptions);
 
       // Mock content count per tier
       (prisma.content.count as jest.Mock).mockResolvedValueOnce(5); // Content for basic tier
@@ -525,16 +532,16 @@ describe('Access Control Security Tests', () => {
       const fanSubscriptions = [
         {
           tierId: basicTier.id,
-          tier: { id: basicTier.id, name: basicTier.name }
-        }
+          tier: { id: basicTier.id, name: basicTier.name },
+        },
       ];
 
       // Mock for fan user
-      (prisma.subscription.findMany as jest.Mock).mockResolvedValue(fanSubscriptions);
+      (prisma.subscriptions.findMany as jest.Mock).mockResolvedValue(fanSubscriptions);
       (prisma.content.count as jest.Mock)
         .mockResolvedValueOnce(10) // Total
-        .mockResolvedValueOnce(3)  // Public
-        .mockResolvedValueOnce(2)  // Accessible gated
+        .mockResolvedValueOnce(3) // Public
+        .mockResolvedValueOnce(2) // Accessible gated
         .mockResolvedValueOnce(4); // Basic tier content
 
       const fanResult = await getContentAccessSummary(fanUser.id, artistUser.id);
@@ -543,10 +550,10 @@ describe('Access Control Security Tests', () => {
       jest.clearAllMocks();
 
       // Set up other fan with no subscriptions
-      (prisma.subscription.findMany as jest.Mock).mockResolvedValue([]);
+      (prisma.subscriptions.findMany as jest.Mock).mockResolvedValue([]);
       (prisma.content.count as jest.Mock)
         .mockResolvedValueOnce(10) // Total content count
-        .mockResolvedValueOnce(3)  // Public content count
+        .mockResolvedValueOnce(3) // Public content count
         .mockResolvedValueOnce(0); // Accessible gated content (0 since no subscriptions)
 
       const otherFanResult = await getContentAccessSummary(otherFanUser.id, artistUser.id);
@@ -571,7 +578,7 @@ describe('Access Control Security Tests', () => {
       expect(jwt.sign).toHaveBeenCalledWith(
         expect.objectContaining({
           userId: '',
-          contentId: 'content-123'
+          contentId: 'content-123',
         }),
         expect.any(String),
         expect.any(Object)
@@ -614,7 +621,7 @@ describe('Access Control Security Tests', () => {
 
       expect(result1.hasAccess).toBe(false);
       expect(result2.hasAccess).toBe(false);
-      
+
       // Both should return the same result regardless of timing
       expect(result1.reason).toBe(result2.reason);
     });
@@ -635,12 +642,12 @@ describe('Access Control Security Tests', () => {
       });
 
       (prisma.content.findUnique as jest.Mock).mockResolvedValue(gatedContent);
-      (prisma.subscription.findMany as jest.Mock).mockResolvedValue([
-        { ...activeSubscription, tier: basicTier }
+      (prisma.subscriptions.findMany as jest.Mock).mockResolvedValue([
+        { ...activeSubscription, tier: basicTier },
       ]);
 
       // Simulate concurrent access checks
-      const accessPromises = Array.from({ length: 5 }, () => 
+      const accessPromises = Array.from({ length: 5 }, () =>
         checkContentAccess(fanUser.id, 'concurrent-content-123')
       );
 
@@ -654,9 +661,9 @@ describe('Access Control Security Tests', () => {
     });
 
     it('should validate user permissions across different artists', async () => {
-      const otherArtistUser = createMockUser({ 
-        id: 'other-artist-789', 
-        role: 'ARTIST' 
+      const otherArtistUser = createMockUser({
+        id: 'other-artist-789',
+        role: 'ARTIST',
       });
 
       const otherArtistContent = createMockContent({
@@ -676,7 +683,7 @@ describe('Access Control Security Tests', () => {
 
       (prisma.content.findUnique as jest.Mock).mockResolvedValue(otherArtistContent);
       // The subscription query filters by artistId, so it should return empty for different artist
-      (prisma.subscription.findMany as jest.Mock).mockResolvedValue([]);
+      (prisma.subscriptions.findMany as jest.Mock).mockResolvedValue([]);
 
       const result = await checkContentAccess(fanUser.id, 'other-artist-content-123');
 

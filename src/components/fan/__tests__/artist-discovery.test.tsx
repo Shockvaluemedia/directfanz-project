@@ -92,15 +92,19 @@ describe('ArtistDiscovery', () => {
 
   it('renders discovery page with header', () => {
     render(<ArtistDiscovery initialArtists={[]} />);
-    
+
     expect(screen.getByText('Discover Artists')).toBeInTheDocument();
-    expect(screen.getByText('Find and support your favorite independent artists')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('Search artists by name or description...')).toBeInTheDocument();
+    expect(
+      screen.getByText('Find and support your favorite independent artists')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText('Search artists by name or description...')
+    ).toBeInTheDocument();
   });
 
   it('displays artists when provided as initial props', () => {
     render(<ArtistDiscovery initialArtists={mockArtists} />);
-    
+
     expect(screen.getByText('Test Artist 1')).toBeInTheDocument();
     expect(screen.getByText('Test Artist 2')).toBeInTheDocument();
     expect(screen.getByText('Test bio 1')).toBeInTheDocument();
@@ -142,15 +146,15 @@ describe('ArtistDiscovery', () => {
       } as Response);
 
     render(<ArtistDiscovery />);
-    
+
     // Wait for initial load to complete
     await waitFor(() => {
       expect(screen.getByText('Search')).toBeInTheDocument();
     });
-    
+
     const searchInput = screen.getByPlaceholderText('Search artists by name or description...');
     const searchButton = screen.getByText('Search');
-    
+
     fireEvent.change(searchInput, { target: { value: 'rock' } });
     fireEvent.click(searchButton);
 
@@ -161,20 +165,20 @@ describe('ArtistDiscovery', () => {
 
   it('navigates to artist profile when artist card is clicked', () => {
     render(<ArtistDiscovery initialArtists={mockArtists} />);
-    
+
     const artistCard = screen.getByText('Test Artist 1').closest('div[class*="cursor-pointer"]');
     fireEvent.click(artistCard!);
-    
+
     expect(mockPush).toHaveBeenCalledWith('/artist/artist-1');
   });
 
   it('displays tier information correctly', () => {
     render(<ArtistDiscovery initialArtists={mockArtists} />);
-    
+
     expect(screen.getByText('Basic')).toBeInTheDocument();
     expect(screen.getByText('$5.00+/month')).toBeInTheDocument();
     expect(screen.getByText('Basic tier')).toBeInTheDocument();
-    
+
     expect(screen.getByText('Premium')).toBeInTheDocument();
     expect(screen.getByText('$10.00+/month')).toBeInTheDocument();
     expect(screen.getByText('Premium tier')).toBeInTheDocument();
@@ -182,7 +186,7 @@ describe('ArtistDiscovery', () => {
 
   it('displays content preview when available', () => {
     render(<ArtistDiscovery initialArtists={mockArtists} />);
-    
+
     expect(screen.getByText('Recent Content:')).toBeInTheDocument();
     expect(screen.getByText('Test Song')).toBeInTheDocument();
     expect(screen.getByText('audio')).toBeInTheDocument();
@@ -248,7 +252,7 @@ describe('ArtistDiscovery', () => {
     await act(async () => {
       render(<ArtistDiscovery />);
     });
-    
+
     // Wait for the async fetch to complete and loading to finish
     await waitFor(() => {
       expect(screen.getByText('No artists found')).toBeInTheDocument();
@@ -275,17 +279,17 @@ describe('ArtistDiscovery', () => {
       } as Response);
 
     render(<ArtistDiscovery />);
-    
+
     // Wait for initial load
     await waitFor(() => {
       expect(screen.getByText('Search')).toBeInTheDocument();
     });
-    
+
     const searchInput = screen.getByPlaceholderText('Search artists by name or description...');
     const searchButton = screen.getByText('Search');
-    
+
     fireEvent.change(searchInput, { target: { value: 'nonexistent' } });
-    
+
     await act(async () => {
       fireEvent.click(searchButton);
     });
@@ -297,7 +301,7 @@ describe('ArtistDiscovery', () => {
 
   it('handles fetch errors gracefully', async () => {
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
-    
+
     mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
     render(<ArtistDiscovery />);
@@ -319,23 +323,30 @@ describe('ArtistDiscovery', () => {
           pagination: { hasMore: false },
         }),
       } as Response)
-      .mockImplementationOnce(() => new Promise(resolve => 
-        setTimeout(() => resolve({
-          ok: true,
-          json: async () => ({ artists: [], pagination: { hasMore: false } })
-        } as Response), 100)
-      ));
+      .mockImplementationOnce(
+        () =>
+          new Promise(resolve =>
+            setTimeout(
+              () =>
+                resolve({
+                  ok: true,
+                  json: async () => ({ artists: [], pagination: { hasMore: false } }),
+                } as Response),
+              100
+            )
+          )
+      );
 
     render(<ArtistDiscovery />);
-    
+
     // Wait for initial load to complete
     await waitFor(() => {
       expect(screen.getByText('Search')).toBeInTheDocument();
     });
-    
+
     const searchInput = screen.getByPlaceholderText('Search artists by name or description...');
     const searchButton = screen.getByText('Search');
-    
+
     fireEvent.change(searchInput, { target: { value: 'test' } });
     fireEvent.click(searchButton);
 

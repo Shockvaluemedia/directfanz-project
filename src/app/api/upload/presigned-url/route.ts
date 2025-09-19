@@ -15,7 +15,7 @@ const presignedUrlSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id || session.user.role !== 'ARTIST') {
       throw UnauthorizedError('Artist authentication required');
     }
@@ -55,17 +55,16 @@ export async function POST(request: NextRequest) {
       success: true,
       data: uploadInfo,
     });
-
   } catch (error) {
     const requestId = request.headers.get('x-request-id');
-    
+
     if (error instanceof z.ZodError) {
       return createErrorResponse(
         ValidationError('Invalid request data', { errors: error.errors }),
         requestId || undefined
       );
     }
-    
+
     return createErrorResponse(error, requestId || undefined);
   }
 }

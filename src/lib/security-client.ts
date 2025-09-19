@@ -32,7 +32,9 @@ export const validatePassword = (password: string): { isValid: boolean; errors: 
   const errors: string[] = [];
 
   if (password.length < SECURITY_CONSTANTS.PASSWORD_MIN_LENGTH) {
-    errors.push(`Password must be at least ${SECURITY_CONSTANTS.PASSWORD_MIN_LENGTH} characters long`);
+    errors.push(
+      `Password must be at least ${SECURITY_CONSTANTS.PASSWORD_MIN_LENGTH} characters long`
+    );
   }
 
   if (SECURITY_CONSTANTS.PASSWORD_REQUIRE_LOWERCASE && !/[a-z]/.test(password)) {
@@ -47,7 +49,10 @@ export const validatePassword = (password: string): { isValid: boolean; errors: 
     errors.push('Password must contain at least one number');
   }
 
-  if (SECURITY_CONSTANTS.PASSWORD_REQUIRE_SYMBOL && !/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)) {
+  if (
+    SECURITY_CONSTANTS.PASSWORD_REQUIRE_SYMBOL &&
+    !/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)
+  ) {
     errors.push('Password must contain at least one special character');
   }
 
@@ -74,13 +79,16 @@ export const generateCSP = (): string => {
 };
 
 // Generate secure response headers for file downloads (client-safe)
-export const generateSecureDownloadHeaders = (filename: string, contentType: string): Record<string, string> => {
+export const generateSecureDownloadHeaders = (
+  filename: string,
+  contentType: string
+): Record<string, string> => {
   return {
     'Content-Disposition': `attachment; filename="${encodeURIComponent(filename)}"`,
     'Content-Type': contentType,
     'X-Content-Type-Options': 'nosniff',
     'Cache-Control': 'private, no-cache, no-store, must-revalidate',
-    'Pragma': 'no-cache',
-    'Expires': '0',
+    Pragma: 'no-cache',
+    Expires: '0',
   };
 };

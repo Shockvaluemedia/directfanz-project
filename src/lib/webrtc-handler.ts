@@ -18,30 +18,39 @@ interface ActiveStream {
 }
 
 export class WebRTCHandler {
-  private io: SocketIOServer<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>;
+  private io: SocketIOServer<
+    ClientToServerEvents,
+    ServerToClientEvents,
+    InterServerEvents,
+    SocketData
+  >;
   private activeStreams = new Map<string, ActiveStream>();
   private socketToStream = new Map<string, string>();
 
-  constructor(io: SocketIOServer<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>) {
+  constructor(
+    io: SocketIOServer<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>
+  ) {
     this.io = io;
   }
 
-  public initializeWebRTCHandlers(socket: Socket<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>) {
+  public initializeWebRTCHandlers(
+    socket: Socket<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>
+  ) {
     // Stream room management
-    socket.on('stream:join', (data) => this.handleStreamJoin(socket, data));
-    socket.on('stream:leave', (data) => this.handleStreamLeave(socket, data));
+    socket.on('stream:join', data => this.handleStreamJoin(socket, data));
+    socket.on('stream:leave', data => this.handleStreamLeave(socket, data));
 
     // WebRTC signaling
-    socket.on('offer', (data) => this.handleOffer(socket, data));
-    socket.on('answer', (data) => this.handleAnswer(socket, data));
-    socket.on('ice-candidate', (data) => this.handleIceCandidate(socket, data));
-    
+    socket.on('offer', data => this.handleOffer(socket, data));
+    socket.on('answer', data => this.handleAnswer(socket, data));
+    socket.on('ice-candidate', data => this.handleIceCandidate(socket, data));
+
     // Stream control
     socket.on('broadcaster-ready', () => this.handleBroadcasterReady(socket));
     socket.on('request-stream', () => this.handleStreamRequest(socket));
     socket.on('start-stream', () => this.handleStartStream(socket));
     socket.on('stop-stream', () => this.handleStopStream(socket));
-    socket.on('stream-quality-change', (data) => this.handleQualityChange(socket, data));
+    socket.on('stream-quality-change', data => this.handleQualityChange(socket, data));
   }
 
   private async handleStreamJoin(
@@ -57,9 +66,9 @@ export class WebRTCHandler {
         where: { id: streamId },
         include: {
           artist: {
-            select: { id: true, displayName: true }
-          }
-        }
+            select: { id: true, displayName: true },
+          },
+        },
       });
 
       if (!stream) {
@@ -93,11 +102,14 @@ export class WebRTCHandler {
         userId,
         streamId,
         isOwner: isActualOwner,
-        socketId: socket.id
+        socketId: socket.id,
       });
-
     } catch (error) {
-      logger.error('Error joining stream', { userId: socket.data.userId, streamId: data.streamId }, error as Error);
+      logger.error(
+        'Error joining stream',
+        { userId: socket.data.userId, streamId: data.streamId },
+        error as Error
+      );
       socket.emit('error', 'Failed to join stream');
     }
   }
@@ -116,7 +128,7 @@ export class WebRTCHandler {
         broadcasterUserId: userId,
         viewers: new Set(),
         startTime: new Date(),
-        isLive: false
+        isLive: false,
       };
       this.activeStreams.set(streamId, activeStream);
     } else {
@@ -130,7 +142,7 @@ export class WebRTCHandler {
     logger.info('Broadcaster joined stream', {
       streamId,
       broadcasterId: userId,
-      viewerCount: activeStream.viewers.size
+      viewerCount: activeStream.viewers.size,
     });
   }
 
@@ -148,7 +160,7 @@ export class WebRTCHandler {
         broadcasterUserId: '', // Will be set when broadcaster joins
         viewers: new Set(),
         startTime: new Date(),
-        isLive: false
+        isLive: false,
       };
       this.activeStreams.set(streamId, activeStream);
     }
@@ -163,7 +175,7 @@ export class WebRTCHandler {
     if (activeStream.broadcasterSocket) {
       this.io.to(activeStream.broadcasterSocket).emit('viewer-joined', {
         viewerId: socket.id,
-        totalViewers: activeStream.viewers.size
+        totalViewers: activeStream.viewers.size,
       });
 
       // Notify viewer that broadcaster is available
@@ -177,7 +189,7 @@ export class WebRTCHandler {
       streamId,
       viewerId: socket.id,
       userId,
-      totalViewers: activeStream.viewers.size
+      totalViewers: activeStream.viewers.size,
     });
   }
 
@@ -196,12 +208,12 @@ export class WebRTCHandler {
     logger.info('WebRTC offer', {
       streamId,
       from: socket.id,
-      to: data.targetId
+      to: data.targetId,
     });
 
     socket.to(data.targetId).emit('offer', {
       offer: data.offer,
-      senderId: socket.id
+      senderId: socket.id,
     });
   }
 
@@ -213,12 +225,12 @@ export class WebRTCHandler {
     logger.info('WebRTC answer', {
       streamId,
       from: socket.id,
-      to: data.targetId
+      to: data.targetId,
     });
 
     socket.to(data.targetId).emit('answer', {
       answer: data.answer,
-      senderId: socket.id
+      senderId: socket.id,
     });
   }
 
@@ -228,74 +240,82 @@ export class WebRTCHandler {
   ) {
     socket.to(data.targetId).emit('ice-candidate', {
       candidate: data.candidate,
-      senderId: socket.id
+      senderId: socket.id,
     });
   }
 
-  private handleBroadcasterReady(socket: Socket<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>) {
+  private handleBroadcasterReady(
+    socket: Socket<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>
+  ) {
     const { streamId } = socket.data;
-    
+
     if (streamId) {
       logger.info('Broadcaster ready', { streamId, socketId: socket.id });
       socket.to(`stream:${streamId}`).emit('broadcaster-ready');
     }
   }
 
-  private handleStreamRequest(socket: Socket<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>) {
+  private handleStreamRequest(
+    socket: Socket<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>
+  ) {
     const { streamId } = socket.data;
-    
+
     if (streamId) {
       const activeStream = this.activeStreams.get(streamId);
       if (activeStream?.broadcasterSocket) {
         logger.info('Stream requested', {
           streamId,
           viewerId: socket.id,
-          broadcasterId: activeStream.broadcasterSocket
+          broadcasterId: activeStream.broadcasterSocket,
         });
 
         this.io.to(activeStream.broadcasterSocket).emit('stream-request', {
-          viewerId: socket.id
+          viewerId: socket.id,
         });
       }
     }
   }
 
-  private async handleStartStream(socket: Socket<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>) {
+  private async handleStartStream(
+    socket: Socket<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>
+  ) {
     const { streamId } = socket.data;
-    
+
     if (streamId) {
       const activeStream = this.activeStreams.get(streamId);
       if (activeStream) {
         activeStream.isLive = true;
-        
+
         // Update database
         await this.updateStreamStatus(streamId, 'LIVE');
-        
+
         // Notify viewers
         socket.to(`stream:${streamId}`).emit('stream-started');
-        
+
         logger.info('Stream started', { streamId, socketId: socket.id });
       }
     }
   }
 
-  private async handleStopStream(socket: Socket<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>) {
+  private async handleStopStream(
+    socket: Socket<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>
+  ) {
     const { streamId } = socket.data;
-    
+
     if (streamId) {
       const activeStream = this.activeStreams.get(streamId);
       if (activeStream) {
         activeStream.isLive = false;
-        
+
         // Update database
         await this.updateStreamStatus(streamId, 'ENDED');
-        
+
         // Notify viewers
         socket.to(`stream:${streamId}`).emit('stream-ended');
-        
+
         // Clean up stream
         this.activeStreams.delete(streamId);
-        
+
         logger.info('Stream stopped', { streamId, socketId: socket.id });
       }
     }
@@ -306,57 +326,58 @@ export class WebRTCHandler {
     data: { quality: string; bitrate?: number }
   ) {
     const { streamId } = socket.data;
-    
+
     if (streamId) {
-      logger.info('Stream quality changed', { 
-        streamId, 
+      logger.info('Stream quality changed', {
+        streamId,
         quality: data.quality,
-        bitrate: data.bitrate 
+        bitrate: data.bitrate,
       });
 
       socket.to(`stream:${streamId}`).emit('quality-changed', data);
     }
   }
 
-  public handleStreamDisconnect(socket: Socket<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>) {
+  public handleStreamDisconnect(
+    socket: Socket<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>
+  ) {
     const streamId = this.socketToStream.get(socket.id);
-    
+
     if (streamId) {
       const activeStream = this.activeStreams.get(streamId);
       const { userId } = socket.data;
-      
+
       if (activeStream) {
         if (activeStream.broadcasterSocket === socket.id) {
           // Broadcaster disconnected
           logger.info('Broadcaster disconnected', { streamId, socketId: socket.id });
-          
+
           // Update stream status
           this.updateStreamStatus(streamId, 'ENDED');
-          
+
           // Notify viewers
           socket.to(`stream:${streamId}`).emit('broadcaster-left');
-          
+
           // Clean up stream
           this.activeStreams.delete(streamId);
-          
         } else {
           // Viewer disconnected
           activeStream.viewers.delete(socket.id);
-          
+
           // Update viewer session
           this.updateViewerSession(streamId, userId, socket.id);
-          
+
           // Update viewer count
           this.updateViewerCount(streamId);
-          
+
           logger.info('Viewer disconnected', {
             streamId,
             socketId: socket.id,
-            remainingViewers: activeStream.viewers.size
+            remainingViewers: activeStream.viewers.size,
           });
         }
       }
-      
+
       // Clean up mappings
       this.socketToStream.delete(socket.id);
     }
@@ -373,7 +394,7 @@ export class WebRTCHandler {
           displayName: '', // Will be populated from user data
           ipAddress: '', // Can be extracted from socket
           userAgent: '', // Can be extracted from socket
-        }
+        },
       });
     } catch (error) {
       logger.error('Failed to track viewer', { streamId, userId }, error as Error);
@@ -389,7 +410,7 @@ export class WebRTCHandler {
         },
         data: {
           leftAt: new Date(),
-        }
+        },
       });
     } catch (error) {
       logger.error('Failed to update viewer session', { streamId, userId }, error as Error);
@@ -399,7 +420,7 @@ export class WebRTCHandler {
   private async updateStreamStatus(streamId: string, status: 'LIVE' | 'ENDED') {
     try {
       const updateData: any = { status };
-      
+
       if (status === 'LIVE') {
         updateData.startedAt = new Date();
       } else if (status === 'ENDED') {
@@ -408,7 +429,7 @@ export class WebRTCHandler {
 
       await prisma.liveStream.update({
         where: { id: streamId },
-        data: updateData
+        data: updateData,
       });
     } catch (error) {
       logger.error('Failed to update stream status', { streamId, status }, error as Error);
@@ -419,10 +440,10 @@ export class WebRTCHandler {
     const activeStream = this.activeStreams.get(streamId);
     if (activeStream) {
       const viewerCount = activeStream.viewers.size;
-      
+
       // Broadcast viewer count to all clients in the stream
       this.io.to(`stream:${streamId}`).emit('viewer-count-update', {
-        count: viewerCount
+        count: viewerCount,
       });
 
       // Update peak viewers in database if necessary
@@ -434,16 +455,16 @@ export class WebRTCHandler {
     try {
       const stream = await prisma.liveStream.findUnique({
         where: { id: streamId },
-        select: { peakViewers: true }
+        select: { peakViewers: true },
       });
 
       if (stream && currentViewers > stream.peakViewers) {
         await prisma.liveStream.update({
           where: { id: streamId },
-          data: { 
+          data: {
             peakViewers: currentViewers,
-            totalViewers: currentViewers // Also update total for current count
-          }
+            totalViewers: currentViewers, // Also update total for current count
+          },
         });
       }
     } catch (error) {

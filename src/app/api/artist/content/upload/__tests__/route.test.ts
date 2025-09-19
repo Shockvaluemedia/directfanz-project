@@ -16,7 +16,9 @@ process.env.AWS_REGION = 'us-east-1';
 process.env.AWS_S3_BUCKET_NAME = 'mock-bucket';
 
 const mockGetServerSession = getServerSession as jest.MockedFunction<typeof getServerSession>;
-const mockGeneratePresignedUrl = generatePresignedUrl as jest.MockedFunction<typeof generatePresignedUrl>;
+const mockGeneratePresignedUrl = generatePresignedUrl as jest.MockedFunction<
+  typeof generatePresignedUrl
+>;
 const mockValidateFileUpload = validateFileUpload as jest.MockedFunction<typeof validateFileUpload>;
 
 describe('/api/artist/content/upload', () => {

@@ -1,12 +1,15 @@
 # Final Verification Checklist
 
-This document provides a comprehensive checklist for verifying that all requirements have been met before the Direct-to-Fan Platform is deployed to production.
+This document provides a comprehensive checklist for verifying that all
+requirements have been met before the Direct-to-Fan Platform is deployed to
+production.
 
 ## Functional Requirements Verification
 
 ### Requirement 1: Artist Subscription Tiers
 
-- [ ] Artists can create subscription tiers with name, description, and minimum price
+- [ ] Artists can create subscription tiers with name, description, and minimum
+      price
 - [ ] Tier modifications handle proration for existing subscribers
 - [ ] Active tiers cannot be deleted if they have subscribers
 - [ ] Dashboard displays current subscriber count per tier
@@ -255,10 +258,10 @@ This document provides a comprehensive checklist for verifying that all requirem
 
 ## Sign-Off
 
-| Role | Name | Signature | Date |
-|------|------|-----------|------|
-| Product Manager | | | |
-| Lead Developer | | | |
-| QA Lead | | | |
-| DevOps Engineer | | | |
-| Security Officer | | | |
+| Role             | Name | Signature | Date |
+| ---------------- | ---- | --------- | ---- |
+| Product Manager  |      |           |      |
+| Lead Developer   |      |           |      |
+| QA Lead          |      |           |      |
+| DevOps Engineer  |      |           |      |
+| Security Officer |      |           |      |

@@ -1,24 +1,24 @@
-import { prisma } from './prisma'
-import { UserRole, SubscriptionStatus } from '@/types/database'
-import jwt from 'jsonwebtoken'
+import { prisma } from './prisma';
+import { UserRole, SubscriptionStatus } from '@/types/database';
+import jwt from 'jsonwebtoken';
 
 // Content access verification types
 export interface ContentAccessResult {
-  hasAccess: boolean
-  reason?: 'public' | 'owner' | 'subscription' | 'no_subscription' | 'invalid_tier' | 'not_found'
+  hasAccess: boolean;
+  reason?: 'public' | 'owner' | 'subscription' | 'no_subscription' | 'invalid_tier' | 'not_found';
   subscription?: {
-    id: string
-    tierId: string
-    amount: number
-    status: SubscriptionStatus
-  }
+    id: string;
+    tierId: string;
+    amount: number;
+    status: SubscriptionStatus;
+  };
 }
 
 export interface AccessToken {
-  userId: string
-  contentId: string
-  exp: number
-  iat: number
+  userId: string;
+  contentId: string;
+  exp: number;
+  iat: number;
 }
 
 // Tier-based content gating logic
@@ -27,66 +27,64 @@ export async function checkContentAccess(
   contentId: string
 ): Promise<ContentAccessResult> {
   try {
-    // Get content with relations
-    const content = await prisma.content.findUnique({
+    // OPTIMIZED: Single query with all needed data to eliminate N+1 queries
+    const contentWithUserAccess = await prisma.content.findUnique({
       where: { id: contentId },
       include: {
         artist: {
-          include: {
-            tiers: true,
+          select: {
+            id: true,
+            displayName: true,
+          },
+        },
+        tiers: {
+          select: {
+            id: true,
+            name: true,
+            minimumPrice: true,
+            isActive: true,
+            subscriptions: {
+              where: {
+                fanId: userId,
+                status: SubscriptionStatus.ACTIVE,
+                currentPeriodEnd: { gte: new Date() },
+              },
+              select: {
+                id: true,
+                tierId: true,
+                amount: true,
+                status: true,
+              },
+            },
           },
         },
       },
     });
 
-    if (!content) {
-      return { hasAccess: false, reason: 'not_found' }
+    if (!contentWithUserAccess) {
+      return { hasAccess: false, reason: 'not_found' };
     }
 
     // Public content is accessible to everyone
-    if (content.visibility === 'PUBLIC') {
-      return { hasAccess: true, reason: 'public' }
+    if (contentWithUserAccess.visibility === 'PUBLIC') {
+      return { hasAccess: true, reason: 'public' };
     }
 
     // Content owner (artist) always has access
-    if (content.artistId === userId) {
-      return { hasAccess: true, reason: 'owner' }
+    if (contentWithUserAccess.artistId === userId) {
+      return { hasAccess: true, reason: 'owner' };
     }
 
     // Check if user has subscription to any of the content's tiers
-    if (content.tiers.length === 0) {
+    if (contentWithUserAccess.tiers.length === 0) {
       // Content not assigned to any tier - only owner can access
-      return { hasAccess: false, reason: 'no_subscription' }
+      return { hasAccess: false, reason: 'no_subscription' };
     }
 
-    // Get user's active subscriptions for this artist
-    const userSubscriptions = await prisma.subscription.findMany({
-      where: {
-        fanId: userId,
-        artistId: content.artistId,
-        status: SubscriptionStatus.ACTIVE,
-        currentPeriodEnd: {
-          gte: new Date()
-        }
-      },
-      include: {
-        tier: {
-          select: {
-            id: true,
-            minimumPrice: true,
-            isActive: true
-          }
-        }
-      }
-    })
-
-    // Check if user has subscription to any of the content's tiers
-    for (const subscription of userSubscriptions) {
-      const hasAccessToTier = content.tiers.some(tier => 
-        tier.id === subscription.tierId && tier.isActive
-      )
-      
-      if (hasAccessToTier) {
+    // Check access in memory - no additional DB queries needed
+    for (const tier of contentWithUserAccess.tiers) {
+      if (tier.isActive && tier.subscriptions.length > 0) {
+        const subscription = tier.subscriptions[0]; // User can only have one active subscription per tier
         return {
           hasAccess: true,
           reason: 'subscription',
@@ -94,16 +92,16 @@ export async function checkContentAccess(
             id: subscription.id,
             tierId: subscription.tierId,
             amount: Number(subscription.amount),
-            status: subscription.status as SubscriptionStatus
-          }
-        }
+            status: subscription.status as SubscriptionStatus,
+          },
+        };
       }
     }
 
-    return { hasAccess: false, reason: 'no_subscription' }
+    return { hasAccess: false, reason: 'no_subscription' };
   } catch (error) {
-    console.error('Content access check error:', error)
-    return { hasAccess: false, reason: 'not_found' }
+    console.error('Content access check error:', error);
+    return { hasAccess: false, reason: 'not_found' };
   }
 }
 
@@ -113,22 +111,22 @@ export function generateAccessToken(userId: string, contentId: string): string {
     userId,
     contentId,
     iat: Math.floor(Date.now() / 1000),
-    exp: Math.floor(Date.now() / 1000) + (60 * 60) // 1 hour expiration
-  }
+    exp: Math.floor(Date.now() / 1000) + 60 * 60, // 1 hour expiration
+  };
 
   return jwt.sign(payload, process.env.NEXTAUTH_SECRET!, {
-    algorithm: 'HS256'
-  })
+    algorithm: 'HS256',
+  });
 }
 
 // Verify access token
 export function verifyAccessToken(token: string): AccessToken | null {
   try {
-    const decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET!) as AccessToken
-    return decoded
+    const decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET!) as AccessToken;
+    return decoded;
   } catch (error) {
-    console.error('Access token verification error:', error)
-    return null
+    console.error('Access token verification error:', error);
+    return null;
   }
 }
 
@@ -137,38 +135,38 @@ export async function getUserAccessibleContent(
   userId: string,
   artistId: string,
   options: {
-    page?: number
-    limit?: number
-    type?: string
+    page?: number;
+    limit?: number;
+    type?: string;
   } = {}
 ): Promise<{
-  content: any[]
+  content: any[];
   pagination: {
-    page: number
-    limit: number
-    total: number
-    totalPages: number
-  }
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }> {
-  const { page = 1, limit = 20, type } = options
-  const skip = (page - 1) * limit
+  const { page = 1, limit = 20, type } = options;
+  const skip = (page - 1) * limit;
 
   // Get user's active subscriptions for this artist
-  const userSubscriptions = await prisma.subscription.findMany({
+  const userSubscriptions = await prisma.subscriptions.findMany({
     where: {
       fanId: userId,
       artistId,
       status: SubscriptionStatus.ACTIVE,
       currentPeriodEnd: {
-        gte: new Date()
-      }
+        gte: new Date(),
+      },
     },
     select: {
-      tierId: true
-    }
-  })
+      tierId: true,
+    },
+  });
 
-  const subscribedTierIds = userSubscriptions.map(sub => sub.tierId)
+  const subscribedTierIds = userSubscriptions.map(sub => sub.tierId);
 
   // Build content query
   const where: any = {
@@ -179,15 +177,15 @@ export async function getUserAccessibleContent(
         tiers: {
           some: {
             id: { in: subscribedTierIds },
-            isActive: true
-          }
-        }
-      }
-    ]
-  }
+            isActive: true,
+          },
+        },
+      },
+    ],
+  };
 
   if (type && ['AUDIO', 'VIDEO', 'IMAGE', 'DOCUMENT'].includes(type)) {
-    where.type = type
+    where.type = type;
   }
 
   const [content, total] = await Promise.all([
@@ -198,62 +196,59 @@ export async function getUserAccessibleContent(
           select: {
             id: true,
             name: true,
-            minimumPrice: true
-          }
+            minimumPrice: true,
+          },
         },
         artist: {
           select: {
             id: true,
             displayName: true,
-            avatar: true
-          }
-        }
+            avatar: true,
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
       skip,
-      take: limit
+      take: limit,
     }),
-    prisma.content.count({ where })
-  ])
+    prisma.content.count({ where }),
+  ]);
 
   return {
     content: content.map(item => ({
       ...item,
       tiers: item.tiers.map(tier => ({
         ...tier,
-        minimumPrice: Number(tier.minimumPrice)
-      }))
+        minimumPrice: Number(tier.minimumPrice),
+      })),
     })),
     pagination: {
       page,
       limit,
       total,
-      totalPages: Math.ceil(total / limit)
-    }
-  }
+      totalPages: Math.ceil(total / limit),
+    },
+  };
 }
 
 // Check if user can access specific tier content
-export async function checkTierAccess(
-  userId: string,
-  tierId: string
-): Promise<boolean> {
+export async function checkTierAccess(userId: string, tierId: string): Promise<boolean> {
   try {
-    const subscription = await prisma.subscription.findFirst({
+    const subscription = await prisma.subscriptions.findFirst({
       where: {
         fanId: userId,
         tierId,
         status: SubscriptionStatus.ACTIVE,
         currentPeriodEnd: {
-          gte: new Date()
-        }
-      }
-    })
+          gte: new Date(),
+        },
+      },
+    });
 
-    return !!subscription
+    return !!subscription;
   } catch (error) {
-    console.error('Tier access check error:', error)
-    return false
+    console.error('Tier access check error:', error);
+    return false;
   }
 }
 
@@ -262,48 +257,48 @@ export async function getContentAccessSummary(
   userId: string,
   artistId: string
 ): Promise<{
-  totalContent: number
-  accessibleContent: number
-  publicContent: number
-  gatedContent: number
+  totalContent: number;
+  accessibleContent: number;
+  publicContent: number;
+  gatedContent: number;
   subscriptions: Array<{
-    tierId: string
-    tierName: string
-    contentCount: number
-  }>
+    tierId: string;
+    tierName: string;
+    contentCount: number;
+  }>;
 }> {
   try {
     // Get all content for the artist
     const [totalContent, publicContent] = await Promise.all([
       prisma.content.count({
-        where: { artistId }
+        where: { artistId },
       }),
       prisma.content.count({
-        where: { artistId, visibility: 'PUBLIC' }
-      })
-    ])
+        where: { artistId, visibility: 'PUBLIC' },
+      }),
+    ]);
 
     // Get user's subscriptions
-    const userSubscriptions = await prisma.subscription.findMany({
+    const userSubscriptions = await prisma.subscriptions.findMany({
       where: {
         fanId: userId,
         artistId,
         status: SubscriptionStatus.ACTIVE,
         currentPeriodEnd: {
-          gte: new Date()
-        }
+          gte: new Date(),
+        },
       },
       include: {
         tier: {
           select: {
             id: true,
-            name: true
-          }
-        }
-      }
-    })
+            name: true,
+          },
+        },
+      },
+    });
 
-    const subscribedTierIds = userSubscriptions.map(sub => sub.tierId)
+    const subscribedTierIds = userSubscriptions.map(sub => sub.tierId);
 
     // Get accessible gated content count
     const accessibleGatedContent = await prisma.content.count({
@@ -313,50 +308,50 @@ export async function getContentAccessSummary(
         tiers: {
           some: {
             id: { in: subscribedTierIds },
-            isActive: true
-          }
-        }
-      }
-    })
+            isActive: true,
+          },
+        },
+      },
+    });
 
     // Get content count per subscribed tier
     const subscriptionSummary = await Promise.all(
-      userSubscriptions.map(async (sub) => {
+      userSubscriptions.map(async sub => {
         const contentCount = await prisma.content.count({
           where: {
             artistId,
             tiers: {
               some: {
                 id: sub.tierId,
-                isActive: true
-              }
-            }
-          }
-        })
+                isActive: true,
+              },
+            },
+          },
+        });
 
         return {
           tierId: sub.tierId,
-          tierName: sub.tier.name,
-          contentCount
-        }
+          tierName: sub.tiers.name,
+          contentCount,
+        };
       })
-    )
+    );
 
     return {
       totalContent,
       accessibleContent: publicContent + accessibleGatedContent,
       publicContent,
       gatedContent: totalContent - publicContent,
-      subscriptions: subscriptionSummary
-    }
+      subscriptions: subscriptionSummary,
+    };
   } catch (error) {
-    console.error('Content access summary error:', error)
+    console.error('Content access summary error:', error);
     return {
       totalContent: 0,
       accessibleContent: 0,
       publicContent: 0,
       gatedContent: 0,
-      subscriptions: []
-    }
+      subscriptions: [],
+    };
   }
 }

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { 
+import {
   getBillingCycleInfo,
   getUpcomingInvoices,
   getBillingCycleStats,
@@ -11,18 +11,15 @@ import {
   sendBillingReminders,
   processScheduledTierChanges,
   getArtistBillingSummary,
-  syncArtistInvoices
+  syncArtistInvoices,
 } from '@/lib/billing-cycle';
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const url = new URL(request.url);
@@ -32,28 +29,19 @@ export async function GET(request: NextRequest) {
     switch (action) {
       case 'info':
         if (!subscriptionId) {
-          return NextResponse.json(
-            { error: 'Missing subscriptionId parameter' },
-            { status: 400 }
-          );
+          return NextResponse.json({ error: 'Missing subscriptionId parameter' }, { status: 400 });
         }
 
         // Verify subscription ownership
-        const subscription = await prisma.subscription.findUnique({
-          where: { 
+        const subscription = await prisma.subscriptions.findUnique({
+          where: {
             id: subscriptionId,
-            OR: [
-              { fanId: session.user.id },
-              { artistId: session.user.id }
-            ]
+            OR: [{ fanId: session.user.id }, { artistId: session.user.id }],
           },
         });
 
         if (!subscription) {
-          return NextResponse.json(
-            { error: 'Subscription not found' },
-            { status: 404 }
-          );
+          return NextResponse.json({ error: 'Subscription not found' }, { status: 404 });
         }
 
         const billingInfo = await getBillingCycleInfo(subscriptionId);
@@ -69,7 +57,7 @@ export async function GET(request: NextRequest) {
         }
 
         const upcomingInvoices = await getUpcomingInvoices(session.user.id);
-        
+
         return NextResponse.json({ upcomingInvoices });
 
       case 'stats':
@@ -83,7 +71,7 @@ export async function GET(request: NextRequest) {
 
         const stats = await getBillingCycleStats();
         return NextResponse.json({ stats });
-        
+
       case 'summary':
         // Only allow artists to see billing summary
         if (session.user.role !== 'ARTIST') {
@@ -92,34 +80,25 @@ export async function GET(request: NextRequest) {
             { status: 403 }
           );
         }
-        
+
         const summary = await getArtistBillingSummary(session.user.id);
         return NextResponse.json({ summary });
 
       default:
-        return NextResponse.json(
-          { error: 'Invalid action parameter' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'Invalid action parameter' }, { status: 400 });
     }
   } catch (error) {
     console.error('Billing cycle error:', error);
-    return NextResponse.json(
-      { error: 'Failed to process billing cycle request' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to process billing cycle request' }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Only allow admin users to trigger billing processes
@@ -137,50 +116,44 @@ export async function POST(request: NextRequest) {
     switch (action) {
       case 'process-renewals':
         const renewalEvents = await processBillingRenewals();
-        return NextResponse.json({ 
+        return NextResponse.json({
           message: 'Billing renewals processed',
-          events: renewalEvents 
+          events: renewalEvents,
         });
 
       case 'process-retries':
         const retryEvents = await processFailedPaymentRetries();
-        return NextResponse.json({ 
+        return NextResponse.json({
           message: 'Payment retries processed',
-          events: retryEvents 
+          events: retryEvents,
         });
 
       case 'send-reminders':
         const reminderCount = await sendBillingReminders();
-        return NextResponse.json({ 
+        return NextResponse.json({
           message: 'Billing reminders sent',
-          count: reminderCount 
+          count: reminderCount,
         });
-        
+
       case 'process-scheduled-changes':
         const tierChangeEvents = await processScheduledTierChanges();
         return NextResponse.json({
           message: 'Scheduled tier changes processed',
-          events: tierChangeEvents
+          events: tierChangeEvents,
         });
-        
+
       case 'sync-invoices':
         const syncResult = await syncArtistInvoices(session.user.id);
         return NextResponse.json({
           message: 'Artist invoices synced successfully',
-          result: syncResult
+          result: syncResult,
         });
 
       default:
-        return NextResponse.json(
-          { error: 'Invalid action' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
   } catch (error) {
     console.error('Billing cycle process error:', error);
-    return NextResponse.json(
-      { error: 'Failed to process billing cycle action' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to process billing cycle action' }, { status: 500 });
   }
 }

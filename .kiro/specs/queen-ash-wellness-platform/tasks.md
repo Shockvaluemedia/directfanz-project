@@ -1,7 +1,9 @@
 # Implementation Plan
 
 - [x] 1. Set up project structure and extend data models
-  - Extend Prisma schema with wellness-specific models (ProfileAttributes, AssessmentResponse, AssessmentScore, Offer, Order, Appointment, Program, ProgramWeek, ProductSKU, ContentBlock, SystemSetting)
+  - Extend Prisma schema with wellness-specific models (ProfileAttributes,
+    AssessmentResponse, AssessmentScore, Offer, Order, Appointment, Program,
+    ProgramWeek, ProductSKU, ContentBlock, SystemSetting)
   - Create database migration for new tables and relationships
   - Generate Prisma client with updated schema
   - _Requirements: 1.1, 5.1, 6.2_

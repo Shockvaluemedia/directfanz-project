@@ -4,10 +4,10 @@ import { prisma } from '@/lib/database';
 import { logger } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
-  return withApi(request, async (req) => {
+  return withApi(request, async req => {
     try {
       // Get all unique conversation participants for this user
-      const conversations = await prisma.$queryRaw`
+      const conversations = (await prisma.$queryRaw`
         SELECT DISTINCT
           CASE 
             WHEN m.senderId = ${req.user.id} THEN m.recipientId
@@ -18,38 +18,38 @@ export async function GET(request: NextRequest) {
         WHERE m.senderId = ${req.user.id} OR m.recipientId = ${req.user.id}
         GROUP BY participantId
         ORDER BY lastMessageTime DESC
-      ` as Array<{ participantId: string; lastMessageTime: Date }>;
+      `) as Array<{ participantId: string; lastMessageTime: Date }>;
 
       if (conversations.length === 0) {
         return NextResponse.json({
           success: true,
-          data: { conversations: [] }
+          data: { conversations: [] },
         });
       }
 
       // Get participant details and last message for each conversation
       const conversationDetails = await Promise.all(
-        conversations.map(async (conv) => {
+        conversations.map(async conv => {
           // Get participant info
-          const participant = await prisma.user.findUnique({
+          const participant = await prisma.users.findUnique({
             where: { id: conv.participantId },
             select: {
               id: true,
               displayName: true,
               avatar: true,
-              role: true
-            }
+              role: true,
+            },
           });
 
           if (!participant) return null;
 
           // Get the last message in this conversation
-          const lastMessage = await prisma.message.findFirst({
+          const lastMessage = await prisma.messages.findFirst({
             where: {
               OR: [
                 { senderId: req.user.id, recipientId: conv.participantId },
-                { senderId: conv.participantId, recipientId: req.user.id }
-              ]
+                { senderId: conv.participantId, recipientId: req.user.id },
+              ],
             },
             orderBy: { createdAt: 'desc' },
             include: {
@@ -57,19 +57,19 @@ export async function GET(request: NextRequest) {
                 select: {
                   id: true,
                   displayName: true,
-                  avatar: true
-                }
-              }
-            }
+                  avatar: true,
+                },
+              },
+            },
           });
 
           // Count unread messages from this participant
-          const unreadCount = await prisma.message.count({
+          const unreadCount = await prisma.messages.count({
             where: {
               senderId: conv.participantId,
               recipientId: req.user.id,
-              readAt: null
-            }
+              readAt: null,
+            },
           });
 
           return {
@@ -79,17 +79,19 @@ export async function GET(request: NextRequest) {
                 id: req.user.id,
                 displayName: req.user.name || req.user.email,
                 avatar: null,
-                role: req.user.role
+                role: req.user.role,
               },
-              participant
+              participant,
             ],
-            lastMessage: lastMessage ? {
-              id: lastMessage.id,
-              content: lastMessage.content,
-              senderId: lastMessage.senderId,
-              createdAt: lastMessage.createdAt.toISOString()
-            } : null,
-            unreadCount
+            lastMessage: lastMessage
+              ? {
+                  id: lastMessage.id,
+                  content: lastMessage.content,
+                  senderId: lastMessage.senderId,
+                  createdAt: lastMessage.createdAt.toISOString(),
+                }
+              : null,
+            unreadCount,
           };
         })
       );
@@ -105,22 +107,18 @@ export async function GET(request: NextRequest) {
 
       logger.info('Conversations fetched', {
         userId: req.user.id,
-        conversationCount: validConversations.length
+        conversationCount: validConversations.length,
       });
 
       return NextResponse.json({
         success: true,
         data: {
-          conversations: validConversations
-        }
+          conversations: validConversations,
+        },
       });
-
     } catch (error) {
       logger.error('Get conversations error', { userId: req.user?.id }, error as Error);
-      return NextResponse.json(
-        { error: 'Failed to fetch conversations' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to fetch conversations' }, { status: 500 });
     }
   });
 }

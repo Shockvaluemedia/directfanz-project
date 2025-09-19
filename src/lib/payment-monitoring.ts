@@ -1,6 +1,6 @@
 /**
  * Payment Flow Monitoring
- * 
+ *
  * Comprehensive monitoring for Stripe payment events, subscription lifecycle,
  * and revenue analytics with business context
  */
@@ -39,7 +39,7 @@ class PaymentMonitor {
   ): void {
     try {
       const metadata = paymentIntent.metadata as PaymentMetadata;
-      
+
       businessMetrics.trackPayment({
         event: 'payment_intent_created',
         paymentId: paymentIntent.id,
@@ -69,22 +69,23 @@ class PaymentMonitor {
         tier: metadata.tier_name,
       });
     } catch (error) {
-      logger.error('Failed to track payment intent creation', {
-        paymentIntentId: paymentIntent.id,
-      }, error as Error);
+      logger.error(
+        'Failed to track payment intent creation',
+        {
+          paymentIntentId: paymentIntent.id,
+        },
+        error as Error
+      );
     }
   }
 
   /**
    * Track payment success
    */
-  trackPaymentSuccess(
-    paymentIntent: Stripe.PaymentIntent,
-    context: PaymentFlowContext
-  ): void {
+  trackPaymentSuccess(paymentIntent: Stripe.PaymentIntent, context: PaymentFlowContext): void {
     try {
       const metadata = paymentIntent.metadata as PaymentMetadata;
-      
+
       businessMetrics.trackPayment({
         event: 'payment_succeeded',
         paymentId: paymentIntent.id,
@@ -129,9 +130,13 @@ class PaymentMonitor {
         fanId: context.fanId,
       });
     } catch (error) {
-      logger.error('Failed to track payment success', {
-        paymentIntentId: paymentIntent.id,
-      }, error as Error);
+      logger.error(
+        'Failed to track payment success',
+        {
+          paymentIntentId: paymentIntent.id,
+        },
+        error as Error
+      );
     }
   }
 
@@ -145,7 +150,7 @@ class PaymentMonitor {
   ): void {
     try {
       const metadata = paymentIntent.metadata as PaymentMetadata;
-      
+
       businessMetrics.trackPayment({
         event: 'payment_failed',
         paymentId: paymentIntent.id,
@@ -168,15 +173,19 @@ class PaymentMonitor {
       });
 
       // Alert on payment failure
-      captureMessage('Payment failed', {
-        paymentIntentId: paymentIntent.id,
-        amount: paymentIntent.amount / 100,
-        currency: paymentIntent.currency,
-        creatorId: metadata.creator_id,
-        fanId: context.fanId,
-        failureReason: error?.code || 'unknown',
-        tier: metadata.tier_name,
-      }, 'warning');
+      captureMessage(
+        'Payment failed',
+        {
+          paymentIntentId: paymentIntent.id,
+          amount: paymentIntent.amount / 100,
+          currency: paymentIntent.currency,
+          creatorId: metadata.creator_id,
+          fanId: context.fanId,
+          failureReason: error?.code || 'unknown',
+          tier: metadata.tier_name,
+        },
+        'warning'
+      );
 
       logger.warn('Payment failed', {
         paymentIntentId: paymentIntent.id,
@@ -187,24 +196,25 @@ class PaymentMonitor {
         fanId: context.fanId,
       });
     } catch (trackingError) {
-      logger.error('Failed to track payment failure', {
-        paymentIntentId: paymentIntent.id,
-      }, trackingError as Error);
+      logger.error(
+        'Failed to track payment failure',
+        {
+          paymentIntentId: paymentIntent.id,
+        },
+        trackingError as Error
+      );
     }
   }
 
   /**
    * Track subscription creation
    */
-  trackSubscriptionCreated(
-    subscription: Stripe.Subscription,
-    context: PaymentFlowContext
-  ): void {
+  trackSubscriptionCreated(subscription: Stripe.Subscription, context: PaymentFlowContext): void {
     try {
       const metadata = subscription.metadata as PaymentMetadata;
       const priceId = subscription.items.data[0]?.price.id;
       const amount = subscription.items.data[0]?.price.unit_amount || 0;
-      
+
       businessMetrics.trackSubscription({
         event: 'subscription_created',
         subscriptionId: subscription.id,
@@ -234,9 +244,13 @@ class PaymentMonitor {
         status: subscription.status,
       });
     } catch (error) {
-      logger.error('Failed to track subscription creation', {
-        subscriptionId: subscription.id,
-      }, error as Error);
+      logger.error(
+        'Failed to track subscription creation',
+        {
+          subscriptionId: subscription.id,
+        },
+        error as Error
+      );
     }
   }
 
@@ -251,10 +265,10 @@ class PaymentMonitor {
     try {
       const metadata = subscription.metadata as PaymentMetadata;
       const amount = subscription.items.data[0]?.price.unit_amount || 0;
-      
+
       // Determine what changed
       const changes = this.getSubscriptionChanges(subscription, previousAttributes);
-      
+
       businessMetrics.trackSubscription({
         event: 'subscription_updated',
         subscriptionId: subscription.id,
@@ -280,9 +294,13 @@ class PaymentMonitor {
         fanId: metadata.fan_id,
       });
     } catch (error) {
-      logger.error('Failed to track subscription update', {
-        subscriptionId: subscription.id,
-      }, error as Error);
+      logger.error(
+        'Failed to track subscription update',
+        {
+          subscriptionId: subscription.id,
+        },
+        error as Error
+      );
     }
   }
 
@@ -297,7 +315,7 @@ class PaymentMonitor {
     try {
       const metadata = subscription.metadata as PaymentMetadata;
       const amount = subscription.items.data[0]?.price.unit_amount || 0;
-      
+
       businessMetrics.trackSubscription({
         event: 'subscription_cancelled',
         subscriptionId: subscription.id,
@@ -339,25 +357,26 @@ class PaymentMonitor {
         tier: metadata.tier_name,
       });
     } catch (error) {
-      logger.error('Failed to track subscription cancellation', {
-        subscriptionId: subscription.id,
-      }, error as Error);
+      logger.error(
+        'Failed to track subscription cancellation',
+        {
+          subscriptionId: subscription.id,
+        },
+        error as Error
+      );
     }
   }
 
   /**
    * Track invoice payment success
    */
-  trackInvoicePaid(
-    invoice: Stripe.Invoice,
-    context: PaymentFlowContext
-  ): void {
+  trackInvoicePaid(invoice: Stripe.Invoice, context: PaymentFlowContext): void {
     try {
       const metadata = invoice.metadata as PaymentMetadata;
-      
+
       businessMetrics.trackPayment({
         event: 'invoice_paid',
-        paymentId: invoice.payment_intent as string || invoice.id,
+        paymentId: (invoice.payment_intent as string) || invoice.id,
         amount: (invoice.amount_paid || 0) / 100,
         currency: invoice.currency?.toUpperCase() || 'USD',
         paymentMethod: 'subscription',
@@ -386,25 +405,26 @@ class PaymentMonitor {
         fanId: context.fanId,
       });
     } catch (error) {
-      logger.error('Failed to track invoice payment', {
-        invoiceId: invoice.id,
-      }, error as Error);
+      logger.error(
+        'Failed to track invoice payment',
+        {
+          invoiceId: invoice.id,
+        },
+        error as Error
+      );
     }
   }
 
   /**
    * Track invoice payment failure
    */
-  trackInvoicePaymentFailed(
-    invoice: Stripe.Invoice,
-    context: PaymentFlowContext
-  ): void {
+  trackInvoicePaymentFailed(invoice: Stripe.Invoice, context: PaymentFlowContext): void {
     try {
       const metadata = invoice.metadata as PaymentMetadata;
-      
+
       businessMetrics.trackPayment({
         event: 'invoice_payment_failed',
-        paymentId: invoice.payment_intent as string || invoice.id,
+        paymentId: (invoice.payment_intent as string) || invoice.id,
         amount: (invoice.amount_due || 0) / 100,
         currency: invoice.currency?.toUpperCase() || 'USD',
         paymentMethod: 'subscription',
@@ -425,15 +445,19 @@ class PaymentMonitor {
       });
 
       // Alert on recurring payment failure
-      captureMessage('Recurring payment failed', {
-        invoiceId: invoice.id,
-        subscriptionId: invoice.subscription,
-        amount: (invoice.amount_due || 0) / 100,
-        currency: invoice.currency,
-        creatorId: metadata.creator_id,
-        fanId: context.fanId,
-        attemptCount: invoice.attempt_count,
-      }, 'warning');
+      captureMessage(
+        'Recurring payment failed',
+        {
+          invoiceId: invoice.id,
+          subscriptionId: invoice.subscription,
+          amount: (invoice.amount_due || 0) / 100,
+          currency: invoice.currency,
+          creatorId: metadata.creator_id,
+          fanId: context.fanId,
+          attemptCount: invoice.attempt_count,
+        },
+        'warning'
+      );
 
       logger.warn('Invoice payment failed', {
         invoiceId: invoice.id,
@@ -444,26 +468,27 @@ class PaymentMonitor {
         fanId: context.fanId,
       });
     } catch (error) {
-      logger.error('Failed to track invoice payment failure', {
-        invoiceId: invoice.id,
-      }, error as Error);
+      logger.error(
+        'Failed to track invoice payment failure',
+        {
+          invoiceId: invoice.id,
+        },
+        error as Error
+      );
     }
   }
 
   /**
    * Track dispute/chargeback
    */
-  trackDispute(
-    dispute: Stripe.Dispute,
-    context: PaymentFlowContext
-  ): void {
+  trackDispute(dispute: Stripe.Dispute, context: PaymentFlowContext): void {
     try {
       const charge = dispute.charge as Stripe.Charge;
       const metadata = charge?.metadata as PaymentMetadata;
-      
+
       businessMetrics.trackPayment({
         event: 'payment_disputed',
-        paymentId: charge?.payment_intent as string || dispute.id,
+        paymentId: (charge?.payment_intent as string) || dispute.id,
         amount: dispute.amount / 100,
         currency: dispute.currency.toUpperCase(),
         paymentMethod: charge?.payment_method_details?.type || 'unknown',
@@ -481,15 +506,19 @@ class PaymentMonitor {
       });
 
       // Critical alert for disputes
-      captureMessage('Payment disputed', {
-        disputeId: dispute.id,
-        chargeId: dispute.charge,
-        amount: dispute.amount / 100,
-        currency: dispute.currency,
-        reason: dispute.reason,
-        creatorId: metadata?.creator_id,
-        fanId: context.fanId,
-      }, 'error');
+      captureMessage(
+        'Payment disputed',
+        {
+          disputeId: dispute.id,
+          chargeId: dispute.charge,
+          amount: dispute.amount / 100,
+          currency: dispute.currency,
+          reason: dispute.reason,
+          creatorId: metadata?.creator_id,
+          fanId: context.fanId,
+        },
+        'error'
+      );
 
       logger.error('Payment disputed', {
         disputeId: dispute.id,
@@ -500,9 +529,13 @@ class PaymentMonitor {
         fanId: context.fanId,
       });
     } catch (error) {
-      logger.error('Failed to track dispute', {
-        disputeId: dispute.id,
-      }, error as Error);
+      logger.error(
+        'Failed to track dispute',
+        {
+          disputeId: dispute.id,
+        },
+        error as Error
+      );
     }
   }
 
@@ -511,7 +544,7 @@ class PaymentMonitor {
    */
   private calculateProcessingTime(paymentIntent: Stripe.PaymentIntent): number | undefined {
     if (!paymentIntent.created) return undefined;
-    
+
     const createdTime = paymentIntent.created * 1000; // Convert to milliseconds
     const now = Date.now();
     return now - createdTime;
@@ -525,22 +558,24 @@ class PaymentMonitor {
     previous: Partial<Stripe.Subscription>
   ): string[] {
     const changes: string[] = [];
-    
+
     if (current.status !== previous.status) {
       changes.push(`status: ${previous.status} -> ${current.status}`);
     }
-    
+
     // Check for price changes
     const currentPrice = current.items.data[0]?.price.id;
     const previousPrice = previous.items?.data?.[0]?.price.id;
     if (currentPrice !== previousPrice) {
       changes.push(`price: ${previousPrice} -> ${currentPrice}`);
     }
-    
+
     if (current.cancel_at_period_end !== previous.cancel_at_period_end) {
-      changes.push(`cancel_at_period_end: ${previous.cancel_at_period_end} -> ${current.cancel_at_period_end}`);
+      changes.push(
+        `cancel_at_period_end: ${previous.cancel_at_period_end} -> ${current.cancel_at_period_end}`
+      );
     }
-    
+
     return changes;
   }
 
@@ -549,7 +584,7 @@ class PaymentMonitor {
    */
   private calculateSubscriptionLength(subscription: Stripe.Subscription): number {
     if (!subscription.created || !subscription.canceled_at) return 0;
-    
+
     const startTime = subscription.created * 1000;
     const endTime = subscription.canceled_at * 1000;
     return Math.floor((endTime - startTime) / (1000 * 60 * 60 * 24));
@@ -563,8 +598,9 @@ class PaymentMonitor {
     // query your database for actual invoice amounts
     const price = subscription.items.data[0]?.price.unit_amount || 0;
     const length = this.calculateSubscriptionLength(subscription);
-    const billingCycle = subscription.items.data[0]?.price.recurring?.interval === 'month' ? 30 : 365;
-    
+    const billingCycle =
+      subscription.items.data[0]?.price.recurring?.interval === 'month' ? 30 : 365;
+
     return (price / 100) * Math.floor(length / billingCycle);
   }
 }

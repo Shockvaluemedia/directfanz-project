@@ -24,30 +24,27 @@ const getMessagesSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-  return withApi(request, async (req) => {
+  return withApi(request, async req => {
     try {
       const body = await request.json();
       const validatedData = sendMessageSchema.parse(body);
-      
+
       const { recipientId, content, type, attachmentUrl } = validatedData;
 
       // Check if recipient exists and has appropriate role
-      const recipient = await prisma.user.findUnique({
+      const recipient = await prisma.users.findUnique({
         where: { id: recipientId },
         select: { id: true, displayName: true, role: true, notificationPreferences: true },
       });
 
       if (!recipient) {
-        return NextResponse.json(
-          { error: 'Recipient not found' },
-          { status: 404 }
-        );
+        return NextResponse.json({ error: 'Recipient not found' }, { status: 404 });
       }
 
       // Business logic: Only allow fan-to-artist messaging for now
       // Artists can reply, but fans can only message artists they subscribe to
       if (req.user.role === 'FAN') {
-        const hasActiveSubscription = await prisma.subscription.findFirst({
+        const hasActiveSubscription = await prisma.subscriptions.findFirst({
           where: {
             fanId: req.user.id,
             artistId: recipientId,
@@ -64,7 +61,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Create the message in the database
-      const message = await prisma.message.create({
+      const message = await prisma.messages.create({
         data: {
           senderId: req.user.id,
           recipientId,
@@ -89,7 +86,7 @@ export async function POST(request: NextRequest) {
         sender: message.sender,
       });
 
-      // Emit delivery confirmation if recipient is online  
+      // Emit delivery confirmation if recipient is online
       if (webSocketInstance.isUserOnline(recipientId)) {
         webSocketInstance.emitToConversation(req.user.id, recipientId, 'message:delivered', {
           messageId: message.id,
@@ -135,11 +132,10 @@ export async function POST(request: NextRequest) {
           sender: message.sender,
         },
       });
-
     } catch (error) {
       if (error instanceof z.ZodError) {
         return NextResponse.json(
-          { 
+          {
             error: 'Invalid message data',
             details: error.errors,
           },
@@ -148,19 +144,16 @@ export async function POST(request: NextRequest) {
       }
 
       logger.error('Send message error', { userId: req.user?.id }, error as Error);
-      return NextResponse.json(
-        { error: 'Failed to send message' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to send message' }, { status: 500 });
     }
   });
 }
 
 export async function GET(request: NextRequest) {
-  return withApi(request, async (req) => {
+  return withApi(request, async req => {
     try {
       const { searchParams } = new URL(request.url);
-      
+
       const params = getMessagesSchema.parse({
         conversationWith: searchParams.get('conversationWith') || '',
         limit: parseInt(searchParams.get('limit') || '20'),
@@ -169,16 +162,13 @@ export async function GET(request: NextRequest) {
       });
 
       // Verify the other user exists
-      const otherUser = await prisma.user.findUnique({
+      const otherUser = await prisma.users.findUnique({
         where: { id: params.conversationWith },
         select: { id: true, displayName: true, avatar: true, role: true },
       });
 
       if (!otherUser) {
-        return NextResponse.json(
-          { error: 'User not found' },
-          { status: 404 }
-        );
+        return NextResponse.json({ error: 'User not found' }, { status: 404 });
       }
 
       // Get messages from database
@@ -192,11 +182,11 @@ export async function GET(request: NextRequest) {
       // Add cursor-based pagination if 'before' is provided
       if (params.before) {
         // If before is provided, find messages created before that message
-        const beforeMessage = await prisma.message.findUnique({
+        const beforeMessage = await prisma.messages.findUnique({
           where: { id: params.before },
           select: { createdAt: true },
         });
-        
+
         if (beforeMessage) {
           whereClause.createdAt = {
             lt: beforeMessage.createdAt,
@@ -204,7 +194,7 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      const messages = await prisma.message.findMany({
+      const messages = await prisma.messages.findMany({
         where: whereClause,
         include: {
           sender: {
@@ -222,7 +212,7 @@ export async function GET(request: NextRequest) {
 
       // Mark unread messages from the other user as read
       const readAt = new Date();
-      const updatedMessages = await prisma.message.updateMany({
+      const updatedMessages = await prisma.messages.updateMany({
         where: {
           senderId: params.conversationWith,
           recipientId: req.user.id,
@@ -236,7 +226,7 @@ export async function GET(request: NextRequest) {
       // Emit WebSocket events for read messages
       if (updatedMessages.count > 0) {
         // Get the updated message IDs to emit specific read events
-        const readMessages = await prisma.message.findMany({
+        const readMessages = await prisma.messages.findMany({
           where: {
             senderId: params.conversationWith,
             recipientId: req.user.id,
@@ -247,16 +237,21 @@ export async function GET(request: NextRequest) {
 
         // Emit read events for each message
         readMessages.forEach(msg => {
-          webSocketInstance.emitToConversation(req.user.id, params.conversationWith, 'message:read', {
-            messageId: msg.id,
-            readAt: readAt.toISOString(),
-            readBy: req.user.id,
-          });
+          webSocketInstance.emitToConversation(
+            req.user.id,
+            params.conversationWith,
+            'message:read',
+            {
+              messageId: msg.id,
+              readAt: readAt.toISOString(),
+              readBy: req.user.id,
+            }
+          );
         });
       }
 
       // Get unread count
-      const unreadCount = await prisma.message.count({
+      const unreadCount = await prisma.messages.count({
         where: {
           senderId: params.conversationWith,
           recipientId: req.user.id,
@@ -288,11 +283,10 @@ export async function GET(request: NextRequest) {
           hasMore: messages.length === params.limit, // If we got exactly limit, there might be more
         },
       });
-
     } catch (error) {
       if (error instanceof z.ZodError) {
         return NextResponse.json(
-          { 
+          {
             error: 'Invalid parameters',
             details: error.errors,
           },
@@ -301,10 +295,7 @@ export async function GET(request: NextRequest) {
       }
 
       logger.error('Get messages error', { userId: req.user?.id }, error as Error);
-      return NextResponse.json(
-        { error: 'Failed to retrieve messages' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to retrieve messages' }, { status: 500 });
     }
   });
 }

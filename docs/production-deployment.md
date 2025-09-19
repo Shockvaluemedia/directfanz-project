@@ -1,6 +1,7 @@
 # Production Deployment Guide
 
-This document provides instructions for deploying the Direct-to-Fan Platform to production environments.
+This document provides instructions for deploying the Direct-to-Fan Platform to
+production environments.
 
 ## Prerequisites
 
@@ -14,77 +15,78 @@ This document provides instructions for deploying the Direct-to-Fan Platform to 
 
 ## Environment Variables
 
-The following environment variables must be configured in your Vercel project settings:
+The following environment variables must be configured in your Vercel project
+settings:
 
 ### Database Configuration
 
-| Variable | Description | Example |
-|----------|-------------|---------|
+| Variable       | Description                  | Example                                         |
+| -------------- | ---------------------------- | ----------------------------------------------- |
 | `DATABASE_URL` | PostgreSQL connection string | `postgresql://user:password@host:5432/database` |
 
 ### Redis Configuration
 
-| Variable | Description | Example |
-|----------|-------------|---------|
+| Variable    | Description             | Example                               |
+| ----------- | ----------------------- | ------------------------------------- |
 | `REDIS_URL` | Redis connection string | `redis://username:password@host:port` |
 
 ### Authentication
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `NEXTAUTH_SECRET` | Secret key for JWT tokens | `your-secure-secret-key` |
-| `NEXTAUTH_URL` | Base URL of your application | `https://your-app.com` |
-| `GOOGLE_CLIENT_ID` | Google OAuth client ID (optional) | `your-google-client-id` |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret (optional) | `your-google-client-secret` |
-| `FACEBOOK_CLIENT_ID` | Facebook OAuth client ID (optional) | `your-facebook-client-id` |
+| Variable                 | Description                             | Example                       |
+| ------------------------ | --------------------------------------- | ----------------------------- |
+| `NEXTAUTH_SECRET`        | Secret key for JWT tokens               | `your-secure-secret-key`      |
+| `NEXTAUTH_URL`           | Base URL of your application            | `https://your-app.com`        |
+| `GOOGLE_CLIENT_ID`       | Google OAuth client ID (optional)       | `your-google-client-id`       |
+| `GOOGLE_CLIENT_SECRET`   | Google OAuth client secret (optional)   | `your-google-client-secret`   |
+| `FACEBOOK_CLIENT_ID`     | Facebook OAuth client ID (optional)     | `your-facebook-client-id`     |
 | `FACEBOOK_CLIENT_SECRET` | Facebook OAuth client secret (optional) | `your-facebook-client-secret` |
 
 ### Stripe Integration
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `STRIPE_PUBLISHABLE_KEY` | Stripe publishable key | `pk_live_...` |
-| `STRIPE_SECRET_KEY` | Stripe secret key | `sk_live_...` |
-| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret | `whsec_...` |
+| Variable                 | Description                   | Example       |
+| ------------------------ | ----------------------------- | ------------- |
+| `STRIPE_PUBLISHABLE_KEY` | Stripe publishable key        | `pk_live_...` |
+| `STRIPE_SECRET_KEY`      | Stripe secret key             | `sk_live_...` |
+| `STRIPE_WEBHOOK_SECRET`  | Stripe webhook signing secret | `whsec_...`   |
 
 ### AWS S3 Configuration
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `AWS_ACCESS_KEY_ID` | AWS access key ID | `your-access-key-id` |
+| Variable                | Description           | Example                  |
+| ----------------------- | --------------------- | ------------------------ |
+| `AWS_ACCESS_KEY_ID`     | AWS access key ID     | `your-access-key-id`     |
 | `AWS_SECRET_ACCESS_KEY` | AWS secret access key | `your-secret-access-key` |
-| `AWS_REGION` | AWS region | `us-east-1` |
-| `AWS_S3_BUCKET_NAME` | S3 bucket name | `your-bucket-name` |
+| `AWS_REGION`            | AWS region            | `us-east-1`              |
+| `AWS_S3_BUCKET_NAME`    | S3 bucket name        | `your-bucket-name`       |
 
 ### Email Configuration
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `SENDGRID_API_KEY` | SendGrid API key | `SG.your-api-key` |
-| `FROM_EMAIL` | Email address for sending notifications | `noreply@your-app.com` |
+| Variable           | Description                             | Example                |
+| ------------------ | --------------------------------------- | ---------------------- |
+| `SENDGRID_API_KEY` | SendGrid API key                        | `SG.your-api-key`      |
+| `FROM_EMAIL`       | Email address for sending notifications | `noreply@your-app.com` |
 
 ### CDN Configuration (Optional)
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `CDN_URL` | CDN base URL | `https://cdn.your-app.com` |
-| `CDN_DOMAIN` | CDN domain for CORS configuration | `cdn.your-app.com` |
+| Variable     | Description                       | Example                    |
+| ------------ | --------------------------------- | -------------------------- |
+| `CDN_URL`    | CDN base URL                      | `https://cdn.your-app.com` |
+| `CDN_DOMAIN` | CDN domain for CORS configuration | `cdn.your-app.com`         |
 
 ### Application Configuration
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `NEXT_PUBLIC_APP_URL` | Public URL of your application | `https://your-app.com` |
-| `NEXT_PUBLIC_APP_VERSION` | Application version | `1.0.0` |
+| Variable                  | Description                    | Example                |
+| ------------------------- | ------------------------------ | ---------------------- |
+| `NEXT_PUBLIC_APP_URL`     | Public URL of your application | `https://your-app.com` |
+| `NEXT_PUBLIC_APP_VERSION` | Application version            | `1.0.0`                |
 
 ### Sentry Configuration
 
-| Variable | Description | Example |
-|----------|-------------|---------|
+| Variable                 | Description                               | Example                     |
+| ------------------------ | ----------------------------------------- | --------------------------- |
 | `NEXT_PUBLIC_SENTRY_DSN` | Sentry DSN for client-side error tracking | `https://...@sentry.io/...` |
-| `SENTRY_ORG` | Sentry organization slug | `your-org` |
-| `SENTRY_PROJECT` | Sentry project slug | `your-project` |
-| `SENTRY_AUTH_TOKEN` | Sentry authentication token | `your-auth-token` |
+| `SENTRY_ORG`             | Sentry organization slug                  | `your-org`                  |
+| `SENTRY_PROJECT`         | Sentry project slug                       | `your-project`              |
+| `SENTRY_AUTH_TOKEN`      | Sentry authentication token               | `your-auth-token`           |
 
 ## Deployment Steps
 
@@ -128,7 +130,8 @@ vercel --prod
 After deployment, verify that your application is working correctly:
 
 1. Check the health endpoint: `https://your-app.com/api/health`
-2. Run performance tests: `APP_URL=https://your-app.com node scripts/performance-test.js`
+2. Run performance tests:
+   `APP_URL=https://your-app.com node scripts/performance-test.js`
 3. Verify Stripe webhooks are properly configured
 4. Test user authentication flows
 5. Verify file uploads and content delivery

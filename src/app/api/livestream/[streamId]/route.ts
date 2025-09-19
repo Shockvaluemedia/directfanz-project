@@ -19,10 +19,7 @@ const updateStreamSchema = z.object({
 });
 
 // GET /api/livestream/[streamId] - Get specific stream
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { streamId: string } }
-) {
+export async function GET(request: NextRequest, { params }: { params: { streamId: string } }) {
   let session: any;
   try {
     session = await getServerSession(authOptions);
@@ -33,7 +30,7 @@ export async function GET(
       );
     }
 
-    const stream = await prisma.liveStream.findUnique({
+    const stream = await prisma.live_streams.findUnique({
       where: {
         id: params.streamId,
       },
@@ -43,7 +40,7 @@ export async function GET(
             id: true,
             displayName: true,
             avatar: true,
-          }
+          },
         },
         viewers: {
           include: {
@@ -52,12 +49,12 @@ export async function GET(
                 id: true,
                 displayName: true,
                 avatar: true,
-              }
-            }
+              },
+            },
           },
           where: {
             leftAt: null, // Currently viewing
-          }
+          },
         },
         _count: {
           select: {
@@ -65,9 +62,9 @@ export async function GET(
             chatMessages: true,
             tips: true,
             polls: true,
-          }
-        }
-      }
+          },
+        },
+      },
     });
 
     if (!stream) {
@@ -78,9 +75,10 @@ export async function GET(
     }
 
     // Check access permissions
-    const canView = stream.isPublic || 
-                   stream.artistId === session.user.id ||
-                   await checkStreamAccess(session.user.id, stream);
+    const canView =
+      stream.isPublic ||
+      stream.artistId === session.user.id ||
+      (await checkStreamAccess(session.user.id, stream));
 
     if (!canView) {
       return NextResponse.json(
@@ -100,20 +98,23 @@ export async function GET(
         totalMessages: stream._count.chatMessages,
         totalTips: stream._count.tips,
         totalPolls: stream._count.polls,
-      }
+      },
     };
 
     return NextResponse.json({
       success: true,
-      data: { stream: responseStream }
+      data: { stream: responseStream },
     });
-
   } catch (error) {
-    logger.error('Failed to fetch livestream', { 
-      streamId: params.streamId,
-      userId: session?.user?.id 
-    }, error as Error);
-    
+    logger.error(
+      'Failed to fetch livestream',
+      {
+        streamId: params.streamId,
+        userId: session?.user?.id,
+      },
+      error as Error
+    );
+
     return NextResponse.json(
       { success: false, error: { message: 'Internal server error' } },
       { status: 500 }
@@ -122,10 +123,7 @@ export async function GET(
 }
 
 // PUT /api/livestream/[streamId] - Update stream
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { streamId: string } }
-) {
+export async function PUT(request: NextRequest, { params }: { params: { streamId: string } }) {
   let session: any;
   try {
     session = await getServerSession(authOptions);
@@ -137,11 +135,11 @@ export async function PUT(
     }
 
     // Check if user owns this stream
-    const existingStream = await prisma.liveStream.findUnique({
+    const existingStream = await prisma.live_streams.findUnique({
       where: {
         id: params.streamId,
         artistId: session.user.id,
-      }
+      },
     });
 
     if (!existingStream) {
@@ -156,12 +154,12 @@ export async function PUT(
 
     // Validate tier access if updating tiers
     if (validatedData.tierIds && validatedData.tierIds.length > 0) {
-      const validTiers = await prisma.tier.findMany({
+      const validTiers = await prisma.tiers.findMany({
         where: {
           id: { in: validatedData.tierIds },
           artistId: session.user.id,
           isActive: true,
-        }
+        },
       });
 
       if (validTiers.length !== validatedData.tierIds.length) {
@@ -173,19 +171,23 @@ export async function PUT(
     }
 
     const updateData: any = {};
-    
+
     if (validatedData.title !== undefined) updateData.title = validatedData.title;
     if (validatedData.description !== undefined) updateData.description = validatedData.description;
-    if (validatedData.scheduledAt !== undefined) updateData.scheduledAt = new Date(validatedData.scheduledAt);
+    if (validatedData.scheduledAt !== undefined)
+      updateData.scheduledAt = new Date(validatedData.scheduledAt);
     if (validatedData.isRecorded !== undefined) updateData.isRecorded = validatedData.isRecorded;
-    if (validatedData.tierIds !== undefined) updateData.tierIds = JSON.stringify(validatedData.tierIds);
+    if (validatedData.tierIds !== undefined)
+      updateData.tierIds = JSON.stringify(validatedData.tierIds);
     if (validatedData.isPublic !== undefined) updateData.isPublic = validatedData.isPublic;
-    if (validatedData.requiresPayment !== undefined) updateData.requiresPayment = validatedData.requiresPayment;
-    if (validatedData.paymentAmount !== undefined) updateData.paymentAmount = validatedData.paymentAmount;
+    if (validatedData.requiresPayment !== undefined)
+      updateData.requiresPayment = validatedData.requiresPayment;
+    if (validatedData.paymentAmount !== undefined)
+      updateData.paymentAmount = validatedData.paymentAmount;
     if (validatedData.maxViewers !== undefined) updateData.maxViewers = validatedData.maxViewers;
     if (validatedData.status !== undefined) {
       updateData.status = validatedData.status;
-      
+
       // Update timestamps based on status
       if (validatedData.status === 'LIVE' && !existingStream.startedAt) {
         updateData.startedAt = new Date();
@@ -194,7 +196,7 @@ export async function PUT(
       }
     }
 
-    const updatedStream = await prisma.liveStream.update({
+    const updatedStream = await prisma.live_streams.update({
       where: {
         id: params.streamId,
       },
@@ -213,10 +215,9 @@ export async function PUT(
         stream: {
           ...updatedStream,
           tierIds: JSON.parse(updatedStream.tierIds),
-        }
-      }
+        },
+      },
     });
-
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -225,11 +226,15 @@ export async function PUT(
       );
     }
 
-    logger.error('Failed to update livestream', { 
-      streamId: params.streamId,
-      userId: session?.user?.id 
-    }, error as Error);
-    
+    logger.error(
+      'Failed to update livestream',
+      {
+        streamId: params.streamId,
+        userId: session?.user?.id,
+      },
+      error as Error
+    );
+
     return NextResponse.json(
       { success: false, error: { message: 'Internal server error' } },
       { status: 500 }
@@ -238,10 +243,7 @@ export async function PUT(
 }
 
 // DELETE /api/livestream/[streamId] - Delete stream
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { streamId: string } }
-) {
+export async function DELETE(request: NextRequest, { params }: { params: { streamId: string } }) {
   let session: any;
   try {
     session = await getServerSession(authOptions);
@@ -253,11 +255,11 @@ export async function DELETE(
     }
 
     // Check if user owns this stream and it's not currently live
-    const existingStream = await prisma.liveStream.findUnique({
+    const existingStream = await prisma.live_streams.findUnique({
       where: {
         id: params.streamId,
         artistId: session.user.id,
-      }
+      },
     });
 
     if (!existingStream) {
@@ -274,10 +276,10 @@ export async function DELETE(
       );
     }
 
-    await prisma.liveStream.delete({
+    await prisma.live_streams.delete({
       where: {
         id: params.streamId,
-      }
+      },
     });
 
     logger.info('Livestream deleted', {
@@ -287,15 +289,18 @@ export async function DELETE(
 
     return NextResponse.json({
       success: true,
-      message: 'Stream deleted successfully'
+      message: 'Stream deleted successfully',
     });
-
   } catch (error) {
-    logger.error('Failed to delete livestream', { 
-      streamId: params.streamId,
-      userId: session?.user?.id 
-    }, error as Error);
-    
+    logger.error(
+      'Failed to delete livestream',
+      {
+        streamId: params.streamId,
+        userId: session?.user?.id,
+      },
+      error as Error
+    );
+
     return NextResponse.json(
       { success: false, error: { message: 'Internal server error' } },
       { status: 500 }
@@ -311,12 +316,12 @@ async function checkStreamAccess(userId: string, stream: any): Promise<boolean> 
   if (tierIds.length === 0) return true;
 
   // Check if user has subscription to any required tier
-  const hasAccess = await prisma.subscription.findFirst({
+  const hasAccess = await prisma.subscriptions.findFirst({
     where: {
       fanId: userId,
       tierId: { in: tierIds },
       status: 'ACTIVE',
-    }
+    },
   });
 
   return !!hasAccess;

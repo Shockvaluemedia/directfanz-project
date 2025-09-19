@@ -87,7 +87,7 @@ describe('/api/fan/subscriptions', () => {
           artistId: 'artist-1',
           tierId: 'tier-1',
           stripeSubscriptionId: 'sub_stripe123',
-          amount: 10.00,
+          amount: 10.0,
           status: 'ACTIVE',
           currentPeriodStart: new Date(),
           currentPeriodEnd: new Date(),
@@ -97,7 +97,7 @@ describe('/api/fan/subscriptions', () => {
             id: 'tier-1',
             name: 'Basic',
             description: 'Basic tier',
-            minimumPrice: 5.00,
+            minimumPrice: 5.0,
             artist: {
               id: 'artist-1',
               displayName: 'Test Artist',
@@ -117,7 +117,7 @@ describe('/api/fan/subscriptions', () => {
       expect(data.success).toBe(true);
       expect(data.data.subscriptions).toHaveLength(1);
       expect(data.data.subscriptions[0].id).toBe('sub-1');
-      expect(data.data.subscriptions[0].artist.displayName).toBe('Test Artist');
+      expect(data.data.subscriptions[0].users.displayName).toBe('Test Artist');
     });
 
     it('should return empty array if fan has no subscriptions', async () => {

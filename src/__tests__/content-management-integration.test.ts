@@ -1,10 +1,10 @@
 /**
  * Content Management Integration Tests
- * 
+ *
  * Comprehensive tests for content upload, management, and tier-based access control
  */
 
-import { 
+import {
   setupTestEnvironment,
   createMockUser,
   createMockArtist,
@@ -32,7 +32,11 @@ jest.mock('@/lib/content-access', () => {
 });
 
 // Import the mocked content access functions
-const { checkContentAccess, generateAccessToken, getUserAccessibleContent } = require('@/lib/content-access');
+const {
+  checkContentAccess,
+  generateAccessToken,
+  getUserAccessibleContent,
+} = require('@/lib/content-access');
 
 // Mock S3 functions
 jest.mock('@/lib/s3', () => ({
@@ -57,35 +61,35 @@ jest.mock('@/lib/notifications', () => ({
 describe('Content Management Integration Tests', () => {
   setupTestEnvironment();
 
-  const artistUser = createMockUser({ 
-    id: 'artist-123', 
+  const artistUser = createMockUser({
+    id: 'artist-123',
     role: 'ARTIST',
-    displayName: 'Test Artist' 
+    displayName: 'Test Artist',
   });
-  
-  const fanUser = createMockUser({ 
-    id: 'fan-123', 
+
+  const fanUser = createMockUser({
+    id: 'fan-123',
     role: 'FAN',
-    displayName: 'Test Fan' 
+    displayName: 'Test Fan',
   });
-  
-  const artist = createMockArtist({ 
-    id: 'artist-profile-123', 
-    userId: artistUser.id 
+
+  const artist = createMockArtist({
+    id: 'artist-profile-123',
+    userId: artistUser.id,
   });
-  
-  const basicTier = createMockTier({ 
-    id: 'basic-tier-123', 
+
+  const basicTier = createMockTier({
+    id: 'basic-tier-123',
     artistId: artistUser.id,
     name: 'Basic Access',
-    minimumPrice: 10.00
+    minimumPrice: 10.0,
   });
-  
-  const premiumTier = createMockTier({ 
-    id: 'premium-tier-123', 
+
+  const premiumTier = createMockTier({
+    id: 'premium-tier-123',
     artistId: artistUser.id,
     name: 'Premium Access',
-    minimumPrice: 25.00
+    minimumPrice: 25.0,
   });
 
   beforeEach(() => {
@@ -100,11 +104,11 @@ describe('Content Management Integration Tests', () => {
         method.mockClear();
       }
     });
-    
+
     // Reset S3 mocks
     generatePresignedUrl.mockClear();
     validateFileUpload.mockClear();
-    
+
     // Reset content access mocks
     checkContentAccess.mockClear();
     generateAccessToken.mockClear();
@@ -122,7 +126,7 @@ describe('Content Management Integration Tests', () => {
       });
 
       // Mock tier verification
-      (prisma.tier.count as jest.Mock).mockResolvedValue(1);
+      (prisma.tiers.count as jest.Mock).mockResolvedValue(1);
 
       // Mock content creation
       const mockContent = createMockContent({
@@ -135,18 +139,22 @@ describe('Content Management Integration Tests', () => {
       });
 
       (prisma.content.create as jest.Mock).mockResolvedValue(mockContent);
-      (prisma.user.findUnique as jest.Mock).mockResolvedValue(artistUser);
+      (prisma.users.findUnique as jest.Mock).mockResolvedValue(artistUser);
 
       // Test presigned URL generation first
-      const uploadRequest = mockAuthenticatedRequest('POST', {
-        fileName: 'test-audio.mp3',
-        fileType: 'audio/mpeg',
-        fileSize: 5242880, // 5MB
-      }, mockSession({ user: artistUser }));
+      const uploadRequest = mockAuthenticatedRequest(
+        'POST',
+        {
+          fileName: 'test-audio.mp3',
+          fileType: 'audio/mpeg',
+          fileSize: 5242880, // 5MB
+        },
+        mockSession({ user: artistUser })
+      );
 
       // Simulate upload endpoint
       const uploadResponse = await simulateUploadRequest(uploadRequest);
-      
+
       expect(uploadResponse.status).toBe(200);
       expect(generatePresignedUrl).toHaveBeenCalledWith({
         fileName: 'test-audio.mp3',
@@ -156,17 +164,21 @@ describe('Content Management Integration Tests', () => {
       });
 
       // Test content creation
-      const contentRequest = mockAuthenticatedRequest('POST', {
-        title: 'New Audio Track',
-        description: 'A test audio track',
-        fileUrl: 'https://s3.amazonaws.com/test-bucket/audio-123.mp3',
-        fileSize: 5242880,
-        format: 'mp3',
-        duration: 180,
-        tags: ['test', 'audio'],
-        tierIds: [basicTier.id],
-        isPublic: false,
-      }, mockSession({ user: artistUser }));
+      const contentRequest = mockAuthenticatedRequest(
+        'POST',
+        {
+          title: 'New Audio Track',
+          description: 'A test audio track',
+          fileUrl: 'https://s3.amazonaws.com/test-bucket/audio-123.mp3',
+          fileSize: 5242880,
+          format: 'mp3',
+          duration: 180,
+          tags: ['test', 'audio'],
+          tierIds: [basicTier.id],
+          isPublic: false,
+        },
+        mockSession({ user: artistUser })
+      );
 
       const contentResponse = await simulateContentCreation(contentRequest);
       const contentData = await contentResponse.json();
@@ -194,11 +206,15 @@ describe('Content Management Integration Tests', () => {
       // Mock validation to return errors
       validateFileUpload.mockReturnValue(['Unsupported file type']);
 
-      const uploadRequest = mockAuthenticatedRequest('POST', {
-        fileName: 'test.exe',
-        fileType: 'application/x-msdownload',
-        fileSize: 1000,
-      }, mockSession({ user: artistUser }));
+      const uploadRequest = mockAuthenticatedRequest(
+        'POST',
+        {
+          fileName: 'test.exe',
+          fileType: 'application/x-msdownload',
+          fileSize: 1000,
+        },
+        mockSession({ user: artistUser })
+      );
 
       const response = await simulateUploadRequest(uploadRequest);
       const data = await response.json();
@@ -211,11 +227,15 @@ describe('Content Management Integration Tests', () => {
     it('should reject files that are too large', async () => {
       validateFileUpload.mockReturnValue(['File too large']);
 
-      const uploadRequest = mockAuthenticatedRequest('POST', {
-        fileName: 'huge-video.mp4',
-        fileType: 'video/mp4',
-        fileSize: 1000 * 1024 * 1024, // 1GB
-      }, mockSession({ user: artistUser }));
+      const uploadRequest = mockAuthenticatedRequest(
+        'POST',
+        {
+          fileName: 'huge-video.mp4',
+          fileType: 'video/mp4',
+          fileSize: 1000 * 1024 * 1024, // 1GB
+        },
+        mockSession({ user: artistUser })
+      );
 
       const response = await simulateUploadRequest(uploadRequest);
       const data = await response.json();
@@ -227,16 +247,20 @@ describe('Content Management Integration Tests', () => {
 
     it('should verify tier ownership before content creation', async () => {
       // Mock tier count to return 0 (tiers don't belong to artist)
-      (prisma.tier.count as jest.Mock).mockResolvedValue(0);
+      (prisma.tiers.count as jest.Mock).mockResolvedValue(0);
 
-      const contentRequest = mockAuthenticatedRequest('POST', {
-        title: 'Test Content',
-        fileUrl: 'https://s3.amazonaws.com/test-bucket/test.mp3',
-        fileSize: 1000,
-        format: 'mp3',
-        tierIds: ['other-artist-tier-123'],
-        isPublic: false,
-      }, mockSession({ user: artistUser }));
+      const contentRequest = mockAuthenticatedRequest(
+        'POST',
+        {
+          title: 'Test Content',
+          fileUrl: 'https://s3.amazonaws.com/test-bucket/test.mp3',
+          fileSize: 1000,
+          format: 'mp3',
+          tierIds: ['other-artist-tier-123'],
+          isPublic: false,
+        },
+        mockSession({ user: artistUser })
+      );
 
       const response = await simulateContentCreation(contentRequest);
       const data = await response.json();
@@ -255,16 +279,20 @@ describe('Content Management Integration Tests', () => {
       });
 
       (prisma.content.create as jest.Mock).mockResolvedValue(mockContent);
-      (prisma.user.findUnique as jest.Mock).mockResolvedValue(artistUser);
+      (prisma.users.findUnique as jest.Mock).mockResolvedValue(artistUser);
 
-      const contentRequest = mockAuthenticatedRequest('POST', {
-        title: 'Public Content',
-        fileUrl: 'https://s3.amazonaws.com/test-bucket/public.jpg',
-        fileSize: 500000,
-        format: 'jpg',
-        tierIds: [],
-        isPublic: true,
-      }, mockSession({ user: artistUser }));
+      const contentRequest = mockAuthenticatedRequest(
+        'POST',
+        {
+          title: 'Public Content',
+          fileUrl: 'https://s3.amazonaws.com/test-bucket/public.jpg',
+          fileSize: 500000,
+          format: 'jpg',
+          tierIds: [],
+          isPublic: true,
+        },
+        mockSession({ user: artistUser })
+      );
 
       const response = await simulateContentCreation(contentRequest);
       const data = await response.json();
@@ -348,7 +376,7 @@ describe('Content Management Integration Tests', () => {
         subscription: {
           id: mockSubscription.id,
           tierId: basicTier.id,
-          amount: 15.00,
+          amount: 15.0,
           status: 'ACTIVE',
         },
       });
@@ -513,11 +541,11 @@ describe('Content Management Integration Tests', () => {
 
       expect(response.status).toBe(200);
       expect(data.data.content).toHaveLength(2);
-      expect(getUserAccessibleContent).toHaveBeenCalledWith(
-        fanUser.id,
-        artistUser.id,
-        { page: 1, limit: 20, type: 'AUDIO' }
-      );
+      expect(getUserAccessibleContent).toHaveBeenCalledWith(fanUser.id, artistUser.id, {
+        page: 1,
+        limit: 20,
+        type: 'AUDIO',
+      });
     });
   });
 
@@ -540,16 +568,20 @@ describe('Content Management Integration Tests', () => {
       };
 
       (prisma.content.findUnique as jest.Mock).mockResolvedValue(originalContent);
-      (prisma.tier.count as jest.Mock).mockResolvedValue(2); // Both tiers belong to artist
+      (prisma.tiers.count as jest.Mock).mockResolvedValue(2); // Both tiers belong to artist
       (prisma.content.update as jest.Mock).mockResolvedValue(updatedContent);
 
-      const updateRequest = mockAuthenticatedRequest('PUT', {
-        title: 'Updated Title',
-        description: 'Updated Description',
-        tags: ['updated', 'music'],
-        tierIds: [basicTier.id, premiumTier.id],
-        isPublic: false,
-      }, mockSession({ user: artistUser }));
+      const updateRequest = mockAuthenticatedRequest(
+        'PUT',
+        {
+          title: 'Updated Title',
+          description: 'Updated Description',
+          tags: ['updated', 'music'],
+          tierIds: [basicTier.id, premiumTier.id],
+          isPublic: false,
+        },
+        mockSession({ user: artistUser })
+      );
 
       const response = await simulateContentUpdate(updateRequest, 'content-123');
       const data = await response.json();
@@ -579,7 +611,11 @@ describe('Content Management Integration Tests', () => {
       (prisma.content.findUnique as jest.Mock).mockResolvedValue(contentToDelete);
       (prisma.content.delete as jest.Mock).mockResolvedValue(contentToDelete);
 
-      const deleteRequest = mockAuthenticatedRequest('DELETE', {}, mockSession({ user: artistUser }));
+      const deleteRequest = mockAuthenticatedRequest(
+        'DELETE',
+        {},
+        mockSession({ user: artistUser })
+      );
       const response = await simulateContentDeletion(deleteRequest, 'content-to-delete-123');
 
       expect(response.status).toBe(200);
@@ -609,7 +645,11 @@ describe('Content Management Integration Tests', () => {
 
       (prisma.content.findUnique as jest.Mock).mockResolvedValue(otherArtistContent);
 
-      const deleteRequest = mockAuthenticatedRequest('DELETE', {}, mockSession({ user: artistUser }));
+      const deleteRequest = mockAuthenticatedRequest(
+        'DELETE',
+        {},
+        mockSession({ user: artistUser })
+      );
       const response = await simulateContentDeletion(deleteRequest, 'other-content-123');
       const data = await response.json();
 
@@ -621,28 +661,28 @@ describe('Content Management Integration Tests', () => {
 
   describe('Tier-based Content Organization', () => {
     it('should organize content by tier access levels', async () => {
-      const publicContent = createMockContent({ 
-        id: 'public-1', 
-        isPublic: true, 
-        tiers: [] 
-      });
-      
-      const basicContent = createMockContent({ 
-        id: 'basic-1', 
-        isPublic: false, 
-        tiers: [basicTier] 
-      });
-      
-      const premiumContent = createMockContent({ 
-        id: 'premium-1', 
-        isPublic: false, 
-        tiers: [premiumTier] 
+      const publicContent = createMockContent({
+        id: 'public-1',
+        isPublic: true,
+        tiers: [],
       });
 
-      const allTiersContent = createMockContent({ 
-        id: 'all-tiers-1', 
-        isPublic: false, 
-        tiers: [basicTier, premiumTier] 
+      const basicContent = createMockContent({
+        id: 'basic-1',
+        isPublic: false,
+        tiers: [basicTier],
+      });
+
+      const premiumContent = createMockContent({
+        id: 'premium-1',
+        isPublic: false,
+        tiers: [premiumTier],
+      });
+
+      const allTiersContent = createMockContent({
+        id: 'all-tiers-1',
+        isPublic: false,
+        tiers: [basicTier, premiumTier],
       });
 
       // Mock content access summary
@@ -682,18 +722,22 @@ describe('Content Management Integration Tests', () => {
         tiers: [basicTier, premiumTier],
       });
 
-      (prisma.tier.count as jest.Mock).mockResolvedValue(2);
+      (prisma.tiers.count as jest.Mock).mockResolvedValue(2);
       (prisma.content.create as jest.Mock).mockResolvedValue(multiTierContent);
-      (prisma.user.findUnique as jest.Mock).mockResolvedValue(artistUser);
+      (prisma.users.findUnique as jest.Mock).mockResolvedValue(artistUser);
 
-      const contentRequest = mockAuthenticatedRequest('POST', {
-        title: 'Multi-Tier Content',
-        fileUrl: 'https://s3.amazonaws.com/test-bucket/multi.mp3',
-        fileSize: 1000,
-        format: 'mp3',
-        tierIds: [basicTier.id, premiumTier.id],
-        isPublic: false,
-      }, mockSession({ user: artistUser }));
+      const contentRequest = mockAuthenticatedRequest(
+        'POST',
+        {
+          title: 'Multi-Tier Content',
+          fileUrl: 'https://s3.amazonaws.com/test-bucket/multi.mp3',
+          fileSize: 1000,
+          format: 'mp3',
+          tierIds: [basicTier.id, premiumTier.id],
+          isPublic: false,
+        },
+        mockSession({ user: artistUser })
+      );
 
       const response = await simulateContentCreation(contentRequest);
       const data = await response.json();
@@ -705,10 +749,7 @@ describe('Content Management Integration Tests', () => {
       expect(prisma.content.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           tiers: {
-            connect: [
-              { id: basicTier.id },
-              { id: premiumTier.id },
-            ],
+            connect: [{ id: basicTier.id }, { id: premiumTier.id }],
           },
         }),
         include: expect.any(Object),
@@ -778,7 +819,7 @@ describe('Content Management Integration Tests', () => {
 
       // Simulate content download tracking
       userEngagementTracker.trackContentDownload = jest.fn();
-      
+
       userEngagementTracker.trackContentDownload(fanUser.id, {
         contentId: 'downloadable-content-123',
         contentType: 'DOCUMENT',
@@ -829,13 +870,16 @@ describe('Content Management Integration Tests', () => {
 
     const validationErrors = validateFileUpload(fileName, fileType, fileSize);
     if (validationErrors.length > 0) {
-      return new Response(JSON.stringify({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'File validation failed',
-          details: { errors: validationErrors }
-        }
-      }), { status: 400 });
+      return new Response(
+        JSON.stringify({
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'File validation failed',
+            details: { errors: validationErrors },
+          },
+        }),
+        { status: 400 }
+      );
     }
 
     const presignedUrlData = await generatePresignedUrl({
@@ -845,18 +889,21 @@ describe('Content Management Integration Tests', () => {
       artistId: artistUser.id,
     });
 
-    return new Response(JSON.stringify({
-      success: true,
-      data: presignedUrlData,
-    }), { status: 200 });
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: presignedUrlData,
+      }),
+      { status: 200 }
+    );
   }
 
   async function simulateContentCreation(request: any) {
     const body = JSON.parse(request.body);
-    
+
     // Simulate tier validation
     if (body.tierIds && body.tierIds.length > 0) {
-      const tierCount = await prisma.tier.count({
+      const tierCount = await prisma.tiers.count({
         where: {
           id: { in: body.tierIds },
           artistId: artistUser.id,
@@ -864,12 +911,15 @@ describe('Content Management Integration Tests', () => {
       });
 
       if (tierCount !== body.tierIds.length) {
-        return new Response(JSON.stringify({
-          error: {
-            code: 'INVALID_TIERS',
-            message: 'One or more tiers do not belong to this artist'
-          }
-        }), { status: 400 });
+        return new Response(
+          JSON.stringify({
+            error: {
+              code: 'INVALID_TIERS',
+              message: 'One or more tiers do not belong to this artist',
+            },
+          }),
+          { status: 400 }
+        );
       }
     }
 
@@ -885,10 +935,16 @@ describe('Content Management Integration Tests', () => {
     });
 
     // Determine content type from format
-    const contentType = body.format === 'mp3' ? 'AUDIO' : 
-                       body.format === 'mp4' ? 'VIDEO' : 
-                       body.format === 'jpg' ? 'IMAGE' : 
-                       body.format === 'pdf' ? 'DOCUMENT' : 'UNKNOWN';
+    const contentType =
+      body.format === 'mp3'
+        ? 'AUDIO'
+        : body.format === 'mp4'
+          ? 'VIDEO'
+          : body.format === 'jpg'
+            ? 'IMAGE'
+            : body.format === 'pdf'
+              ? 'DOCUMENT'
+              : 'UNKNOWN';
 
     // Track business metrics
     businessMetrics.track({
@@ -903,10 +959,13 @@ describe('Content Management Integration Tests', () => {
       },
     });
 
-    return new Response(JSON.stringify({
-      success: true,
-      data: content,
-    }), { status: 200 });
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: content,
+      }),
+      { status: 200 }
+    );
   }
 
   async function simulateAccessCheck(request: any, contentId: string) {
@@ -919,36 +978,43 @@ describe('Content Management Integration Tests', () => {
         type: true,
         isPublic: true,
         tiers: {
-          select: { id: true, name: true, minimumPrice: true }
-        }
-      }
+          select: { id: true, name: true, minimumPrice: true },
+        },
+      },
     });
 
-    return new Response(JSON.stringify({
-      success: true,
-      data: {
-        hasAccess: accessResult.hasAccess,
-        reason: accessResult.reason,
-        content,
-        subscription: accessResult.subscription,
-      },
-    }), { status: 200 });
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: {
+          hasAccess: accessResult.hasAccess,
+          reason: accessResult.reason,
+          content,
+          subscription: accessResult.subscription,
+        },
+      }),
+      { status: 200 }
+    );
   }
 
   async function simulateTokenGeneration(request: any, contentId: string) {
     const accessResult = await checkContentAccess(fanUser.id, contentId);
-    
+
     if (!accessResult.hasAccess) {
       const errorMessages = {
-        'not_found': 'Content not found',
-        'no_subscription': 'Subscription required to access this content',
-        'invalid_tier': 'Your subscription tier does not include this content'
+        not_found: 'Content not found',
+        no_subscription: 'Subscription required to access this content',
+        invalid_tier: 'Your subscription tier does not include this content',
       };
 
-      return new Response(JSON.stringify({
-        error: errorMessages[accessResult.reason as keyof typeof errorMessages] || 'Access denied',
-        reason: accessResult.reason
-      }), { status: 403 });
+      return new Response(
+        JSON.stringify({
+          error:
+            errorMessages[accessResult.reason as keyof typeof errorMessages] || 'Access denied',
+          reason: accessResult.reason,
+        }),
+        { status: 403 }
+      );
     }
 
     const accessToken = generateAccessToken(fanUser.id, contentId);
@@ -960,19 +1026,22 @@ describe('Content Management Integration Tests', () => {
         type: true,
         fileSize: true,
         duration: true,
-        format: true
-      }
+        format: true,
+      },
     });
 
-    return new Response(JSON.stringify({
-      success: true,
-      data: {
-        accessToken,
-        content,
-        expiresIn: 3600,
-        accessReason: accessResult.reason
-      }
-    }), { status: 200 });
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: {
+          accessToken,
+          content,
+          expiresIn: 3600,
+          accessReason: accessResult.reason,
+        },
+      }),
+      { status: 200 }
+    );
   }
 
   async function simulateArtistContentFetch(request: any, params: any) {
@@ -1004,46 +1073,55 @@ describe('Content Management Integration Tests', () => {
       prisma.content.count({ where }),
     ]);
 
-    return new Response(JSON.stringify({
-      success: true,
-      data: {
-        content,
-        pagination: {
-          page,
-          limit,
-          total,
-          pages: Math.ceil(total / limit),
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: {
+          content,
+          pagination: {
+            page,
+            limit,
+            total,
+            pages: Math.ceil(total / limit),
+          },
         },
-      },
-    }), { status: 200 });
+      }),
+      { status: 200 }
+    );
   }
 
   async function simulateFanContentFetch(request: any, artistId: string, options: any) {
     const result = await getUserAccessibleContent(fanUser.id, artistId, options);
-    
-    return new Response(JSON.stringify({
-      success: true,
-      data: result,
-    }), { status: 200 });
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: result,
+      }),
+      { status: 200 }
+    );
   }
 
   async function simulateContentUpdate(request: any, contentId: string) {
     const body = JSON.parse(request.body);
     const existingContent = await prisma.content.findUnique({
-      where: { id: contentId }
+      where: { id: contentId },
     });
 
     if (!existingContent || existingContent.artistId !== artistUser.id) {
-      return new Response(JSON.stringify({
-        error: {
-          code: 'FORBIDDEN',
-          message: 'You can only update your own content'
-        }
-      }), { status: 403 });
+      return new Response(
+        JSON.stringify({
+          error: {
+            code: 'FORBIDDEN',
+            message: 'You can only update your own content',
+          },
+        }),
+        { status: 403 }
+      );
     }
 
     if (body.tierIds && body.tierIds.length > 0) {
-      const tierCount = await prisma.tier.count({
+      const tierCount = await prisma.tiers.count({
         where: {
           id: { in: body.tierIds },
           artistId: artistUser.id,
@@ -1051,12 +1129,15 @@ describe('Content Management Integration Tests', () => {
       });
 
       if (tierCount !== body.tierIds.length) {
-        return new Response(JSON.stringify({
-          error: {
-            code: 'INVALID_TIERS',
-            message: 'One or more tiers do not belong to this artist'
-          }
-        }), { status: 400 });
+        return new Response(
+          JSON.stringify({
+            error: {
+              code: 'INVALID_TIERS',
+              message: 'One or more tiers do not belong to this artist',
+            },
+          }),
+          { status: 400 }
+        );
       }
     }
 
@@ -1087,33 +1168,42 @@ describe('Content Management Integration Tests', () => {
       },
     });
 
-    return new Response(JSON.stringify({
-      success: true,
-      data: updatedContent,
-    }), { status: 200 });
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: updatedContent,
+      }),
+      { status: 200 }
+    );
   }
 
   async function simulateContentDeletion(request: any, contentId: string) {
     const existingContent = await prisma.content.findUnique({
-      where: { id: contentId }
+      where: { id: contentId },
     });
 
     if (!existingContent) {
-      return new Response(JSON.stringify({
-        error: {
-          code: 'NOT_FOUND',
-          message: 'Content not found'
-        }
-      }), { status: 404 });
+      return new Response(
+        JSON.stringify({
+          error: {
+            code: 'NOT_FOUND',
+            message: 'Content not found',
+          },
+        }),
+        { status: 404 }
+      );
     }
 
     if (existingContent.artistId !== artistUser.id) {
-      return new Response(JSON.stringify({
-        error: {
-          code: 'FORBIDDEN',
-          message: 'You can only delete your own content'
-        }
-      }), { status: 403 });
+      return new Response(
+        JSON.stringify({
+          error: {
+            code: 'FORBIDDEN',
+            message: 'You can only delete your own content',
+          },
+        }),
+        { status: 403 }
+      );
     }
 
     await prisma.content.delete({
@@ -1130,19 +1220,25 @@ describe('Content Management Integration Tests', () => {
       },
     });
 
-    return new Response(JSON.stringify({
-      success: true,
-      message: 'Content deleted successfully',
-    }), { status: 200 });
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: 'Content deleted successfully',
+      }),
+      { status: 200 }
+    );
   }
 
   async function simulateContentAccessSummary(request: any, artistId: string) {
     const { getContentAccessSummary } = require('@/lib/content-access');
     const accessSummary = await getContentAccessSummary(fanUser.id, artistId);
-    
-    return new Response(JSON.stringify({
-      success: true,
-      data: accessSummary,
-    }), { status: 200 });
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: accessSummary,
+      }),
+      { status: 200 }
+    );
   }
 });

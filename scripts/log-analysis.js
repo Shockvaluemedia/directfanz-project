@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 
-const fs = require('fs').promises;
-const path = require('path');
-const readline = require('readline');
+import fs from 'fs';
+import path from 'path';
+import readline from 'readline';
+import { fileURLToPath } from 'url';
+
+const fsPromises = fs.promises;
 
 /**
  * Log Analysis and Aggregation Tool for Direct Fan Platform
- * 
+ *
  * This script analyzes application logs to extract insights,
  * detect patterns, and generate reports for production monitoring.
  */
@@ -41,18 +44,18 @@ class LogAnalyzer {
 
   async analyze() {
     console.log('🔍 Starting log analysis...');
-    
+
     try {
       await this.ensureOutputDir();
       const logFiles = await this.findLogFiles();
-      
+
       if (logFiles.length === 0) {
         console.log('❌ No log files found in', this.logDir);
         return;
       }
 
       console.log(`📄 Found ${logFiles.length} log files`);
-      
+
       for (const logFile of logFiles) {
         console.log(`📖 Analyzing ${logFile}...`);
         await this.analyzeLogFile(logFile);
@@ -60,7 +63,6 @@ class LogAnalyzer {
 
       await this.generateReports();
       console.log('✅ Log analysis completed');
-      
     } catch (error) {
       console.error('❌ Log analysis failed:', error.message);
       throw error;
@@ -69,7 +71,7 @@ class LogAnalyzer {
 
   async ensureOutputDir() {
     try {
-      await fs.mkdir(this.outputDir, { recursive: true });
+      await fsPromises.mkdir(this.outputDir, { recursive: true });
     } catch (error) {
       if (error.code !== 'EEXIST') throw error;
     }
@@ -77,14 +79,12 @@ class LogAnalyzer {
 
   async findLogFiles() {
     try {
-      const files = await fs.readdir(this.logDir);
-      return files
-        .filter(file => file.endsWith('.log'))
-        .map(file => path.join(this.logDir, file));
+      const files = await fsPromises.readdir(this.logDir);
+      return files.filter(file => file.endsWith('.log')).map(file => path.join(this.logDir, file));
     } catch (error) {
       if (error.code === 'ENOENT') {
         console.log('📁 Log directory not found, creating it...');
-        await fs.mkdir(this.logDir, { recursive: true });
+        await fsPromises.mkdir(this.logDir, { recursive: true });
         return [];
       }
       throw error;
@@ -92,10 +92,10 @@ class LogAnalyzer {
   }
 
   async analyzeLogFile(filePath) {
-    const fileStream = require('fs').createReadStream(filePath);
+    const fileStream = fs.createReadStream(filePath);
     const rl = readline.createInterface({
       input: fileStream,
-      crlfDelay: Infinity
+      crlfDelay: Infinity,
     });
 
     for await (const line of rl) {
@@ -105,7 +105,7 @@ class LogAnalyzer {
 
   analyzeLine(line) {
     this.metrics.totalLines++;
-    
+
     try {
       // Try to parse as JSON first (structured logs)
       const logEntry = JSON.parse(line);
@@ -118,7 +118,7 @@ class LogAnalyzer {
 
   analyzeStructuredLog(logEntry) {
     const { level, message, timestamp, context = {}, metadata = {} } = logEntry;
-    
+
     // Count log levels
     if (level === 'error' || level === 'ERROR') {
       this.metrics.errorCount++;
@@ -135,10 +135,7 @@ class LogAnalyzer {
     // Track API endpoints
     if (context.method && context.url) {
       const endpoint = `${context.method} ${context.url}`;
-      this.metrics.apiEndpoints.set(
-        endpoint, 
-        (this.metrics.apiEndpoints.get(endpoint) || 0) + 1
-      );
+      this.metrics.apiEndpoints.set(endpoint, (this.metrics.apiEndpoints.get(endpoint) || 0) + 1);
     }
 
     // Track status codes
@@ -198,15 +195,12 @@ class LogAnalyzer {
   }
 
   recordErrorType(errorType) {
-    this.metrics.errorTypes.set(
-      errorType,
-      (this.metrics.errorTypes.get(errorType) || 0) + 1
-    );
+    this.metrics.errorTypes.set(errorType, (this.metrics.errorTypes.get(errorType) || 0) + 1);
   }
 
   async generateReports() {
     console.log('📊 Generating reports...');
-    
+
     await Promise.all([
       this.generateSummaryReport(),
       this.generateErrorReport(),
@@ -222,13 +216,19 @@ class LogAnalyzer {
       timeRange: this.timeRange,
       summary: {
         totalLogLines: this.metrics.totalLines,
-        errorRate: this.metrics.totalLines > 0 ? 
-          (this.metrics.errorCount / this.metrics.totalLines * 100).toFixed(2) + '%' : '0%',
-        warningRate: this.metrics.totalLines > 0 ? 
-          (this.metrics.warningCount / this.metrics.totalLines * 100).toFixed(2) + '%' : '0%',
+        errorRate:
+          this.metrics.totalLines > 0
+            ? ((this.metrics.errorCount / this.metrics.totalLines) * 100).toFixed(2) + '%'
+            : '0%',
+        warningRate:
+          this.metrics.totalLines > 0
+            ? ((this.metrics.warningCount / this.metrics.totalLines) * 100).toFixed(2) + '%'
+            : '0%',
         uniqueUsers: this.metrics.uniqueUsers.size,
-        totalApiRequests: Array.from(this.metrics.apiEndpoints.values())
-          .reduce((sum, count) => sum + count, 0),
+        totalApiRequests: Array.from(this.metrics.apiEndpoints.values()).reduce(
+          (sum, count) => sum + count,
+          0
+        ),
         securityEvents: this.metrics.securityEvents,
         performanceIssues: this.metrics.performanceIssues,
         businessEvents: this.metrics.businessEvents,
@@ -248,8 +248,10 @@ class LogAnalyzer {
       timestamp: new Date().toISOString(),
       totalErrors: this.metrics.errorCount,
       errorTypes: Object.fromEntries(this.metrics.errorTypes),
-      errorRate: this.metrics.totalLines > 0 ? 
-        (this.metrics.errorCount / this.metrics.totalLines * 100).toFixed(2) + '%' : '0%',
+      errorRate:
+        this.metrics.totalLines > 0
+          ? ((this.metrics.errorCount / this.metrics.totalLines) * 100).toFixed(2) + '%'
+          : '0%',
       recommendations: this.generateErrorRecommendations(),
     };
 
@@ -309,9 +311,9 @@ Generated: ${new Date().toLocaleString()}
 
 ## Top API Endpoints
 
-${report.topEndpoints.map((endpoint, index) => 
-  `${index + 1}. \`${endpoint.endpoint}\` - ${endpoint.count} requests`
-).join('\n')}
+${report.topEndpoints
+  .map((endpoint, index) => `${index + 1}. \`${endpoint.endpoint}\` - ${endpoint.count} requests`)
+  .join('\n')}
 
 ## Response Time Statistics
 
@@ -322,14 +324,18 @@ ${report.topEndpoints.map((endpoint, index) =>
 
 ## Status Code Distribution
 
-${Object.entries(report.statusCodeDistribution).map(([code, count]) =>
-  `- **${code}**: ${count} (${((count / report.summary.totalApiRequests) * 100).toFixed(1)}%)`
-).join('\n')}
+${Object.entries(report.statusCodeDistribution)
+  .map(
+    ([code, count]) =>
+      `- **${code}**: ${count} (${((count / report.summary.totalApiRequests) * 100).toFixed(1)}%)`
+  )
+  .join('\n')}
 
 ## Hourly Activity
 
 Peak activity hours:
-${report.hourlyActivity.map((count, hour) => ({ hour, count }))
+${report.hourlyActivity
+  .map((count, hour) => ({ hour, count }))
   .sort((a, b) => b.count - a.count)
   .slice(0, 5)
   .map(({ hour, count }) => `- **${hour}:00-${hour + 1}:00**: ${count} events`)
@@ -361,52 +367,59 @@ ${report.hourlyActivity.map((count, hour) => ({ hour, count }))
 
   generateErrorRecommendations() {
     const recommendations = [];
-    
+
     if (this.metrics.errorCount > this.metrics.totalLines * 0.05) {
       recommendations.push('High error rate detected (>5%). Investigate root causes immediately.');
     }
-    
-    const topError = Array.from(this.metrics.errorTypes.entries())
-      .sort((a, b) => b[1] - a[1])[0];
-    
+
+    const topError = Array.from(this.metrics.errorTypes.entries()).sort((a, b) => b[1] - a[1])[0];
+
     if (topError && topError[1] > 10) {
-      recommendations.push(`Most frequent error: ${topError[0]} (${topError[1]} occurrences). Focus debugging efforts here.`);
+      recommendations.push(
+        `Most frequent error: ${topError[0]} (${topError[1]} occurrences). Focus debugging efforts here.`
+      );
     }
-    
+
     return recommendations;
   }
 
   generatePerformanceRecommendations(stats) {
     const recommendations = [];
-    
+
     if (stats && stats.p95 > 2000) {
-      recommendations.push('95th percentile response time >2s. Consider performance optimizations.');
+      recommendations.push(
+        '95th percentile response time >2s. Consider performance optimizations.'
+      );
     }
-    
+
     if (this.metrics.performanceIssues > 100) {
-      recommendations.push('High number of performance-related log entries. Review slow queries and operations.');
+      recommendations.push(
+        'High number of performance-related log entries. Review slow queries and operations.'
+      );
     }
-    
+
     return recommendations;
   }
 
   generateSecurityRecommendations() {
     const recommendations = [];
-    
+
     if (this.metrics.securityEvents > 50) {
-      recommendations.push('High number of security events detected. Review for potential threats.');
+      recommendations.push(
+        'High number of security events detected. Review for potential threats.'
+      );
     }
-    
+
     return recommendations;
   }
 
   generateBusinessRecommendations() {
     const recommendations = [];
-    
+
     if (this.metrics.uniqueUsers.size < 10) {
       recommendations.push('Low user activity detected. Consider user engagement strategies.');
     }
-    
+
     return recommendations;
   }
 
@@ -422,7 +435,7 @@ ${report.hourlyActivity.map((count, hour) => ({ hour, count }))
 async function main() {
   const args = process.argv.slice(2);
   const options = {};
-  
+
   // Parse command line arguments
   for (let i = 0; i < args.length; i += 2) {
     const key = args[i]?.replace(/^--/, '');
@@ -434,12 +447,12 @@ async function main() {
 
   console.log('🚀 Direct Fan Platform Log Analyzer');
   console.log('=====================================');
-  
+
   const analyzer = new LogAnalyzer(options);
-  
+
   try {
     await analyzer.analyze();
-    
+
     console.log('\n📊 Analysis Summary:');
     console.log(`- Total Lines: ${analyzer.metrics.totalLines.toLocaleString()}`);
     console.log(`- Errors: ${analyzer.metrics.errorCount}`);
@@ -448,15 +461,17 @@ async function main() {
     console.log(`- Security Events: ${analyzer.metrics.securityEvents}`);
     console.log(`- Performance Issues: ${analyzer.metrics.performanceIssues}`);
     console.log(`\n📁 Reports generated in: ${analyzer.outputDir}`);
-    
   } catch (error) {
     console.error('\n❌ Analysis failed:', error.message);
     process.exit(1);
   }
 }
 
-if (require.main === module) {
+const __filename = fileURLToPath(import.meta.url);
+const isMainModule = import.meta.url.endsWith(process.argv[1]);
+
+if (isMainModule) {
   main().catch(console.error);
 }
 
-module.exports = LogAnalyzer;
+export default LogAnalyzer;

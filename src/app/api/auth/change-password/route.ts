@@ -5,17 +5,19 @@ import { logger } from '@/lib/logger';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 
-const passwordChangeSchema = z.object({
-  currentPassword: z.string().min(1, 'Current password is required'),
-  newPassword: z.string().min(8, 'New password must be at least 8 characters'),
-  confirmPassword: z.string().min(1, 'Password confirmation is required')
-}).refine((data) => data.newPassword === data.confirmPassword, {
-  message: "New passwords don't match",
-  path: ["confirmPassword"]
-});
+const passwordChangeSchema = z
+  .object({
+    currentPassword: z.string().min(1, 'Current password is required'),
+    newPassword: z.string().min(8, 'New password must be at least 8 characters'),
+    confirmPassword: z.string().min(1, 'Password confirmation is required'),
+  })
+  .refine(data => data.newPassword === data.confirmPassword, {
+    message: "New passwords don't match",
+    path: ['confirmPassword'],
+  });
 
 export async function POST(request: NextRequest) {
-  return withApi(request, async (req) => {
+  return withApi(request, async req => {
     try {
       const body = await request.json();
       const validatedData = passwordChangeSchema.parse(body);
@@ -23,19 +25,16 @@ export async function POST(request: NextRequest) {
       const { currentPassword, newPassword } = validatedData;
 
       // Get user from database with current password
-      const user = await prisma.user.findUnique({
+      const user = await prisma.users.findUnique({
         where: { id: req.user.id },
         select: {
           id: true,
-          password: true
-        }
+          password: true,
+        },
       });
 
       if (!user) {
-        return NextResponse.json(
-          { error: 'User not found' },
-          { status: 404 }
-        );
+        return NextResponse.json({ error: 'User not found' }, { status: 404 });
       }
 
       // Check if user has a password (might be OAuth user)
@@ -49,10 +48,7 @@ export async function POST(request: NextRequest) {
       // Verify current password
       const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
       if (!isCurrentPasswordValid) {
-        return NextResponse.json(
-          { error: 'Current password is incorrect' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'Current password is incorrect' }, { status: 400 });
       }
 
       // Check if new password is different from current
@@ -69,39 +65,35 @@ export async function POST(request: NextRequest) {
       const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
 
       // Update password in database
-      await prisma.user.update({
+      await prisma.users.update({
         where: { id: req.user.id },
         data: {
           password: hashedNewPassword,
-          updatedAt: new Date()
-        }
+          updatedAt: new Date(),
+        },
       });
 
       logger.info('Password changed successfully', {
-        userId: req.user.id
+        userId: req.user.id,
       });
 
       return NextResponse.json({
         success: true,
-        message: 'Password changed successfully'
+        message: 'Password changed successfully',
       });
-
     } catch (error) {
       if (error instanceof z.ZodError) {
         return NextResponse.json(
-          { 
+          {
             error: 'Invalid input',
-            details: error.errors
+            details: error.errors,
           },
           { status: 400 }
         );
       }
 
       logger.error('Password change error', { userId: req.user?.id }, error as Error);
-      return NextResponse.json(
-        { error: 'Failed to change password' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to change password' }, { status: 500 });
     }
   });
 }

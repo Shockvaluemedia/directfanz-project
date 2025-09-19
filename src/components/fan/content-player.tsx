@@ -1,9 +1,9 @@
-"use client"
+'use client';
 
-import { useState, useEffect } from 'react'
-import { LazyMediaPlaylist, preloadMediaComponents } from '@/components/ui/lazy-media-components'
-import type { MediaItem } from '@/components/ui/media-playlist'
-import { Content } from '@prisma/client'
+import { useState, useEffect } from 'react';
+import { LazyMediaPlaylist, preloadMediaComponents } from '@/components/ui/lazy-media-components';
+import type { MediaItem } from '@/components/ui/media-playlist';
+import { Content } from '@prisma/client';
 
 // Extended content type that includes artist info and ensures metadata access
 type ContentWithArtist = Content & {
@@ -13,32 +13,32 @@ type ContentWithArtist = Content & {
   metadata?: {
     duration?: number;
   } | null;
-}
+};
 
 interface ContentPlayerProps {
-  content: ContentWithArtist | ContentWithArtist[]
-  className?: string
+  content: ContentWithArtist | ContentWithArtist[];
+  className?: string;
 }
 
 export default function ContentPlayer({ content, className = '' }: ContentPlayerProps) {
-  const [mediaItems, setMediaItems] = useState<MediaItem[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchMediaItems = async () => {
       try {
-        setIsLoading(true)
-        setError(null)
-        
-        const contentArray = Array.isArray(content) ? content : [content]
-        
+        setIsLoading(true);
+        setError(null);
+
+        const contentArray = Array.isArray(content) ? content : [content];
+
         // Transform content items to media items
         const items: MediaItem[] = await Promise.all(
-          contentArray.map(async (item) => {
+          contentArray.map(async item => {
             // Get streaming URL for the content
-            const streamUrl = `/api/content/${item.id}/stream`
-            
+            const streamUrl = `/api/content/${item.id}/stream`;
+
             return {
               id: item.id,
               title: item.title,
@@ -46,22 +46,22 @@ export default function ContentPlayer({ content, className = '' }: ContentPlayer
               type: item.type as 'AUDIO' | 'VIDEO',
               url: streamUrl,
               duration: item.duration || undefined,
-              thumbnailUrl: item.thumbnailUrl || undefined
-            }
+              thumbnailUrl: item.thumbnailUrl || undefined,
+            };
           })
-        )
-        
-        setMediaItems(items)
+        );
+
+        setMediaItems(items);
       } catch (err) {
-        console.error('Error loading media items:', err)
-        setError('Failed to load media content')
+        console.error('Error loading media items:', err);
+        setError('Failed to load media content');
       } finally {
-        setIsLoading(false)
+        setIsLoading(false);
       }
-    }
-    
-    fetchMediaItems()
-  }, [content])
+    };
+
+    fetchMediaItems();
+  }, [content]);
 
   // Preload media components when content is available
   // This must come before any early returns to follow Rules of Hooks
@@ -74,38 +74,33 @@ export default function ContentPlayer({ content, className = '' }: ContentPlayer
   if (isLoading) {
     return (
       <div className={`bg-white border border-gray-200 rounded-lg p-8 ${className}`}>
-        <div className="flex justify-center items-center h-32">
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        <div className='flex justify-center items-center h-32'>
+          <div className='w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin' />
         </div>
       </div>
-    )
+    );
   }
 
   if (error) {
     return (
       <div className={`bg-white border border-gray-200 rounded-lg p-8 ${className}`}>
-        <div className="text-center text-red-600">
-          <p className="font-medium mb-2">Error loading content</p>
-          <p className="text-sm text-gray-600">{error}</p>
+        <div className='text-center text-red-600'>
+          <p className='font-medium mb-2'>Error loading content</p>
+          <p className='text-sm text-gray-600'>{error}</p>
         </div>
       </div>
-    )
+    );
   }
 
   if (mediaItems.length === 0) {
     return (
       <div className={`bg-white border border-gray-200 rounded-lg p-8 ${className}`}>
-        <div className="text-center text-gray-500">
+        <div className='text-center text-gray-500'>
           <p>No playable content available</p>
         </div>
       </div>
-    )
+    );
   }
 
-  return (
-    <LazyMediaPlaylist 
-      items={mediaItems}
-      className={className}
-    />
-  )
+  return <LazyMediaPlaylist items={mediaItems} className={className} />;
 }

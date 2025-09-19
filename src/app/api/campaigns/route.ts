@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
-import { CampaignType, CampaignStatus, CampaignMetric } from '@prisma/client';
+import { CampaignType, CampaignStatus, CampaignMetric } from '@/lib/types/enums';
 
 // Validation schema for creating campaigns
 const createCampaignSchema = z.object({
@@ -22,7 +22,10 @@ const createCampaignSchema = z.object({
   hasDigitalPrizes: z.boolean().default(false),
   hasPhysicalPrizes: z.boolean().default(false),
   bannerImage: z.string().url().optional(),
-  brandColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+  brandColor: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/)
+    .optional(),
   tags: z.array(z.string()).optional(),
 });
 
@@ -43,7 +46,7 @@ export async function GET(request: NextRequest) {
 
     // Build where clause
     const where: any = {};
-    
+
     if (status) where.status = status;
     if (type) where.type = type;
     if (artistId) {
@@ -54,10 +57,7 @@ export async function GET(request: NextRequest) {
         // Admins can see all campaigns
       } else if (session.user.role === 'ARTIST') {
         // Artists can see their own campaigns or public active ones
-        where.OR = [
-          { artistId: session.user.id },
-          { status: 'ACTIVE' }
-        ];
+        where.OR = [{ artistId: session.user.id }, { status: 'ACTIVE' }];
       } else {
         // Fans can only see active campaigns
         where.status = 'ACTIVE';
@@ -68,24 +68,24 @@ export async function GET(request: NextRequest) {
     }
 
     const [campaigns, total] = await Promise.all([
-      prisma.campaign.findMany({
+      prisma.campaigns.findMany({
         where,
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
         include: {
           artist: {
-            select: { id: true, displayName: true, avatar: true }
+            select: { id: true, displayName: true, avatar: true },
           },
           challenges: {
-            select: { id: true, title: true, status: true, participantCount: true }
+            select: { id: true, title: true, status: true, participantCount: true },
           },
           _count: {
-            select: { challenges: true, rewards: true }
-          }
+            select: { challenges: true, campaign_rewards: true },
+          },
         },
       }),
-      prisma.campaign.count({ where }),
+      prisma.campaigns.count({ where }),
     ]);
 
     return NextResponse.json({
@@ -97,13 +97,9 @@ export async function GET(request: NextRequest) {
         pages: Math.ceil(total / limit),
       },
     });
-
   } catch (error) {
     logger.error('Error fetching campaigns', {}, error as Error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -127,7 +123,7 @@ export async function POST(request: NextRequest) {
     // Validate date range
     const startDate = new Date(validatedData.startDate);
     const endDate = new Date(validatedData.endDate);
-    
+
     if (endDate <= startDate) {
       return NextResponse.json({ error: 'End date must be after start date' }, { status: 400 });
     }
@@ -137,7 +133,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create campaign
-    const campaign = await prisma.campaign.create({
+    const campaign = await prisma.campaigns.create({
       data: {
         ...validatedData,
         artistId: session.user.id,
@@ -147,10 +143,10 @@ export async function POST(request: NextRequest) {
       },
       include: {
         artist: {
-          select: { id: true, displayName: true, avatar: true }
+          select: { id: true, displayName: true, avatar: true },
         },
         challenges: true,
-        rewards: true,
+        campaign_rewards: true,
       },
     });
 
@@ -162,7 +158,6 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json(campaign, { status: 201 });
-
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -172,9 +167,6 @@ export async function POST(request: NextRequest) {
     }
 
     logger.error('Error creating campaign', { userId: session?.user?.id }, error as Error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

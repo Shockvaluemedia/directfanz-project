@@ -8,14 +8,14 @@ export const ALLOWED_FILE_TYPES = {
   AUDIO: ['audio/mpeg', 'audio/wav', 'audio/flac', 'audio/aac', 'audio/ogg'],
   VIDEO: ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo'],
   IMAGE: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
-  DOCUMENT: ['application/pdf', 'text/plain']
+  DOCUMENT: ['application/pdf', 'text/plain'],
 } as const;
 
 export const MAX_FILE_SIZES = {
   AUDIO: 100 * 1024 * 1024, // 100MB
   VIDEO: 500 * 1024 * 1024, // 500MB
-  IMAGE: 10 * 1024 * 1024,  // 10MB
-  DOCUMENT: 25 * 1024 * 1024 // 25MB
+  IMAGE: 10 * 1024 * 1024, // 10MB
+  DOCUMENT: 25 * 1024 * 1024, // 25MB
 } as const;
 
 // Suspicious patterns that could indicate malicious content
@@ -30,7 +30,7 @@ const SUSPICIOUS_PATTERNS = [
   /\.bat$/i,
   /\.cmd$/i,
   /\.scr$/i,
-  /\.vbs$/i
+  /\.vbs$/i,
 ];
 
 // SQL injection patterns
@@ -39,7 +39,7 @@ const SQL_INJECTION_PATTERNS = [
   /(\binsert\b.*\binto\b)|(\bdelete\b.*\bfrom\b)/i,
   /(\bdrop\b.*\btable\b)|(\bcreate\b.*\btable\b)/i,
   /(\bexec\b.*\bsp_)/i,
-  /(;\s*(drop|insert|delete|update|create))/i
+  /(;\s*(drop|insert|delete|update|create))/i,
 ];
 
 export interface ValidationResult {
@@ -75,7 +75,7 @@ export function validateAndSanitizeText(
     allowHtml = false,
     stripTags = true,
     checkSql = true,
-    checkXss = true
+    checkXss = true,
   } = options;
 
   const errors: string[] = [];
@@ -117,7 +117,7 @@ export function validateAndSanitizeText(
       // Sanitize HTML while preserving safe tags
       sanitizedValue = DOMPurify.sanitize(input, {
         ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'p', 'br', 'ul', 'ol', 'li'],
-        ALLOWED_ATTR: []
+        ALLOWED_ATTR: [],
       });
     } else if (stripTags) {
       // Strip all HTML tags
@@ -140,7 +140,7 @@ export function validateAndSanitizeText(
     isValid: errors.length === 0,
     errors,
     sanitizedValue,
-    riskLevel
+    riskLevel,
   };
 }
 
@@ -149,7 +149,7 @@ export function validateAndSanitizeText(
  */
 export function validateEmail(email: string): ValidationResult {
   const errors: string[] = [];
-  
+
   if (!validator.isEmail(email)) {
     errors.push('Invalid email format');
   }
@@ -165,7 +165,7 @@ export function validateEmail(email: string): ValidationResult {
   return {
     isValid: errors.length === 0,
     errors,
-    sanitizedValue: normalizedEmail || email
+    sanitizedValue: normalizedEmail || email,
   };
 }
 
@@ -183,11 +183,11 @@ export function validateFile(
 
   // Sanitize filename
   const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
-  
+
   // Check file extension matches MIME type
   const fileExtension = fileName.toLowerCase().split('.').pop();
   const allowedTypes = Object.values(ALLOWED_FILE_TYPES).flat() as string[];
-  
+
   if (!allowedTypes.includes(mimeType)) {
     errors.push(`File type ${mimeType} is not allowed`);
     riskLevel = 'high';
@@ -218,7 +218,7 @@ export function validateFile(
   if (fileBuffer) {
     const magicNumber = fileBuffer.slice(0, 4).toString('hex');
     const isValidMagicNumber = checkFileMagicNumber(magicNumber, mimeType);
-    
+
     if (!isValidMagicNumber) {
       errors.push('File content does not match declared type');
       riskLevel = 'high';
@@ -238,7 +238,7 @@ export function validateFile(
     fileType: mimeType,
     fileSize,
     fileName: sanitizedFileName,
-    riskLevel
+    riskLevel,
   };
 }
 
@@ -253,7 +253,7 @@ function checkFileMagicNumber(magicNumber: string, mimeType: string): boolean {
     'image/webp': ['52494646'],
     'video/mp4': ['66747970'],
     'audio/mpeg': ['494433'],
-    'application/pdf': ['25504446']
+    'application/pdf': ['25504446'],
   };
 
   const expectedMagic = magicNumbers[mimeType];
@@ -282,7 +282,7 @@ export function validateJson(
 
   try {
     const parsed = JSON.parse(input);
-    
+
     // Check depth
     if (getObjectDepth(parsed) > maxDepth) {
       errors.push(`JSON object exceeds maximum depth of ${maxDepth}`);
@@ -299,13 +299,13 @@ export function validateJson(
     return {
       isValid: errors.length === 0,
       errors,
-      sanitizedValue: parsed
+      sanitizedValue: parsed,
     };
   } catch (error) {
     errors.push('Invalid JSON format');
     return {
       isValid: false,
-      errors
+      errors,
     };
   }
 }
@@ -315,7 +315,7 @@ export function validateJson(
  */
 function getObjectDepth(obj: any): number {
   if (obj === null || typeof obj !== 'object') return 1;
-  
+
   const depths = Object.values(obj).map(value => getObjectDepth(value));
   return 1 + Math.max(...depths, 0);
 }
@@ -365,14 +365,14 @@ export function validateApiRequest(
       isValid: errors.length === 0,
       errors,
       sanitizedValue: schemaResult.success ? sanitizedBody : undefined,
-      riskLevel
+      riskLevel,
     };
   } catch (error) {
     errors.push('Invalid request format');
     return {
       isValid: false,
       errors,
-      riskLevel: 'high'
+      riskLevel: 'high',
     };
   }
 }
@@ -382,9 +382,9 @@ export function validateApiRequest(
  */
 function sanitizeObjectStrings(obj: any, checkInjection = true): any {
   if (typeof obj === 'string') {
-    const result = validateAndSanitizeText(obj, { 
-      checkSql: checkInjection, 
-      checkXss: true 
+    const result = validateAndSanitizeText(obj, {
+      checkSql: checkInjection,
+      checkXss: true,
     });
     return result.sanitizedValue || obj;
   }
@@ -414,6 +414,6 @@ export function logSecurityEvent(
 ) {
   logger.securityEvent(`Input validation: ${eventType}`, riskLevel, {
     ...details,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 }

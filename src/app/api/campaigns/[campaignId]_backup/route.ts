@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
-import { CampaignStatus } from '@prisma/client';
+import { CampaignStatus } from '@/lib/types/enums';
 
 const updateCampaignSchema = z.object({
   title: z.string().min(1).max(200).optional(),
@@ -18,54 +18,55 @@ const updateCampaignSchema = z.object({
   hasDigitalPrizes: z.boolean().optional(),
   hasPhysicalPrizes: z.boolean().optional(),
   bannerImage: z.string().url().nullable().optional(),
-  brandColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).nullable().optional(),
+  brandColor: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/)
+    .nullable()
+    .optional(),
   tags: z.array(z.string()).optional(),
   status: z.nativeEnum(CampaignStatus).optional(),
 });
 
 // GET /api/campaigns/[campaignId] - Get single campaign
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { campaignId: string } }
-) {
+export async function GET(request: NextRequest, { params }: { params: { campaignId: string } }) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const campaign = await prisma.campaign.findUnique({
+    const campaign = await prisma.campaigns.findUnique({
       where: { id: params.campaignId },
       include: {
         artist: {
-          select: { id: true, displayName: true, avatar: true }
+          select: { id: true, displayName: true, avatar: true },
         },
         challenges: {
           include: {
             _count: {
-              select: { participations: true, submissions: true }
-            }
-          }
+              select: { challenge_participations: true, challenge_submissions: true },
+            },
+          },
         },
-        rewards: {
+        campaign_rewards: {
           include: {
             content: {
-              select: { id: true, title: true, thumbnailUrl: true }
-            }
-          }
+              select: { id: true, title: true, thumbnailUrl: true },
+            },
+          },
         },
         analytics: {
           where: {
             date: {
-              gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // Last 30 days
-            }
+              gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Last 30 days
+            },
           },
           orderBy: { date: 'desc' },
-          take: 30
+          take: 30,
         },
         _count: {
-          select: { challenges: true, rewards: true }
-        }
+          select: { challenges: true, campaign_rewards: true },
+        },
       },
     });
 
@@ -85,25 +86,18 @@ export async function GET(
     // Parse tags from JSON
     const campaignWithParsedTags = {
       ...campaign,
-      tags: campaign.tags ? JSON.parse(campaign.tags) : []
+      tags: campaign.tags ? JSON.parse(campaign.tags) : [],
     };
 
     return NextResponse.json(campaignWithParsedTags);
-
   } catch (error) {
     logger.error('Error fetching campaign', { campaignId: params.campaignId }, error as Error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 // PATCH /api/campaigns/[campaignId] - Update campaign
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { campaignId: string } }
-) {
+export async function PATCH(request: NextRequest, { params }: { params: { campaignId: string } }) {
   let session;
   try {
     session = await getServerSession(authOptions);
@@ -111,9 +105,9 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const campaign = await prisma.campaign.findUnique({
+    const campaign = await prisma.campaigns.findUnique({
       where: { id: params.campaignId },
-      select: { artistId: true, status: true }
+      select: { artistId: true, status: true },
     });
 
     if (!campaign) {
@@ -130,16 +124,16 @@ export async function PATCH(
 
     // Validate date changes if provided
     if (validatedData.startDate || validatedData.endDate) {
-      const currentCampaign = await prisma.campaign.findUnique({
+      const currentCampaign = await prisma.campaigns.findUnique({
         where: { id: params.campaignId },
-        select: { startDate: true, endDate: true, status: true }
+        select: { startDate: true, endDate: true, status: true },
       });
 
-      const startDate = validatedData.startDate 
-        ? new Date(validatedData.startDate) 
+      const startDate = validatedData.startDate
+        ? new Date(validatedData.startDate)
         : currentCampaign!.startDate;
-      const endDate = validatedData.endDate 
-        ? new Date(validatedData.endDate) 
+      const endDate = validatedData.endDate
+        ? new Date(validatedData.endDate)
         : currentCampaign!.endDate;
 
       if (endDate <= startDate) {
@@ -147,12 +141,18 @@ export async function PATCH(
       }
 
       // Don't allow changing dates of active campaigns
-      if (currentCampaign!.status === 'ACTIVE' && (validatedData.startDate || validatedData.endDate)) {
-        return NextResponse.json({ error: 'Cannot change dates of active campaigns' }, { status: 400 });
+      if (
+        currentCampaign!.status === 'ACTIVE' &&
+        (validatedData.startDate || validatedData.endDate)
+      ) {
+        return NextResponse.json(
+          { error: 'Cannot change dates of active campaigns' },
+          { status: 400 }
+        );
       }
     }
 
-    const updatedCampaign = await prisma.campaign.update({
+    const updatedCampaign = await prisma.campaigns.update({
       where: { id: params.campaignId },
       data: {
         ...(() => {
@@ -166,26 +166,25 @@ export async function PATCH(
       },
       include: {
         artist: {
-          select: { id: true, displayName: true, avatar: true }
+          select: { id: true, displayName: true, avatar: true },
         },
         challenges: {
-          select: { id: true, title: true, status: true, participantCount: true }
+          select: { id: true, title: true, status: true, participantCount: true },
         },
-        rewards: true,
+        campaign_rewards: true,
       },
     });
 
     logger.info('Campaign updated', {
       campaignId: params.campaignId,
       artistId: session.user.id,
-      changes: Object.keys(validatedData)
+      changes: Object.keys(validatedData),
     });
 
     return NextResponse.json({
       ...updatedCampaign,
-      tags: updatedCampaign.tags ? JSON.parse(updatedCampaign.tags) : []
+      tags: updatedCampaign.tags ? JSON.parse(updatedCampaign.tags) : [],
     });
-
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -194,22 +193,20 @@ export async function PATCH(
       );
     }
 
-    logger.error('Error updating campaign', { 
-      campaignId: params.campaignId,
-      userId: session?.user?.id 
-    }, error as Error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+    logger.error(
+      'Error updating campaign',
+      {
+        campaignId: params.campaignId,
+        userId: session?.user?.id,
+      },
+      error as Error
     );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 // DELETE /api/campaigns/[campaignId] - Delete campaign
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { campaignId: string } }
-) {
+export async function DELETE(request: NextRequest, { params }: { params: { campaignId: string } }) {
   let session;
   try {
     session = await getServerSession(authOptions);
@@ -217,9 +214,9 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const campaign = await prisma.campaign.findUnique({
+    const campaign = await prisma.campaigns.findUnique({
       where: { id: params.campaignId },
-      select: { artistId: true, status: true, totalParticipants: true }
+      select: { artistId: true, status: true, totalParticipants: true },
     });
 
     if (!campaign) {
@@ -233,13 +230,16 @@ export async function DELETE(
 
     // Don't allow deletion of active campaigns with participants
     if (campaign.status === 'ACTIVE' && campaign.totalParticipants > 0) {
-      return NextResponse.json({ 
-        error: 'Cannot delete active campaigns with participants. Please end the campaign first.' 
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: 'Cannot delete active campaigns with participants. Please end the campaign first.',
+        },
+        { status: 400 }
+      );
     }
 
-    await prisma.campaign.delete({
-      where: { id: params.campaignId }
+    await prisma.campaigns.delete({
+      where: { id: params.campaignId },
     });
 
     logger.info('Campaign deleted', {
@@ -248,15 +248,15 @@ export async function DELETE(
     });
 
     return NextResponse.json({ message: 'Campaign deleted successfully' });
-
   } catch (error) {
-    logger.error('Error deleting campaign', { 
-      campaignId: params.campaignId,
-      userId: session?.user?.id 
-    }, error as Error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+    logger.error(
+      'Error deleting campaign',
+      {
+        campaignId: params.campaignId,
+        userId: session?.user?.id,
+      },
+      error as Error
     );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

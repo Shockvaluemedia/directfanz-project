@@ -29,7 +29,12 @@ interface UseWebSocketReturn {
   disconnect: () => void;
 
   // Messaging methods
-  sendMessage: (recipientId: string, content: string, type?: 'TEXT' | 'IMAGE' | 'AUDIO', attachmentUrl?: string) => void;
+  sendMessage: (
+    recipientId: string,
+    content: string,
+    type?: 'TEXT' | 'IMAGE' | 'AUDIO',
+    attachmentUrl?: string
+  ) => void;
   markMessageAsRead: (messageId: string) => void;
 
   // Conversation methods
@@ -56,10 +61,14 @@ interface UseWebSocketReturn {
 
 export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketReturn {
   const { data: session, status: sessionStatus } = useSession();
-  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>(ConnectionStatus.DISCONNECTED);
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>(
+    ConnectionStatus.DISCONNECTED
+  );
   const [error, setError] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [typingUsers, setTypingUsers] = useState<{ userId: string; displayName: string; conversationId: string }[]>([]);
+  const [typingUsers, setTypingUsers] = useState<
+    { userId: string; displayName: string; conversationId: string }[]
+  >([]);
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
 
   const socketRef = useRef<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null);
@@ -107,17 +116,17 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
       setError(null);
     });
 
-    socket.on('disconnect', (reason) => {
+    socket.on('disconnect', reason => {
       console.log('WebSocket disconnected:', reason);
       setConnectionStatus(ConnectionStatus.DISCONNECTED);
-      
+
       if (reason === 'io server disconnect') {
         // Server initiated disconnect, try to reconnect
         setConnectionStatus(ConnectionStatus.RECONNECTING);
       }
     });
 
-    socket.on('connect_error', (err) => {
+    socket.on('connect_error', err => {
       console.error('WebSocket connection error:', err);
       setConnectionStatus(ConnectionStatus.ERROR);
       setError(err.message || 'Connection failed');
@@ -139,45 +148,41 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
     });
 
     // Authentication events
-    socket.on('auth:success', (data) => {
+    socket.on('auth:success', data => {
       console.log('WebSocket authentication successful:', data.userId);
     });
 
-    socket.on('auth:error', (error) => {
+    socket.on('auth:error', error => {
       console.error('WebSocket authentication error:', error);
       setError(error);
       setConnectionStatus(ConnectionStatus.ERROR);
     });
 
     // Message events
-    socket.on('message:new', (message) => {
+    socket.on('message:new', message => {
       setMessages(prev => [...prev, message]);
     });
 
-    socket.on('message:read', (data) => {
-      setMessages(prev => 
-        prev.map(msg => 
-          msg.id === data.messageId 
-            ? { ...msg, readAt: data.readAt }
-            : msg
-        )
+    socket.on('message:read', data => {
+      setMessages(prev =>
+        prev.map(msg => (msg.id === data.messageId ? { ...msg, readAt: data.readAt } : msg))
       );
     });
 
-    socket.on('message:delivered', (data) => {
-      setMessages(prev => 
-        prev.map(msg => 
-          msg.id === data.messageId 
-            ? { ...msg, deliveredAt: data.deliveredAt }
-            : msg
+    socket.on('message:delivered', data => {
+      setMessages(prev =>
+        prev.map(msg =>
+          msg.id === data.messageId ? { ...msg, deliveredAt: data.deliveredAt } : msg
         )
       );
     });
 
     // Typing events
-    socket.on('typing:start', (data) => {
+    socket.on('typing:start', data => {
       setTypingUsers(prev => {
-        const exists = prev.find(user => user.userId === data.userId && user.conversationId === data.conversationId);
+        const exists = prev.find(
+          user => user.userId === data.userId && user.conversationId === data.conversationId
+        );
         if (exists) return prev;
         return [...prev, data];
       });
@@ -187,22 +192,26 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
       if (typingTimeoutsRef.current.has(timeoutKey)) {
         clearTimeout(typingTimeoutsRef.current.get(timeoutKey)!);
       }
-      
+
       const timeout = setTimeout(() => {
-        setTypingUsers(prev => 
-          prev.filter(user => !(user.userId === data.userId && user.conversationId === data.conversationId))
+        setTypingUsers(prev =>
+          prev.filter(
+            user => !(user.userId === data.userId && user.conversationId === data.conversationId)
+          )
         );
         typingTimeoutsRef.current.delete(timeoutKey);
       }, 10000);
-      
+
       typingTimeoutsRef.current.set(timeoutKey, timeout);
     });
 
-    socket.on('typing:stop', (data) => {
-      setTypingUsers(prev => 
-        prev.filter(user => !(user.userId === data.userId && user.conversationId === data.conversationId))
+    socket.on('typing:stop', data => {
+      setTypingUsers(prev =>
+        prev.filter(
+          user => !(user.userId === data.userId && user.conversationId === data.conversationId)
+        )
       );
-      
+
       const timeoutKey = `${data.conversationId}:${data.userId}`;
       if (typingTimeoutsRef.current.has(timeoutKey)) {
         clearTimeout(typingTimeoutsRef.current.get(timeoutKey)!);
@@ -211,22 +220,19 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
     });
 
     // Presence events
-    socket.on('user:online', (data) => {
-      setOnlineUsers(prev => 
-        prev.includes(data.userId) ? prev : [...prev, data.userId]
-      );
+    socket.on('user:online', data => {
+      setOnlineUsers(prev => (prev.includes(data.userId) ? prev : [...prev, data.userId]));
     });
 
-    socket.on('user:offline', (data) => {
+    socket.on('user:offline', data => {
       setOnlineUsers(prev => prev.filter(userId => userId !== data.userId));
     });
 
     // Error events
-    socket.on('error', (error) => {
+    socket.on('error', error => {
       console.error('WebSocket error:', error);
       setError(error);
     });
-
   }, [session, sessionStatus, reconnection, reconnectionAttempts, reconnectionDelay]);
 
   // Disconnect from WebSocket server
@@ -236,11 +242,11 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
       socketRef.current = null;
     }
     setConnectionStatus(ConnectionStatus.DISCONNECTED);
-    
+
     // Clear all typing timeouts
     typingTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
     typingTimeoutsRef.current.clear();
-    
+
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = null;
@@ -248,19 +254,27 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
   }, []);
 
   // Message methods
-  const sendMessage = useCallback((recipientId: string, content: string, type?: 'TEXT' | 'IMAGE' | 'AUDIO', attachmentUrl?: string) => {
-    if (!socketRef.current?.connected) {
-      setError('Not connected to server');
-      return;
-    }
+  const sendMessage = useCallback(
+    (
+      recipientId: string,
+      content: string,
+      type?: 'TEXT' | 'IMAGE' | 'AUDIO',
+      attachmentUrl?: string
+    ) => {
+      if (!socketRef.current?.connected) {
+        setError('Not connected to server');
+        return;
+      }
 
-    socketRef.current.emit('message:send', {
-      recipientId,
-      content,
-      type,
-      attachmentUrl,
-    });
-  }, []);
+      socketRef.current.emit('message:send', {
+        recipientId,
+        content,
+        type,
+        attachmentUrl,
+      });
+    },
+    []
+  );
 
   const markMessageAsRead = useCallback((messageId: string) => {
     if (!socketRef.current?.connected) return;
@@ -300,9 +314,12 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
     socketRef.current?.on(event as any, handler);
   }, []);
 
-  const off = useCallback((event: keyof ServerToClientEvents, handler: (...args: any[]) => void) => {
-    socketRef.current?.off(event as any, handler);
-  }, []);
+  const off = useCallback(
+    (event: keyof ServerToClientEvents, handler: (...args: any[]) => void) => {
+      socketRef.current?.off(event as any, handler);
+    },
+    []
+  );
 
   const emit = useCallback((event: keyof ClientToServerEvents, ...args: any[]) => {
     socketRef.current?.emit(event as any, ...args);
@@ -310,7 +327,11 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
 
   // Auto-connect when session is available
   useEffect(() => {
-    if (autoConnect && sessionStatus === 'authenticated' && connectionStatus === ConnectionStatus.DISCONNECTED) {
+    if (
+      autoConnect &&
+      sessionStatus === 'authenticated' &&
+      connectionStatus === ConnectionStatus.DISCONNECTED
+    ) {
       connect();
     }
 

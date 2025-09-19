@@ -62,7 +62,7 @@ export default function NotificationPreferencesComponent() {
       }
 
       setSuccessMessage('Notification preferences saved successfully!');
-      
+
       // Clear success message after 3 seconds
       setTimeout(() => {
         setSuccessMessage(null);
@@ -84,25 +84,25 @@ export default function NotificationPreferencesComponent() {
   };
 
   if (isLoading) {
-    return <div className="text-center py-4">Loading preferences...</div>;
+    return <div className='text-center py-4'>Loading preferences...</div>;
   }
 
   return (
-    <Card className="p-6">
-      <h2 className="text-xl font-bold mb-4">Notification Preferences</h2>
-      
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
+    <Card className='p-6'>
+      <h2 className='text-xl font-bold mb-4'>Notification Preferences</h2>
+
+      <div className='space-y-4'>
+        <div className='flex items-center justify-between'>
           <div>
-            <h3 className="font-medium">New Content Notifications</h3>
-            <p className="text-sm text-gray-500">
+            <h3 className='font-medium'>New Content Notifications</h3>
+            <p className='text-sm text-gray-500'>
               Receive notifications when artists you subscribe to post new content
             </p>
           </div>
-          <label className="relative inline-flex items-center cursor-pointer">
+          <label className='relative inline-flex items-center cursor-pointer'>
             <input
-              type="checkbox"
-              className="sr-only peer"
+              type='checkbox'
+              className='sr-only peer'
               checked={preferences.newContent}
               onChange={() => handleCheckboxChange('newContent')}
             />
@@ -110,17 +110,17 @@ export default function NotificationPreferencesComponent() {
           </label>
         </div>
 
-        <div className="flex items-center justify-between">
+        <div className='flex items-center justify-between'>
           <div>
-            <h3 className="font-medium">Comment Notifications</h3>
-            <p className="text-sm text-gray-500">
+            <h3 className='font-medium'>Comment Notifications</h3>
+            <p className='text-sm text-gray-500'>
               Receive notifications when someone comments on your content
             </p>
           </div>
-          <label className="relative inline-flex items-center cursor-pointer">
+          <label className='relative inline-flex items-center cursor-pointer'>
             <input
-              type="checkbox"
-              className="sr-only peer"
+              type='checkbox'
+              className='sr-only peer'
               checked={preferences.comments}
               onChange={() => handleCheckboxChange('comments')}
             />
@@ -128,17 +128,17 @@ export default function NotificationPreferencesComponent() {
           </label>
         </div>
 
-        <div className="flex items-center justify-between">
+        <div className='flex items-center justify-between'>
           <div>
-            <h3 className="font-medium">Subscription Updates</h3>
-            <p className="text-sm text-gray-500">
+            <h3 className='font-medium'>Subscription Updates</h3>
+            <p className='text-sm text-gray-500'>
               Receive notifications about your subscription status and payments
             </p>
           </div>
-          <label className="relative inline-flex items-center cursor-pointer">
+          <label className='relative inline-flex items-center cursor-pointer'>
             <input
-              type="checkbox"
-              className="sr-only peer"
+              type='checkbox'
+              className='sr-only peer'
               checked={preferences.subscriptionUpdates}
               onChange={() => handleCheckboxChange('subscriptionUpdates')}
             />
@@ -147,24 +147,14 @@ export default function NotificationPreferencesComponent() {
         </div>
       </div>
 
-      {error && (
-        <div className="mt-4 p-3 bg-red-100 text-red-700 rounded-md">
-          {error}
-        </div>
-      )}
+      {error && <div className='mt-4 p-3 bg-red-100 text-red-700 rounded-md'>{error}</div>}
 
       {successMessage && (
-        <div className="mt-4 p-3 bg-green-100 text-green-700 rounded-md">
-          {successMessage}
-        </div>
+        <div className='mt-4 p-3 bg-green-100 text-green-700 rounded-md'>{successMessage}</div>
       )}
 
-      <div className="mt-6">
-        <Button
-          onClick={handleSavePreferences}
-          disabled={isSaving}
-          className="w-full"
-        >
+      <div className='mt-6'>
+        <Button onClick={handleSavePreferences} disabled={isSaving} className='w-full'>
           {isSaving ? 'Saving...' : 'Save Preferences'}
         </Button>
       </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 
 interface WebSocketContextType {
@@ -25,99 +25,199 @@ interface WebSocketProviderProps {
   url?: string;
 }
 
+// Global connection tracking to prevent multiple connections per user
+const activeConnections = new Map<string, EventSource>();
+
 export function WebSocketProvider({ children, url }: WebSocketProviderProps) {
   const { data: session, status } = useSession();
   const [eventSource, setEventSource] = useState<EventSource | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isClient, setIsClient] = useState(false);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
+  const connectionAttempts = useRef(0);
+  const maxReconnectAttempts = 5;
+  const baseReconnectDelay = 1000; // Start with 1 second
   const eventListeners = useRef<Map<string, Set<(data: any) => void>>>(new Map());
+  const userIdRef = useRef<string | null>(null);
 
   // Ensure this only runs on client
   useEffect(() => {
     setIsClient(true);
   }, []);
 
+  // Clean up connection for current user when component unmounts or user changes
   useEffect(() => {
-    // Don't attempt connection if not on client, session is still loading, or user not available
-    if (!isClient || status === 'loading' || !session?.user) return;
-
-    const connect = () => {
-      try {
-        // Create SSE connection
-        const sseUrl = url || `/api/ws?userId=${encodeURIComponent(session.user.id)}`;
-        const es = new EventSource(sseUrl);
-
-        es.onopen = () => {
-          console.log('SSE connected');
-          setIsConnected(true);
-          setEventSource(es);
-        };
-
-        es.onmessage = (event) => {
+    return () => {
+      if (userIdRef.current) {
+        const existingConnection = activeConnections.get(userIdRef.current);
+        if (existingConnection) {
           try {
-            const message = JSON.parse(event.data);
-            console.log('SSE message:', message);
-
-            // Dispatch to event listeners
-            const listeners = eventListeners.current.get(message.type);
-            if (listeners) {
-              listeners.forEach(callback => callback(message.data));
-            }
-          } catch (error) {
-            console.error('Error parsing SSE message:', error);
-          }
-        };
-
-        es.onerror = (error) => {
-          console.error('SSE error:', error);
-          setIsConnected(false);
-          setEventSource(null);
-
-          // Attempt to reconnect after a delay
-          reconnectTimeoutRef.current = setTimeout(() => {
-            console.log('Attempting to reconnect SSE...');
-            connect();
-          }, 3000);
-        };
-
-      } catch (error) {
-        console.error('Failed to create SSE connection:', error);
+            existingConnection.close();
+          } catch {}
+          activeConnections.delete(userIdRef.current);
+        }
       }
     };
+  }, []);
 
-    connect();
+  const connect = useCallback(() => {
+    if (!isClient || status === 'loading' || !session?.user) {
+      return;
+    }
 
-    // Cleanup on unmount
+    const userId = session.user.id;
+    userIdRef.current = userId;
+
+    // Check if there's already an active connection for this user
+    const existingConnection = activeConnections.get(userId);
+    if (existingConnection && existingConnection.readyState === EventSource.OPEN) {
+      // Use existing connection
+      setEventSource(existingConnection);
+      setIsConnected(true);
+      connectionAttempts.current = 0;
+      return;
+    }
+
+    // Clean up any stale connection
+    if (existingConnection) {
+      try {
+        existingConnection.close();
+      } catch {}
+      activeConnections.delete(userId);
+    }
+
+    // Don't reconnect if we've exceeded max attempts
+    if (connectionAttempts.current >= maxReconnectAttempts) {
+      console.log('Max reconnection attempts reached');
+      return;
+    }
+
+    try {
+      console.log(`Creating SSE connection (attempt ${connectionAttempts.current + 1})`);
+
+      const sseUrl = url || `/api/ws?userId=${encodeURIComponent(userId)}`;
+      const es = new EventSource(sseUrl);
+
+      // Store in global connections map
+      activeConnections.set(userId, es);
+
+      es.onopen = () => {
+        console.log('SSE connected successfully');
+        setEventSource(es);
+        setIsConnected(true);
+        connectionAttempts.current = 0; // Reset on successful connection
+      };
+
+      es.onmessage = event => {
+        try {
+          const message = JSON.parse(event.data);
+
+          // Dispatch to event listeners
+          const listeners = eventListeners.current.get(message.type);
+          if (listeners) {
+            listeners.forEach(callback => callback(message.data));
+          }
+        } catch (error) {
+          console.error('Error parsing SSE message:', error);
+        }
+      };
+
+      es.onerror = error => {
+        console.error('SSE connection error:', error);
+        setIsConnected(false);
+
+        // Clean up the failed connection
+        try {
+          es.close();
+        } catch {}
+        activeConnections.delete(userId);
+        setEventSource(null);
+
+        // Increment attempt counter
+        connectionAttempts.current++;
+
+        // Only attempt reconnection if we haven't exceeded the limit
+        if (connectionAttempts.current < maxReconnectAttempts) {
+          // Clear any existing reconnect timeout
+          if (reconnectTimeoutRef.current) {
+            clearTimeout(reconnectTimeoutRef.current);
+          }
+
+          // Exponential backoff: delay increases with each attempt
+          const delay = baseReconnectDelay * Math.pow(2, connectionAttempts.current - 1);
+
+          console.log(
+            `Scheduling reconnection in ${delay}ms (attempt ${connectionAttempts.current + 1}/${maxReconnectAttempts})`
+          );
+
+          reconnectTimeoutRef.current = setTimeout(() => {
+            connect();
+          }, delay);
+        } else {
+          console.log('Max reconnection attempts exceeded, giving up');
+        }
+      };
+    } catch (error) {
+      console.error('Failed to create SSE connection:', error);
+      connectionAttempts.current++;
+    }
+  }, [isClient, status, session?.user?.id, url]);
+
+  // Main connection effect
+  useEffect(() => {
+    if (isClient && session?.user) {
+      connect();
+    }
+
+    // Cleanup function
     return () => {
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
       }
-      if (eventSource) {
-        eventSource.close();
+
+      const userId = session?.user?.id;
+      if (userId) {
+        const connection = activeConnections.get(userId);
+        if (connection && connection === eventSource) {
+          // Only close if this is the connection we're managing
+          try {
+            connection.close();
+          } catch {}
+          activeConnections.delete(userId);
+        }
       }
+
+      setEventSource(null);
+      setIsConnected(false);
     };
-  }, [isClient, session?.user, status, url, eventSource]);
+  }, [connect, session?.user?.id]);
 
-  const sendMessage = async (message: any) => {
-    try {
-      // Send message via HTTP POST to SSE endpoint
-      await fetch('/api/ws', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...message,
-          userId: session?.user?.id
-        })
-      });
-    } catch (error) {
-      console.error('Failed to send message:', error);
-    }
-  };
+  const sendMessage = useCallback(
+    async (message: any) => {
+      if (!session?.user?.id) {
+        console.warn('Cannot send message: No user session');
+        return;
+      }
 
-  const subscribe = (event: string, callback: (data: any) => void) => {
+      try {
+        await fetch('/api/ws', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            ...message,
+            userId: session.user.id,
+          }),
+        });
+      } catch (error) {
+        console.error('Failed to send message:', error);
+      }
+    },
+    [session?.user?.id]
+  );
+
+  const subscribe = useCallback((event: string, callback: (data: any) => void) => {
     if (!eventListeners.current.has(event)) {
       eventListeners.current.set(event, new Set());
     }
@@ -133,18 +233,17 @@ export function WebSocketProvider({ children, url }: WebSocketProviderProps) {
         }
       }
     };
-  };
+  }, []);
 
-  const value: WebSocketContextType = {
-    eventSource,
-    isConnected,
-    sendMessage,
-    subscribe
-  };
-
-  return (
-    <WebSocketContext.Provider value={value}>
-      {children}
-    </WebSocketContext.Provider>
+  const value: WebSocketContextType = React.useMemo(
+    () => ({
+      eventSource,
+      isConnected,
+      sendMessage,
+      subscribe,
+    }),
+    [eventSource, isConnected, sendMessage, subscribe]
   );
+
+  return <WebSocketContext.Provider value={value}>{children}</WebSocketContext.Provider>;
 }

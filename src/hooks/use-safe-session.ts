@@ -26,13 +26,13 @@ export function useSafeSession() {
     return {
       data: null,
       status: 'loading' as const,
-      update: async () => null
+      update: async () => null,
     };
   }
 
   return {
     data: session,
     status,
-    update: sessionHook.update
+    update: sessionHook.update,
   };
 }

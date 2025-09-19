@@ -69,9 +69,9 @@ export async function GET(request: NextRequest) {
             viewers: true,
             chatMessages: true,
             tips: true,
-          }
-        }
-      }
+          },
+        },
+      },
     });
 
     const total = await prisma.liveStream.count({ where });
@@ -91,10 +91,9 @@ export async function GET(request: NextRequest) {
           limit,
           offset,
           hasMore: offset + limit < total,
-        }
-      }
+        },
+      },
     });
-
   } catch (error) {
     logger.error('Failed to fetch livestreams', { userId: session?.user?.id }, error as Error);
     return NextResponse.json(
@@ -117,11 +116,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user is an artist
-    const artist = await prisma.user.findFirst({
+    const artist = await prisma.users.findFirst({
       where: {
         id: session.user.id,
         role: 'ARTIST',
-      }
+      },
     });
 
     if (!artist) {
@@ -139,12 +138,12 @@ export async function POST(request: NextRequest) {
 
     // Validate tier access
     if (validatedData.tierIds.length > 0) {
-      const validTiers = await prisma.tier.findMany({
+      const validTiers = await prisma.tiers.findMany({
         where: {
           id: { in: validatedData.tierIds },
           artistId: session.user.id,
           isActive: true,
-        }
+        },
       });
 
       if (validTiers.length !== validatedData.tierIds.length) {
@@ -169,7 +168,7 @@ export async function POST(request: NextRequest) {
         maxViewers: validatedData.maxViewers,
         streamKey,
         status: validatedData.scheduledAt ? 'SCHEDULED' : 'LIVE',
-      }
+      },
     });
 
     logger.info('Livestream created', {
@@ -179,16 +178,18 @@ export async function POST(request: NextRequest) {
       isPublic: stream.isPublic,
     });
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        stream: {
-          ...stream,
-          tierIds: JSON.parse(stream.tierIds),
-        }
-      }
-    }, { status: 201 });
-
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          stream: {
+            ...stream,
+            tierIds: JSON.parse(stream.tierIds),
+          },
+        },
+      },
+      { status: 201 }
+    );
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(

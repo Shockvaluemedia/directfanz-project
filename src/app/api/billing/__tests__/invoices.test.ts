@@ -35,7 +35,9 @@ import { getServerSession } from 'next-auth';
 
 const mockPrisma = prisma as jest.Mocked<typeof prisma>;
 const mockStripe = stripe as jest.Mocked<typeof stripe>;
-const mockGenerateInvoiceData = generateInvoiceData as jest.MockedFunction<typeof generateInvoiceData>;
+const mockGenerateInvoiceData = generateInvoiceData as jest.MockedFunction<
+  typeof generateInvoiceData
+>;
 const mockGetServerSession = getServerSession as jest.MockedFunction<typeof getServerSession>;
 
 // Helper function to create mock request
@@ -61,17 +63,14 @@ describe('/api/billing/invoices', () => {
       };
 
       const mockStripeInvoices = {
-        data: [
-          { id: 'in_test1' },
-          { id: 'in_test2' },
-        ],
+        data: [{ id: 'in_test1' }, { id: 'in_test2' }],
         has_more: false,
       };
 
       const mockInvoiceData1 = {
         id: 'in_test1',
         subscriptionId: 'stripe_sub123',
-        amount: 10.00,
+        amount: 10.0,
         status: 'paid',
         dueDate: new Date('2022-01-01'),
         items: [],
@@ -80,7 +79,7 @@ describe('/api/billing/invoices', () => {
       const mockInvoiceData2 = {
         id: 'in_test2',
         subscriptionId: 'stripe_sub123',
-        amount: 10.00,
+        amount: 10.0,
         status: 'paid',
         dueDate: new Date('2022-02-01'),
         items: [],
@@ -93,7 +92,9 @@ describe('/api/billing/invoices', () => {
         .mockResolvedValueOnce(mockInvoiceData1 as any)
         .mockResolvedValueOnce(mockInvoiceData2 as any);
 
-      const request = createMockRequest('http://localhost:3000/api/billing/invoices?subscriptionId=sub123');
+      const request = createMockRequest(
+        'http://localhost:3000/api/billing/invoices?subscriptionId=sub123'
+      );
       const response = await GET(request);
       const data = await response.json();
 
@@ -112,7 +113,9 @@ describe('/api/billing/invoices', () => {
     it('should return 401 for unauthenticated user', async () => {
       mockGetServerSession.mockResolvedValue(null);
 
-      const request = createMockRequest('http://localhost:3000/api/billing/invoices?subscriptionId=sub123');
+      const request = createMockRequest(
+        'http://localhost:3000/api/billing/invoices?subscriptionId=sub123'
+      );
       const response = await GET(request);
       const data = await response.json();
 
@@ -143,7 +146,9 @@ describe('/api/billing/invoices', () => {
       mockGetServerSession.mockResolvedValue(mockSession as any);
       mockPrisma.subscription.findUnique.mockResolvedValue(null);
 
-      const request = createMockRequest('http://localhost:3000/api/billing/invoices?subscriptionId=sub123');
+      const request = createMockRequest(
+        'http://localhost:3000/api/billing/invoices?subscriptionId=sub123'
+      );
       const response = await GET(request);
       const data = await response.json();
 
@@ -163,17 +168,14 @@ describe('/api/billing/invoices', () => {
       };
 
       const mockStripeInvoices = {
-        data: [
-          { id: 'in_test1' },
-          { id: 'in_test2' },
-        ],
+        data: [{ id: 'in_test1' }, { id: 'in_test2' }],
         has_more: false,
       };
 
       const mockInvoiceData1 = {
         id: 'in_test1',
         subscriptionId: 'stripe_sub123',
-        amount: 10.00,
+        amount: 10.0,
         status: 'paid',
         dueDate: new Date('2022-01-01'),
         items: [],
@@ -186,7 +188,9 @@ describe('/api/billing/invoices', () => {
         .mockResolvedValueOnce(mockInvoiceData1 as any)
         .mockRejectedValueOnce(new Error('Invoice generation failed'));
 
-      const request = createMockRequest('http://localhost:3000/api/billing/invoices?subscriptionId=sub123');
+      const request = createMockRequest(
+        'http://localhost:3000/api/billing/invoices?subscriptionId=sub123'
+      );
       const response = await GET(request);
       const data = await response.json();
 
@@ -203,7 +207,9 @@ describe('/api/billing/invoices', () => {
       mockGetServerSession.mockResolvedValue(mockSession as any);
       mockPrisma.subscription.findUnique.mockRejectedValue(new Error('Database error'));
 
-      const request = createMockRequest('http://localhost:3000/api/billing/invoices?subscriptionId=sub123');
+      const request = createMockRequest(
+        'http://localhost:3000/api/billing/invoices?subscriptionId=sub123'
+      );
       const response = await GET(request);
       const data = await response.json();
 

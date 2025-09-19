@@ -1,10 +1,14 @@
 # Accessibility Guidelines
 
-This document outlines the accessibility standards and best practices implemented in the Direct-to-Fan Music Platform to ensure WCAG AA compliance.
+This document outlines the accessibility standards and best practices
+implemented in the Direct-to-Fan Music Platform to ensure WCAG AA compliance.
 
 ## Overview
 
-The platform follows the Web Content Accessibility Guidelines (WCAG) 2.1 Level AA standards to ensure that all users, including those with disabilities, can access and use the platform effectively. These guidelines cover a wide range of recommendations for making web content more accessible.
+The platform follows the Web Content Accessibility Guidelines (WCAG) 2.1 Level
+AA standards to ensure that all users, including those with disabilities, can
+access and use the platform effectively. These guidelines cover a wide range of
+recommendations for making web content more accessible.
 
 ## Key Accessibility Features
 
@@ -17,6 +21,7 @@ The platform follows the Web Content Accessibility Guidelines (WCAG) 2.1 Level A
 - Keyboard shortcuts for media players and common actions
 
 **Implementation:**
+
 - Use native HTML elements or ARIA roles with proper keyboard event handlers
 - Ensure all buttons, links, and form controls can be accessed via Tab key
 - Implement `tabIndex` appropriately (avoid positive values)
@@ -32,11 +37,13 @@ The platform follows the Web Content Accessibility Guidelines (WCAG) 2.1 Level A
 - Announcements for state changes
 
 **Implementation:**
+
 - Use semantic HTML elements (`<nav>`, `<main>`, `<header>`, etc.)
 - Include proper heading hierarchy (`<h1>` through `<h6>`)
 - Add `aria-label`, `aria-labelledby`, and `aria-describedby` where appropriate
 - Implement `aria-live` regions for dynamic content updates
-- Use `aria-expanded`, `aria-pressed`, and `aria-selected` for interactive elements
+- Use `aria-expanded`, `aria-pressed`, and `aria-selected` for interactive
+  elements
 
 ### 3. Color and Contrast
 
@@ -46,6 +53,7 @@ The platform follows the Web Content Accessibility Guidelines (WCAG) 2.1 Level A
 - Focus indicators have sufficient contrast
 
 **Implementation:**
+
 - Use the contrast checker utility in `src/lib/accessibility.ts`
 - Ensure all text meets WCAG AA contrast requirements
 - Add additional indicators beyond color (icons, text, patterns)
@@ -60,7 +68,9 @@ The platform follows the Web Content Accessibility Guidelines (WCAG) 2.1 Level A
 - Error summary for form submissions
 
 **Implementation:**
-- Use the `AccessibleFormField` component from `src/components/ui/accessible-form.tsx`
+
+- Use the `AccessibleFormField` component from
+  `src/components/ui/accessible-form.tsx`
 - Associate error messages with inputs using `aria-describedby`
 - Use `aria-invalid="true"` for fields with errors
 - Provide error summaries with links to the corresponding fields
@@ -74,6 +84,7 @@ The platform follows the Web Content Accessibility Guidelines (WCAG) 2.1 Level A
 - No auto-playing media without user control
 
 **Implementation:**
+
 - Use the enhanced `VideoPlayer` and `AudioPlayer` components
 - Implement keyboard shortcuts for media control
 - Ensure media controls are properly labeled
@@ -88,6 +99,7 @@ The platform follows the Web Content Accessibility Guidelines (WCAG) 2.1 Level A
 - Descriptive page titles
 
 **Implementation:**
+
 - Use semantic HTML elements
 - Implement the `SkipLink` component from `src/components/ui/accessibility.tsx`
 - Ensure each page has a unique, descriptive title
@@ -101,6 +113,7 @@ The platform follows the Web Content Accessibility Guidelines (WCAG) 2.1 Level A
 - Content works at 400% zoom
 
 **Implementation:**
+
 - Use relative units (rem, em) instead of fixed units (px)
 - Test at various zoom levels and viewport sizes
 - Ensure text containers expand with text size
@@ -145,10 +158,12 @@ The platform includes several accessibility-focused components:
    - `AccessibleDialog` - For accessible modal dialogs
 
 2. `src/components/ui/accessible-form.tsx` - Form accessibility components:
-   - `AccessibleFormField` - Wraps form inputs with proper accessibility attributes
+   - `AccessibleFormField` - Wraps form inputs with proper accessibility
+     attributes
    - `AccessibleForm` - Provides form validation and accessibility features
    - `AccessibleErrorSummary` - Displays a summary of form errors
-   - `useAccessibleForm` - Hook for managing form state with accessibility features
+   - `useAccessibleForm` - Hook for managing form state with accessibility
+     features
 
 3. `src/lib/accessibility.ts` - Accessibility utilities:
    - `handleKeyboardNavigation` - Helper for keyboard event handling
@@ -179,7 +194,8 @@ The platform includes several accessibility-focused components:
 
 ## Maintenance
 
-Maintaining accessibility is an ongoing process. When adding new features or modifying existing ones:
+Maintaining accessibility is an ongoing process. When adding new features or
+modifying existing ones:
 
 1. Use the provided accessible components
 2. Test with keyboard navigation
@@ -188,4 +204,6 @@ Maintaining accessibility is an ongoing process. When adding new features or mod
 5. Ensure responsive behavior
 6. Run automated accessibility tests
 
-By following these guidelines, we ensure that the Direct-to-Fan Music Platform remains accessible to all users, regardless of their abilities or the devices they use.
+By following these guidelines, we ensure that the Direct-to-Fan Music Platform
+remains accessible to all users, regardless of their abilities or the devices
+they use.

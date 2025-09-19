@@ -17,47 +17,47 @@ export async function GET() {
   // Check database connection and get some metrics
   try {
     // Check active users in the last 24 hours (using updatedAt as proxy)
-    const activeUsers = await prisma.user.count({
+    const activeUsers = await prisma.users.count({
       where: {
         updatedAt: {
-          gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
-        }
-      }
+          gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
+        },
+      },
     });
-    
+
     // Check active subscriptions
-    const activeSubscriptions = await prisma.subscription.count({
+    const activeSubscriptions = await prisma.subscriptions.count({
       where: {
-        status: SubscriptionStatus.ACTIVE
-      }
+        status: SubscriptionStatus.ACTIVE,
+      },
     });
-    
+
     // Check recent content uploads
     const recentContent = await prisma.content.count({
       where: {
         createdAt: {
-          gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
-        }
-      }
+          gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
+        },
+      },
     });
 
     metrics.database = {
       activeUsers,
       activeSubscriptions,
-      recentContent
+      recentContent,
     };
-    
-    checks.database = { 
+
+    checks.database = {
       status: 'ok',
       metrics: {
-        connectionLatency: Date.now() - startTime
-      }
+        connectionLatency: Date.now() - startTime,
+      },
     };
   } catch (error) {
     logger.error('Cron health check: Database metrics collection failed', {}, error as Error);
-    checks.database = { 
+    checks.database = {
       status: 'error',
-      message: 'Could not collect database metrics'
+      message: 'Could not collect database metrics',
     };
   }
 
@@ -66,22 +66,22 @@ export async function GET() {
     const info = await redis.info();
     const memoryMatch = info.match(/used_memory_human:(.+)/);
     const memoryUsage = memoryMatch ? memoryMatch[1].trim() : 'unknown';
-    
+
     metrics.redis = {
-      memoryUsage
+      memoryUsage,
     };
-    
-    checks.redis = { 
+
+    checks.redis = {
       status: 'ok',
       metrics: {
-        connectionLatency: Date.now() - startTime
-      }
+        connectionLatency: Date.now() - startTime,
+      },
     };
   } catch (error) {
     logger.error('Cron health check: Redis metrics collection failed', {}, error as Error);
-    checks.redis = { 
+    checks.redis = {
       status: 'error',
-      message: 'Could not collect Redis metrics'
+      message: 'Could not collect Redis metrics',
     };
   }
 
@@ -95,7 +95,7 @@ export async function GET() {
       metrics,
       checks,
       latency: totalLatency,
-      isHealthy
+      isHealthy,
     });
   }
 
@@ -106,16 +106,19 @@ export async function GET() {
     logger.warn('Cron health check failed', { checks, latency: totalLatency });
   }
 
-  return NextResponse.json({
-    status: isHealthy ? 'healthy' : 'unhealthy',
-    timestamp: new Date().toISOString(),
-    checks,
-    metrics,
-    latency: totalLatency
-  }, {
-    status: isHealthy ? 200 : 503,
-    headers: {
-      'Cache-Control': 'no-store, max-age=0'
+  return NextResponse.json(
+    {
+      status: isHealthy ? 'healthy' : 'unhealthy',
+      timestamp: new Date().toISOString(),
+      checks,
+      metrics,
+      latency: totalLatency,
+    },
+    {
+      status: isHealthy ? 200 : 503,
+      headers: {
+        'Cache-Control': 'no-store, max-age=0',
+      },
     }
-  });
+  );
 }

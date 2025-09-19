@@ -14,11 +14,8 @@ const updateSchema = z.object({
 });
 
 // GET /api/content/[id] - Get single content item
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  return withApi(request, async (req) => {
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+  return withApi(request, async req => {
     try {
       const contentId = params.id;
 
@@ -57,10 +54,7 @@ export async function GET(
       });
 
       if (!content) {
-        return NextResponse.json(
-          { error: 'Content not found' },
-          { status: 404 }
-        );
+        return NextResponse.json({ error: 'Content not found' }, { status: 404 });
       }
 
       // Check access permissions
@@ -74,7 +68,7 @@ export async function GET(
         hasAccess = true;
       } else if (req.user.role === 'FAN') {
         // Check if fan has subscription to any of the content's tiers
-        const subscriptions = await prisma.subscription.findMany({
+        const subscriptions = await prisma.subscriptions.findMany({
           where: {
             fanId: req.user.id,
             status: 'ACTIVE',
@@ -109,23 +103,20 @@ export async function GET(
           tags: JSON.parse(content.tags),
         },
       });
-
     } catch (error) {
-      logger.error('Content fetch error', { userId: req.user?.id, contentId: params.id }, error as Error);
-      return NextResponse.json(
-        { error: 'Failed to fetch content' },
-        { status: 500 }
+      logger.error(
+        'Content fetch error',
+        { userId: req.user?.id, contentId: params.id },
+        error as Error
       );
+      return NextResponse.json({ error: 'Failed to fetch content' }, { status: 500 });
     }
   });
 }
 
 // PUT /api/content/[id] - Update content
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  return withApi(request, async (req) => {
+export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+  return withApi(request, async req => {
     try {
       const contentId = params.id;
 
@@ -139,10 +130,7 @@ export async function PUT(
       });
 
       if (!existingContent) {
-        return NextResponse.json(
-          { error: 'Content not found' },
-          { status: 404 }
-        );
+        return NextResponse.json({ error: 'Content not found' }, { status: 404 });
       }
 
       if (existingContent.artistId !== req.user.id) {
@@ -157,7 +145,7 @@ export async function PUT(
 
       // Validate tier ownership if specified
       if (validatedData.tierIds && validatedData.tierIds.length > 0) {
-        const userTiers = await prisma.tier.findMany({
+        const userTiers = await prisma.tiers.findMany({
           where: {
             id: { in: validatedData.tierIds },
             artistId: req.user.id,
@@ -247,7 +235,6 @@ export async function PUT(
           tags: JSON.parse(updatedContent.tags),
         },
       });
-
     } catch (error) {
       if (error instanceof z.ZodError) {
         return NextResponse.json(
@@ -259,21 +246,19 @@ export async function PUT(
         );
       }
 
-      logger.error('Content update error', { userId: req.user?.id, contentId: params.id }, error as Error);
-      return NextResponse.json(
-        { error: 'Failed to update content' },
-        { status: 500 }
+      logger.error(
+        'Content update error',
+        { userId: req.user?.id, contentId: params.id },
+        error as Error
       );
+      return NextResponse.json({ error: 'Failed to update content' }, { status: 500 });
     }
   });
 }
 
 // DELETE /api/content/[id] - Delete content
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  return withApi(request, async (req) => {
+export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+  return withApi(request, async req => {
     try {
       const contentId = params.id;
 
@@ -289,10 +274,7 @@ export async function DELETE(
       });
 
       if (!content) {
-        return NextResponse.json(
-          { error: 'Content not found' },
-          { status: 404 }
-        );
+        return NextResponse.json({ error: 'Content not found' }, { status: 404 });
       }
 
       if (content.artistId !== req.user.id) {
@@ -337,13 +319,13 @@ export async function DELETE(
         success: true,
         message: 'Content deleted successfully',
       });
-
     } catch (error) {
-      logger.error('Content deletion error', { userId: req.user?.id, contentId: params.id }, error as Error);
-      return NextResponse.json(
-        { error: 'Failed to delete content' },
-        { status: 500 }
+      logger.error(
+        'Content deletion error',
+        { userId: req.user?.id, contentId: params.id },
+        error as Error
       );
+      return NextResponse.json({ error: 'Failed to delete content' }, { status: 500 });
     }
   });
 }

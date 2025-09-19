@@ -8,10 +8,10 @@ interface UserPresenceIndicatorProps {
   size?: 'sm' | 'md' | 'lg';
 }
 
-export function UserPresenceIndicator({ 
-  isOnline, 
+export function UserPresenceIndicator({
+  isOnline,
   className = '',
-  size = 'md'
+  size = 'md',
 }: UserPresenceIndicatorProps) {
   const getSizeClasses = () => {
     switch (size) {
@@ -29,7 +29,7 @@ export function UserPresenceIndicator({
   };
 
   return (
-    <div 
+    <div
       className={`${getSizeClasses()} ${getStatusColor()} rounded-full border-2 border-white dark:border-gray-900 ${className}`}
       title={isOnline ? 'Online' : 'Offline'}
     />

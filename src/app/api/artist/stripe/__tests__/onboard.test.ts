@@ -19,7 +19,9 @@ import { createStripeConnectAccount, createAccountLink } from '@/lib/stripe';
 
 const mockGetServerSession = getServerSession as jest.MockedFunction<typeof getServerSession>;
 const mockPrisma = prisma as jest.Mocked<typeof prisma>;
-const mockCreateStripeConnectAccount = createStripeConnectAccount as jest.MockedFunction<typeof createStripeConnectAccount>;
+const mockCreateStripeConnectAccount = createStripeConnectAccount as jest.MockedFunction<
+  typeof createStripeConnectAccount
+>;
 const mockCreateAccountLink = createAccountLink as jest.MockedFunction<typeof createAccountLink>;
 
 // Helper function to create mock request
@@ -48,13 +50,13 @@ describe('/api/artist/stripe/onboard', () => {
         email: 'artist@example.com',
         displayName: 'Test Artist',
         role: 'ARTIST',
-        artistProfile: null,
+        artists: null,
       };
 
       mockGetServerSession.mockResolvedValue(mockSession as any);
       mockPrisma.user.findUnique.mockResolvedValue(mockUser as any);
       mockCreateStripeConnectAccount.mockResolvedValue('acct_test123');
-      mockPrisma.artist.upsert.mockResolvedValue({} as any);
+      mockPrisma.users.upsert.mockResolvedValue({} as any);
       mockCreateAccountLink.mockResolvedValue('https://connect.stripe.com/setup/test');
 
       const request = createMockRequest('http://localhost:3000/api/artist/stripe/onboard', {
@@ -74,7 +76,7 @@ describe('/api/artist/stripe/onboard', () => {
         'Test Artist'
       );
 
-      expect(mockPrisma.artist.upsert).toHaveBeenCalledWith({
+      expect(mockPrisma.users.upsert).toHaveBeenCalledWith({
         where: { userId: 'user123' },
         create: {
           userId: 'user123',
@@ -142,7 +144,7 @@ describe('/api/artist/stripe/onboard', () => {
       const mockUser = {
         id: 'user123',
         role: 'ARTIST',
-        artistProfile: {
+        artists: {
           stripeAccountId: 'acct_existing123',
         },
       };
@@ -172,7 +174,7 @@ describe('/api/artist/stripe/onboard', () => {
         email: 'artist@example.com',
         displayName: 'Test Artist',
         role: 'ARTIST',
-        artistProfile: null,
+        artists: null,
       };
 
       mockGetServerSession.mockResolvedValue(mockSession as any);

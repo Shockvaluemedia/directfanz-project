@@ -67,7 +67,7 @@ export default function CommentSection({ contentId }: CommentSectionProps) {
       }
 
       const data = await response.json();
-      
+
       // Add the new comment to the list
       setComments([...comments, data.comment]);
       setNewComment('');
@@ -111,72 +111,74 @@ export default function CommentSection({ contentId }: CommentSectionProps) {
   };
 
   return (
-    <div className="mt-8 space-y-6">
-      <h2 className="text-2xl font-bold">Comments</h2>
-      
+    <div className='mt-8 space-y-6'>
+      <h2 className='text-2xl font-bold'>Comments</h2>
+
       {/* Comment form */}
       {session ? (
-        <form onSubmit={handleSubmitComment} className="space-y-4">
+        <form onSubmit={handleSubmitComment} className='space-y-4'>
           <div>
             <textarea
-              className="w-full p-3 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className='w-full p-3 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent'
               rows={3}
-              placeholder="Add a comment..."
+              placeholder='Add a comment...'
               value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
+              onChange={e => setNewComment(e.target.value)}
               disabled={isLoading}
             />
           </div>
-          {error && <p className="text-red-500">{error}</p>}
-          <Button type="submit" disabled={isLoading || !newComment.trim()}>
+          {error && <p className='text-red-500'>{error}</p>}
+          <Button type='submit' disabled={isLoading || !newComment.trim()}>
             {isLoading ? 'Posting...' : 'Post Comment'}
           </Button>
         </form>
       ) : (
-        <p className="text-gray-500">Please sign in to leave a comment.</p>
+        <p className='text-gray-500'>Please sign in to leave a comment.</p>
       )}
 
       {/* Comments list */}
-      <div className="space-y-4">
+      <div className='space-y-4'>
         {comments.length === 0 ? (
-          <p className="text-gray-500">No comments yet. Be the first to comment!</p>
+          <p className='text-gray-500'>No comments yet. Be the first to comment!</p>
         ) : (
-          comments.map((comment) => (
-            <Card key={comment.id} className="p-4">
-              <div className="flex items-start space-x-4">
-                <div className="flex-shrink-0">
+          comments.map(comment => (
+            <Card key={comment.id} className='p-4'>
+              <div className='flex items-start space-x-4'>
+                <div className='flex-shrink-0'>
                   {comment.fan.avatar ? (
                     <img
                       src={comment.fan.avatar}
                       alt={comment.fan.displayName}
-                      className="w-10 h-10 rounded-full"
+                      className='w-10 h-10 rounded-full'
                     />
                   ) : (
-                    <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
-                      <span className="text-gray-500 font-medium">
+                    <div className='w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center'>
+                      <span className='text-gray-500 font-medium'>
                         {comment.fan.displayName.charAt(0).toUpperCase()}
                       </span>
                     </div>
                   )}
                 </div>
-                <div className="flex-grow">
-                  <div className="flex justify-between items-start">
+                <div className='flex-grow'>
+                  <div className='flex justify-between items-start'>
                     <div>
-                      <h4 className="font-medium">{comment.fan.displayName}</h4>
-                      <p className="text-sm text-gray-500">{formatDate(comment.createdAt.toString())}</p>
+                      <h4 className='font-medium'>{comment.fan.displayName}</h4>
+                      <p className='text-sm text-gray-500'>
+                        {formatDate(comment.createdAt.toString())}
+                      </p>
                     </div>
                     {session?.user?.id === comment.fan.id && (
                       <Button
-                        variant="ghost"
-                        size="sm"
+                        variant='ghost'
+                        size='sm'
                         onClick={() => handleDeleteComment(comment.id)}
-                        className="text-red-500 hover:text-red-700"
+                        className='text-red-500 hover:text-red-700'
                       >
                         Delete
                       </Button>
                     )}
                   </div>
-                  <p className="mt-2">{comment.text}</p>
+                  <p className='mt-2'>{comment.text}</p>
                 </div>
               </div>
             </Card>

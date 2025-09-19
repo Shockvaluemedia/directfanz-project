@@ -87,7 +87,7 @@ describe('/api/fan/artists', () => {
           avatar: null,
           socialLinks: null,
           createdAt: new Date(),
-          artistProfile: {
+          artists: {
             totalSubscribers: 10,
             totalEarnings: '100.00',
           },

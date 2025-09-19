@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 
-const https = require('https');
-const http = require('http');
-const { URL } = require('url');
+import https from 'https';
+import http from 'http';
+import fs from 'fs';
+import { URL } from 'url';
+import { fileURLToPath } from 'url';
 
 const TEST_TIMEOUT = 30000;
 const RETRY_ATTEMPTS = 3;
@@ -26,7 +28,7 @@ class SmokeTestRunner {
     return new Promise((resolve, reject) => {
       const url = new URL(path, this.baseUrl);
       const requestModule = url.protocol === 'https:' ? https : http;
-      
+
       const options = {
         hostname: url.hostname,
         port: url.port,
@@ -35,14 +37,14 @@ class SmokeTestRunner {
         timeout: TEST_TIMEOUT,
         headers: {
           'User-Agent': 'Smoke-Test/1.0',
-          'Accept': 'text/html,application/json,*/*',
+          Accept: 'text/html,application/json,*/*',
         },
       };
 
-      const req = requestModule.request(options, (res) => {
+      const req = requestModule.request(options, res => {
         let data = '';
-        
-        res.on('data', (chunk) => {
+
+        res.on('data', chunk => {
           data += chunk;
         });
 
@@ -59,7 +61,7 @@ class SmokeTestRunner {
 
       const startTime = Date.now();
 
-      req.on('error', (err) => {
+      req.on('error', err => {
         reject(new Error(`Request failed: ${err.message}`));
       });
 
@@ -74,11 +76,11 @@ class SmokeTestRunner {
 
   async runTest(test, attempt = 1) {
     console.log(`Running test: ${test.name} (attempt ${attempt}/${RETRY_ATTEMPTS})`);
-    
+
     try {
       const result = await this.makeRequest(test.path, test.method);
       const passed = result.statusCode === test.expectedStatus;
-      
+
       const testResult = {
         name: test.name,
         path: test.path,
@@ -96,24 +98,24 @@ class SmokeTestRunner {
         return testResult;
       } else {
         console.log(`❌ ${test.name}: Expected ${test.expectedStatus}, got ${result.statusCode}`);
-        
+
         if (attempt < RETRY_ATTEMPTS) {
           console.log(`   Retrying in ${RETRY_DELAY}ms...`);
           await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
           return this.runTest(test, attempt + 1);
         }
-        
+
         return testResult;
       }
     } catch (error) {
       console.log(`❌ ${test.name}: ${error.message}`);
-      
+
       if (attempt < RETRY_ATTEMPTS) {
         console.log(`   Retrying in ${RETRY_DELAY}ms...`);
         await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
         return this.runTest(test, attempt + 1);
       }
-      
+
       return {
         name: test.name,
         path: test.path,
@@ -133,7 +135,7 @@ class SmokeTestRunner {
     console.log('═'.repeat(60));
 
     const startTime = Date.now();
-    
+
     for (const test of this.tests) {
       const result = await this.runTest(test);
       this.results.push(result);
@@ -155,7 +157,9 @@ class SmokeTestRunner {
       this.results
         .filter(r => !r.passed)
         .forEach(result => {
-          console.log(`   - ${result.name}: ${result.error || `Expected ${result.expectedStatus}, got ${result.actualStatus}`}`);
+          console.log(
+            `   - ${result.name}: ${result.error || `Expected ${result.expectedStatus}, got ${result.actualStatus}`}`
+          );
         });
     }
 
@@ -174,7 +178,6 @@ class SmokeTestRunner {
 
     // Write report to file if in CI environment
     if (process.env.CI) {
-      const fs = require('fs');
       fs.writeFileSync('smoke-test-report.json', JSON.stringify(report, null, 2));
       console.log('\n📄 Report written to smoke-test-report.json');
     }
@@ -193,13 +196,13 @@ class HealthCheckTests {
     try {
       const runner = new SmokeTestRunner(this.baseUrl);
       const response = await runner.makeRequest('/api/health');
-      
+
       if (response.statusCode !== 200) {
         throw new Error(`Health check failed with status ${response.statusCode}`);
       }
 
       const healthData = JSON.parse(response.body);
-      
+
       if (healthData.status !== 'healthy') {
         throw new Error(`Application is not healthy: ${JSON.stringify(healthData)}`);
       }
@@ -225,13 +228,13 @@ class HealthCheckTests {
 
 async function main() {
   const baseUrl = process.argv[2] || process.env.TEST_URL || 'http://localhost:3000';
-  
+
   console.log(`🚀 Starting smoke tests for: ${baseUrl}`);
-  
+
   // Run health check first
   const healthCheck = new HealthCheckTests(baseUrl);
   const isHealthy = await healthCheck.checkDatabaseConnectivity();
-  
+
   if (!isHealthy) {
     console.error('❌ Health check failed - skipping other tests');
     process.exit(1);
@@ -240,7 +243,7 @@ async function main() {
   // Run main smoke tests
   const runner = new SmokeTestRunner(baseUrl);
   const success = await runner.runAllTests();
-  
+
   if (success) {
     console.log('\n🎉 All smoke tests passed!');
     process.exit(0);
@@ -261,11 +264,14 @@ process.on('SIGINT', () => {
   process.exit(1);
 });
 
-if (require.main === module) {
-  main().catch((error) => {
+const __filename = fileURLToPath(import.meta.url);
+const isMainModule = import.meta.url.endsWith(process.argv[1]);
+
+if (isMainModule) {
+  main().catch(error => {
     console.error('Smoke test runner error:', error);
     process.exit(1);
   });
 }
 
-module.exports = { SmokeTestRunner, HealthCheckTests };
+export { SmokeTestRunner, HealthCheckTests };

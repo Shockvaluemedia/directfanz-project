@@ -23,17 +23,18 @@ model accounts {
   users             users   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
+  @@index([userId])
 }
 
 model artists {
-  id                String   @id
+  id                String   @id @default(cuid())
   userId            String   @unique
   stripeAccountId   String?  @unique
   isStripeOnboarded Boolean  @default(false)
   totalEarnings     Decimal  @default(0)
   totalSubscribers  Int      @default(0)
   createdAt         DateTime @default(now())
-  updatedAt         DateTime
+  updatedAt         DateTime @updatedAt
   users             users    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
@@ -121,6 +122,10 @@ model campaigns {
   campaign_rewards   campaign_rewards[]
   users              users                @relation(fields: [artistId], references: [id], onDelete: Cascade)
   challenges         challenges[]
+
+  @@index([artistId, status])
+  @@index([startDate, endDate])
+  @@index([status, startDate])
 }
 
 model challenge_leaderboards {
@@ -160,6 +165,9 @@ model challenge_participations {
   challenge_submissions challenge_submissions[]
 
   @@unique([challengeId, participantId])
+  @@index([participantId, status])
+  @@index([challengeId, status])
+  @@index([challengeId, lastActiveAt])
 }
 
 model challenge_submissions {
@@ -191,6 +199,11 @@ model challenge_submissions {
   users                    users                    @relation(fields: [submitterId], references: [id], onDelete: Cascade)
   challenge_participations challenge_participations @relation(fields: [participationId], references: [id], onDelete: Cascade)
   challenges               challenges               @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+
+  @@index([challengeId, status])
+  @@index([submitterId])
+  @@index([challengeId, submittedAt])
+  @@index([reviewStatus])
 }
 
 model challenges {
@@ -222,6 +235,9 @@ model challenges {
   challenge_participations challenge_participations[]
   challenge_submissions    challenge_submissions[]
   campaigns                campaigns                  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, status])
+  @@index([startDate, endDate])
 }
 
 model comments {
@@ -233,6 +249,9 @@ model comments {
   updatedAt DateTime
   users     users    @relation(fields: [fanId], references: [id], onDelete: Cascade)
   content   content  @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  @@index([contentId, createdAt])
+  @@index([fanId])
 }
 
 model content {
@@ -261,6 +280,14 @@ model content {
   content_views    content_views[]
   playlist_items   playlist_items[]
   tiers            tiers[]            @relation("TierContent")
+
+  @@index([artistId, visibility])
+  @@index([type, visibility])
+  @@index([createdAt])
+  @@index([totalViews])
+  @@index([artistId, type, createdAt])
+  @@index([visibility, createdAt])
+  @@index([tags])
 }
 
 model content_likes {
@@ -272,6 +299,8 @@ model content_likes {
   users     users    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, contentId])
+  @@index([userId])
+  @@index([contentId])
 }
 
 model content_views {
@@ -288,6 +317,9 @@ model content_views {
   content       content  @relation(fields: [contentId], references: [id], onDelete: Cascade)
 
   @@unique([contentId, viewerId, createdAt])
+  @@index([viewerId])
+  @@index([contentId, viewerId])
+  @@index([contentId, createdAt])
 }
 
 model invoices {
@@ -305,6 +337,11 @@ model invoices {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime
   subscriptions   subscriptions @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId, status])
+  @@index([dueDate])
+  @@index([status, paidAt])
+  @@index([createdAt])
 }
 
 model live_streams {
@@ -337,6 +374,11 @@ model live_streams {
   stream_recordings    stream_recordings[]
   stream_tips          stream_tips[]
   stream_viewers       stream_viewers[]
+
+  @@index([artistId, status])
+  @@index([scheduledAt])
+  @@index([isPublic, status])
+  @@index([status, startedAt])
 }
 
 model messages {
@@ -352,6 +394,10 @@ model messages {
   updatedAt                         DateTime
   users_messages_recipientIdTousers users     @relation("messages_recipientIdTousers", fields: [recipientId], references: [id], onDelete: Cascade)
   users_messages_senderIdTousers    users     @relation("messages_senderIdTousers", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([senderId, createdAt])
+  @@index([recipientId, readAt])
+  @@index([recipientId, createdAt])
 }
 
 model oauth_tokens {
@@ -380,6 +426,9 @@ model payment_failures {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime
   subscriptions   subscriptions @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId, isResolved])
+  @@index([nextRetryAt])
 }
 
 model playlist_items {
@@ -404,6 +453,7 @@ model playlist_likes {
   users      users     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, playlistId])
+  @@index([userId])
 }
 
 model playlists {
@@ -420,6 +470,9 @@ model playlists {
   playlist_items playlist_items[]
   playlist_likes playlist_likes[]
   users          users            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isPublic, createdAt])
 }
 
 model refresh_tokens {
@@ -436,6 +489,7 @@ model refresh_tokens {
   users             users    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, isRevoked])
+  @@index([expiresAt])
 }
 
 model reports {
@@ -456,6 +510,11 @@ model reports {
   updatedAt                       DateTime
   users_reports_reviewedByTousers users?    @relation("reports_reviewedByTousers", fields: [reviewedBy], references: [id])
   users_reports_reporterIdTousers users     @relation("reports_reporterIdTousers", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@index([reporterId])
+  @@index([targetType, targetId])
+  @@index([status])
+  @@index([reviewedBy])
 }
 
 model reward_distributions {
@@ -474,6 +533,9 @@ model reward_distributions {
   campaign_rewards campaign_rewards @relation(fields: [rewardId], references: [id], onDelete: Cascade)
 
   @@unique([rewardId, userId])
+  @@index([userId, status])
+  @@index([rewardId])
+  @@index([awardedAt])
 }
 
 model sessions {
@@ -482,6 +544,9 @@ model sessions {
   userId       String
   expires      DateTime
   users        users    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expires])
 }
 
 model stream_chat_messages {
@@ -498,6 +563,9 @@ model stream_chat_messages {
   createdAt        DateTime     @default(now())
   users            users?       @relation(fields: [senderId], references: [id])
   live_streams     live_streams @relation(fields: [streamId], references: [id], onDelete: Cascade)
+
+  @@index([streamId, createdAt])
+  @@index([senderId])
 }
 
 model stream_poll_votes {
@@ -524,6 +592,8 @@ model stream_polls {
   endedAt           DateTime?
   stream_poll_votes stream_poll_votes[]
   live_streams      live_streams        @relation(fields: [streamId], references: [id], onDelete: Cascade)
+
+  @@index([streamId, isActive])
 }
 
 model stream_recordings {
@@ -560,6 +630,10 @@ model stream_tips {
   createdAt             DateTime     @default(now())
   users                 users?       @relation(fields: [tipperId], references: [id])
   live_streams          live_streams @relation(fields: [streamId], references: [id], onDelete: Cascade)
+
+  @@index([streamId, createdAt])
+  @@index([tipperId])
+  @@index([status])
 }
 
 model stream_viewers {
@@ -576,6 +650,9 @@ model stream_viewers {
   watchTime    Int          @default(0)
   users        users?       @relation(fields: [viewerId], references: [id])
   live_streams live_streams @relation(fields: [streamId], references: [id], onDelete: Cascade)
+
+  @@index([streamId, joinedAt])
+  @@index([viewerId])
 }
 
 model subscriptions {
@@ -596,6 +673,14 @@ model subscriptions {
   users                users              @relation(fields: [fanId], references: [id], onDelete: Cascade)
 
   @@unique([fanId, tierId])
+  @@index([fanId])
+  @@index([artistId])
+  @@index([status])
+  @@index([currentPeriodEnd])
+  @@index([fanId, status])
+  @@index([artistId, status])
+  @@index([status, currentPeriodEnd])
+  @@index([fanId, artistId, status])
 }
 
 model tiers {
@@ -611,6 +696,8 @@ model tiers {
   subscriptions   subscriptions[]
   users           users           @relation(fields: [artistId], references: [id], onDelete: Cascade)
   content         content[]       @relation("TierContent")
+
+  @@index([artistId, isActive])
 }
 
 model users {
@@ -655,6 +742,10 @@ model users {
   stream_viewers                       stream_viewers[]
   subscriptions                        subscriptions[]
   tiers                                tiers[]
+
+  @@index([role, createdAt])
+  @@index([lastSeenAt])
+  @@index([emailVerified])
 }
 
 model verificationtokens {

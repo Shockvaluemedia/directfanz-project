@@ -1,6 +1,6 @@
 # User Onboarding Guide
 
-This guide provides step-by-step instructions for new users of the Direct-to-Fan Platform, covering both artist and fan onboarding processes.
+This guide provides step-by-step instructions for new users of DirectFanz, covering both artist and fan onboarding processes.
 
 ## Table of Contents
 
@@ -41,7 +41,8 @@ This guide provides step-by-step instructions for new users of the Direct-to-Fan
 3. **Connect Payment Account**
    - Click on "Connect Payment Account" in your dashboard
    - Follow the Stripe Connect onboarding process
-   - Provide the required information for identity verification and payment processing
+   - Provide the required information for identity verification and payment
+     processing
    - Once approved, you'll be able to receive payments from subscribers
 
 ### Setting Up Your Artist Profile
@@ -50,7 +51,8 @@ This guide provides step-by-step instructions for new users of the Direct-to-Fan
    - Navigate to "Settings" > "Profile" in your dashboard
    - Complete all profile fields to increase discoverability
    - Add a compelling bio that tells your story
-   - Upload high-quality profile and cover images (recommended sizes: profile 500x500px, cover 1500x500px)
+   - Upload high-quality profile and cover images (recommended sizes: profile
+     500x500px, cover 1500x500px)
 
 2. **Customizing Your Page**
    - Personalize your artist page with your brand colors
@@ -253,7 +255,8 @@ This guide provides step-by-step instructions for new users of the Direct-to-Fan
 If you need assistance with any aspect of the platform:
 
 1. **Help Center**
-   - Visit our comprehensive knowledge base at [help.platform-url.com](https://help.platform-url.com)
+   - Visit our comprehensive knowledge base at
+     [help.platform-url.com](https://help.platform-url.com)
    - Browse frequently asked questions and tutorials
 
 2. **Contact Support**

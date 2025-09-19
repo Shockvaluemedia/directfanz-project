@@ -90,7 +90,7 @@ const mockExistingSubscriptions = [
 describe('ArtistProfile', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-// Reset mocks only
+    // Reset mocks only
     mockUseRouter.mockReturnValue({
       push: mockPush,
       replace: jest.fn(),
@@ -103,7 +103,7 @@ describe('ArtistProfile', () => {
 
   it('renders artist information correctly', () => {
     render(<ArtistProfile artist={mockArtist} existingSubscriptions={[]} />);
-    
+
     expect(screen.getByText('Test Artist')).toBeInTheDocument();
     expect(screen.getByText('This is a test artist bio')).toBeInTheDocument();
     expect(screen.getByText('100 subscribers')).toBeInTheDocument();
@@ -114,19 +114,19 @@ describe('ArtistProfile', () => {
 
   it('displays social links when available', () => {
     render(<ArtistProfile artist={mockArtist} existingSubscriptions={[]} />);
-    
+
     expect(screen.getByText('twitter')).toBeInTheDocument();
     expect(screen.getByText('instagram')).toBeInTheDocument();
   });
 
   it('displays subscription tiers', () => {
     render(<ArtistProfile artist={mockArtist} existingSubscriptions={[]} />);
-    
+
     expect(screen.getByText('Basic')).toBeInTheDocument();
     expect(screen.getByText('Basic tier with exclusive content')).toBeInTheDocument();
     expect(screen.getByText('$5.00+')).toBeInTheDocument();
     expect(screen.getByText('50 subscribers')).toBeInTheDocument();
-    
+
     expect(screen.getByText('Premium')).toBeInTheDocument();
     expect(screen.getByText('Premium tier with extra perks')).toBeInTheDocument();
     expect(screen.getByText('$15.00+')).toBeInTheDocument();
@@ -135,7 +135,7 @@ describe('ArtistProfile', () => {
 
   it('shows existing subscriptions', () => {
     render(<ArtistProfile artist={mockArtist} existingSubscriptions={mockExistingSubscriptions} />);
-    
+
     expect(screen.getByText('Your Active Subscriptions')).toBeInTheDocument();
     expect(screen.getByText('$10.00/month')).toBeInTheDocument();
     expect(screen.getByText(/Next billing: .* 2024/)).toBeInTheDocument();
@@ -143,40 +143,41 @@ describe('ArtistProfile', () => {
 
   it('shows subscribed state for existing subscriptions', () => {
     render(<ArtistProfile artist={mockArtist} existingSubscriptions={mockExistingSubscriptions} />);
-    
+
     expect(screen.getByText('✓ Subscribed')).toBeInTheDocument();
   });
 
   it('allows selecting a tier for subscription', () => {
     render(<ArtistProfile artist={mockArtist} existingSubscriptions={[]} />);
-    
+
     const subscribeButtons = screen.getAllByText('Subscribe');
     fireEvent.click(subscribeButtons[1]); // Click Premium tier
-    
+
     expect(screen.getByText('Cancel')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('15.00')).toBeInTheDocument();
   });
 
   it('validates minimum amount when subscribing', async () => {
     const alertSpy = jest.spyOn(window, 'alert').mockImplementation();
-    
+
     render(<ArtistProfile artist={mockArtist} existingSubscriptions={[]} />);
-    
+
     const subscribeButtons = screen.getAllByText('Subscribe');
     fireEvent.click(subscribeButtons[0]); // Click Basic tier
-    
+
     const amountInput = screen.getByPlaceholderText('5.00');
     fireEvent.change(amountInput, { target: { value: '3' } });
-    
+
     // Find the subscribe button that's in the same section as the amount input
     const confirmButtons = screen.getAllByText('Subscribe');
-    const confirmButton = confirmButtons.find(button => {
-      const parent = button.closest('div');
-      return parent && parent.querySelector('input[placeholder="5.00"]');
-    }) || confirmButtons[0]; // Fallback to first if not found
-    
+    const confirmButton =
+      confirmButtons.find(button => {
+        const parent = button.closest('div');
+        return parent && parent.querySelector('input[placeholder="5.00"]');
+      }) || confirmButtons[0]; // Fallback to first if not found
+
     fireEvent.click(confirmButton);
-    
+
     expect(alertSpy).toHaveBeenCalledWith('Amount must be at least $5.00');
     alertSpy.mockRestore();
   });
@@ -190,18 +191,19 @@ describe('ArtistProfile', () => {
     } as Response);
 
     render(<ArtistProfile artist={mockArtist} existingSubscriptions={[]} />);
-    
+
     const subscribeButtons = screen.getAllByText('Subscribe');
     fireEvent.click(subscribeButtons[0]); // Click Basic tier
-    
+
     // Find the confirm button in the subscription form
     const confirmButtons = screen.getAllByText('Subscribe');
-    const confirmButton = confirmButtons.find(button => {
-      const parent = button.closest('div');
-      return parent && parent.querySelector('input[placeholder="5.00"]');
-    }) || confirmButtons[0];
+    const confirmButton =
+      confirmButtons.find(button => {
+        const parent = button.closest('div');
+        return parent && parent.querySelector('input[placeholder="5.00"]');
+      }) || confirmButtons[0];
     fireEvent.click(confirmButton);
-    
+
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith('/api/payments/create-checkout', {
         method: 'POST',
@@ -214,14 +216,14 @@ describe('ArtistProfile', () => {
         }),
       });
     });
-    
+
     // Note: Testing window.location.href assignment is complex in JSDOM
     // Instead, we verify the correct API call was made and would redirect
   });
 
   it('handles subscription errors', async () => {
     const alertSpy = jest.spyOn(window, 'alert').mockImplementation();
-    
+
     mockFetch.mockResolvedValueOnce({
       ok: false,
       json: async () => ({
@@ -230,22 +232,23 @@ describe('ArtistProfile', () => {
     } as Response);
 
     render(<ArtistProfile artist={mockArtist} existingSubscriptions={[]} />);
-    
+
     const subscribeButtons = screen.getAllByText('Subscribe');
     fireEvent.click(subscribeButtons[0]);
-    
+
     // Find the confirm button in the subscription form
     const confirmButtons = screen.getAllByText('Subscribe');
-    const confirmButton = confirmButtons.find(button => {
-      const parent = button.closest('div');
-      return parent && parent.querySelector('input[placeholder="5.00"]');
-    }) || confirmButtons[0];
+    const confirmButton =
+      confirmButtons.find(button => {
+        const parent = button.closest('div');
+        return parent && parent.querySelector('input[placeholder="5.00"]');
+      }) || confirmButtons[0];
     fireEvent.click(confirmButton);
-    
+
     await waitFor(() => {
       expect(alertSpy).toHaveBeenCalledWith('Payment failed');
     });
-    
+
     alertSpy.mockRestore();
   });
 
@@ -258,21 +261,22 @@ describe('ArtistProfile', () => {
     } as Response);
 
     render(<ArtistProfile artist={mockArtist} existingSubscriptions={[]} />);
-    
+
     const subscribeButtons = screen.getAllByText('Subscribe');
     fireEvent.click(subscribeButtons[0]);
-    
+
     const amountInput = screen.getByPlaceholderText('5.00');
     fireEvent.change(amountInput, { target: { value: '25' } });
-    
+
     // Find the confirm button in the subscription form
     const confirmButtons = screen.getAllByText('Subscribe');
-    const confirmButton = confirmButtons.find(button => {
-      const parent = button.closest('div');
-      return parent && parent.querySelector('input[placeholder="5.00"]');
-    }) || confirmButtons[0];
+    const confirmButton =
+      confirmButtons.find(button => {
+        const parent = button.closest('div');
+        return parent && parent.querySelector('input[placeholder="5.00"]');
+      }) || confirmButtons[0];
     fireEvent.click(confirmButton);
-    
+
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith('/api/payments/create-checkout', {
         method: 'POST',
@@ -289,7 +293,7 @@ describe('ArtistProfile', () => {
 
   it('displays recent content', () => {
     render(<ArtistProfile artist={mockArtist} existingSubscriptions={[]} />);
-    
+
     expect(screen.getByText('Recent Releases')).toBeInTheDocument();
     expect(screen.getByText('Latest Song')).toBeInTheDocument();
     expect(screen.getByText('My latest track')).toBeInTheDocument();
@@ -302,23 +306,25 @@ describe('ArtistProfile', () => {
   it('shows empty state when no tiers available', () => {
     const artistWithoutTiers = { ...mockArtist, tiers: [] };
     render(<ArtistProfile artist={artistWithoutTiers} existingSubscriptions={[]} />);
-    
-    expect(screen.getByText("This artist hasn't set up any subscription tiers yet.")).toBeInTheDocument();
+
+    expect(
+      screen.getByText("This artist hasn't set up any subscription tiers yet.")
+    ).toBeInTheDocument();
   });
 
   it('shows empty state when no content available', () => {
     const artistWithoutContent = { ...mockArtist, content: [] };
     render(<ArtistProfile artist={artistWithoutContent} existingSubscriptions={[]} />);
-    
+
     expect(screen.getByText('No public releases yet.')).toBeInTheDocument();
   });
 
   it('navigates to subscription management when manage button is clicked', () => {
     render(<ArtistProfile artist={mockArtist} existingSubscriptions={mockExistingSubscriptions} />);
-    
+
     const manageButton = screen.getByText('Manage');
     fireEvent.click(manageButton);
-    
+
     expect(mockPush).toHaveBeenCalledWith('/dashboard/fan/subscriptions');
   });
 
@@ -326,32 +332,33 @@ describe('ArtistProfile', () => {
     mockFetch.mockImplementationOnce(() => new Promise(resolve => setTimeout(resolve, 100)));
 
     render(<ArtistProfile artist={mockArtist} existingSubscriptions={[]} />);
-    
+
     const subscribeButtons = screen.getAllByText('Subscribe');
     fireEvent.click(subscribeButtons[0]);
-    
+
     // Find the confirm button in the subscription form
     const confirmButtons = screen.getAllByText('Subscribe');
-    const confirmButton = confirmButtons.find(button => {
-      const parent = button.closest('div');
-      return parent && parent.querySelector('input[placeholder="5.00"]');
-    }) || confirmButtons[0];
+    const confirmButton =
+      confirmButtons.find(button => {
+        const parent = button.closest('div');
+        return parent && parent.querySelector('input[placeholder="5.00"]');
+      }) || confirmButtons[0];
     fireEvent.click(confirmButton);
-    
+
     expect(screen.getByText('Processing...')).toBeInTheDocument();
   });
 
   it('cancels tier selection', () => {
     render(<ArtistProfile artist={mockArtist} existingSubscriptions={[]} />);
-    
+
     const subscribeButtons = screen.getAllByText('Subscribe');
     fireEvent.click(subscribeButtons[0]);
-    
+
     expect(screen.getByText('Cancel')).toBeInTheDocument();
-    
+
     const cancelButton = screen.getByText('Cancel');
     fireEvent.click(cancelButton);
-    
+
     expect(screen.queryByText('Cancel')).not.toBeInTheDocument();
   });
 });

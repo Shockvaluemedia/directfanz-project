@@ -19,18 +19,18 @@ export const SUPPORTED_FILE_TYPES = {
   'audio/wav': { extension: 'wav', category: 'AUDIO' },
   'audio/flac': { extension: 'flac', category: 'AUDIO' },
   'audio/aac': { extension: 'aac', category: 'AUDIO' },
-  
+
   // Video
   'video/mp4': { extension: 'mp4', category: 'VIDEO' },
   'video/webm': { extension: 'webm', category: 'VIDEO' },
   'video/quicktime': { extension: 'mov', category: 'VIDEO' },
-  
+
   // Images
   'image/jpeg': { extension: 'jpg', category: 'IMAGE' },
   'image/png': { extension: 'png', category: 'IMAGE' },
   'image/webp': { extension: 'webp', category: 'IMAGE' },
   'image/gif': { extension: 'gif', category: 'IMAGE' },
-  
+
   // Documents
   'application/pdf': { extension: 'pdf', category: 'DOCUMENT' },
   'text/plain': { extension: 'txt', category: 'DOCUMENT' },
@@ -40,7 +40,7 @@ export const SUPPORTED_FILE_TYPES = {
 export const FILE_SIZE_LIMITS = {
   AUDIO: 100 * 1024 * 1024, // 100MB
   VIDEO: 500 * 1024 * 1024, // 500MB
-  IMAGE: 10 * 1024 * 1024,  // 10MB
+  IMAGE: 10 * 1024 * 1024, // 10MB
   DOCUMENT: 25 * 1024 * 1024, // 25MB
 } as const;
 
@@ -72,7 +72,7 @@ export async function generatePresignedUrl({
   }
 
   const fileInfo = SUPPORTED_FILE_TYPES[fileType as keyof typeof SUPPORTED_FILE_TYPES];
-  
+
   // Validate file size
   if (fileSize > FILE_SIZE_LIMITS[fileInfo.category]) {
     const limitMB = FILE_SIZE_LIMITS[fileInfo.category] / (1024 * 1024);
@@ -99,7 +99,7 @@ export async function generatePresignedUrl({
 
   // Generate presigned URL (expires in 1 hour)
   const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
-  
+
   // Construct the public URL for the file
   const fileUrl = `https://${BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
 
@@ -146,7 +146,7 @@ export function validateFileUpload(fileName: string, fileType: string, fileSize:
     errors.push(`Unsupported file type: ${fileType}`);
   } else {
     const fileInfo = SUPPORTED_FILE_TYPES[fileType as keyof typeof SUPPORTED_FILE_TYPES];
-    
+
     // Check file size
     if (fileSize > FILE_SIZE_LIMITS[fileInfo.category]) {
       const limitMB = FILE_SIZE_LIMITS[fileInfo.category] / (1024 * 1024);

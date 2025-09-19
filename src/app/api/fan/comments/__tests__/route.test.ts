@@ -26,9 +26,13 @@ jest.mock('@/lib/notifications', () => ({
 
 const mockGetServerSession = getServerSession as jest.MockedFunction<typeof getServerSession>;
 const mockCreateComment = createComment as jest.MockedFunction<typeof createComment>;
-const mockGetCommentsByContentId = getCommentsByContentId as jest.MockedFunction<typeof getCommentsByContentId>;
+const mockGetCommentsByContentId = getCommentsByContentId as jest.MockedFunction<
+  typeof getCommentsByContentId
+>;
 const mockCheckPermission = checkPermission as jest.MockedFunction<typeof checkPermission>;
-const mockNotifyContentComment = notifyContentComment as jest.MockedFunction<typeof notifyContentComment>;
+const mockNotifyContentComment = notifyContentComment as jest.MockedFunction<
+  typeof notifyContentComment
+>;
 
 describe('/api/fan/comments', () => {
   beforeEach(() => {

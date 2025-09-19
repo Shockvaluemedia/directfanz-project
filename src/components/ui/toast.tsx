@@ -37,23 +37,43 @@ export function useToast() {
   return context;
 }
 
-// Helper functions for common toast types
+// Helper hook for creating toast functions
+export function useToastHelpers() {
+  const { addToast } = useToast();
+
+  return {
+    success: (title: string, message?: string, options?: Partial<Toast>) => {
+      return addToast({ type: 'success', title, message, ...options });
+    },
+    error: (title: string, message?: string, options?: Partial<Toast>) => {
+      return addToast({ type: 'error', title, message, duration: 0, ...options });
+    },
+    warning: (title: string, message?: string, options?: Partial<Toast>) => {
+      return addToast({ type: 'warning', title, message, ...options });
+    },
+    info: (title: string, message?: string, options?: Partial<Toast>) => {
+      return addToast({ type: 'info', title, message, ...options });
+    },
+  };
+}
+
+// Legacy toast object - use useToastHelpers() hook instead
 export const toast = {
   success: (title: string, message?: string, options?: Partial<Toast>) => {
-    const { addToast } = useToast();
-    return addToast({ type: 'success', title, message, ...options });
+    console.warn('toast.success is deprecated. Use useToastHelpers() hook instead.');
+    return '';
   },
   error: (title: string, message?: string, options?: Partial<Toast>) => {
-    const { addToast } = useToast();
-    return addToast({ type: 'error', title, message, duration: 0, ...options });
+    console.warn('toast.error is deprecated. Use useToastHelpers() hook instead.');
+    return '';
   },
   warning: (title: string, message?: string, options?: Partial<Toast>) => {
-    const { addToast } = useToast();
-    return addToast({ type: 'warning', title, message, ...options });
+    console.warn('toast.warning is deprecated. Use useToastHelpers() hook instead.');
+    return '';
   },
   info: (title: string, message?: string, options?: Partial<Toast>) => {
-    const { addToast } = useToast();
-    return addToast({ type: 'info', title, message, ...options });
+    console.warn('toast.info is deprecated. Use useToastHelpers() hook instead.');
+    return '';
   },
 };
 
@@ -65,33 +85,37 @@ interface ToastProviderProps {
 export function ToastProvider({ children, maxToasts = 5 }: ToastProviderProps) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const addToast = useCallback((toast: Omit<Toast, 'id'>) => {
-    const id = crypto.getRandomValues(new Uint32Array(1))[0] / (0xffffffff + 1).toString(36).substring(7);
-    const newToast: Toast = {
-      id,
-      duration: 5000,
-      dismissible: true,
-      ...toast,
-    };
-
-    setToasts(prev => {
-      const updated = [newToast, ...prev].slice(0, maxToasts);
-      return updated;
-    });
-
-    // Auto-remove toast after duration (if duration is set)
-    if (newToast.duration && newToast.duration > 0) {
-      setTimeout(() => {
-        removeToast(id);
-      }, newToast.duration);
-    }
-
-    return id;
-  }, [maxToasts]);
-
   const removeToast = useCallback((id: string) => {
     setToasts(prev => prev.filter(toast => toast.id !== id));
   }, []);
+
+  const addToast = useCallback(
+    (toast: Omit<Toast, 'id'>) => {
+      const id =
+        crypto.getRandomValues(new Uint32Array(1))[0] / (0xffffffff + 1).toString(36).substring(7);
+      const newToast: Toast = {
+        id,
+        duration: 5000,
+        dismissible: true,
+        ...toast,
+      };
+
+      setToasts(prev => {
+        const updated = [newToast, ...prev].slice(0, maxToasts);
+        return updated;
+      });
+
+      // Auto-remove toast after duration (if duration is set)
+      if (newToast.duration && newToast.duration > 0) {
+        setTimeout(() => {
+          removeToast(id);
+        }, newToast.duration);
+      }
+
+      return id;
+    },
+    [maxToasts, removeToast]
+  );
 
   const removeAllToasts = useCallback(() => {
     setToasts([]);
@@ -116,8 +140,8 @@ function ToastContainer() {
   const { toasts, removeToast } = useToast();
 
   return (
-    <div className="fixed top-4 right-4 z-50 flex flex-col space-y-2 pointer-events-none">
-      {toasts.map((toast) => (
+    <div className='fixed top-4 right-4 z-50 flex flex-col space-y-2 pointer-events-none'>
+      {toasts.map(toast => (
         <ToastItem key={toast.id} toast={toast} onRemove={removeToast} />
       ))}
     </div>
@@ -148,16 +172,16 @@ function ToastItem({ toast, onRemove }: ToastItemProps) {
   };
 
   const getIcon = () => {
-    const iconClass = "h-5 w-5 flex-shrink-0";
+    const iconClass = 'h-5 w-5 flex-shrink-0';
     switch (toast.type) {
       case 'success':
-        return <CheckCircle2 className={cn(iconClass, "text-green-500")} />;
+        return <CheckCircle2 className={cn(iconClass, 'text-green-500')} />;
       case 'error':
-        return <AlertCircle className={cn(iconClass, "text-red-500")} />;
+        return <AlertCircle className={cn(iconClass, 'text-red-500')} />;
       case 'warning':
-        return <AlertTriangle className={cn(iconClass, "text-yellow-500")} />;
+        return <AlertTriangle className={cn(iconClass, 'text-yellow-500')} />;
       case 'info':
-        return <Info className={cn(iconClass, "text-blue-500")} />;
+        return <Info className={cn(iconClass, 'text-blue-500')} />;
       default:
         return null;
     }
@@ -181,33 +205,31 @@ function ToastItem({ toast, onRemove }: ToastItemProps) {
   return (
     <div
       className={cn(
-        "pointer-events-auto w-80 rounded-lg border-l-4 bg-white dark:bg-gray-800 shadow-lg transition-all duration-300 ease-in-out",
+        'pointer-events-auto w-80 rounded-lg border-l-4 bg-white dark:bg-gray-800 shadow-lg transition-all duration-300 ease-in-out',
         getColorClasses(),
-        isVisible && !isLeaving 
-          ? "translate-x-0 opacity-100 scale-100" 
-          : "translate-x-full opacity-0 scale-95",
-        isLeaving && "translate-x-full opacity-0 scale-95"
+        isVisible && !isLeaving
+          ? 'translate-x-0 opacity-100 scale-100'
+          : 'translate-x-full opacity-0 scale-95',
+        isLeaving && 'translate-x-full opacity-0 scale-95'
       )}
     >
-      <div className="p-4">
-        <div className="flex items-start space-x-3">
+      <div className='p-4'>
+        <div className='flex items-start space-x-3'>
           {getIcon()}
-          
-          <div className="flex-1 min-w-0">
-            <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+
+          <div className='flex-1 min-w-0'>
+            <h4 className='text-sm font-semibold text-gray-900 dark:text-gray-100'>
               {toast.title}
             </h4>
             {toast.message && (
-              <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
-                {toast.message}
-              </p>
+              <p className='mt-1 text-sm text-gray-600 dark:text-gray-300'>{toast.message}</p>
             )}
-            
+
             {toast.action && (
-              <div className="mt-3">
+              <div className='mt-3'>
                 <Button
-                  variant="outline"
-                  size="sm"
+                  variant='outline'
+                  size='sm'
                   onClick={() => {
                     toast.action!.onClick();
                     handleRemove();
@@ -218,33 +240,33 @@ function ToastItem({ toast, onRemove }: ToastItemProps) {
               </div>
             )}
           </div>
-          
+
           {toast.dismissible && (
             <Button
-              variant="ghost"
-              size="sm"
+              variant='ghost'
+              size='sm'
               onClick={handleRemove}
-              className="h-6 w-6 p-0 hover:bg-gray-100 dark:hover:bg-gray-700"
+              className='h-6 w-6 p-0 hover:bg-gray-100 dark:hover:bg-gray-700'
             >
-              <X className="h-3 w-3" />
+              <X className='h-3 w-3' />
             </Button>
           )}
         </div>
       </div>
-      
+
       {/* Progress bar for timed toasts */}
       {toast.duration && toast.duration > 0 && (
-        <div className="h-1 bg-gray-200 dark:bg-gray-700">
-          <div 
+        <div className='h-1 bg-gray-200 dark:bg-gray-700'>
+          <div
             className={cn(
-              "h-full transition-all ease-linear",
-              toast.type === 'success' && "bg-green-500",
-              toast.type === 'error' && "bg-red-500",
-              toast.type === 'warning' && "bg-yellow-500",
-              toast.type === 'info' && "bg-blue-500"
+              'h-full transition-all ease-linear',
+              toast.type === 'success' && 'bg-green-500',
+              toast.type === 'error' && 'bg-red-500',
+              toast.type === 'warning' && 'bg-yellow-500',
+              toast.type === 'info' && 'bg-blue-500'
             )}
             style={{
-              animation: `toast-progress ${toast.duration}ms linear forwards`
+              animation: `toast-progress ${toast.duration}ms linear forwards`,
             }}
           />
         </div>

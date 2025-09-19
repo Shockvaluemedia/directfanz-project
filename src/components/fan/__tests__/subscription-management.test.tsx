@@ -82,9 +82,9 @@ describe('SubscriptionManagement', () => {
 
   it('renders loading state initially', () => {
     mockFetch.mockImplementationOnce(() => new Promise(() => {})); // Never resolves
-    
+
     render(<SubscriptionManagement />);
-    
+
     expect(screen.getByText('Loading your subscriptions...')).toBeInTheDocument();
   });
 
@@ -120,7 +120,9 @@ describe('SubscriptionManagement', () => {
       expect(screen.getByText('No subscriptions yet')).toBeInTheDocument();
     });
 
-    expect(screen.getByText('Start supporting your favorite artists by subscribing to their tiers')).toBeInTheDocument();
+    expect(
+      screen.getByText('Start supporting your favorite artists by subscribing to their tiers')
+    ).toBeInTheDocument();
     expect(screen.getByText('Discover Artists')).toBeInTheDocument();
   });
 
@@ -291,7 +293,7 @@ describe('SubscriptionManagement', () => {
 
   it('cancels subscription with confirmation', async () => {
     (global.confirm as jest.Mock).mockReturnValue(true);
-    
+
     mockFetch
       .mockResolvedValueOnce({
         ok: true,
@@ -326,7 +328,7 @@ describe('SubscriptionManagement', () => {
 
   it('does not cancel subscription if user declines confirmation', async () => {
     (global.confirm as jest.Mock).mockReturnValue(false);
-    
+
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ subscriptions: mockSubscriptions }),
@@ -402,7 +404,7 @@ describe('SubscriptionManagement', () => {
 
   it('handles fetch errors gracefully', async () => {
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
-    
+
     mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
     render(<SubscriptionManagement />);

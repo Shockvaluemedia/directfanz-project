@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/lib/prisma';
 import { deleteFile, extractKeyFromUrl } from '@/lib/s3';
 import { z } from 'zod';
 
@@ -14,13 +14,10 @@ const updateContentSchema = z.object({
   thumbnailUrl: z.string().url().optional(),
 });
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id || session.user.role !== 'ARTIST') {
       return NextResponse.json(
         { error: { code: 'UNAUTHORIZED', message: 'Artist authentication required' } },
@@ -54,7 +51,6 @@ export async function GET(
       success: true,
       data: content,
     });
-
   } catch (error) {
     console.error('Content fetch error:', error);
     return NextResponse.json(
@@ -64,13 +60,10 @@ export async function GET(
   }
 }
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id || session.user.role !== 'ARTIST') {
       return NextResponse.json(
         { error: { code: 'UNAUTHORIZED', message: 'Artist authentication required' } },
@@ -98,7 +91,7 @@ export async function PUT(
 
     // Verify that specified tiers belong to the artist
     if (validatedData.tierIds && validatedData.tierIds.length > 0) {
-      const tierCount = await prisma.tier.count({
+      const tierCount = await prisma.tiers.count({
         where: {
           id: { in: validatedData.tierIds },
           artistId: session.user.id,
@@ -107,7 +100,12 @@ export async function PUT(
 
       if (tierCount !== validatedData.tierIds.length) {
         return NextResponse.json(
-          { error: { code: 'INVALID_TIERS', message: 'One or more tiers do not belong to this artist' } },
+          {
+            error: {
+              code: 'INVALID_TIERS',
+              message: 'One or more tiers do not belong to this artist',
+            },
+          },
           { status: 400 }
         );
       }
@@ -115,12 +113,13 @@ export async function PUT(
 
     // Update content
     const updateData: any = {};
-    
+
     if (validatedData.title !== undefined) updateData.title = validatedData.title;
     if (validatedData.description !== undefined) updateData.description = validatedData.description;
     if (validatedData.tags !== undefined) updateData.tags = validatedData.tags;
     if (validatedData.isPublic !== undefined) updateData.isPublic = validatedData.isPublic;
-    if (validatedData.thumbnailUrl !== undefined) updateData.thumbnailUrl = validatedData.thumbnailUrl;
+    if (validatedData.thumbnailUrl !== undefined)
+      updateData.thumbnailUrl = validatedData.thumbnailUrl;
 
     // Handle tier updates
     if (validatedData.tierIds !== undefined) {
@@ -146,18 +145,17 @@ export async function PUT(
       success: true,
       data: updatedContent,
     });
-
   } catch (error) {
     console.error('Content update error:', error);
-    
+
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { 
-          error: { 
-            code: 'VALIDATION_ERROR', 
+        {
+          error: {
+            code: 'VALIDATION_ERROR',
             message: 'Invalid request data',
-            details: { errors: error.errors }
-          } 
+            details: { errors: error.errors },
+          },
         },
         { status: 400 }
       );
@@ -170,13 +168,10 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id || session.user.role !== 'ARTIST') {
       return NextResponse.json(
         { error: { code: 'UNAUTHORIZED', message: 'Artist authentication required' } },
@@ -203,7 +198,7 @@ export async function DELETE(
     try {
       const fileKey = extractKeyFromUrl(existingContent.fileUrl);
       await deleteFile(fileKey);
-      
+
       // Delete thumbnail if exists
       if (existingContent.thumbnailUrl) {
         const thumbnailKey = extractKeyFromUrl(existingContent.thumbnailUrl);
@@ -223,7 +218,6 @@ export async function DELETE(
       success: true,
       message: 'Content deleted successfully',
     });
-
   } catch (error) {
     console.error('Content deletion error:', error);
     return NextResponse.json(

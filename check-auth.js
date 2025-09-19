@@ -1,5 +1,5 @@
-const { PrismaClient } = require('@prisma/client');
-const bcrypt = require('bcryptjs');
+import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 const db = new PrismaClient();
 
@@ -12,8 +12,8 @@ async function main() {
         email: true,
         displayName: true,
         role: true,
-        createdAt: true
-      }
+        createdAt: true,
+      },
     });
 
     console.log(`Found ${users.length} users:`);
@@ -25,7 +25,7 @@ async function main() {
     if (users.length === 0) {
       console.log('\nNo users found. Creating a test user...');
       const hashedPassword = await bcrypt.hash('password123', 12);
-      
+
       const newUser = await db.users.create({
         data: {
           email: 'test@example.com',
@@ -33,8 +33,8 @@ async function main() {
           displayName: 'Test User',
           role: 'FAN',
           createdAt: new Date(),
-          updatedAt: new Date()
-        }
+          updatedAt: new Date(),
+        },
       });
 
       console.log('✅ Test user created:', newUser.email);
@@ -43,7 +43,7 @@ async function main() {
     // Test authentication with the credentials
     console.log('\n🔍 Testing authentication...');
     const testUser = await db.users.findUnique({
-      where: { email: 'test@example.com' }
+      where: { email: 'test@example.com' },
     });
 
     if (testUser && testUser.password) {
@@ -52,7 +52,6 @@ async function main() {
     } else {
       console.log('❌ Test user not found or has no password');
     }
-
   } catch (error) {
     console.error('❌ Error:', error.message);
   } finally {

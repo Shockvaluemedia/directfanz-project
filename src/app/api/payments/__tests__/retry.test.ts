@@ -26,17 +26,15 @@ jest.mock('@/lib/auth', () => ({
 
 import { GET, POST } from '../retry/route';
 import { prisma } from '@/lib/prisma';
-import { 
-  retryPayment, 
-  getPaymentFailures,
-  getArtistPaymentFailures
-} from '@/lib/payment-retry';
+import { retryPayment, getPaymentFailures, getArtistPaymentFailures } from '@/lib/payment-retry';
 import { getServerSession } from 'next-auth';
 
 const mockPrisma = prisma as jest.Mocked<typeof prisma>;
 const mockRetryPayment = retryPayment as jest.MockedFunction<typeof retryPayment>;
 const mockGetPaymentFailures = getPaymentFailures as jest.MockedFunction<typeof getPaymentFailures>;
-const mockGetArtistPaymentFailures = getArtistPaymentFailures as jest.MockedFunction<typeof getArtistPaymentFailures>;
+const mockGetArtistPaymentFailures = getArtistPaymentFailures as jest.MockedFunction<
+  typeof getArtistPaymentFailures
+>;
 const mockGetServerSession = getServerSession as jest.MockedFunction<typeof getServerSession>;
 
 // Helper functions to create mock requests
@@ -77,7 +75,9 @@ describe('/api/payments/retry', () => {
       mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
       mockGetPaymentFailures.mockResolvedValue(mockFailures as any);
 
-      const request = createMockGetRequest('http://localhost:3000/api/payments/retry?subscriptionId=sub123');
+      const request = createMockGetRequest(
+        'http://localhost:3000/api/payments/retry?subscriptionId=sub123'
+      );
       const response = await GET(request);
       const data = await response.json();
 
@@ -99,7 +99,9 @@ describe('/api/payments/retry', () => {
       mockGetServerSession.mockResolvedValue(mockSession as any);
       mockGetArtistPaymentFailures.mockResolvedValue(mockFailures as any);
 
-      const request = createMockGetRequest('http://localhost:3000/api/payments/retry?artistId=artist123');
+      const request = createMockGetRequest(
+        'http://localhost:3000/api/payments/retry?artistId=artist123'
+      );
       const response = await GET(request);
       const data = await response.json();
 
@@ -111,7 +113,9 @@ describe('/api/payments/retry', () => {
     it('should return 401 for unauthenticated user', async () => {
       mockGetServerSession.mockResolvedValue(null);
 
-      const request = createMockGetRequest('http://localhost:3000/api/payments/retry?subscriptionId=sub123');
+      const request = createMockGetRequest(
+        'http://localhost:3000/api/payments/retry?subscriptionId=sub123'
+      );
       const response = await GET(request);
       const data = await response.json();
 
@@ -142,7 +146,9 @@ describe('/api/payments/retry', () => {
       mockGetServerSession.mockResolvedValue(mockSession as any);
       mockPrisma.subscription.findUnique.mockResolvedValue(null);
 
-      const request = createMockGetRequest('http://localhost:3000/api/payments/retry?subscriptionId=sub123');
+      const request = createMockGetRequest(
+        'http://localhost:3000/api/payments/retry?subscriptionId=sub123'
+      );
       const response = await GET(request);
       const data = await response.json();
 
@@ -157,7 +163,9 @@ describe('/api/payments/retry', () => {
 
       mockGetServerSession.mockResolvedValue(mockSession as any);
 
-      const request = createMockGetRequest('http://localhost:3000/api/payments/retry?artistId=artist123');
+      const request = createMockGetRequest(
+        'http://localhost:3000/api/payments/retry?artistId=artist123'
+      );
       const response = await GET(request);
       const data = await response.json();
 

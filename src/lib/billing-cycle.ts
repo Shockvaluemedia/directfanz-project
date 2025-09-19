@@ -37,8 +37,8 @@ export interface BillingCycleInfo {
  */
 export async function getBillingCycleInfo(subscriptionId: string): Promise<BillingCycleInfo> {
   try {
-    const subscription = await prisma.subscription.findUnique({
-      where: { id: subscriptionId }
+    const subscription = await prisma.subscriptions.findUnique({
+      where: { id: subscriptionId },
     });
 
     if (!subscription) {
@@ -57,16 +57,17 @@ export async function getBillingCycleInfo(subscriptionId: string): Promise<Billi
     const daysInCurrentPeriod = Math.ceil(
       (currentPeriodEnd.getTime() - currentPeriodStart.getTime()) / (1000 * 60 * 60 * 24)
     );
-    const daysRemaining = Math.max(0, Math.ceil(
-      (currentPeriodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
-    ));
+    const daysRemaining = Math.max(
+      0,
+      Math.ceil((currentPeriodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+    );
 
     return {
       currentPeriodStart,
       currentPeriodEnd,
       nextBillingDate,
       daysInCurrentPeriod,
-      daysRemaining
+      daysRemaining,
     };
   } catch (error) {
     console.error('Error getting billing cycle info:', error);
@@ -79,19 +80,19 @@ export async function getBillingCycleInfo(subscriptionId: string): Promise<Billi
  */
 export async function getUpcomingInvoices(artistId?: string): Promise<UpcomingInvoice[]> {
   try {
-    const activeSubscriptions = await prisma.subscription.findMany({
-      where: { 
+    const activeSubscriptions = await prisma.subscriptions.findMany({
+      where: {
         status: 'ACTIVE',
-        ...(artistId ? { artistId } : {})
+        ...(artistId ? { artistId } : {}),
       },
       include: {
         fan: true,
         tier: {
           include: {
-            artist: true
-          }
-        }
-      }
+            artist: true,
+          },
+        },
+      },
     });
 
     const upcomingInvoices: UpcomingInvoice[] = [];
@@ -108,9 +109,10 @@ export async function getUpcomingInvoices(artistId?: string): Promise<UpcomingIn
           dueDate: new Date(upcomingInvoice.due_date! * 1000),
           periodStart: new Date(upcomingInvoice.period_start * 1000),
           periodEnd: new Date(upcomingInvoice.period_end * 1000),
-          prorationAmount: upcomingInvoice.lines.data
-            .filter(line => line.proration)
-            .reduce((sum, line) => sum + (line.amount / 100), 0) || undefined
+          prorationAmount:
+            upcomingInvoice.lines.data
+              .filter(line => line.proration)
+              .reduce((sum, line) => sum + line.amount / 100, 0) || undefined,
         });
       } catch (error) {
         console.error(`Error getting upcoming invoice for subscription ${subscription.id}:`, error);
@@ -135,22 +137,22 @@ export async function processBillingRenewals(): Promise<BillingCycleEvent[]> {
     const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
     // Get subscriptions that are due for renewal in the next 24 hours
-    const subscriptionsToRenew = await prisma.subscription.findMany({
+    const subscriptionsToRenew = await prisma.subscriptions.findMany({
       where: {
         status: 'ACTIVE',
         currentPeriodEnd: {
           gte: now,
-          lte: tomorrow
-        }
+          lte: tomorrow,
+        },
       },
       include: {
         fan: true,
         tier: {
           include: {
-            artist: true
-          }
-        }
-      }
+            artist: true,
+          },
+        },
+      },
     });
 
     for (const subscription of subscriptionsToRenew) {
@@ -161,30 +163,30 @@ export async function processBillingRenewals(): Promise<BillingCycleEvent[]> {
         );
 
         // Update local subscription with latest period info
-        await prisma.subscription.update({
+        await prisma.subscriptions.update({
           where: { id: subscription.id },
           data: {
             currentPeriodStart: new Date(stripeSubscription.current_period_start * 1000),
             currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000),
-            status: stripeSubscription.status.toUpperCase() as any
-          }
+            status: stripeSubscription.status.toUpperCase() as any,
+          },
         });
 
         // Send renewal notification to fan
-        if (subscription.fan.email) {
-          const prefs = subscription.fan.notificationPreferences as any;
+        if (subscription.users.email) {
+          const prefs = subscription.users.notificationPreferences as any;
           if (!prefs || prefs?.billing !== false) {
             await sendEmail({
-              to: subscription.fan.email,
-              subject: `Subscription Renewed - ${subscription.tier.artist?.displayName}`,
+              to: subscription.users.email,
+              subject: `Subscription Renewed - ${subscription.tiers.artist?.displayName}`,
               html: `
                 <h1>Subscription Renewed</h1>
-                <p>Your subscription to ${subscription.tier.artist?.displayName}'s ${subscription.tier.name} tier has been renewed.</p>
+                <p>Your subscription to ${subscription.tiers.artist?.displayName}'s ${subscription.tiers.name} tier has been renewed.</p>
                 <p>Amount: $${subscription.amount}</p>
                 <p>Next billing date: ${new Date(stripeSubscription.current_period_end * 1000).toLocaleDateString()}</p>
                 <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions">Manage your subscriptions</a></p>
               `,
-              text: `Subscription Renewed\n\nYour subscription to ${subscription.tier.artist?.displayName}'s ${subscription.tier.name} tier has been renewed.\n\nAmount: $${subscription.amount}\nNext billing date: ${new Date(stripeSubscription.current_period_end * 1000).toLocaleDateString()}\n\nManage your subscriptions: ${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions`
+              text: `Subscription Renewed\n\nYour subscription to ${subscription.tiers.artist?.displayName}'s ${subscription.tiers.name} tier has been renewed.\n\nAmount: $${subscription.amount}\nNext billing date: ${new Date(stripeSubscription.current_period_end * 1000).toLocaleDateString()}\n\nManage your subscriptions: ${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions`,
             });
           }
         }
@@ -196,8 +198,8 @@ export async function processBillingRenewals(): Promise<BillingCycleEvent[]> {
           timestamp: new Date(),
           metadata: {
             periodStart: stripeSubscription.current_period_start,
-            periodEnd: stripeSubscription.current_period_end
-          }
+            periodEnd: stripeSubscription.current_period_end,
+          },
         });
       } catch (error) {
         console.error(`Error processing renewal for subscription ${subscription.id}:`, error);
@@ -220,7 +222,7 @@ export async function processFailedPaymentRetries(): Promise<BillingCycleEvent[]
     const now = new Date();
 
     // Get payment failures that are due for retry
-    const failuresToRetry = await prisma.$queryRaw`
+    const failuresToRetry = (await prisma.$queryRaw`
       SELECT pf.*, s.id as "subscriptionId", s."stripeSubscriptionId", s."artistId",
              f.email as "fanEmail", t.name as "tierName", 
              a."displayName" as "artistDisplayName"
@@ -231,7 +233,7 @@ export async function processFailedPaymentRetries(): Promise<BillingCycleEvent[]
       JOIN "users" a ON t."artistId" = a.id
       WHERE pf."isResolved" = false
       AND pf."nextRetryAt" <= ${now}
-    ` as any[];
+    `) as any[];
 
     for (const failure of failuresToRetry) {
       try {
@@ -248,9 +250,9 @@ export async function processFailedPaymentRetries(): Promise<BillingCycleEvent[]
           `;
 
           // Update subscription status
-          await prisma.subscription.update({
+          await prisma.subscriptions.update({
             where: { id: failure.subscriptionId },
-            data: { status: 'ACTIVE' }
+            data: { status: 'ACTIVE' },
           });
 
           events.push({
@@ -260,16 +262,16 @@ export async function processFailedPaymentRetries(): Promise<BillingCycleEvent[]
             timestamp: new Date(),
             metadata: {
               resolved: true,
-              attemptCount: failure.attemptCount
-            }
+              attemptCount: failure.attemptCount,
+            },
           });
         } else if (invoice.attempt_count && invoice.attempt_count >= 3) {
           // Max attempts reached, cancel subscription
           await stripe.subscriptions.cancel(failure.stripeSubscriptionId);
 
-          await prisma.subscription.update({
+          await prisma.subscriptions.update({
             where: { id: failure.subscriptionId },
-            data: { status: 'CANCELED' }
+            data: { status: 'CANCELED' },
           });
 
           // Send cancellation notification
@@ -283,7 +285,7 @@ export async function processFailedPaymentRetries(): Promise<BillingCycleEvent[]
                 <p>You can resubscribe at any time by visiting the artist's page.</p>
                 <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/artist/${failure.artistId}">Visit ${failure.artistDisplayName}'s page</a></p>
               `,
-              text: `Subscription Canceled\n\nYour subscription to ${failure.artistDisplayName}'s ${failure.tierName} tier has been canceled due to repeated payment failures.\n\nYou can resubscribe at any time by visiting the artist's page.\n\nVisit ${failure.artistDisplayName}'s page: ${process.env.NEXT_PUBLIC_APP_URL}/artist/${failure.artistId}`
+              text: `Subscription Canceled\n\nYour subscription to ${failure.artistDisplayName}'s ${failure.tierName} tier has been canceled due to repeated payment failures.\n\nYou can resubscribe at any time by visiting the artist's page.\n\nVisit ${failure.artistDisplayName}'s page: ${process.env.NEXT_PUBLIC_APP_URL}/artist/${failure.artistId}`,
             });
           }
 
@@ -294,12 +296,12 @@ export async function processFailedPaymentRetries(): Promise<BillingCycleEvent[]
             timestamp: new Date(),
             metadata: {
               reason: 'payment_failure',
-              attemptCount: failure.attemptCount
-            }
+              attemptCount: failure.attemptCount,
+            },
           });
         } else {
           // Update retry information
-          const nextRetry = invoice.next_payment_attempt 
+          const nextRetry = invoice.next_payment_attempt
             ? new Date(invoice.next_payment_attempt * 1000)
             : new Date(now.getTime() + 24 * 60 * 60 * 1000); // Default to 24 hours
 
@@ -319,8 +321,8 @@ export async function processFailedPaymentRetries(): Promise<BillingCycleEvent[]
             metadata: {
               resolved: false,
               attemptCount: invoice.attempt_count || failure.attemptCount + 1,
-              nextRetryAt: nextRetry
-            }
+              nextRetryAt: nextRetry,
+            },
           });
         }
       } catch (error) {
@@ -345,41 +347,41 @@ export async function sendBillingReminders(): Promise<number> {
     const twoDaysFromNow = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
 
     // Get subscriptions that will renew in 3 days
-    const subscriptionsToRemind = await prisma.subscription.findMany({
+    const subscriptionsToRemind = await prisma.subscriptions.findMany({
       where: {
         status: 'ACTIVE',
         currentPeriodEnd: {
           gte: twoDaysFromNow,
-          lte: threeDaysFromNow
-        }
+          lte: threeDaysFromNow,
+        },
       },
       include: {
         fan: true,
         tier: {
           include: {
-            artist: true
-          }
-        }
-      }
+            artist: true,
+          },
+        },
+      },
     });
 
     for (const subscription of subscriptionsToRemind) {
       try {
-        if (subscription.fan.email && subscription.fan.notificationPreferences) {
-          const prefs = subscription.fan.notificationPreferences as any;
+        if (subscription.users.email && subscription.users.notificationPreferences) {
+          const prefs = subscription.users.notificationPreferences as any;
           if (prefs?.billing !== false) {
             await sendEmail({
-              to: subscription.fan.email,
-              subject: `Upcoming Renewal - ${subscription.tier.artist?.displayName}`,
+              to: subscription.users.email,
+              subject: `Upcoming Renewal - ${subscription.tiers.artist?.displayName}`,
               html: `
                 <h1>Upcoming Subscription Renewal</h1>
-                <p>Your subscription to ${subscription.tier.artist?.displayName}'s ${subscription.tier.name} tier will renew in 3 days.</p>
+                <p>Your subscription to ${subscription.tiers.artist?.displayName}'s ${subscription.tiers.name} tier will renew in 3 days.</p>
                 <p>Amount: $${subscription.amount}</p>
                 <p>Renewal date: ${subscription.currentPeriodEnd.toLocaleDateString()}</p>
                 <p>If you need to make changes to your subscription, you can do so in your dashboard.</p>
                 <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions">Manage your subscriptions</a></p>
               `,
-              text: `Upcoming Subscription Renewal\n\nYour subscription to ${subscription.tier.artist?.displayName}'s ${subscription.tier.name} tier will renew in 3 days.\n\nAmount: $${subscription.amount}\nRenewal date: ${subscription.currentPeriodEnd.toLocaleDateString()}\n\nIf you need to make changes to your subscription, you can do so in your dashboard.\n\nManage your subscriptions: ${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions`
+              text: `Upcoming Subscription Renewal\n\nYour subscription to ${subscription.tiers.artist?.displayName}'s ${subscription.tiers.name} tier will renew in 3 days.\n\nAmount: $${subscription.amount}\nRenewal date: ${subscription.currentPeriodEnd.toLocaleDateString()}\n\nIf you need to make changes to your subscription, you can do so in your dashboard.\n\nManage your subscriptions: ${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions`,
             });
 
             remindersSent++;
@@ -410,42 +412,40 @@ export async function getBillingCycleStats(): Promise<{
     const now = new Date();
     const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-    const [
-      activeSubscriptions,
-      upcomingRenewals,
-      failedPayments,
-      revenueResult
-    ] = await Promise.all([
-      prisma.subscription.count({
-        where: { status: 'ACTIVE' }
-      }),
-      prisma.subscription.count({
-        where: {
-          status: 'ACTIVE',
-          currentPeriodEnd: {
-            gte: now,
-            lte: nextWeek
-          }
-        }
-      }),
-      prisma.$queryRaw`SELECT COUNT(*) as count FROM "payment_failures" WHERE "isResolved" = false`.then((result: any) => parseInt(result[0].count)),
-      prisma.subscription.aggregate({
-        where: { status: 'ACTIVE' },
-        _sum: { amount: true }
-      })
-    ]);
+    const [activeSubscriptions, upcomingRenewals, failedPayments, revenueResult] =
+      await Promise.all([
+        prisma.subscriptions.count({
+          where: { status: 'ACTIVE' },
+        }),
+        prisma.subscriptions.count({
+          where: {
+            status: 'ACTIVE',
+            currentPeriodEnd: {
+              gte: now,
+              lte: nextWeek,
+            },
+          },
+        }),
+        prisma.$queryRaw`SELECT COUNT(*) as count FROM "payment_failures" WHERE "isResolved" = false`.then(
+          (result: any) => parseInt(result[0].count)
+        ),
+        prisma.subscriptions.aggregate({
+          where: { status: 'ACTIVE' },
+          _sum: { amount: true },
+        }),
+      ]);
 
     return {
       activeSubscriptions,
       upcomingRenewals,
       failedPayments,
-      totalMonthlyRevenue: parseFloat(revenueResult._sum.amount?.toString() || '0')
+      totalMonthlyRevenue: parseFloat(revenueResult._sum.amount?.toString() || '0'),
     };
   } catch (error) {
     console.error('Error getting billing cycle stats:', error);
     throw new Error('Failed to get billing cycle statistics');
   }
-}/**
+} /**
  *
  Process scheduled tier changes that are due
  */
@@ -455,7 +455,7 @@ export async function processScheduledTierChanges(): Promise<BillingCycleEvent[]
     const now = new Date();
 
     // Find all invoices with scheduled tier changes for the current period
-    const scheduledChanges = await prisma.$queryRaw`
+    const scheduledChanges = (await prisma.$queryRaw`
       SELECT i.*, s.id as "subscriptionId", s."tierId", s.amount, s."fanId", s."artistId",
              f.email, f."notificationPreferences",
              t.name as "tierName"
@@ -466,53 +466,53 @@ export async function processScheduledTierChanges(): Promise<BillingCycleEvent[]
       WHERE i.status = 'PAID'
       AND i."periodEnd" <= ${now}
       AND i.items::jsonb ? 'scheduledTierChange'
-    ` as any[];
+    `) as any[];
 
     for (const invoice of scheduledChanges) {
       try {
         // Extract scheduled tier change details from invoice items
         const items = invoice.items as any;
         if (!items.scheduledTierChange) continue;
-        
+
         const { newTierId, newAmount } = items.scheduledTierChange;
-        
+
         // Get the new tier
-        const newTier = await prisma.tier.findUnique({
-          where: { id: newTierId }
+        const newTier = await prisma.tiers.findUnique({
+          where: { id: newTierId },
         });
-        
+
         if (!newTier) {
           console.error(`Scheduled tier ${newTierId} not found for invoice ${invoice.id}`);
           continue;
         }
-        
+
         // Apply the tier change
         const subscription = invoice.subscription;
         const currentAmount = parseFloat(subscription.amount.toString());
         const isUpgrade = newAmount > currentAmount;
-        
+
         // Update subscription in database
-        await prisma.$transaction(async (tx) => {
+        await prisma.$transaction(async tx => {
           // Update subscription
           await tx.subscription.update({
             where: { id: subscription.id },
             data: {
               tierId: newTierId,
-              amount: new Decimal(newAmount)
-            }
+              amount: new Decimal(newAmount),
+            },
           });
 
           // Update tier subscriber counts
-          await tx.tier.update({
+          await tx.tiers.update({
             where: { id: subscription.tierId },
-            data: { subscriberCount: { decrement: 1 } }
+            data: { subscriberCount: { decrement: 1 } },
           });
 
-          await tx.tier.update({
+          await tx.tiers.update({
             where: { id: newTierId },
-            data: { subscriberCount: { increment: 1 } }
+            data: { subscriberCount: { increment: 1 } },
           });
-          
+
           // Update invoice to mark scheduled change as processed
           await tx.$executeRaw`
             UPDATE "invoices"
@@ -521,20 +521,20 @@ export async function processScheduledTierChanges(): Promise<BillingCycleEvent[]
               scheduledTierChange: {
                 ...items.scheduledTierChange,
                 processed: true,
-                processedAt: new Date()
-              }
+                processedAt: new Date(),
+              },
             })},
             "updatedAt" = NOW()
             WHERE "id" = ${invoice.id}
           `;
         });
-        
+
         // Send notification to fan
-        if (subscription.fan.email && subscription.fan.notificationPreferences) {
-          const prefs = subscription.fan.notificationPreferences as any;
+        if (subscription.users.email && subscription.users.notificationPreferences) {
+          const prefs = subscription.users.notificationPreferences as any;
           if (prefs?.billing !== false) {
             await sendEmail({
-              to: subscription.fan.email,
+              to: subscription.users.email,
               subject: `Subscription Tier Changed - ${newTier.name}`,
               html: `
                 <h1>Subscription Tier Changed</h1>
@@ -542,11 +542,11 @@ export async function processScheduledTierChanges(): Promise<BillingCycleEvent[]
                 <p>New amount: ${newAmount.toFixed(2)}</p>
                 <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions">Manage your subscriptions</a></p>
               `,
-              text: `Subscription Tier Changed\n\nYour subscription has been changed to the ${newTier.name} tier as scheduled.\n\nNew amount: ${newAmount.toFixed(2)}\n\nManage your subscriptions: ${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions`
+              text: `Subscription Tier Changed\n\nYour subscription has been changed to the ${newTier.name} tier as scheduled.\n\nNew amount: ${newAmount.toFixed(2)}\n\nManage your subscriptions: ${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions`,
             });
           }
         }
-        
+
         events.push({
           type: 'renewal',
           subscriptionId: subscription.id,
@@ -558,15 +558,15 @@ export async function processScheduledTierChanges(): Promise<BillingCycleEvent[]
               toTierId: newTierId,
               fromAmount: currentAmount,
               toAmount: newAmount,
-              isUpgrade
-            }
-          }
+              isUpgrade,
+            },
+          },
         });
       } catch (error) {
         console.error(`Error processing scheduled tier change for invoice ${invoice.id}:`, error);
       }
     }
-    
+
     return events;
   } catch (error) {
     console.error('Error processing scheduled tier changes:', error);
@@ -585,10 +585,10 @@ export async function recordPaymentFailure(
 ): Promise<void> {
   try {
     // Check if there's already a payment failure record for this invoice
-    const existingFailure = await prisma.$queryRaw`
+    const existingFailure = (await prisma.$queryRaw`
       SELECT * FROM "payment_failures" WHERE "stripeInvoiceId" = ${stripeInvoiceId}
-    ` as any[];
-    
+    `) as any[];
+
     if (existingFailure && existingFailure.length > 0) {
       // Update existing record
       await prisma.$executeRaw`
@@ -618,11 +618,11 @@ export async function recordPaymentFailure(
         )
       `;
     }
-    
+
     // Update subscription status
-    await prisma.subscription.update({
+    await prisma.subscriptions.update({
       where: { id: subscriptionId },
-      data: { status: 'PAST_DUE' }
+      data: { status: 'PAST_DUE' },
     });
   } catch (error) {
     console.error('Error recording payment failure:', error);
@@ -641,12 +641,12 @@ export async function syncArtistInvoices(artistId: string): Promise<{
   try {
     let created = 0;
     let updated = 0;
-    
+
     // Get all subscriptions for this artist
-    const subscriptions = await prisma.subscription.findMany({
-      where: { artistId }
+    const subscriptions = await prisma.subscriptions.findMany({
+      where: { artistId },
     });
-    
+
     // Process each subscription
     for (const subscription of subscriptions) {
       try {
@@ -658,11 +658,11 @@ export async function syncArtistInvoices(artistId: string): Promise<{
         // Continue with other subscriptions
       }
     }
-    
+
     return {
       created,
       updated,
-      total: created + updated
+      total: created + updated,
     };
   } catch (error) {
     console.error('Error syncing artist invoices:', error);
@@ -679,8 +679,8 @@ export async function syncSubscriptionInvoices(subscriptionId: string): Promise<
   total: number;
 }> {
   try {
-    const subscription = await prisma.subscription.findUnique({
-      where: { id: subscriptionId }
+    const subscription = await prisma.subscriptions.findUnique({
+      where: { id: subscriptionId },
     });
 
     if (!subscription) {
@@ -697,17 +697,17 @@ export async function syncSubscriptionInvoices(subscriptionId: string): Promise<
       const stripeInvoices = await stripe.invoices.list({
         subscription: subscription.stripeSubscriptionId,
         limit,
-        ...(startingAfter ? { starting_after: startingAfter } : {})
+        ...(startingAfter ? { starting_after: startingAfter } : {}),
       });
 
       for (const invoice of stripeInvoices.data) {
         try {
           const invoiceData = await generateInvoiceData(invoice.id);
-          
+
           // Check if invoice already exists
-          const existingInvoice = await prisma.$queryRaw`
+          const existingInvoice = (await prisma.$queryRaw`
             SELECT * FROM "invoices" WHERE "stripeInvoiceId" = ${invoice.id}
-          ` as any[];
+          `) as any[];
 
           if (existingInvoice && existingInvoice.length > 0) {
             // Update existing invoice
@@ -724,12 +724,14 @@ export async function syncSubscriptionInvoices(subscriptionId: string): Promise<
             updated++;
           } else {
             // Create new invoice
-            const prorationAmount = invoiceData.items.some(item => item.description.includes('Proration'))
+            const prorationAmount = invoiceData.items.some(item =>
+              item.description.includes('Proration')
+            )
               ? invoiceData.items
                   .filter(item => item.description.includes('Proration'))
                   .reduce((sum: number, item) => sum + item.amount, 0)
               : null;
-              
+
             await prisma.$executeRaw`
               INSERT INTO "invoices" (
                 "id", "subscriptionId", "stripeInvoiceId", "amount", "status", 
@@ -769,7 +771,7 @@ export async function syncSubscriptionInvoices(subscriptionId: string): Promise<
     return {
       created,
       updated,
-      total: created + updated
+      total: created + updated,
     };
   } catch (error) {
     console.error('Error syncing subscription invoices:', error);
@@ -801,76 +803,77 @@ export async function getArtistBillingSummary(artistId: string): Promise<{
     const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const previousMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
     const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-    
+
     // Get current month revenue
     const currentMonthInvoices = await prisma.invoice.findMany({
       where: {
         subscription: {
-          artistId
+          artistId,
         },
         status: 'PAID',
         paidAt: {
           gte: currentMonthStart,
-          lte: now
-        }
+          lte: now,
+        },
       },
       select: {
-        amount: true
-      }
+        amount: true,
+      },
     });
-    
+
     const currentMonthRevenue = currentMonthInvoices.reduce(
       (sum, invoice) => sum + parseFloat(invoice.amount.toString()),
       0
     );
-    
+
     // Get previous month revenue
     const previousMonthInvoices = await prisma.invoice.findMany({
       where: {
         subscription: {
-          artistId
+          artistId,
         },
         status: 'PAID',
         paidAt: {
           gte: previousMonthStart,
-          lte: previousMonthEnd
-        }
+          lte: previousMonthEnd,
+        },
       },
       select: {
-        amount: true
-      }
+        amount: true,
+      },
     });
-    
+
     const previousMonthRevenue = previousMonthInvoices.reduce(
       (sum, invoice) => sum + parseFloat(invoice.amount.toString()),
       0
     );
-    
+
     // Calculate revenue change percentage
-    const revenueChange = previousMonthRevenue === 0
-      ? 100 // If previous month was 0, consider it 100% growth
-      : ((currentMonthRevenue - previousMonthRevenue) / previousMonthRevenue) * 100;
-    
+    const revenueChange =
+      previousMonthRevenue === 0
+        ? 100 // If previous month was 0, consider it 100% growth
+        : ((currentMonthRevenue - previousMonthRevenue) / previousMonthRevenue) * 100;
+
     // Get active subscriptions count
-    const activeSubscriptions = await prisma.subscription.count({
+    const activeSubscriptions = await prisma.subscriptions.count({
       where: {
         artistId,
-        status: 'ACTIVE'
-      }
+        status: 'ACTIVE',
+      },
     });
-    
+
     // Get upcoming renewals
-    const upcomingRenewals = await prisma.subscription.count({
+    const upcomingRenewals = await prisma.subscriptions.count({
       where: {
         artistId,
         status: 'ACTIVE',
         currentPeriodEnd: {
           gte: now,
-          lte: nextWeek
-        }
-      }
+          lte: nextWeek,
+        },
+      },
     });
-    
+
     // Get failed payments
     const failedPayments = await prisma.$queryRaw`
       SELECT COUNT(*) as count 
@@ -879,51 +882,51 @@ export async function getArtistBillingSummary(artistId: string): Promise<{
       WHERE pf."isResolved" = false
       AND s."artistId" = ${artistId}
     `.then((result: any) => parseInt(result[0].count));
-    
+
     // Calculate average subscription value
-    const averageSubscriptionValue = activeSubscriptions > 0
-      ? (await prisma.subscription.aggregate({
-          where: {
-            artistId,
-            status: 'ACTIVE'
-          },
-          _avg: {
-            amount: true
-          }
-        }))._avg.amount?.toNumber() || 0
-      : 0;
-    
+    const averageSubscriptionValue =
+      activeSubscriptions > 0
+        ? (
+            await prisma.subscriptions.aggregate({
+              where: {
+                artistId,
+                status: 'ACTIVE',
+              },
+              _avg: {
+                amount: true,
+              },
+            })
+          )._avg.amount?.toNumber() || 0
+        : 0;
+
     // Get top performing tiers
-    const tiers = await prisma.tier.findMany({
+    const tiers = await prisma.tiers.findMany({
       where: {
-        artistId
+        artistId,
       },
       include: {
         subscriptions: {
           where: {
-            status: 'ACTIVE'
+            status: 'ACTIVE',
           },
           select: {
-            amount: true
-          }
-        }
+            amount: true,
+          },
+        },
       },
       orderBy: {
-        subscriberCount: 'desc'
+        subscriberCount: 'desc',
       },
-      take: 5
+      take: 5,
     });
-    
+
     const topTiers = tiers.map(tier => ({
       tierId: tier.id,
       tierName: tier.name,
       subscriberCount: tier.subscriberCount,
-      revenue: tier.subscriptions.reduce(
-        (sum, sub) => sum + parseFloat(sub.amount.toString()),
-        0
-      )
+      revenue: tier.subscriptions.reduce((sum, sub) => sum + parseFloat(sub.amount.toString()), 0),
     }));
-    
+
     return {
       currentMonthRevenue,
       previousMonthRevenue,
@@ -932,7 +935,7 @@ export async function getArtistBillingSummary(artistId: string): Promise<{
       upcomingRenewals,
       failedPayments,
       averageSubscriptionValue,
-      topTiers
+      topTiers,
     };
   } catch (error) {
     console.error('Error getting artist billing summary:', error);

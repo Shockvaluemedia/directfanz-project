@@ -1,10 +1,10 @@
-import SearchInterface from '@/components/search/search-interface'
+import AdvancedSearchEngine from '@/components/search/AdvancedSearchEngine';
 
 export default function SearchPage() {
-  return <SearchInterface />
+  return <AdvancedSearchEngine />;
 }
 
 export const metadata = {
   title: 'Search & Discovery - Direct Fan Platform',
   description: 'Discover amazing artists and exclusive content on our platform',
-}
+};

@@ -4,11 +4,11 @@ import { Server as SocketIOServer } from 'socket.io';
 import { parse } from 'node:url';
 import { webSocketInstance } from './src/lib/websocket-instance';
 import { logger } from './src/lib/logger';
-import type { 
-  ServerToClientEvents, 
-  ClientToServerEvents, 
-  InterServerEvents, 
-  SocketData 
+import type {
+  ServerToClientEvents,
+  ClientToServerEvents,
+  InterServerEvents,
+  SocketData,
 } from './src/types/websocket';
 
 const dev = process.env.NODE_ENV !== 'production';
@@ -55,10 +55,10 @@ export default async function createCustomServer() {
   webSocketInstance.setIO(io);
 
   // Global error handling for Socket.IO
-  io.engine.on('connection_error', (err) => {
+  io.engine.on('connection_error', err => {
     logger.error('Socket.IO connection error', {
-      req: err.req,      
-      code: err.code,    
+      req: err.req,
+      code: err.code,
       message: err.message,
       context: err.context,
     });
@@ -68,7 +68,7 @@ export default async function createCustomServer() {
 }
 
 // Start server if this file is run directly
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   createCustomServer()
     .then(({ httpServer }) => {
       httpServer.listen(port, () => {
@@ -76,7 +76,7 @@ if (require.main === module) {
         logger.info('📡 WebSocket and WebRTC signaling server active');
       });
     })
-    .catch((err) => {
+    .catch(err => {
       logger.error('Failed to start server', {}, err);
       process.exit(1);
     });

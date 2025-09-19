@@ -8,12 +8,12 @@ import { userEngagementTracker } from '@/lib/user-engagement-tracking';
 export async function POST(request: NextRequest) {
   try {
     const { email, password } = await request.json();
-    
+
     // Find user by email
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: { email },
     });
-    
+
     if (!user || !user.password) {
       // Track failed login
       await businessMetrics.track({
@@ -23,16 +23,13 @@ export async function POST(request: NextRequest) {
           email,
         },
       });
-      
-      return NextResponse.json(
-        { error: 'Invalid credentials' },
-        { status: 401 }
-      );
+
+      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
-    
+
     // Compare password
     const isPasswordValid = await bcrypt.compare(password, user.password);
-    
+
     if (!isPasswordValid) {
       // Track failed login
       await businessMetrics.track({
@@ -43,20 +40,17 @@ export async function POST(request: NextRequest) {
           email,
         },
       });
-      
-      return NextResponse.json(
-        { error: 'Invalid credentials' },
-        { status: 401 }
-      );
+
+      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
-    
+
     // Generate JWT token
     const token = jwt.sign(
       { userId: user.id, email: user.email },
       process.env.JWT_SECRET || 'test-secret',
       { expiresIn: '24h' }
     );
-    
+
     // Track successful login
     await businessMetrics.track({
       event: 'user_login',
@@ -66,7 +60,7 @@ export async function POST(request: NextRequest) {
         source: 'login_form',
       },
     });
-    
+
     await userEngagementTracker.trackUserAuthentication(
       {
         userId: user.id,
@@ -79,21 +73,17 @@ export async function POST(request: NextRequest) {
         platform: 'desktop', // Default platform
       }
     );
-    
+
     // Return success with user data (exclude password)
     const { password: _, ...userWithoutPassword } = user;
-    
+
     return NextResponse.json({
       message: 'Login successful',
       user: userWithoutPassword,
       token,
     });
-    
   } catch (error) {
     console.error('Login error:', error);
-    return NextResponse.json(
-      { error: 'Login failed' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Login failed' }, { status: 500 });
   }
 }

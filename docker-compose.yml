@@ -7,10 +7,10 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - '3000:3000'
     environment:
       - NODE_ENV=development
-      - DATABASE_URL=postgresql://postgres:password@postgres:5432/direct_fan_platform
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/directfanz
       - REDIS_URL=redis://redis:6379
       - NEXTAUTH_SECRET=your-secret-key-change-in-production
       - NEXTAUTH_URL=http://localhost:3000
@@ -27,11 +27,11 @@ services:
   postgres:
     image: postgres:15-alpine
     environment:
-      - POSTGRES_DB=direct_fan_platform
+      - POSTGRES_DB=directfanz
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=password
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -40,7 +40,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - '6379:6379'
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes
@@ -52,7 +52,7 @@ services:
       - PGADMIN_DEFAULT_EMAIL=admin@example.com
       - PGADMIN_DEFAULT_PASSWORD=admin
     ports:
-      - "5050:80"
+      - '5050:80'
     depends_on:
       - postgres
     volumes:

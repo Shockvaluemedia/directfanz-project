@@ -9,7 +9,9 @@ const searchSchema = z.object({
   type: z.enum(['artists', 'content', 'all']).default('all'),
   limit: z.number().min(1).max(50).default(20),
   offset: z.number().min(0).default(0),
-  sortBy: z.enum(['relevance', 'newest', 'popular', 'price_low', 'price_high']).default('relevance'),
+  sortBy: z
+    .enum(['relevance', 'newest', 'popular', 'price_low', 'price_high'])
+    .default('relevance'),
   contentType: z.enum(['AUDIO', 'VIDEO', 'IMAGE', 'DOCUMENT']).optional(),
   minPrice: z.number().min(0).optional(),
   maxPrice: z.number().min(0).optional(),
@@ -18,10 +20,10 @@ const searchSchema = z.object({
 type SearchParams = z.infer<typeof searchSchema>;
 
 export async function GET(request: NextRequest) {
-  return withApi(request, async (req) => {
+  return withApi(request, async req => {
     try {
       const { searchParams } = new URL(request.url);
-      
+
       const params: SearchParams = searchSchema.parse({
         query: searchParams.get('query') || '',
         type: searchParams.get('type') || 'all',
@@ -29,8 +31,12 @@ export async function GET(request: NextRequest) {
         offset: parseInt(searchParams.get('offset') || '0'),
         sortBy: searchParams.get('sortBy') || 'relevance',
         contentType: searchParams.get('contentType') || undefined,
-        minPrice: searchParams.get('minPrice') ? parseFloat(searchParams.get('minPrice')!) : undefined,
-        maxPrice: searchParams.get('maxPrice') ? parseFloat(searchParams.get('maxPrice')!) : undefined,
+        minPrice: searchParams.get('minPrice')
+          ? parseFloat(searchParams.get('minPrice')!)
+          : undefined,
+        maxPrice: searchParams.get('maxPrice')
+          ? parseFloat(searchParams.get('maxPrice')!)
+          : undefined,
       });
 
       const results = {
@@ -43,19 +49,16 @@ export async function GET(request: NextRequest) {
       // Search artists
       if (params.type === 'artists' || params.type === 'all') {
         const artistOrderBy = getArtistOrderBy(params.sortBy);
-        
-        const artists = await prisma.user.findMany({
+
+        const artists = await prisma.users.findMany({
           where: {
             role: 'ARTIST',
-            OR: [
-              { displayName: { contains: params.query } },
-              { bio: { contains: params.query } },
-            ],
+            OR: [{ displayName: { contains: params.query } }, { bio: { contains: params.query } }],
           },
           include: {
-            artistProfile: true,
+            artists: true,
             tiers: {
-              where: { 
+              where: {
                 isActive: true,
                 ...(params.minPrice !== undefined && { minimumPrice: { gte: params.minPrice } }),
                 ...(params.maxPrice !== undefined && { minimumPrice: { lte: params.maxPrice } }),
@@ -80,12 +83,12 @@ export async function GET(request: NextRequest) {
           bio: artist.bio,
           avatar: artist.avatar,
           socialLinks: artist.socialLinks,
-          totalSubscribers: artist.artistProfile?.totalSubscribers || 0,
-          totalEarnings: artist.artistProfile?.totalEarnings || 0,
+          totalSubscribers: artist.artists?.totalSubscribers || 0,
+          totalEarnings: artist.artists?.totalEarnings || 0,
           contentCount: artist._count.content,
           tierCount: artist._count.tiers,
           lowestPrice: artist.tiers.length > 0 ? artist.tiers[0].minimumPrice : null,
-          isVerified: artist.artistProfile?.isStripeOnboarded || false,
+          isVerified: artist.artists?.isStripeOnboarded || false,
         }));
       }
 
@@ -113,7 +116,7 @@ export async function GET(request: NextRequest) {
               },
             },
             tiers: {
-              where: { 
+              where: {
                 isActive: true,
                 ...(params.minPrice !== undefined && { minimumPrice: { gte: params.minPrice } }),
                 ...(params.maxPrice !== undefined && { minimumPrice: { lte: params.maxPrice } }),
@@ -154,13 +157,10 @@ export async function GET(request: NextRequest) {
 
       // Get total count for pagination
       if (params.type === 'artists' || params.type === 'all') {
-        const artistCount = await prisma.user.count({
+        const artistCount = await prisma.users.count({
           where: {
             role: 'ARTIST',
-            OR: [
-              { displayName: { contains: params.query } },
-              { bio: { contains: params.query } },
-            ],
+            OR: [{ displayName: { contains: params.query } }, { bio: { contains: params.query } }],
           },
         });
         results.total += artistCount;
@@ -198,11 +198,10 @@ export async function GET(request: NextRequest) {
           hasNext: params.offset + params.limit < results.total,
         },
       });
-
     } catch (error) {
       if (error instanceof z.ZodError) {
         return NextResponse.json(
-          { 
+          {
             error: 'Invalid search parameters',
             details: error.errors,
           },
@@ -211,10 +210,7 @@ export async function GET(request: NextRequest) {
       }
 
       logger.error('Search endpoint error', {}, error as Error);
-      return NextResponse.json(
-        { error: 'Failed to perform search' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to perform search' }, { status: 500 });
     }
   });
 }
@@ -224,7 +220,7 @@ function getArtistOrderBy(sortBy: string) {
     case 'newest':
       return { createdAt: 'desc' as const };
     case 'popular':
-      return { artistProfile: { totalSubscribers: 'desc' as const } };
+      return { artists: { totalSubscribers: 'desc' as const } };
     case 'price_low':
       return { displayName: 'asc' as const }; // Will need tier-based sorting in complex query
     case 'price_high':

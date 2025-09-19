@@ -1,6 +1,6 @@
 /**
  * Business Metrics Tracking Library
- * 
+ *
  * Centralized tracking for business-critical events and KPIs
  * Supports multiple backends: Prometheus, Sentry, Analytics services
  */
@@ -191,7 +191,6 @@ class BusinessMetricsTracker {
 
       // Log for analytics processing
       logger.info('business_event', eventData);
-
     } catch (error) {
       logger.error('Failed to track business event', { event: event.event }, error as Error);
     }
@@ -254,11 +253,15 @@ class BusinessMetricsTracker {
     });
 
     if (data.status === 'failed') {
-      captureMessage('Login failure', {
-        userId: data.userId,
-        reason: data.failureReason,
-        method: data.method,
-      }, 'warning');
+      captureMessage(
+        'Login failure',
+        {
+          userId: data.userId,
+          reason: data.failureReason,
+          method: data.method,
+        },
+        'warning'
+      );
     }
   }
 
@@ -298,14 +301,18 @@ class BusinessMetricsTracker {
 
     // Alert on payment failures
     if (data.properties?.status === 'failed') {
-      captureMessage('Payment failure', {
-        paymentId: data.paymentId,
-        amount: data.amount,
-        currency: data.currency,
-        creatorId: data.creatorId,
-        fanId: data.fanId,
-        reason: data.properties?.failureReason,
-      }, 'warning');
+      captureMessage(
+        'Payment failure',
+        {
+          paymentId: data.paymentId,
+          amount: data.amount,
+          currency: data.currency,
+          creatorId: data.creatorId,
+          fanId: data.fanId,
+          reason: data.properties?.failureReason,
+        },
+        'warning'
+      );
     }
   }
 
@@ -314,7 +321,7 @@ class BusinessMetricsTracker {
    */
   trackSubscription(data: SubscriptionEvent): void {
     const action = data.properties?.action || 'unknown';
-    
+
     prometheusMetrics.subscriptionChanges.inc({
       action,
       tier: data.tierName,
@@ -353,13 +360,17 @@ class BusinessMetricsTracker {
 
     // Alert on subscription cancellations
     if (action === 'cancelled') {
-      captureMessage('Subscription cancelled', {
-        subscriptionId: data.subscriptionId,
-        creatorId: data.creatorId,
-        fanId: data.fanId,
-        tierName: data.tierName,
-        reason: data.properties?.reason,
-      }, 'info');
+      captureMessage(
+        'Subscription cancelled',
+        {
+          subscriptionId: data.subscriptionId,
+          creatorId: data.creatorId,
+          fanId: data.fanId,
+          tierName: data.tierName,
+          reason: data.properties?.reason,
+        },
+        'info'
+      );
     }
   }
 
@@ -408,41 +419,33 @@ class BusinessMetricsTracker {
   /**
    * Update active user counts
    */
-  updateActiveUsers(period: '1h' | '24h' | '7d' | '30d', userType: 'creator' | 'fan' | 'total', count: number): void {
-    prometheusMetrics.activeUsers.set(
-      { period, user_type: userType },
-      count
-    );
+  updateActiveUsers(
+    period: '1h' | '24h' | '7d' | '30d',
+    userType: 'creator' | 'fan' | 'total',
+    count: number
+  ): void {
+    prometheusMetrics.activeUsers.set({ period, user_type: userType }, count);
   }
 
   /**
    * Update conversion rates
    */
   updateConversionRate(period: '24h' | '7d' | '30d', source: string, rate: number): void {
-    prometheusMetrics.conversionRate.set(
-      { period, source },
-      rate
-    );
+    prometheusMetrics.conversionRate.set({ period, source }, rate);
   }
 
   /**
    * Update ARPU (Average Revenue Per User)
    */
   updateARPU(period: '30d' | '90d' | '365d', segment: string, arpu: number): void {
-    prometheusMetrics.averageRevenuePerUser.set(
-      { period, user_segment: segment },
-      arpu
-    );
+    prometheusMetrics.averageRevenuePerUser.set({ period, user_segment: segment }, arpu);
   }
 
   /**
    * Update Customer Lifetime Value
    */
   updateCustomerLTV(channel: string, tier: string, ltv: number): void {
-    prometheusMetrics.customerLifetimeValue.set(
-      { acquisition_channel: channel, tier },
-      ltv
-    );
+    prometheusMetrics.customerLifetimeValue.set({ acquisition_channel: channel, tier }, ltv);
   }
 
   /**
@@ -462,4 +465,3 @@ class BusinessMetricsTracker {
 
 // Export singleton instance
 export const businessMetrics = new BusinessMetricsTracker();
-

@@ -1,10 +1,12 @@
 # Nahvee Even - Direct Fan Platform
 
-A comprehensive direct fan platform built with Next.js, Prisma, and modern web technologies.
+A comprehensive direct fan platform built with Next.js, Prisma, and modern web
+technologies.
 
 ## 🚀 Quick Start
 
 ### Development Server
+
 ```bash
 # Start development server with custom Node.js server
 npm run dev
@@ -14,6 +16,7 @@ npm run dev:next
 ```
 
 ### Database Operations
+
 ```bash
 # Generate Prisma client
 npm run db:generate
@@ -34,30 +37,33 @@ npx prisma studio
 ## 👥 Test Accounts
 
 ### Artists
+
 ```
 Email: indie.artist@example.com
 Password: password123
 Status: Stripe onboarded, 3 tiers, 2 content pieces
 
-Email: electronic.producer@example.com  
+Email: electronic.producer@example.com
 Password: password123
 Status: Not onboarded, 1 tier, no content
 ```
 
 ### Fans
+
 ```
 Email: music.lover@example.com
 Password: password123
 Subscription: Basic Support ($10/month)
 
 Email: superfan@example.com
-Password: password123  
+Password: password123
 Subscription: Premium Fan ($25/month)
 ```
 
 ## 🧪 Testing
 
 ### Unit & Integration Tests
+
 ```bash
 # Run all tests
 npm test
@@ -70,6 +76,7 @@ npm run test:coverage
 ```
 
 ### End-to-End Tests
+
 ```bash
 # Run Playwright tests
 npm run test:e2e
@@ -85,6 +92,7 @@ npm run test:e2e:report
 ```
 
 ### System Tests
+
 ```bash
 # Run integration tests
 npm run test:integration
@@ -108,6 +116,7 @@ npm run verify:all
 ## 🏗️ Build & Deployment
 
 ### Build Commands
+
 ```bash
 # Build for production
 npm run build
@@ -120,6 +129,7 @@ npm run start:next
 ```
 
 ### Deployment Options
+
 ```bash
 # Setup deployment infrastructure
 npm run deploy:setup
@@ -138,6 +148,7 @@ npm run deploy:rollback
 ```
 
 ### Infrastructure Management
+
 ```bash
 # Initialize Terraform
 npm run infrastructure:init
@@ -155,6 +166,7 @@ npm run infrastructure:destroy
 ## 📊 Monitoring & Analytics
 
 ### Setup Monitoring
+
 ```bash
 # Setup monitoring stack
 npm run monitoring:setup
@@ -172,6 +184,7 @@ npm run monitoring:logs
 ## 💾 Backup & Recovery
 
 ### Backup Operations
+
 ```bash
 # Backup database
 npm run backup:db
@@ -195,6 +208,7 @@ npm run backup:cleanup
 ## 🚀 Production Workflows
 
 ### Complete Production Setup
+
 ```bash
 # Setup everything for production
 npm run production:setup
@@ -231,6 +245,7 @@ npm run production:backup
 ## 🔧 Development Tools
 
 ### Code Quality
+
 ```bash
 # Run ESLint
 npm run lint
@@ -243,6 +258,7 @@ npx tsc --noEmit
 ```
 
 ### Database Tools
+
 ```bash
 # Reset database (caution!)
 npx prisma migrate reset
@@ -260,32 +276,38 @@ npx prisma studio --port 5555
 ## 🌐 API Endpoints
 
 ### Authentication
+
 - `POST /api/auth/register` - User registration
 - `GET /api/auth/session` - Get current session
 - `POST /api/auth/change-password` - Change password
 
-### User Management  
+### User Management
+
 - `GET /api/users/profile` - Get user profile
 - `PUT /api/users/profile` - Update user profile
 
 ### Content Management
+
 - `GET /api/content` - List content with filters
 - `POST /api/content/upload` - Upload content with metadata
 - `PUT /api/content?id={id}` - Update content metadata
 - `DELETE /api/content?id={id}` - Delete content
 
 ### Subscriptions & Tiers
+
 - `GET /api/artist/tiers` - Get artist tiers
 - `POST /api/artist/tiers` - Create new tier
 - `GET /api/fan/subscriptions` - Get fan subscriptions
 
 ### Real-time Features
+
 - `GET /api/ws` - WebSocket/SSE connection
 - `POST /api/ws` - Send real-time messages
 
 ## 🔐 Environment Variables
 
 ### Required for Development
+
 ```bash
 DATABASE_URL="file:./dev.db"
 NEXTAUTH_SECRET="your-secret-key"
@@ -293,6 +315,7 @@ NEXTAUTH_URL="http://localhost:3000"
 ```
 
 ### Required for Production
+
 ```bash
 DATABASE_URL="postgresql://..."
 STRIPE_SECRET_KEY="sk_live_..."
@@ -303,6 +326,7 @@ SENDGRID_API_KEY="SG...."
 ## 🐳 Docker Commands
 
 ### Development
+
 ```bash
 # Build development image
 docker build -f Dockerfile -t nahvee-even:dev .
@@ -315,6 +339,7 @@ docker-compose logs -f
 ```
 
 ### Production
+
 ```bash
 # Build production image
 docker build -f Dockerfile.production -t nahvee-even:prod .
@@ -329,6 +354,7 @@ docker-compose -f docker-compose.monitoring.yml up -d
 ## 🔍 Debugging
 
 ### Common Issues
+
 ```bash
 # Clear Next.js cache
 rm -rf .next
@@ -344,6 +370,7 @@ npx prisma db execute --stdin <<< "SELECT 1;"
 ```
 
 ### Logs & Monitoring
+
 ```bash
 # View application logs
 tail -f logs/application.log
@@ -374,10 +401,12 @@ npm run monitoring:start
 ## 📞 Support
 
 For issues or questions:
+
 - Check existing documentation
 - Run `npm run verify:all` to diagnose issues
 - Review logs in monitoring dashboard
 - Create issue with reproduction steps
 
 ---
+
 **Built with ❤️ for artists and their fans**

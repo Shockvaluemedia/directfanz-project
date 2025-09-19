@@ -1,27 +1,32 @@
 # OAuth Security Enhancement Setup Guide
 
-This guide covers the implementation of enhanced OAuth security measures to address token handling vulnerabilities.
+This guide covers the implementation of enhanced OAuth security measures to
+address token handling vulnerabilities.
 
 ## Security Improvements Implemented
 
 ### 1. OAuth Token Security
+
 - **Fixed**: OAuth tokens no longer exposed in JWT or client-side sessions
 - **Added**: Encrypted storage of OAuth tokens in database
 - **Added**: Secure server-side token refresh endpoint
 - **Added**: Token rotation with proper expiration handling
 
 ### 2. Session Security
+
 - **Enhanced**: Shorter session duration (2 hours instead of 30 days)
 - **Added**: Secure cookie configuration
 - **Added**: Session invalidation mechanisms
 - **Added**: Session hijacking detection
 
 ### 3. CSRF Protection
+
 - **Added**: CSRF token validation for all state-changing operations
 - **Added**: CSRF token API endpoint
 - **Added**: Proper token generation and validation
 
 ### 4. Enhanced Middleware
+
 - **Added**: OAuth-specific security checks
 - **Added**: Session security monitoring
 - **Enhanced**: Rate limiting with different tiers
@@ -67,24 +72,24 @@ For any forms or API calls that modify data, you'll need to include CSRF tokens:
 ```typescript
 // Get CSRF token
 const getCSRFToken = async () => {
-  const response = await fetch('/api/auth/csrf')
-  const { csrfToken } = await response.json()
-  return csrfToken
-}
+  const response = await fetch('/api/auth/csrf');
+  const { csrfToken } = await response.json();
+  return csrfToken;
+};
 
 // Include in API requests
 const makeSecureRequest = async (url: string, data: any) => {
-  const csrfToken = await getCSRFToken()
-  
+  const csrfToken = await getCSRFToken();
+
   return fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-CSRF-Token': csrfToken
+      'X-CSRF-Token': csrfToken,
     },
-    body: JSON.stringify(data)
-  })
-}
+    body: JSON.stringify(data),
+  });
+};
 ```
 
 ### 2. Session Management
@@ -94,22 +99,22 @@ You can now manage user sessions more securely:
 ```typescript
 // Invalidate all sessions (force re-login everywhere)
 const invalidateAllSessions = async () => {
-  const csrfToken = await getCSRFToken()
-  
+  const csrfToken = await getCSRFToken();
+
   return fetch('/api/auth/session', {
     method: 'DELETE',
     headers: {
       'Content-Type': 'application/json',
-      'X-CSRF-Token': csrfToken
+      'X-CSRF-Token': csrfToken,
     },
-    body: JSON.stringify({ invalidateAll: true })
-  })
-}
+    body: JSON.stringify({ invalidateAll: true }),
+  });
+};
 
 // Get session information
 const getSessionInfo = async () => {
-  return fetch('/api/auth/session').then(r => r.json())
-}
+  return fetch('/api/auth/session').then(r => r.json());
+};
 ```
 
 ### 3. OAuth Token Refresh
@@ -119,39 +124,43 @@ OAuth tokens are now refreshed server-side only:
 ```typescript
 // Refresh OAuth tokens (server-side only)
 const refreshOAuthTokens = async (provider: string) => {
-  const csrfToken = await getCSRFToken()
-  
+  const csrfToken = await getCSRFToken();
+
   return fetch('/api/auth/refresh', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-CSRF-Token': csrfToken
+      'X-CSRF-Token': csrfToken,
     },
-    body: JSON.stringify({ provider })
-  })
-}
+    body: JSON.stringify({ provider }),
+  });
+};
 ```
 
 ## Security Best Practices Implemented
 
 ### 1. Token Security
+
 - ✅ OAuth tokens encrypted at rest
 - ✅ No token exposure to client-side JavaScript
 - ✅ Proper token rotation and expiration
 - ✅ Secure token refresh mechanism
 
 ### 2. Session Security
+
 - ✅ Reduced session duration (2 hours)
 - ✅ HttpOnly and Secure cookies
 - ✅ Session hijacking detection
 - ✅ Force session invalidation capability
 
 ### 3. CSRF Protection
+
 - ✅ CSRF tokens for state-changing operations
 - ✅ Double-submit cookie pattern
 - ✅ Proper token validation
 
 ### 4. Monitoring & Logging
+
 - ✅ Security event logging
 - ✅ Suspicious activity detection
 - ✅ OAuth refresh attempt auditing
@@ -160,6 +169,7 @@ const refreshOAuthTokens = async (provider: string) => {
 ## Testing the Security Enhancements
 
 ### 1. Test CSRF Protection
+
 ```bash
 # This should fail without CSRF token
 curl -X POST http://localhost:3000/api/some-endpoint \
@@ -175,6 +185,7 @@ curl -X POST http://localhost:3000/api/some-endpoint \
 ```
 
 ### 2. Test Session Security
+
 ```bash
 # Get session info
 curl -X GET http://localhost:3000/api/auth/session \
@@ -188,6 +199,7 @@ curl -X DELETE http://localhost:3000/api/auth/session \
 ```
 
 ### 3. Test OAuth Refresh
+
 ```bash
 # Refresh Google OAuth tokens
 curl -X POST http://localhost:3000/api/auth/refresh \
@@ -199,11 +211,14 @@ curl -X POST http://localhost:3000/api/auth/refresh \
 ## Migration from Previous Implementation
 
 ### Breaking Changes
+
 1. **Session Duration**: Sessions now expire after 2 hours instead of 30 days
 2. **CSRF Required**: All POST/PUT/DELETE/PATCH requests require CSRF tokens
-3. **OAuth Tokens**: No longer accessible client-side (session.accessToken removed)
+3. **OAuth Tokens**: No longer accessible client-side (session.accessToken
+   removed)
 
 ### Recommended Migration Steps
+
 1. Update environment variables
 2. Run database migration
 3. Update client-side code to handle CSRF tokens

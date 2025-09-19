@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
-import { RewardType } from '@prisma/client';
+import { RewardType } from '@/lib/types/enums';
 
 // Validation schema for creating rewards
 const createRewardSchema = z.object({
@@ -26,10 +26,7 @@ const createRewardSchema = z.object({
 });
 
 // GET /api/campaigns/[campaignId]/rewards - List rewards for campaign
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { campaignId: string } }
-) {
+export async function GET(request: NextRequest, { params }: { params: { campaignId: string } }) {
   let session;
   try {
     session = await getServerSession(authOptions);
@@ -38,9 +35,9 @@ export async function GET(
     }
 
     // Check if campaign exists and user has access
-    const campaign = await prisma.campaign.findUnique({
+    const campaign = await prisma.campaigns.findUnique({
       where: { id: params.campaignId },
-      select: { artistId: true, status: true }
+      select: { artistId: true, status: true },
     });
 
     if (!campaign) {
@@ -48,7 +45,7 @@ export async function GET(
     }
 
     // Check access permissions
-    const hasAccess = 
+    const hasAccess =
       campaign.artistId === session.user.id ||
       session.user.role === 'ADMIN' ||
       campaign.status === 'ACTIVE';
@@ -66,56 +63,53 @@ export async function GET(
     if (type) where.type = type;
     if (activeOnly) where.isActive = true;
 
-    const rewards = await prisma.campaignReward.findMany({
+    const rewards = await prisma.campaign_rewards.findMany({
       where,
       orderBy: { createdAt: 'desc' },
       include: {
         content: {
-          select: { id: true, title: true, thumbnailUrl: true, type: true }
+          select: { id: true, title: true, thumbnailUrl: true, type: true },
         },
-        distributions: {
-          select: { 
-            id: true, 
-            status: true, 
+        reward_distributions: {
+          select: {
+            id: true,
+            status: true,
             awardedAt: true,
             user: {
-              select: { id: true, displayName: true, avatar: true }
-            }
+              select: { id: true, displayName: true, avatar: true },
+            },
           },
           orderBy: { awardedAt: 'desc' },
-          take: 5
+          take: 5,
         },
         _count: {
-          select: { distributions: true }
-        }
-      }
+          select: { reward_distributions: true },
+        },
+      },
     });
 
     // Parse tier access arrays
     const rewardsWithParsedData = rewards.map(reward => ({
       ...reward,
-      tierAccess: reward.tierAccess ? JSON.parse(reward.tierAccess) : []
+      tierAccess: reward.tierAccess ? JSON.parse(reward.tierAccess) : [],
     }));
 
-    return NextResponse.json({ rewards: rewardsWithParsedData });
-
+    return NextResponse.json({ campaign_rewards: rewardsWithParsedData });
   } catch (error) {
-    logger.error('Error fetching campaign rewards', { 
-      campaignId: params.campaignId,
-      userId: session?.user?.id 
-    }, error as Error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+    logger.error(
+      'Error fetching campaign rewards',
+      {
+        campaignId: params.campaignId,
+        userId: session?.user?.id,
+      },
+      error as Error
     );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 // POST /api/campaigns/[campaignId]/rewards - Create new reward
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { campaignId: string } }
-) {
+export async function POST(request: NextRequest, { params }: { params: { campaignId: string } }) {
   let session;
   try {
     session = await getServerSession(authOptions);
@@ -124,9 +118,9 @@ export async function POST(
     }
 
     // Check if campaign exists and user owns it
-    const campaign = await prisma.campaign.findUnique({
+    const campaign = await prisma.campaigns.findUnique({
       where: { id: params.campaignId },
-      select: { artistId: true, status: true }
+      select: { artistId: true, status: true },
     });
 
     if (!campaign) {
@@ -145,7 +139,7 @@ export async function POST(
     if (validatedData.contentId) {
       const content = await prisma.content.findUnique({
         where: { id: validatedData.contentId },
-        select: { artistId: true }
+        select: { artistId: true },
       });
 
       if (!content || content.artistId !== session.user.id) {
@@ -154,8 +148,8 @@ export async function POST(
     }
 
     // Create reward
-    const reward = await prisma.$transaction(async (tx) => {
-      const newReward = await tx.campaignReward.create({
+    const reward = await prisma.$transaction(async tx => {
+      const newReward = await tx.campaign_rewards.create({
         data: {
           ...validatedData,
           campaignId: params.campaignId,
@@ -164,23 +158,24 @@ export async function POST(
         },
         include: {
           content: {
-            select: { id: true, title: true, thumbnailUrl: true, type: true }
+            select: { id: true, title: true, thumbnailUrl: true, type: true },
           },
           _count: {
-            select: { distributions: true }
-          }
-        }
+            select: { reward_distributions: true },
+          },
+        },
       });
 
       // Update campaign prize pool if reward has a value
       if (validatedData.value) {
-        await tx.campaign.update({
+        await tx.campaigns.update({
           where: { id: params.campaignId },
           data: {
             totalPrizePool: { increment: validatedData.value * validatedData.quantity },
-            hasDigitalPrizes: validatedData.type === 'EXCLUSIVE_CONTENT' || validatedData.type === 'TIER_ACCESS',
+            hasDigitalPrizes:
+              validatedData.type === 'EXCLUSIVE_CONTENT' || validatedData.type === 'TIER_ACCESS',
             hasPhysicalPrizes: validatedData.shippingRequired,
-          }
+          },
         });
       }
 
@@ -195,11 +190,13 @@ export async function POST(
       value: reward.value,
     });
 
-    return NextResponse.json({
-      ...reward,
-      tierAccess: reward.tierAccess ? JSON.parse(reward.tierAccess) : []
-    }, { status: 201 });
-
+    return NextResponse.json(
+      {
+        ...reward,
+        tierAccess: reward.tierAccess ? JSON.parse(reward.tierAccess) : [],
+      },
+      { status: 201 }
+    );
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -208,13 +205,14 @@ export async function POST(
       );
     }
 
-    logger.error('Error creating campaign reward', { 
-      campaignId: params.campaignId,
-      userId: session?.user?.id 
-    }, error as Error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+    logger.error(
+      'Error creating campaign reward',
+      {
+        campaignId: params.campaignId,
+        userId: session?.user?.id,
+      },
+      error as Error
     );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

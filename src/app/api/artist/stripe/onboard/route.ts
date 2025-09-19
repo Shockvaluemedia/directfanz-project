@@ -7,43 +7,31 @@ import { createStripeConnectAccount, createAccountLink } from '@/lib/stripe';
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Verify user is an artist
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: { id: session.user.id },
-      include: { artistProfile: true },
+      include: { artists: true },
     });
 
     if (!user || user.role !== 'ARTIST') {
-      return NextResponse.json(
-        { error: 'Only artists can onboard with Stripe' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'Only artists can onboard with Stripe' }, { status: 403 });
     }
 
     // Check if artist already has a Stripe account
-    if (user.artistProfile?.stripeAccountId) {
-      return NextResponse.json(
-        { error: 'Artist already has a Stripe account' },
-        { status: 400 }
-      );
+    if (user.artists?.stripeAccountId) {
+      return NextResponse.json({ error: 'Artist already has a Stripe account' }, { status: 400 });
     }
 
     // Create Stripe Connect account
-    const stripeAccountId = await createStripeConnectAccount(
-      user.email,
-      user.displayName
-    );
+    const stripeAccountId = await createStripeConnectAccount(user.email, user.displayName);
 
     // Update artist profile with Stripe account ID
-    await prisma.artist.upsert({
+    await prisma.artists.upsert({
       where: { userId: user.id },
       create: {
         userId: user.id,
@@ -61,11 +49,7 @@ export async function POST(request: NextRequest) {
     const refreshUrl = `${baseUrl}/dashboard/artist/stripe/onboard`;
     const returnUrl = `${baseUrl}/dashboard/artist/stripe/complete`;
 
-    const onboardingUrl = await createAccountLink(
-      stripeAccountId,
-      refreshUrl,
-      returnUrl
-    );
+    const onboardingUrl = await createAccountLink(stripeAccountId, refreshUrl, returnUrl);
 
     return NextResponse.json({
       onboardingUrl,
@@ -73,9 +57,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Stripe onboarding error:', error);
-    return NextResponse.json(
-      { error: 'Failed to start Stripe onboarding' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to start Stripe onboarding' }, { status: 500 });
   }
 }

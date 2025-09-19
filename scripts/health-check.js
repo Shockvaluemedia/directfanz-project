@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 
-const http = require('http');
-const https = require('https');
+import http from 'http';
+import https from 'https';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const isMainModule = import.meta.url.endsWith(process.argv[1]);
 
 const HEALTH_CHECK_TIMEOUT = 5000;
 const MAX_RETRIES = 3;
@@ -27,7 +31,7 @@ class HealthChecker {
         timeout: HEALTH_CHECK_TIMEOUT,
       };
 
-      const req = http.request(options, (res) => {
+      const req = http.request(options, res => {
         if (res.statusCode === 200) {
           resolve('HTTP server is responding');
         } else {
@@ -40,7 +44,7 @@ class HealthChecker {
         reject(new Error('HTTP server health check timed out'));
       });
 
-      req.on('error', (err) => {
+      req.on('error', err => {
         reject(new Error(`HTTP server error: ${err.message}`));
       });
 
@@ -78,12 +82,12 @@ class HealthChecker {
     const memoryUsage = process.memoryUsage();
     const heapUsedMB = Math.round(memoryUsage.heapUsed / 1024 / 1024);
     const heapTotalMB = Math.round(memoryUsage.heapTotal / 1024 / 1024);
-    
+
     // Alert if heap usage is over 500MB
     if (heapUsedMB > 500) {
       throw new Error(`High memory usage: ${heapUsedMB}MB heap used`);
     }
-    
+
     return `Memory usage: ${heapUsedMB}MB/${heapTotalMB}MB heap`;
   }
 
@@ -105,12 +109,10 @@ class HealthChecker {
 
   async runAll() {
     console.log('🔍 Running health checks...');
-    const results = await Promise.all(
-      this.checks.map(check => this.runCheck(check))
-    );
+    const results = await Promise.all(this.checks.map(check => this.runCheck(check)));
 
     const failed = results.filter(result => !result.success);
-    
+
     if (failed.length === 0) {
       console.log('✅ All health checks passed');
       process.exit(0);
@@ -133,12 +135,12 @@ process.on('SIGINT', () => {
 });
 
 // Run health checks
-if (require.main === module) {
+if (isMainModule) {
   const checker = new HealthChecker();
-  checker.runAll().catch((error) => {
+  checker.runAll().catch(error => {
     console.error('Health check error:', error);
     process.exit(1);
   });
 }
 
-module.exports = HealthChecker;
+export default HealthChecker;
