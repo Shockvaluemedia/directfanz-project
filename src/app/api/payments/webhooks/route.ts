@@ -5,13 +5,17 @@ import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/lib/notifications';
 import Stripe from 'stripe';
 
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || 'whsec_placeholder_for_build';
 
-if (!webhookSecret) {
-  throw new Error('STRIPE_WEBHOOK_SECRET is not set in environment variables');
+if (process.env.NODE_ENV === 'production' && !process.env.STRIPE_WEBHOOK_SECRET) {
+  console.warn('STRIPE_WEBHOOK_SECRET is not set in production environment');
 }
 
 export async function POST(request: NextRequest) {
+  if (!process.env.STRIPE_WEBHOOK_SECRET) {
+    return NextResponse.json({ error: 'Stripe webhook not configured' }, { status: 500 });
+  }
+  
   try {
     const body = await request.text();
     const headersList = headers();
