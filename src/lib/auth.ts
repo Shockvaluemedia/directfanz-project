@@ -108,6 +108,12 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async redirect({ url, baseUrl }) {
       const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || baseUrl;
+      
+      // Handle static generation where URLs might not be available
+      if (!appUrl || appUrl === '') {
+        return url.startsWith('/') ? url : '/';
+      }
+      
       try {
         const target = new URL(url, appUrl);
         const normalizedBase = new URL(appUrl);
@@ -115,8 +121,10 @@ export const authOptions: NextAuthOptions = {
         target.host = normalizedBase.host;
         target.protocol = normalizedBase.protocol;
         return target.toString();
-      } catch {
-        return appUrl;
+      } catch (error) {
+        console.warn('URL construction failed during static generation:', { url, appUrl, error });
+        // Return safe fallback
+        return url.startsWith('/') ? url : appUrl || '/';
       }
     },
     async jwt({ token, user, account, profile, trigger }) {

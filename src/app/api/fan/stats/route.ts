@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { safeParseURL } from '@/lib/api-utils';
+
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 import { withApi } from '@/lib/api-auth';
 import { prisma } from '@/lib/database';
 import { logger } from '@/lib/logger';

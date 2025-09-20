@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withApi } from '@/lib/api-auth';
 import { prisma } from '@/lib/database';
 import { logger } from '@/lib/logger';
+import { safeParseURL } from '@/lib/api-utils';
+
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
   return withApi(request, async req => {
@@ -11,7 +16,8 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Access denied. Fan role required.' }, { status: 403 });
       }
 
-      const { searchParams } = new URL(request.url);
+      const url = safeParseURL(request);
+      const searchParams = url?.searchParams || new URLSearchParams();
       const limit = parseInt(searchParams.get('limit') || '10');
 
       // Get artists that the user is subscribed to

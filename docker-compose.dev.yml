@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database for DirectFanz
+  directfanz-postgres:
+    image: postgres:15-alpine
+    container_name: directfanz-postgres
+    environment:
+      - POSTGRES_DB=directfanz
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    ports:
+      - '5433:5432'  # Use different port to avoid conflicts
+    volumes:
+      - directfanz_postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - directfanz-network
+
+  # Redis Cache for DirectFanz
+  directfanz-redis:
+    image: redis:7-alpine
+    container_name: directfanz-redis
+    ports:
+      - '6380:6379'  # Use different port to avoid conflicts
+    volumes:
+      - directfanz_redis_data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - directfanz-network
+
+  # pgAdmin for database management
+  directfanz-pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: directfanz-pgadmin
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@directfanz.io
+      - PGADMIN_DEFAULT_PASSWORD=admin
+    ports:
+      - '5051:80'  # Use different port to avoid conflicts
+    depends_on:
+      - directfanz-postgres
+    volumes:
+      - directfanz_pgadmin_data:/var/lib/pgadmin
+    networks:
+      - directfanz-network
+
+networks:
+  directfanz-network:
+    driver: bridge
+
+volumes:
+  directfanz_postgres_data:
+  directfanz_redis_data:
+  directfanz_pgadmin_data:

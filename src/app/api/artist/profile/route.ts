@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 import { withArtistApi } from '@/lib/api-auth';
 import { prisma } from '@/lib/prisma';
 
