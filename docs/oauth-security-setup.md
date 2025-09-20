@@ -172,13 +172,13 @@ const refreshOAuthTokens = async (provider: string) => {
 
 ```bash
 # This should fail without CSRF token
-curl -X POST http://localhost:3000/api/some-endpoint \
+curl -X POST https://www.directfanz.io/api/some-endpoint \
   -H "Content-Type: application/json" \
   -d '{"data": "test"}'
 
 # This should work with CSRF token
-curl -X GET http://localhost:3000/api/auth/csrf
-curl -X POST http://localhost:3000/api/some-endpoint \
+curl -X GET https://www.directfanz.io/api/auth/csrf
+curl -X POST https://www.directfanz.io/api/some-endpoint \
   -H "Content-Type: application/json" \
   -H "X-CSRF-Token: your_token_here" \
   -d '{"data": "test"}'
@@ -188,11 +188,11 @@ curl -X POST http://localhost:3000/api/some-endpoint \
 
 ```bash
 # Get session info
-curl -X GET http://localhost:3000/api/auth/session \
+curl -X GET https://www.directfanz.io/api/auth/session \
   -H "Cookie: your_session_cookie"
 
 # Invalidate session
-curl -X DELETE http://localhost:3000/api/auth/session \
+curl -X DELETE https://www.directfanz.io/api/auth/session \
   -H "Content-Type: application/json" \
   -H "X-CSRF-Token: your_token_here" \
   -d '{"invalidateAll": true}'
@@ -202,7 +202,7 @@ curl -X DELETE http://localhost:3000/api/auth/session \
 
 ```bash
 # Refresh Google OAuth tokens
-curl -X POST http://localhost:3000/api/auth/refresh \
+curl -X POST https://www.directfanz.io/api/auth/refresh \
   -H "Content-Type: application/json" \
   -H "X-CSRF-Token: your_token_here" \
   -d '{"provider": "google"}'

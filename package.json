@@ -1,6 +1,6 @@
 {
   "name": "directfanz",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -65,8 +65,8 @@
     "perf:export": "node -e \"import('./lib/database-monitoring.js').then(({dbMonitor}) => dbMonitor.exportMetrics().then(path => console.log('Exported to:', path)));\"",
     "perf:reset": "node -e \"import('./lib/database-monitoring.js').then(({dbMonitor}) => { dbMonitor.resetMetrics(); console.log('Metrics reset'); });\"",
     "perf:validate": "node scripts/validate-performance-improvements.js",
-    "perf:health": "curl -s http://localhost:3000/api/admin/performance/health | jq",
-    "perf:alerts": "curl -s http://localhost:3000/api/admin/performance/alerts | jq",
+    "perf:health": "curl -s https://www.directfanz.io/api/admin/performance/health | jq",
+    "perf:alerts": "curl -s https://www.directfanz.io/api/admin/performance/alerts | jq",
     "health:check": "node scripts/project-health-check.js",
     "production:setup": "npm run deploy:setup && npm run infrastructure:init && npm run monitoring:setup",
     "production:deploy": "npm run verify:all && npm run deploy:aws",

@@ -4,7 +4,9 @@
   "devCommand": "npm run dev:next",
   "installCommand": "npm ci",
   "framework": "nextjs",
-  "regions": ["iad1"],
+  "regions": [
+    "iad1"
+  ],
   "headers": [
     {
       "source": "/(.*)",
@@ -67,6 +69,23 @@
     {
       "path": "/api/health/cron",
       "schedule": "0 6 * * *"
+    }
+  ],
+  "domains": [
+    "directfanz.io",
+    "www.directfanz.io"
+  ],
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "directfanz.io"
+        }
+      ],
+      "destination": "https://www.directfanz.io/$1",
+      "permanent": true
     }
   ]
 }

@@ -1,5 +1,5 @@
 /**
- * Load testing script for Direct Fan Platform
+ * Load testing script for DirectFanz
  *
  * This script simulates concurrent users performing various actions on the platform
  * to test system performance under load.
@@ -18,7 +18,7 @@ program
   .option('--users <number>', 'Number of concurrent users', 100)
   .option('--duration <number>', 'Test duration in seconds', 60)
   .option('--ramp-up <number>', 'Ramp up time in seconds', 10)
-  .option('--target <string>', 'Target URL', 'http://localhost:3000')
+  .option('--target <string>', 'Target URL', 'https://www.directfanz.io')
   .parse();
 
 const options = program.opts();

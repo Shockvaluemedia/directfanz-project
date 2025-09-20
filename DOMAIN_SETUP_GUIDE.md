@@ -106,7 +106,7 @@ Once everything is working, verify these endpoints:
 ## Current Vercel Configuration
 
 Your project is configured with:
-- **Project**: nahvee-even-platform  
+- **Project**: directfanz-platform  
 - **Domain**: directfanz.io
 - **SSL**: Being generated automatically
 - **Environment**: Production with custom domain URLs

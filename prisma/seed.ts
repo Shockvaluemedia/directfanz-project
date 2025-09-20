@@ -38,7 +38,6 @@ async function main() {
   const artist1 = await prisma.users.create({
     data: {
       id: generateId(),
-      id: generateId(),
       email: 'indie.artist@example.com',
       password: hashedPassword,
       role: UserRole.ARTIST,
@@ -65,7 +64,6 @@ async function main() {
   const artist2 = await prisma.users.create({
     data: {
       id: generateId(),
-      id: generateId(),
       email: 'electronic.producer@example.com',
       password: hashedPassword,
       role: UserRole.ARTIST,
@@ -83,6 +81,7 @@ async function main() {
           totalSubscribers: 0,
         },
       },
+      updatedAt: new Date(),
     },
   });
 
@@ -96,6 +95,7 @@ async function main() {
       displayName: 'Music Lover',
       bio: 'Supporting independent artists and discovering new sounds',
       avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400',
+      updatedAt: new Date(),
     },
   });
 
@@ -107,6 +107,7 @@ async function main() {
       role: UserRole.FAN,
       displayName: 'Super Fan',
       bio: 'Collector of rare tracks and supporter of emerging artists',
+      updatedAt: new Date(),
     },
   });
 
@@ -120,6 +121,7 @@ async function main() {
       displayName: 'Test User',
       bio: 'Test account for development',
       emailVerified: new Date(),
+      updatedAt: new Date(),
     },
   });
 
@@ -140,6 +142,7 @@ async function main() {
           totalSubscribers: 0,
         },
       },
+      updatedAt: new Date(),
     },
   });
 
@@ -152,6 +155,7 @@ async function main() {
       displayName: 'Test Fan',
       bio: 'Test fan account',
       emailVerified: new Date(),
+      updatedAt: new Date(),
     },
   });
 
@@ -166,6 +170,7 @@ async function main() {
       description: 'Get access to exclusive acoustic sessions and early releases',
       minimumPrice: 5.0,
       subscriberCount: 25,
+      updatedAt: new Date(),
     },
   });
 
@@ -177,6 +182,7 @@ async function main() {
       description: 'Everything in Basic plus behind-the-scenes content and monthly video calls',
       minimumPrice: 15.0,
       subscriberCount: 15,
+      updatedAt: new Date(),
     },
   });
 
@@ -188,6 +194,7 @@ async function main() {
       description: 'All previous benefits plus personalized songs and priority access to concerts',
       minimumPrice: 50.0,
       subscriberCount: 5,
+      updatedAt: new Date(),
     },
   });
 
@@ -200,6 +207,7 @@ async function main() {
       description: 'Access to unreleased tracks and stems for remixing',
       minimumPrice: 8.0,
       subscriberCount: 0,
+      updatedAt: new Date(),
     },
   });
 

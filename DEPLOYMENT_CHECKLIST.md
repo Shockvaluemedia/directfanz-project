@@ -146,7 +146,7 @@ openssl rand -hex 32  # For NEXTAUTH_SECRET
 ```bash
 # 1. Load testing
 npm install -g artillery
-artillery quick --count 100 --num 10 http://localhost:3000
+artillery quick --count 100 --num 10 https://www.directfanz.io
 
 # 2. Bundle analysis
 npm install @next/bundle-analyzer
@@ -154,7 +154,7 @@ npm run analyze
 
 # 3. Lighthouse audit
 npm install -g lighthouse
-lighthouse http://localhost:3000 --output html
+lighthouse https://www.directfanz.io --output html
 ```
 
 ## **Success Metrics for Launch**
