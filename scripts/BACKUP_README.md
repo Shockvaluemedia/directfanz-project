@@ -42,7 +42,7 @@ Set up a daily backup at 6 PM:
 crontab -e
 
 # Add this line (replace with your actual path):
-0 18 * * * cd "/Users/demetriusbrooks/Nahvee Even" && ./scripts/daily-backup.sh >> scripts/backup.log 2>&1
+0 18 * * * cd "/Users/demetriusbrooks/DirectFanZ Project" && ./scripts/daily-backup.sh >> scripts/backup.log 2>&1
 ```
 
 ### Option 2: Git Hooks

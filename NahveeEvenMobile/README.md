@@ -1,6 +1,6 @@
-# DirectFanz Mobile App
+# DirectFanZProject Mobile App
 
-A React Native mobile application for the DirectFanz creator platform, providing users with a native mobile experience for content creation, discovery, and community engagement.
+A React Native mobile application for the DirectFanZProject creator platform, providing users with a native mobile experience for content creation, discovery, and community engagement.
 
 ## 🎯 Features
 
@@ -99,7 +99,7 @@ Update API endpoints in contexts to match your backend:
 
 ```typescript
 // In AuthContext.tsx - Update these URLs to match your web app
-const API_BASE_URL = 'https://www.directfanz.io'; // Your Next.js app URL
+const API_BASE_URL = 'https://www.directfanz-project.io'; // Your Next.js app URL
 
 const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
   method: 'POST',
@@ -201,4 +201,4 @@ npx react-native run-android
 
 ---
 
-**Made with ❤️ for the DirectFanz community**
+**Made with ❤️ for the DirectFanZProject community**

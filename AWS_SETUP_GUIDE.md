@@ -1,6 +1,6 @@
-# 🚀 AWS S3 Setup Guide for DirectFanz
+# 🚀 AWS S3 Setup Guide for DirectFanZProject
 
-This guide will walk you through setting up AWS S3 for your DirectFanz platform. Follow each step carefully!
+This guide will walk you through setting up AWS S3 for your DirectFanZProject platform. Follow each step carefully!
 
 ## 📋 What We'll Set Up
 
@@ -25,8 +25,8 @@ This guide will walk you through setting up AWS S3 for your DirectFanz platform.
 
 3. **Create Bucket**
    - Click "Create bucket"
-   - **Bucket name**: `directfanz-content-[your-unique-suffix]` 
-     - Example: `directfanz-content-prod-2024`
+   - **Bucket name**: `directfanz-project-content-[your-unique-suffix]` 
+     - Example: `directfanz-project-content-prod-2024`
      - Must be globally unique!
    - **Region**: Choose closest to your users (e.g., `us-east-1`)
    - **Object Ownership**: Keep "ACLs disabled"
@@ -48,7 +48,7 @@ This guide will walk you through setting up AWS S3 for your DirectFanz platform.
 2. **Create User**
    - Click "Users" in the left sidebar
    - Click "Create user"
-   - **User name**: `directfanz-s3-user`
+   - **User name**: `directfanz-project-s3-user`
    - **Access type**: Check "Programmatic access"
    - Click "Next"
 
@@ -87,13 +87,13 @@ This guide will walk you through setting up AWS S3 for your DirectFanz platform.
 ```
 
    - Replace `YOUR-BUCKET-NAME` with your actual bucket name
-   - **Policy name**: `DirectFanzS3Policy`
+   - **Policy name**: `DirectFanZProjectS3Policy`
    - Click "Create policy"
 
 5. **Attach Policy to User**
    - Go back to the user creation tab
    - Refresh the policy list
-   - Search for "DirectFanzS3Policy"
+   - Search for "DirectFanZProjectS3Policy"
    - Select it and click "Next"
 
 6. **Review and Create**
@@ -157,7 +157,7 @@ Add these to your `.env.local` file:
 AWS_ACCESS_KEY_ID=your-access-key-here
 AWS_SECRET_ACCESS_KEY=your-secret-key-here
 AWS_REGION=us-east-1
-AWS_S3_BUCKET_NAME=directfanz-content-your-suffix
+AWS_S3_BUCKET_NAME=directfanz-project-content-your-suffix
 
 # Optional: CloudFront CDN (setup in Step 5)
 # AWS_CLOUDFRONT_DOMAIN=your-distribution.cloudfront.net
@@ -177,7 +177,7 @@ AWS_S3_BUCKET_NAME=directfanz-content-your-suffix
    - **Origin domain**: Select your S3 bucket from dropdown
    - **Origin access**: "Origin access control settings"
    - **Origin access control**: Click "Create new OAC"
-     - **Name**: `directfanz-oac`
+     - **Name**: `directfanz-project-oac`
      - Click "Create"
 
 3. **Configure Default Cache Behavior**

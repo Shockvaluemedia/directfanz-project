@@ -1,4 +1,4 @@
-# DirectFanz Platform - Deployment Guide
+# DirectFanZProject Platform - Deployment Guide
 
 ## Pre-Deployment Checklist ✅
 
@@ -84,7 +84,7 @@
 
 ```bash
 npm run dev
-# Runs on https://www.directfanz.io
+# Runs on https://www.directfanz-project.io
 # Hot reloading enabled
 # Debug mode active
 ```
@@ -134,7 +134,7 @@ DATABASE_URL=postgresql://user:password@host:port/db
 REDIS_URL=redis://host:port
 
 # Authentication
-NEXTAUTH_URL=https://directfanz.io
+NEXTAUTH_URL=https://directfanz-project.io
 NEXTAUTH_SECRET=your-secret-key
 
 # AWS Services
@@ -243,7 +243,7 @@ npm run deploy:docker
 
 ```bash
 # 1. Health checks
-curl -f https://directfanz.io/api/health
+curl -f https://directfanz-project.io/api/health
 
 # 2. Smoke tests
 npm run test:smoke
@@ -377,7 +377,7 @@ npm run backup:restore --date=YYYY-MM-DD
 npm run clean && npm run build && npm run deploy:vercel
 
 # Quick health check
-curl -f https://directfanz.io/api/health
+curl -f https://directfanz-project.io/api/health
 
 # View logs
 npm run monitoring:logs

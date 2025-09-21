@@ -1,4 +1,4 @@
-# DirectFanz Platform - Deployment Readiness Checklist 🚀
+# DirectFanZProject Platform - Deployment Readiness Checklist 🚀
 
 This checklist ensures your platform is ready for production redeployment.
 
@@ -77,7 +77,7 @@ npm run start
 vercel --prod
 
 # Verify deployment
-curl https://www.directfanz.io/api/health
+curl https://www.directfanz-project.io/api/health
 ```
 
 ## 🔍 Post-Deployment Verification

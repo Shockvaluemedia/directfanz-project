@@ -2,7 +2,7 @@
 
 ## Overview
 
-The messaging system is now fully integrated into the Nahvee Even mobile app with real-time messaging, push notifications, and seamless navigation.
+The messaging system is now fully integrated into the DirectFanZ Project mobile app with real-time messaging, push notifications, and seamless navigation.
 
 ## Key Components
 

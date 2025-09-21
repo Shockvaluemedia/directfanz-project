@@ -1,10 +1,10 @@
-# DirectFanz.io Domain Setup Guide
+# DirectFanZProject.io Domain Setup Guide
 
 ## Current Status ✅
-- Domain `directfanz.io` has been added to your Vercel project
+- Domain `directfanz-project.io` has been added to your Vercel project
 - Environment variables have been updated to use your custom domain:
-  - `NEXT_PUBLIC_APP_URL` → `https://directfanz.io`
-  - `NEXTAUTH_URL` → `https://directfanz.io`
+  - `NEXT_PUBLIC_APP_URL` → `https://directfanz-project.io`
+  - `NEXTAUTH_URL` → `https://directfanz-project.io`
 - New production deployment completed
 - Vercel is attempting to create SSL certificate for your domain
 
@@ -15,14 +15,14 @@ To complete the domain setup, you need to update the DNS records in your Hosting
 ### Step 1: Access Hostinger DNS Management
 1. Log into your Hostinger account
 2. Go to "Domains" section
-3. Find `directfanz.io` and click "Manage"
+3. Find `directfanz-project.io` and click "Manage"
 4. Navigate to "DNS/Name Servers" or "DNS Zone"
 
 ### Step 2: Update DNS Records
 
 Replace the current DNS records with these Vercel-specific records:
 
-#### For Root Domain (directfanz.io):
+#### For Root Domain (directfanz-project.io):
 ```
 Type: A
 Name: @ (or leave blank)
@@ -59,12 +59,12 @@ After updating DNS records, test with these commands:
 
 ```bash
 # Test DNS propagation
-dig directfanz.io
-dig www.directfanz.io
+dig directfanz-project.io
+dig www.directfanz-project.io
 
 # Test website access
-curl -I https://directfanz.io
-curl -I https://www.directfanz.io
+curl -I https://directfanz-project.io
+curl -I https://www.directfanz-project.io
 ```
 
 ## Expected Timeline
@@ -84,7 +84,7 @@ curl -I https://www.directfanz.io
    ```
 3. **Test with different DNS servers**:
    ```bash
-   nslookup directfanz.io 8.8.8.8
+   nslookup directfanz-project.io 8.8.8.8
    ```
 4. **Check Vercel dashboard** for any SSL certificate errors
 
@@ -98,16 +98,16 @@ curl -I https://www.directfanz.io
 
 Once everything is working, verify these endpoints:
 
-- ✅ `https://directfanz.io` - Main site
-- ✅ `https://www.directfanz.io` - WWW subdomain  
-- ✅ `https://directfanz.io/api/health` - API endpoints
-- ✅ `https://directfanz.io/auth/signin` - Authentication flows
+- ✅ `https://directfanz-project.io` - Main site
+- ✅ `https://www.directfanz-project.io` - WWW subdomain  
+- ✅ `https://directfanz-project.io/api/health` - API endpoints
+- ✅ `https://directfanz-project.io/auth/signin` - Authentication flows
 
 ## Current Vercel Configuration
 
 Your project is configured with:
-- **Project**: directfanz-platform  
-- **Domain**: directfanz.io
+- **Project**: directfanz-project-platform  
+- **Domain**: directfanz-project.io
 - **SSL**: Being generated automatically
 - **Environment**: Production with custom domain URLs
 

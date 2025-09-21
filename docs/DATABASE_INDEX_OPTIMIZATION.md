@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document outlines critical missing indexes in the Nahvee Even platform
+This document outlines critical missing indexes in the DirectFanZ Project platform
 database that will improve query performance by 60-80%. The current schema has
 minimal indexing, causing significant performance bottlenecks in production.
 

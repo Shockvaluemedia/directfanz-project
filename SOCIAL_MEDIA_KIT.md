@@ -1,10 +1,10 @@
-# 🎉 DirectFanz Social Media Kit
+# 🎉 DirectFanZProject Social Media Kit
 
 ## 📱 Launch Announcement Templates
 
 ### Twitter/X:
 ```
-🎉 DirectFanz is LIVE! 🚀
+🎉 DirectFanZProject is LIVE! 🚀
 
 The platform that connects artists with superfans through exclusive content subscriptions.
 
@@ -12,16 +12,16 @@ The platform that connects artists with superfans through exclusive content subs
 🎯 For Fans: Access exclusive content
 🛡️ Secure payments via Stripe
 
-Join the community: https://directfanz.io
+Join the community: https://directfanz-project.io
 
-#DirectFanz #ArtistsSupport #CreatorEconomy #Launch
+#DirectFanZProject #ArtistsSupport #CreatorEconomy #Launch
 ```
 
 ### Instagram Caption:
 ```
-🎨 Introducing DirectFanz - Where Artists Meet Their Superfans! 🌟
+🎨 Introducing DirectFanZProject - Where Artists Meet Their Superfans! 🌟
 
-After months of development, we're thrilled to announce that DirectFanz.io is officially LIVE! 
+After months of development, we're thrilled to announce that DirectFanZProject.io is officially LIVE! 
 
 💫 What makes us special:
 • Direct artist-to-fan connections
@@ -29,18 +29,18 @@ After months of development, we're thrilled to announce that DirectFanz.io is of
 • Secure payments with instant payouts
 • Mobile-optimized experience
 
-Whether you're an artist looking to monetize your passion or a fan seeking exclusive access to your favorites, DirectFanz is built for you.
+Whether you're an artist looking to monetize your passion or a fan seeking exclusive access to your favorites, DirectFanZProject is built for you.
 
-🔗 Start your journey: directfanz.io
+🔗 Start your journey: directfanz-project.io
 
-#DirectFanz #CreatorPlatform #ArtistSupport #Launch #CreatorEconomy
+#DirectFanZProject #CreatorPlatform #ArtistSupport #Launch #CreatorEconomy
 ```
 
 ### LinkedIn Post:
 ```
-🚀 Excited to announce the official launch of DirectFanz!
+🚀 Excited to announce the official launch of DirectFanZProject!
 
-DirectFanz.io is a subscription-based platform connecting independent artists with their most dedicated fans through exclusive content access.
+DirectFanZProject.io is a subscription-based platform connecting independent artists with their most dedicated fans through exclusive content access.
 
 🎯 Key features:
 - Artist dashboard with subscription tier management
@@ -52,14 +52,14 @@ Built with Next.js, powered by cutting-edge technology, and designed with both a
 
 Ready to transform how creators monetize their work and connect with their audience.
 
-Visit: https://directfanz.io
+Visit: https://directfanz-project.io
 
 #CreatorEconomy #TechLaunch #ArtistPlatform #Entrepreneurship
 ```
 
 ## 🎨 Brand Guidelines
 
-### Primary Domain: https://directfanz.io
+### Primary Domain: https://directfanz-project.io
 ### Primary Colors: (Add your brand colors here)
 ### Logo: (Add logo file references here)
 ### Tagline: "Where Artists Meet Their Superfans"
@@ -72,4 +72,4 @@ Visit: https://directfanz.io
 - [ ] Social media engagement
 
 ---
-**#DirectFanzLive #CreatorPlatform #Launch2025**
+**#DirectFanZProjectLive #CreatorPlatform #Launch2025**

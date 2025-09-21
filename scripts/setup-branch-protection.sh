@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Branch Protection Setup Script for DirectFanz
+# Branch Protection Setup Script for DirectFanZProject
 # This script configures GitHub branch protection rules for the main branch
 
-echo "🔒 Setting up branch protection for DirectFanz repository..."
+echo "🔒 Setting up branch protection for DirectFanZProject repository..."
 
 # Check if GitHub CLI is installed
 if ! command -v gh &> /dev/null; then
@@ -19,7 +19,7 @@ if ! gh auth status &> /dev/null; then
     exit 1
 fi
 
-REPO="Shockvaluemedia/directfanz"
+REPO="Shockvaluemedia/directfanz-project"
 BRANCH="main"
 
 echo "📋 Configuring branch protection for $REPO:$BRANCH..."

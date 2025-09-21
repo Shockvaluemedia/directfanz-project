@@ -1,10 +1,10 @@
-# 🚀 DirectFanz is Live!
+# 🚀 DirectFanZProject is Live!
 
 ## 🌐 Official Website
-**https://directfanz.io**
+**https://directfanz-project.io**
 
-## ✨ What is DirectFanz?
-DirectFanz is the premier platform connecting independent artists with their superfans through subscription-based exclusive content access.
+## ✨ What is DirectFanZProject?
+DirectFanZProject is the premier platform connecting independent artists with their superfans through subscription-based exclusive content access.
 
 ### 🎯 Key Features:
 - **Artist Dashboard**: Create subscription tiers, upload exclusive content, track earnings
@@ -25,7 +25,7 @@ DirectFanz is the premier platform connecting independent artists with their sup
 - ✅ Mobile-first design
 
 ## 🎉 Ready for Artists & Fans
-DirectFanz.io is now live and ready to serve the creative community!
+DirectFanZProject.io is now live and ready to serve the creative community!
 
 ### For Artists:
 - Launch your subscription tiers
@@ -40,4 +40,4 @@ DirectFanz.io is now live and ready to serve the creative community!
 - Join the community
 
 ---
-**Visit https://directfanz.io to get started!**
+**Visit https://directfanz-project.io to get started!**

@@ -59,7 +59,7 @@ npm run security:check
 
 ```bash
 # 1. Navigate to project
-cd "/Users/demetriusbrooks/Nahvee Even"
+cd "/Users/demetriusbrooks/DirectFanZ Project"
 
 # 2. Install dependencies (if needed)
 npm install

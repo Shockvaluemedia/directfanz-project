@@ -1,6 +1,6 @@
-# 📁 Storage Options for DirectFanz
+# 📁 Storage Options for DirectFanZProject
 
-Your DirectFanz platform supports multiple storage backends for uploading and managing music, videos, and other content. You can choose the option that best fits your needs!
+Your DirectFanZProject platform supports multiple storage backends for uploading and managing music, videos, and other content. You can choose the option that best fits your needs!
 
 ## 🏠 Local Storage (Default - No AWS Required!)
 
@@ -145,7 +145,7 @@ npm run dev
 ### For Production (AWS S3):
 ```bash
 # 1. Create AWS S3 bucket
-aws s3 mb s3://your-directfanz-bucket
+aws s3 mb s3://your-directfanz-project-bucket
 
 # 2. Configure environment
 cp .env.example .env.local
@@ -223,4 +223,4 @@ export const MAX_FILE_SIZES = {
 - **Medium Production (1k-100k users):** AWS S3 with CloudFront
 - **Large Production (100k+ users):** AWS S3 with CloudFront + multiple regions
 
-Your DirectFanz platform is ready for any scale! 🚀
+Your DirectFanZProject platform is ready for any scale! 🚀

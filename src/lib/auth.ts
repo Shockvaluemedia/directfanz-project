@@ -67,7 +67,7 @@ export const authOptions: NextAuthOptions = {
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
-        secure: true, // Always secure for production
+        secure: process.env.NODE_ENV === 'production', // Only secure in production
       },
     },
     callbackUrl: {
@@ -75,7 +75,7 @@ export const authOptions: NextAuthOptions = {
       options: {
         sameSite: 'lax',
         path: '/',
-        secure: true, // Always secure for production
+        secure: process.env.NODE_ENV === 'production', // Only secure in production
       },
     },
     csrfToken: {
@@ -84,7 +84,7 @@ export const authOptions: NextAuthOptions = {
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
-        secure: true, // Always secure for production
+        secure: process.env.NODE_ENV === 'production', // Only secure in production
       },
     },
   },
@@ -107,8 +107,8 @@ export const authOptions: NextAuthOptions = {
           iat: Math.floor(Date.now() / 1000),
           exp: Math.floor(Date.now() / 1000) + 2 * 60 * 60,
           jti: crypto.randomUUID(), // JWT ID for revocation support
-          iss: process.env.NEXTAUTH_URL || 'nahvee-even',
-          aud: 'nahvee-even-platform',
+          iss: process.env.NEXTAUTH_URL || 'directfanz',
+          aud: 'directfanz-platform',
         },
         secret,
         {
@@ -122,8 +122,8 @@ export const authOptions: NextAuthOptions = {
       try {
         return jwt.verify(token!, secret, {
           algorithms: ['HS256'],
-          issuer: process.env.NEXTAUTH_URL || 'nahvee-even',
-          audience: 'nahvee-even-platform',
+          issuer: process.env.NEXTAUTH_URL || 'directfanz',
+          audience: 'directfanz-platform',
         }) as any;
       } catch (error) {
         console.error('JWT verification failed:', error);

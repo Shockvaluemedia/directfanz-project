@@ -1,6 +1,6 @@
-# DirectFanz Core User Flow Testing
+# DirectFanZProject Core User Flow Testing
 
-🎯 **Your app is LIVE and functional at https://www.directfanz.io**
+🎯 **Your app is LIVE and functional at https://www.directfanz-project.io**
 
 ## ✅ Current Status Verified
 - **Infrastructure**: All systems healthy
@@ -14,7 +14,7 @@
 ### 1. Creator Journey Testing
 
 #### **A. Creator Registration & Onboarding**
-**Test URL**: https://www.directfanz.io/auth/signup
+**Test URL**: https://www.directfanz-project.io/auth/signup
 
 **Test Steps:**
 1. **Sign Up as Creator**
@@ -36,7 +36,7 @@
    - [ ] Verify payment account status
 
 #### **B. Content Management**
-**Test URL**: https://www.directfanz.io/dashboard/artist
+**Test URL**: https://www.directfanz-project.io/dashboard/artist
 
 **Test Steps:**
 4. **Create Subscription Tiers**
@@ -62,7 +62,7 @@
 ### 2. Fan Journey Testing
 
 #### **A. Fan Registration & Discovery**
-**Test URL**: https://www.directfanz.io
+**Test URL**: https://www.directfanz-project.io
 
 **Test Steps:**
 1. **Fan Sign Up**
@@ -131,22 +131,22 @@
 ### API Testing Commands
 ```bash
 # Health check
-curl -s https://www.directfanz.io/api/health | jq .
+curl -s https://www.directfanz-project.io/api/health | jq .
 
 # Test authentication (should return 401)
-curl -I https://www.directfanz.io/api/artist/content
+curl -I https://www.directfanz-project.io/api/artist/content
 
 # Test public endpoints
-curl -I https://www.directfanz.io/api/content/discover
+curl -I https://www.directfanz-project.io/api/content/discover
 ```
 
 ### Page Load Testing
 ```bash
 # Test key pages
-curl -I https://www.directfanz.io/auth/signin
-curl -I https://www.directfanz.io/auth/signup
-curl -I https://www.directfanz.io/dashboard
-curl -I https://www.directfanz.io/discover
+curl -I https://www.directfanz-project.io/auth/signin
+curl -I https://www.directfanz-project.io/auth/signup
+curl -I https://www.directfanz-project.io/dashboard
+curl -I https://www.directfanz-project.io/discover
 ```
 
 ## 📊 Success Metrics
@@ -191,10 +191,10 @@ curl -I https://www.directfanz.io/discover
 
 ## 🎯 Ready to Test!
 
-Your DirectFanz platform is fully deployed and ready for comprehensive testing. 
+Your DirectFanZProject platform is fully deployed and ready for comprehensive testing. 
 
 **Next Steps:**
-1. Open https://www.directfanz.io in your browser
+1. Open https://www.directfanz-project.io in your browser
 2. Follow the testing scenarios above
 3. Document any issues or improvements needed
 4. Test on multiple devices/browsers

@@ -1,8 +1,8 @@
-# 🎨 DirectFanz Demo Content Guide
+# 🎨 DirectFanZProject Demo Content Guide
 
 ## 🌟 Overview
 
-This guide explains how to set up compelling demo content for DirectFanz that showcases the platform's features and attracts potential users.
+This guide explains how to set up compelling demo content for DirectFanZProject that showcases the platform's features and attracts potential users.
 
 ## 📊 Demo Content Structure
 
@@ -42,18 +42,18 @@ This guide explains how to set up compelling demo content for DirectFanz that sh
 
 ## 🔑 Demo Login Credentials
 
-**Password for all demo accounts**: `DirectFanz2025!`
+**Password for all demo accounts**: `DirectFanZProject2025!`
 
 ### Artist Accounts
-- Luna Wilde: `luna.wilde@directfanz.io`
-- Alex Synth: `alexsynth@directfanz.io`  
-- Maya Colors: `maya.colors@directfanz.io`
+- Luna Wilde: `luna.wilde@directfanz-project.io`
+- Alex Synth: `alexsynth@directfanz-project.io`  
+- Maya Colors: `maya.colors@directfanz-project.io`
 
 ### Fan Accounts
 - Sarah Mitchell: `sarah.musicfan@gmail.com`
 - Mike Johnson: `mike.synthlover@gmail.com`
 - Emily Chen: `emily.artcollector@gmail.com`
-- Demo Visitor: `demo.visitor@directfanz.io`
+- Demo Visitor: `demo.visitor@directfanz-project.io`
 
 ## 🚀 Setting Up Demo Content
 
@@ -209,7 +209,7 @@ npm run db:seed:status
 
 ## 🚀 Ready to Launch!
 
-Your DirectFanz demo content showcases:
+Your DirectFanZProject demo content showcases:
 - ✨ **Professional platform** with real creator success stories
 - 🎨 **Diverse creative fields** proving platform versatility  
 - 💰 **Clear monetization** with realistic earning examples
@@ -220,4 +220,4 @@ Your DirectFanz demo content showcases:
 
 ---
 
-*Visit **https://directfanz.io** to experience the demo in action*
+*Visit **https://directfanz-project.io** to experience the demo in action*

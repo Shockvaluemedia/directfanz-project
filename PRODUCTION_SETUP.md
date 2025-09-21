@@ -1,6 +1,6 @@
-# DirectFanz Production Environment Setup
+# DirectFanZProject Production Environment Setup
 
-Your app is successfully deployed to **https://www.directfanz.io** 🎉
+Your app is successfully deployed to **https://www.directfanz-project.io** 🎉
 
 However, it needs production environment configuration to be fully functional.
 
@@ -39,7 +39,7 @@ REDIS_URL="rediss://username:password@host:6379"
 ### 3. NextAuth Configuration
 ```bash
 NEXTAUTH_SECRET="your-production-secret-key"
-NEXTAUTH_URL="https://www.directfanz.io"
+NEXTAUTH_URL="https://www.directfanz-project.io"
 ```
 
 ### 4. Stripe Configuration (CRITICAL for payments)
@@ -60,7 +60,7 @@ AWS_REGION="us-east-2"
 ### 6. Email Service (SendGrid)
 ```bash
 SENDGRID_API_KEY="SG...."
-FROM_EMAIL="noreply@directfanz.io"
+FROM_EMAIL="noreply@directfanz-project.io"
 ```
 
 ## Quick Setup Commands
@@ -99,7 +99,7 @@ vercel env add STRIPE_SECRET_KEY production
 ## After Configuration
 
 1. **Redeploy**: `vercel --prod` (or automatic via git push)
-2. **Test Health**: Check https://www.directfanz.io/api/health
+2. **Test Health**: Check https://www.directfanz-project.io/api/health
 3. **Test Core Flows**: Registration, login, content upload, subscriptions
 
 ## Database Migration
@@ -133,4 +133,4 @@ The app infrastructure is solid. Once environment variables are configured, all 
 3. Test the core user flows
 4. Configure Stripe for payments
 
-Your DirectFanz platform is ready to go live! 🚀
+Your DirectFanZProject platform is ready to go live! 🚀

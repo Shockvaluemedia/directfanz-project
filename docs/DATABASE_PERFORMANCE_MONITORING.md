@@ -4,7 +4,7 @@
 
 This guide provides comprehensive instructions for measuring the performance
 improvements from the database index optimizations and establishing ongoing
-monitoring for the Nahvee Even platform.
+monitoring for the DirectFanZ Project platform.
 
 ## Pre-Migration Performance Baseline
 

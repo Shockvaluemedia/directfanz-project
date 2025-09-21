@@ -2,14 +2,14 @@ import { createServer } from 'node:http';
 import next from 'next';
 import { Server as SocketIOServer } from 'socket.io';
 import { parse } from 'node:url';
-import { webSocketInstance } from './src/lib/websocket-instance';
-import { logger } from './src/lib/logger';
+import { webSocketInstance } from './src/lib/websocket-instance.js';
+import { logger } from './src/lib/logger.js';
 import type {
   ServerToClientEvents,
   ClientToServerEvents,
   InterServerEvents,
   SocketData,
-} from './src/types/websocket';
+} from './src/types/websocket.js';
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = 'localhost';
