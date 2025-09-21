@@ -112,7 +112,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         totalScore: true,
         likeCount: true,
         viewCount: true,
-        submitter: {
+        users: {
           select: {
             id: true,
             displayName: true,

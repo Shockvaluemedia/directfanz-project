@@ -77,24 +77,24 @@ export async function GET(request: NextRequest) {
 
     // Transform the data to match the frontend interface
     const campaigns = participations.map(participation => ({
-      id: participation.challenge.campaigns.id,
-      title: participation.challenge.campaigns.title,
-      type: participation.challenge.campaigns.type,
-      status: participation.challenge.campaigns.status,
-      endDate: participation.challenge.campaigns.endDate.toISOString(),
+      id: participation.challenges.campaigns.id,
+      title: participation.challenges.campaigns.title,
+      type: participation.challenges.campaigns.type,
+      status: participation.challenges.campaigns.status,
+      endDate: participation.challenges.campaigns.endDate.toISOString(),
       artist: {
-        name: participation.challenge.campaigns.users.displayName,
-        avatar: participation.challenge.campaigns.users.avatar || '/api/placeholder/40/40',
+        name: participation.challenges.campaigns.users.displayName,
+        avatar: participation.challenges.campaigns.users.avatar || '/api/placeholder/40/40',
       },
       progress: {
-        current: participation.challenge.campaigns.currentValue,
-        target: participation.challenge.campaigns.targetValue,
+        current: participation.challenges.campaigns.currentValue,
+        target: participation.challenges.campaigns.targetValue,
       },
       userSubmissions: participation.submissionCount,
       // Check if user won (would need proper leaderboard logic)
       isWinner:
         participation.rank === 1 &&
-        String(participation.challenge.campaigns.status) === 'COMPLETED',
+        String(participation.challenges.campaigns.status) === 'COMPLETED',
       rank: participation.rank,
       // Include participation details
       participationStatus: participation.status,

@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
       where.status = status.toUpperCase();
     }
 
-    const streams = await prisma.liveStream.findMany({
+    const streams = await prisma.live_streams.findMany({
       where,
       orderBy: {
         scheduledAt: 'desc',
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    const total = await prisma.liveStream.count({ where });
+    const total = await prisma.live_streams.count({ where });
 
     return NextResponse.json({
       success: true,
@@ -154,7 +154,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const stream = await prisma.liveStream.create({
+    const stream = await prisma.live_streams.create({
       data: {
         artistId: session.user.id,
         title: validatedData.title,

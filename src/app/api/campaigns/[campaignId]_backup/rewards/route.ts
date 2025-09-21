@@ -4,13 +4,13 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
-import { RewardType } from '@/lib/types/enums';
+import { string } from '@/lib/types/enums';
 
 // Validation schema for creating rewards
 const createRewardSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().optional(),
-  type: z.nativeEnum(RewardType),
+  type: z.nativeEnum(string),
   value: z.number().positive().optional(),
   currency: z.string().length(3).default('USD'),
   quantity: z.number().int().positive().default(1),
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest, { params }: { params: { campaign
     }
 
     const { searchParams } = new URL(request.url);
-    const type = searchParams.get('type') as RewardType | null;
+    const type = searchParams.get('type') as string | null;
     const activeOnly = searchParams.get('active') === 'true';
 
     // Build where clause

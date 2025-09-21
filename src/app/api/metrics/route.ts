@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 import { prisma } from '@/lib/prisma';
 import { redis, getRedisClient } from '@/lib/redis';
-import { SubscriptionStatus } from '@prisma/client';
+import { string } from '@prisma/client';
 import { businessMetrics } from '@/lib/business-metrics';
 import { logger } from '@/lib/logger';
 import client from 'prom-client';
@@ -147,7 +147,7 @@ async function collectApplicationMetrics(collector: MetricsCollector) {
 
     // Active subscriptions
     const activeSubscriptions = await prisma.subscriptions.count({
-      where: { status: SubscriptionStatus.ACTIVE },
+      where: { status: string.ACTIVE },
     });
 
     collector.addMetric({

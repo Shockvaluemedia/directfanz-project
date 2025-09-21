@@ -95,7 +95,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       });
 
       // Update challenge participant count
-      await tx.challenge.update({
+      await tx.challenges.update({
         where: { id: mainChallenge.id },
         data: { participantCount: { increment: 1 } },
       });
@@ -173,7 +173,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     }
 
     // Don't allow leaving if user has submissions
-    if (participation.submissions.length > 0) {
+    if (participation.challenge_submissions.length > 0) {
       return NextResponse.json(
         {
           error: 'Cannot leave campaign after submitting content',
@@ -190,8 +190,8 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       });
 
       // Update challenge participant count
-      await tx.challenge.update({
-        where: { id: participation.challenge.id },
+      await tx.challenges.update({
+        where: { id: participation.challenges.id },
         data: { participantCount: { decrement: 1 } },
       });
 
@@ -204,7 +204,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     logger.info('User left campaign', {
       campaignId,
-      challengeId: participation.challenge.id,
+      challengeId: participation.challenges.id,
       userId: session.user.id,
       participationId: participation.id,
     });
