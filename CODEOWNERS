@@ -1,0 +1,42 @@
+# CODEOWNERS file for DirectFanz
+# This file defines who needs to review specific files and directories
+
+# Global ownership - require review for all changes
+* @demetriusbrooks
+
+# Security-critical files require additional review
+/src/lib/auth* @demetriusbrooks
+/src/lib/security* @demetriusbrooks  
+/src/lib/rate-limiting* @demetriusbrooks
+/src/config/security* @demetriusbrooks
+/middleware.ts @demetriusbrooks
+SECURITY.md @demetriusbrooks
+
+# Environment and configuration files
+.env* @demetriusbrooks
+docker-compose* @demetriusbrooks
+Dockerfile* @demetriusbrooks
+vercel.json @demetriusbrooks
+
+# Database and migration files
+/prisma/ @demetriusbrooks
+*.sql @demetriusbrooks
+
+# CI/CD and deployment scripts
+/.github/ @demetriusbrooks
+/scripts/ @demetriusbrooks
+/infrastructure/ @demetriusbrooks
+
+# Payment and financial components
+/src/components/payment/ @demetriusbrooks
+/src/app/api/stripe/ @demetriusbrooks
+/src/app/api/payment/ @demetriusbrooks
+
+# Admin and management interfaces  
+/src/app/admin/ @demetriusbrooks
+/src/components/admin/ @demetriusbrooks
+
+# Core authentication and user management
+/src/app/api/auth/ @demetriusbrooks
+/src/app/api/user/ @demetriusbrooks
+/src/components/auth/ @demetriusbrooks
