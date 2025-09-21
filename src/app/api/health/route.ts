@@ -3,6 +3,9 @@ import { prisma } from '@/lib/prisma';
 import { redis } from '@/lib/redis';
 import { logger } from '@/lib/logger';
 
+// Force this route to be dynamic
+export const dynamic = 'force-dynamic';
+
 /**
  * Health check endpoint for monitoring system status
  * This endpoint checks database and Redis connectivity

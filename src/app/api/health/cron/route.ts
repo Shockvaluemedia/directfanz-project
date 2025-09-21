@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { redis } from '@/lib/redis';
 import { logger } from '@/lib/logger';
 import { captureMessage } from '@/lib/sentry';
+
+// Force this route to be dynamic
+export const dynamic = 'force-dynamic';
 import { string } from '@prisma/client';
 
 /**
