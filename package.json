@@ -68,6 +68,8 @@
     "perf:health": "curl -s https://www.directfanz.io/api/admin/performance/health | jq",
     "perf:alerts": "curl -s https://www.directfanz.io/api/admin/performance/alerts | jq",
     "health:check": "node scripts/project-health-check.js",
+    "test:s3": "node scripts/test-s3-upload.js",
+    "test:s3-direct": "node scripts/test-s3-direct.js",
     "production:setup": "npm run deploy:setup && npm run infrastructure:init && npm run monitoring:setup",
     "production:deploy": "npm run verify:all && npm run deploy:aws",
     "production:monitoring": "npm run monitoring:start",

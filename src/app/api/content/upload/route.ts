@@ -4,6 +4,11 @@ import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { FileUploader, ContentType } from '@/lib/upload';
+import { LocalFileUploader } from '@/lib/local-storage';
+
+// Use local storage if AWS is not configured
+const USE_LOCAL_STORAGE = !process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_S3_BUCKET_NAME;
+const UploaderClass = USE_LOCAL_STORAGE ? LocalFileUploader : FileUploader;
 
 const uploadSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title too long'),
@@ -60,10 +65,10 @@ export async function POST(request: NextRequest) {
       });
 
       // Upload and process file
-      const uploadResult = await FileUploader.uploadFile(file, req.user.id);
+      const uploadResult = await UploaderClass.uploadFile(file, req.user.id);
 
       // Determine content type
-      const contentType = FileUploader.getContentType(file);
+      const contentType = UploaderClass.getContentType(file);
 
       // Create content record in database
       const content = await prisma.content.create({
@@ -160,6 +165,13 @@ export async function PUT(request: NextRequest) {
           { error: 'fileName, contentType, and fileSize are required' },
           { status: 400 }
         );
+      }
+
+      // For local storage, we don't use presigned URLs
+      if (USE_LOCAL_STORAGE) {
+        return NextResponse.json({
+          error: 'Presigned URLs not supported with local storage. Use direct upload via POST /api/content/upload'
+        }, { status: 400 });
       }
 
       // Validate file type and size

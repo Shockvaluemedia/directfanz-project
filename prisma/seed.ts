@@ -231,6 +231,7 @@ async function main() {
       tiers: {
         connect: [{ id: basicTier.id }, { id: premiumTier.id }, { id: vipTier.id }],
       },
+      updatedAt: new Date(),
     },
   });
 
@@ -251,6 +252,7 @@ async function main() {
       tiers: {
         connect: [{ id: premiumTier.id }, { id: vipTier.id }],
       },
+      updatedAt: new Date(),
     },
   });
 
@@ -272,6 +274,7 @@ async function main() {
       tiers: {
         connect: [{ id: vipTier.id }],
       },
+      updatedAt: new Date(),
     },
   });
 
@@ -290,6 +293,7 @@ async function main() {
       duration: 180, // 3 minutes
       format: 'mp3',
       tags: JSON.stringify(['preview', 'summer', 'free']),
+      updatedAt: new Date(),
     },
   });
 
@@ -307,6 +311,7 @@ async function main() {
       status: SubscriptionStatus.ACTIVE,
       currentPeriodStart: new Date(),
       currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+      updatedAt: new Date(),
     },
   });
 
@@ -321,6 +326,7 @@ async function main() {
       status: SubscriptionStatus.ACTIVE,
       currentPeriodStart: new Date(),
       currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+      updatedAt: new Date(),
     },
   });
 
@@ -333,6 +339,7 @@ async function main() {
       contentId: acousticSession.id,
       fanId: fan1.id,
       text: 'This acoustic session is absolutely beautiful! The coffee shop ambiance really adds to the intimate feel.',
+      updatedAt: new Date(),
     },
   });
 
@@ -342,6 +349,7 @@ async function main() {
       contentId: publicTrack.id,
       fanId: fan2.id,
       text: "Can't wait for the full album! This preview has me so excited 🎵",
+      updatedAt: new Date(),
     },
   });
 
@@ -351,6 +359,7 @@ async function main() {
       contentId: behindScenes.id,
       fanId: fan2.id,
       text: 'Love seeing your creative process! That vintage guitar sounds amazing.',
+      updatedAt: new Date(),
     },
   });
 
@@ -365,6 +374,7 @@ async function main() {
       content:
         "Hi! I absolutely love your acoustic sessions. Any chance you'll be doing live shows soon?",
       type: 'TEXT',
+      updatedAt: new Date(),
     },
   });
 
@@ -377,6 +387,7 @@ async function main() {
         "Thank you so much! I'm planning a small acoustic tour next month. I'll announce dates soon!",
       type: 'TEXT',
       readAt: new Date(),
+      updatedAt: new Date(),
     },
   });
 
@@ -387,6 +398,7 @@ async function main() {
       recipientId: artist1.id,
       content: "That's amazing! Count me in for sure. Your coffee shop session was incredible 🎵",
       type: 'TEXT',
+      updatedAt: new Date(),
     },
   });
 
@@ -398,6 +410,7 @@ async function main() {
       content:
         'Hey! Just subscribed to your premium tier. The behind-the-scenes content is exactly what I was hoping for!',
       type: 'TEXT',
+      updatedAt: new Date(),
     },
   });
 
@@ -409,6 +422,7 @@ async function main() {
       content:
         "Welcome to the premium tier! So glad you're enjoying the content. More studio sessions coming this week!",
       type: 'TEXT',
+      updatedAt: new Date(),
     },
   });
 
@@ -421,6 +435,7 @@ async function main() {
       content:
         'Quick question - will VIP members get access to that new song you teased on social media?',
       type: 'TEXT',
+      updatedAt: new Date(),
     },
   });
 

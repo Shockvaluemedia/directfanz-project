@@ -12,6 +12,7 @@ import MainNavigator from './src/navigation/MainNavigator';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { ThemeProvider } from './src/contexts/ThemeContext';
 import { PlayerProvider } from './src/contexts/PlayerContext';
+import { ProfileProvider } from './src/contexts/ProfileContext';
 
 // Import types
 import { RootStackParamList } from './src/types/navigation';
@@ -44,16 +45,18 @@ function App(): JSX.Element {
       <SafeAreaProvider>
         <ThemeProvider>
           <AuthProvider>
-            <PlayerProvider>
-              <StatusBar
-                barStyle={
-                  Platform.OS === 'ios' ? 'dark-content' : 'light-content'
-                }
-                backgroundColor="transparent"
-                translucent
-              />
-              <AppContent />
-            </PlayerProvider>
+            <ProfileProvider>
+              <PlayerProvider>
+                <StatusBar
+                  barStyle={
+                    Platform.OS === 'ios' ? 'dark-content' : 'light-content'
+                  }
+                  backgroundColor="transparent"
+                  translucent
+                />
+                <AppContent />
+              </PlayerProvider>
+            </ProfileProvider>
           </AuthProvider>
         </ThemeProvider>
       </SafeAreaProvider>

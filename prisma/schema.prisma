@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -87,8 +87,8 @@ model campaign_rewards {
   remainingQuantity        Int?
   createdAt                DateTime               @default(now())
   updatedAt                DateTime
-  content                  content?               @relation(fields: [contentId], references: [id])
   campaigns                campaigns              @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  content                  content?               @relation(fields: [contentId], references: [id])
   reward_distributions     reward_distributions[]
 }
 
@@ -141,8 +141,8 @@ model challenge_leaderboards {
   penaltyScore     Int        @default(0)
   updatedAt        DateTime
   createdAt        DateTime   @default(now())
-  users            users      @relation(fields: [userId], references: [id], onDelete: Cascade)
   challenges       challenges @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  users            users      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([challengeId, userId])
   @@index([challengeId, rank])
@@ -160,8 +160,8 @@ model challenge_participations {
   rank                  Int?
   notifications         Boolean                 @default(true)
   isAnonymous           Boolean                 @default(false)
-  users                 users                   @relation(fields: [participantId], references: [id], onDelete: Cascade)
   challenges            challenges              @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  users                 users                   @relation(fields: [participantId], references: [id], onDelete: Cascade)
   challenge_submissions challenge_submissions[]
 
   @@unique([challengeId, participantId])
@@ -196,9 +196,9 @@ model challenge_submissions {
   shareCount               Int                      @default(0)
   submittedAt              DateTime                 @default(now())
   updatedAt                DateTime
-  users                    users                    @relation(fields: [submitterId], references: [id], onDelete: Cascade)
-  challenge_participations challenge_participations @relation(fields: [participationId], references: [id], onDelete: Cascade)
   challenges               challenges               @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  challenge_participations challenge_participations @relation(fields: [participationId], references: [id], onDelete: Cascade)
+  users                    users                    @relation(fields: [submitterId], references: [id], onDelete: Cascade)
 
   @@index([challengeId, status])
   @@index([submitterId])
@@ -295,8 +295,8 @@ model content_likes {
   userId    String
   contentId String
   createdAt DateTime @default(now())
-  content   content  @relation(fields: [contentId], references: [id], onDelete: Cascade)
   users     users    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   content  @relation(fields: [contentId], references: [id], onDelete: Cascade)
 
   @@unique([userId, contentId])
   @@index([userId])
@@ -313,8 +313,8 @@ model content_views {
   lastViewedAt  DateTime @default(now())
   createdAt     DateTime @default(now())
   updatedAt     DateTime
-  users         users    @relation(fields: [viewerId], references: [id], onDelete: Cascade)
   content       content  @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  users         users    @relation(fields: [viewerId], references: [id], onDelete: Cascade)
 
   @@unique([contentId, viewerId, createdAt])
   @@index([viewerId])
@@ -389,9 +389,9 @@ model messages {
   type                              String    @default("TEXT")
   attachmentUrl                     String?
   readAt                            DateTime?
-  deliveredAt                       DateTime?
   createdAt                         DateTime  @default(now())
   updatedAt                         DateTime
+  deliveredAt                       DateTime?
   users_messages_recipientIdTousers users     @relation("messages_recipientIdTousers", fields: [recipientId], references: [id], onDelete: Cascade)
   users_messages_senderIdTousers    users     @relation("messages_senderIdTousers", fields: [senderId], references: [id], onDelete: Cascade)
 
@@ -437,8 +437,8 @@ model playlist_items {
   contentId  String
   position   Int
   addedAt    DateTime  @default(now())
-  content    content   @relation(fields: [contentId], references: [id], onDelete: Cascade)
   playlists  playlists @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  content    content   @relation(fields: [contentId], references: [id], onDelete: Cascade)
 
   @@unique([playlistId, contentId])
   @@unique([playlistId, position])
@@ -449,8 +449,8 @@ model playlist_likes {
   userId     String
   playlistId String
   createdAt  DateTime  @default(now())
-  playlists  playlists @relation(fields: [playlistId], references: [id], onDelete: Cascade)
   users      users     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  playlists  playlists @relation(fields: [playlistId], references: [id], onDelete: Cascade)
 
   @@unique([userId, playlistId])
   @@index([userId])
@@ -529,8 +529,8 @@ model reward_distributions {
   shippingAddress  String?
   awardedAt        DateTime         @default(now())
   updatedAt        DateTime
-  users            users            @relation(fields: [userId], references: [id], onDelete: Cascade)
   campaign_rewards campaign_rewards @relation(fields: [rewardId], references: [id], onDelete: Cascade)
+  users            users            @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([rewardId, userId])
   @@index([userId, status])
@@ -561,8 +561,8 @@ model stream_chat_messages {
   moderatedBy      String?
   moderationReason String?
   createdAt        DateTime     @default(now())
-  users            users?       @relation(fields: [senderId], references: [id])
   live_streams     live_streams @relation(fields: [streamId], references: [id], onDelete: Cascade)
+  users            users?       @relation(fields: [senderId], references: [id])
 
   @@index([streamId, createdAt])
   @@index([senderId])
@@ -575,8 +575,8 @@ model stream_poll_votes {
   sessionId    String
   optionIndex  Int
   createdAt    DateTime     @default(now())
-  users        users?       @relation(fields: [voterId], references: [id])
   stream_polls stream_polls @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  users        users?       @relation(fields: [voterId], references: [id])
 
   @@unique([pollId, sessionId])
 }
@@ -628,8 +628,8 @@ model stream_tips {
   isAnonymous           Boolean      @default(false)
   showOnStream          Boolean      @default(true)
   createdAt             DateTime     @default(now())
-  users                 users?       @relation(fields: [tipperId], references: [id])
   live_streams          live_streams @relation(fields: [streamId], references: [id], onDelete: Cascade)
+  users                 users?       @relation(fields: [tipperId], references: [id])
 
   @@index([streamId, createdAt])
   @@index([tipperId])
@@ -648,8 +648,8 @@ model stream_viewers {
   joinedAt     DateTime     @default(now())
   leftAt       DateTime?
   watchTime    Int          @default(0)
-  users        users?       @relation(fields: [viewerId], references: [id])
   live_streams live_streams @relation(fields: [streamId], references: [id], onDelete: Cascade)
+  users        users?       @relation(fields: [viewerId], references: [id])
 
   @@index([streamId, joinedAt])
   @@index([viewerId])
@@ -710,11 +710,11 @@ model users {
   avatar                               String?
   socialLinks                          Json?
   notificationPreferences              Json?
-  lastSeenAt                           DateTime?
   emailVerified                        DateTime?
   image                                String?
   createdAt                            DateTime                   @default(now())
   updatedAt                            DateTime
+  lastSeenAt                           DateTime?
   accounts                             accounts[]
   artists                              artists?
   campaigns                            campaigns[]

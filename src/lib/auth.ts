@@ -60,6 +60,34 @@ export const authOptions: NextAuthOptions = {
     }),
     // OAuth providers removed - add back when credentials are configured
   ],
+  cookies: {
+    sessionToken: {
+      name: 'next-auth.session-token',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: true, // Always secure for production
+      },
+    },
+    callbackUrl: {
+      name: 'next-auth.callback-url',
+      options: {
+        sameSite: 'lax',
+        path: '/',
+        secure: true, // Always secure for production
+      },
+    },
+    csrfToken: {
+      name: 'next-auth.csrf-token',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: true, // Always secure for production
+      },
+    },
+  },
   session: {
     strategy: 'jwt',
     maxAge: 2 * 60 * 60, // 2 hours for better security

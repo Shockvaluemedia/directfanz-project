@@ -71,10 +71,6 @@
       "schedule": "0 6 * * *"
     }
   ],
-  "domains": [
-    "directfanz.io",
-    "www.directfanz.io"
-  ],
   "redirects": [
     {
       "source": "/(.*)",
