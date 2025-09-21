@@ -10,8 +10,12 @@ import { useAuth } from '../contexts/AuthContext';
 import HomeNavigator from './HomeNavigator';
 import DiscoverNavigator from './DiscoverNavigator';
 import UploadNavigator from './UploadNavigator';
+import MessagingNavigator from './MessagingNavigator';
 import ProfileNavigator from './ProfileNavigator';
 import AnalyticsNavigator from './AnalyticsNavigator';
+
+// Import messaging components
+import MessagingBadge from '../components/messaging/MessagingBadge';
 
 // Mock icons - in a real app, you'd use react-native-vector-icons
 const TabIcon = ({
@@ -29,6 +33,7 @@ const TabIcon = ({
     home: focused ? '⌂' : '⌂',
     discover: focused ? '🔍' : '🔍',
     upload: focused ? '+' : '+',
+    messages: focused ? '💬' : '💬',
     profile: focused ? '👤' : '👤',
     analytics: focused ? '📊' : '📊',
   };
@@ -152,6 +157,24 @@ const MainNavigator: React.FC = () => {
                 Create
               </Text>
             </TouchableOpacity>
+          ),
+        }}
+      />
+
+      <Tab.Screen
+        name="Messages"
+        component={MessagingNavigator}
+        options={{
+          tabBarLabel: 'Messages',
+          tabBarIcon: ({ focused, color, size }) => (
+            <MessagingBadge>
+              <TabIcon
+                name="messages"
+                focused={focused}
+                color={color}
+                size={size}
+              />
+            </MessagingBadge>
           ),
         }}
       />

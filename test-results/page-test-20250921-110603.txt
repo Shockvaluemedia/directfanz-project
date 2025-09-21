@@ -1,0 +1,11 @@
+Testing DirectFanz Pages - Sun Sep 21 11:06:03 CDT 2025
+=================================
+
+
+0:
+────────────────────────
+/admin | 404 | 671ms | ERROR
+/settings | 404 | 21ms | ERROR
+
+SUMMARY:
+Total: 2 | Successful: 0 | Failed: 2 | Success Rate: 0%

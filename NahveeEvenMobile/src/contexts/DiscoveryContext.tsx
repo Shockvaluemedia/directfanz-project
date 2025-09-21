@@ -1,130 +1,366 @@
-import React, { createContext, useContext, useReducer, useCallback } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   DiscoveryState,
   DiscoveryAction,
+  initialDiscoveryState,
   SearchQuery,
   SearchFilters,
+  SearchResults,
+  SearchSuggestion,
   ContentType,
   CreatorInfo,
   ContentItem,
+  ContentCategory,
+  Feed,
+  FeedSection,
+  TrendingData,
+  TrendingPeriod,
+  UserPreferences,
+  ViewHistoryItem,
+  ContentStats,
   FollowAction,
   ContentInteraction,
   UserEngagement,
+  DISCOVERY_CONSTANTS,
+  defaultSearchFilters,
 } from '../types/discovery';
 import { useAuth } from './AuthContext';
 
-// Initial state
-const initialSearchFilters: SearchFilters = {
-  genres: [],
-  contentTypes: [],
-  priceRange: { min: 0, max: 100 },
-  verifiedOnly: false,
-};
+// Storage keys for persistence
+const STORAGE_KEYS = {
+  USER_PREFERENCES: '@nahvee_discovery_user_preferences',
+  VIEWING_HISTORY: '@nahvee_discovery_viewing_history', 
+  SEARCH_HISTORY: '@nahvee_discovery_search_history',
+  CONTENT_CACHE: '@nahvee_discovery_content_cache',
+  FOLLOWED_CREATORS: '@nahvee_discovery_followed_creators',
+  ENGAGEMENT: '@nahvee_discovery_engagement',
+  SEARCH_FILTERS: '@nahvee_discovery_search_filters',
+} as const;
 
-const initialEngagement: UserEngagement = {
-  followedCreators: [],
-  likedContent: [],
-  bookmarkedContent: [],
-  purchasedContent: [],
-  viewHistory: [],
-};
-
-const initialState: DiscoveryState = {
-  searchQuery: '',
-  searchFilters: initialSearchFilters,
-  searchResults: {
-    creators: [],
-    content: [],
-    totalCreators: 0,
-    totalContent: 0,
-    hasMore: false,
-  },
-  isSearching: false,
-  trendingData: null,
-  recommendedCreators: [],
-  recommendedContent: [],
-  feed: [],
-  feedPage: 1,
-  isFeedLoading: false,
-  feedHasMore: true,
-  followedCreators: [],
-  engagement: initialEngagement,
-  error: null,
-  isLoading: false,
-};
-
-// Reducer
-const discoveryReducer = (state: DiscoveryState, action: DiscoveryAction): DiscoveryState => {
+// Enhanced Discovery reducer function
+function discoveryReducer(state: DiscoveryState, action: DiscoveryAction): DiscoveryState {
   switch (action.type) {
-    case 'SET_LOADING':
-      return { ...state, isLoading: action.payload, error: null };
-    
-    case 'SET_SEARCH_QUERY':
-      return { ...state, searchQuery: action.payload };
-    
-    case 'SET_SEARCH_FILTERS':
-      return {
-        ...state,
-        searchFilters: { ...state.searchFilters, ...action.payload },
-      };
-    
-    case 'SET_SEARCH_RESULTS':
-      return {
-        ...state,
-        searchResults: action.payload,
-        isSearching: false,
-        error: null,
-      };
-    
-    case 'SET_TRENDING_DATA':
-      return { ...state, trendingData: action.payload };
-    
-    case 'SET_RECOMMENDED_CREATORS':
-      return { ...state, recommendedCreators: action.payload };
-    
-    case 'SET_RECOMMENDED_CONTENT':
-      return { ...state, recommendedContent: action.payload };
-    
+    // Feed actions
     case 'SET_FEED':
       return {
         ...state,
         feed: action.payload,
-        isFeedLoading: false,
-        feedPage: 1,
+        feedLoading: false,
+        feedError: null,
       };
-    
-    case 'APPEND_FEED':
+
+    case 'SET_FEED_LOADING':
       return {
         ...state,
-        feed: [...state.feed, ...action.payload],
-        isFeedLoading: false,
-        feedPage: state.feedPage + 1,
+        feedLoading: action.payload,
+        ...(action.payload ? { feedError: null } : {}),
       };
-    
-    case 'SET_FEED_LOADING':
-      return { ...state, isFeedLoading: action.payload };
-    
+
+    case 'SET_FEED_ERROR':
+      return {
+        ...state,
+        feedError: action.payload,
+        feedLoading: false,
+      };
+
+    case 'SET_FEED_REFRESHING':
+      return {
+        ...state,
+        feedRefreshing: action.payload,
+      };
+
+    case 'APPEND_FEED_SECTION':
+      const { sectionId, items } = action.payload;
+      if (!state.feed) return state;
+      
+      return {
+        ...state,
+        feed: {
+          ...state.feed,
+          sections: state.feed.sections.map(section =>
+            section.id === sectionId
+              ? { ...section, items: [...section.items, ...items] }
+              : section
+          ),
+        },
+      };
+
+    case 'UPDATE_FEED_SECTION':
+      if (!state.feed) return state;
+      
+      return {
+        ...state,
+        feed: {
+          ...state.feed,
+          sections: state.feed.sections.map(section =>
+            section.id === action.payload.id ? action.payload : section
+          ),
+        },
+      };
+
+    case 'REFRESH_FEED':
+      return {
+        ...state,
+        feed: null,
+        feedRefreshing: true,
+        feedError: null,
+      };
+
+    // Search actions
+    case 'SET_SEARCH_QUERY':
+      return {
+        ...state,
+        searchQuery: action.payload,
+        ...(action.payload === '' ? { searchResults: null } : {}),
+      };
+
+    case 'SET_SEARCH_RESULTS':
+      return {
+        ...state,
+        searchResults: action.payload,
+        searchLoading: false,
+        searchError: null,
+      };
+
+    case 'APPEND_SEARCH_RESULTS':
+      if (!state.searchResults) return state;
+      
+      return {
+        ...state,
+        searchResults: {
+          ...state.searchResults,
+          content: [...state.searchResults.content, ...action.payload],
+        },
+      };
+
+    case 'SET_SEARCH_FILTERS':
+      return {
+        ...state,
+        searchFilters: {
+          ...state.searchFilters,
+          ...action.payload,
+        },
+      };
+
+    case 'CLEAR_SEARCH_FILTERS':
+      return {
+        ...state,
+        searchFilters: defaultSearchFilters,
+        searchResults: null,
+      };
+
+    case 'SET_SEARCH_LOADING':
+      return {
+        ...state,
+        searchLoading: action.payload,
+        ...(action.payload ? { searchError: null } : {}),
+      };
+
+    case 'SET_SEARCH_ERROR':
+      return {
+        ...state,
+        searchError: action.payload,
+        searchLoading: false,
+      };
+
+    case 'ADD_TO_SEARCH_HISTORY':
+      const query = action.payload.trim();
+      if (!query || state.searchHistory.includes(query)) return state;
+      
+      const newHistory = [query, ...state.searchHistory.slice(0, DISCOVERY_CONSTANTS.MAX_SEARCH_HISTORY - 1)];
+      return {
+        ...state,
+        searchHistory: newHistory,
+      };
+
+    case 'CLEAR_SEARCH_HISTORY':
+      return {
+        ...state,
+        searchHistory: [],
+      };
+
+    case 'SET_SEARCH_SUGGESTIONS':
+      return {
+        ...state,
+        searchSuggestions: action.payload,
+      };
+
+    case 'CLEAR_SEARCH':
+      return {
+        ...state,
+        searchQuery: '',
+        searchResults: null,
+        searchError: null,
+        searchSuggestions: [],
+      };
+
+    // Categories actions
+    case 'SET_CATEGORIES':
+      return {
+        ...state,
+        categories: action.payload,
+        categoriesLoading: false,
+      };
+
+    case 'SET_CATEGORIES_LOADING':
+      return {
+        ...state,
+        categoriesLoading: action.payload,
+      };
+
+    // Trending actions
+    case 'SET_TRENDING_DATA':
+      return {
+        ...state,
+        trending: action.payload,
+        trendingLoading: false,
+      };
+
+    case 'SET_TRENDING_LOADING':
+      return {
+        ...state,
+        trendingLoading: action.payload,
+      };
+
+    // Content actions
+    case 'SET_SELECTED_CONTENT':
+      return {
+        ...state,
+        selectedContent: action.payload,
+      };
+
+    case 'SET_PLAYING_CONTENT':
+      return {
+        ...state,
+        playingContent: action.payload,
+      };
+
+    case 'UPDATE_CONTENT_STATS':
+      const { contentId, stats } = action.payload;
+      
+      // Update in feed
+      let updatedFeed = state.feed;
+      if (updatedFeed) {
+        updatedFeed = {
+          ...updatedFeed,
+          sections: updatedFeed.sections.map(section => ({
+            ...section,
+            items: section.items.map(item =>
+              item.id === contentId
+                ? { ...item, stats: { ...item.stats, ...stats } }
+                : item
+            ),
+          })),
+        };
+      }
+      
+      // Update in search results
+      let updatedSearchResults = state.searchResults;
+      if (updatedSearchResults) {
+        updatedSearchResults = {
+          ...updatedSearchResults,
+          content: updatedSearchResults.content.map(item =>
+            item.id === contentId
+              ? { ...item, stats: { ...item.stats, ...stats } }
+              : item
+          ),
+        };
+      }
+      
+      // Update in cache
+      const updatedCache = { ...state.contentCache };
+      if (updatedCache[contentId]) {
+        updatedCache[contentId] = {
+          ...updatedCache[contentId],
+          stats: { ...updatedCache[contentId].stats, ...stats },
+        };
+      }
+      
+      return {
+        ...state,
+        feed: updatedFeed,
+        searchResults: updatedSearchResults,
+        contentCache: updatedCache,
+      };
+
+    // User actions
+    case 'UPDATE_PREFERENCES':
+      return {
+        ...state,
+        preferences: {
+          ...state.preferences,
+          ...action.payload,
+        },
+      };
+
+    case 'ADD_TO_VIEWING_HISTORY':
+      const newHistoryItem = action.payload;
+      const existingItemIndex = state.viewingHistory.items.findIndex(
+        item => item.contentId === newHistoryItem.contentId
+      );
+      
+      let updatedHistoryItems;
+      if (existingItemIndex >= 0) {
+        // Update existing item
+        updatedHistoryItems = [...state.viewingHistory.items];
+        updatedHistoryItems[existingItemIndex] = newHistoryItem;
+      } else {
+        // Add new item
+        updatedHistoryItems = [newHistoryItem, ...state.viewingHistory.items.slice(0, 999)];
+      }
+      
+      return {
+        ...state,
+        viewingHistory: {
+          ...state.viewingHistory,
+          items: updatedHistoryItems,
+          totalWatchTime: state.viewingHistory.totalWatchTime + newHistoryItem.duration,
+          lastUpdated: new Date().toISOString(),
+        },
+      };
+
+    case 'CLEAR_VIEWING_HISTORY':
+      return {
+        ...state,
+        viewingHistory: {
+          items: [],
+          totalWatchTime: 0,
+          categories: {},
+          creators: {},
+          lastUpdated: new Date().toISOString(),
+        },
+      };
+
+    // Legacy engagement actions - keep for backward compatibility
     case 'FOLLOW_CREATOR':
       return {
         ...state,
         followedCreators: [...state.followedCreators, action.payload],
+        preferences: {
+          ...state.preferences,
+          followedCreators: [...state.preferences.followedCreators, action.payload],
+        },
         engagement: {
           ...state.engagement,
           followedCreators: [...state.engagement.followedCreators, action.payload],
         },
       };
-    
+
     case 'UNFOLLOW_CREATOR':
       return {
         ...state,
         followedCreators: state.followedCreators.filter(id => id !== action.payload),
+        preferences: {
+          ...state.preferences,
+          followedCreators: state.preferences.followedCreators.filter(id => id !== action.payload),
+        },
         engagement: {
           ...state.engagement,
           followedCreators: state.engagement.followedCreators.filter(id => id !== action.payload),
         },
       };
-    
+
     case 'LIKE_CONTENT':
       return {
         ...state,
@@ -133,7 +369,7 @@ const discoveryReducer = (state: DiscoveryState, action: DiscoveryAction): Disco
           likedContent: [...state.engagement.likedContent, action.payload],
         },
       };
-    
+
     case 'UNLIKE_CONTENT':
       return {
         ...state,
@@ -142,7 +378,7 @@ const discoveryReducer = (state: DiscoveryState, action: DiscoveryAction): Disco
           likedContent: state.engagement.likedContent.filter(id => id !== action.payload),
         },
       };
-    
+
     case 'BOOKMARK_CONTENT':
       return {
         ...state,
@@ -151,7 +387,7 @@ const discoveryReducer = (state: DiscoveryState, action: DiscoveryAction): Disco
           bookmarkedContent: [...state.engagement.bookmarkedContent, action.payload],
         },
       };
-    
+
     case 'UNBOOKMARK_CONTENT':
       return {
         ...state,
@@ -160,25 +396,94 @@ const discoveryReducer = (state: DiscoveryState, action: DiscoveryAction): Disco
           bookmarkedContent: state.engagement.bookmarkedContent.filter(id => id !== action.payload),
         },
       };
-    
-    case 'SET_ERROR':
-      return { ...state, error: action.payload, isLoading: false, isSearching: false };
-    
-    case 'CLEAR_SEARCH':
+
+    // Cache actions
+    case 'CACHE_CONTENT':
+      const { id, content, expiry } = action.payload;
+      const expiryTime = expiry || Date.now() + DISCOVERY_CONSTANTS.CACHE_DURATION;
+      
+      // Remove old items if cache is full
+      let newCache = { ...state.contentCache };
+      let newExpiry = { ...state.cacheExpiry };
+      
+      const cacheKeys = Object.keys(newCache);
+      if (cacheKeys.length >= DISCOVERY_CONSTANTS.MAX_CACHE_SIZE) {
+        // Remove oldest items
+        const sortedKeys = cacheKeys.sort((a, b) => newExpiry[a] - newExpiry[b]);
+        const keysToRemove = sortedKeys.slice(0, 10); // Remove 10 oldest items
+        
+        keysToRemove.forEach(key => {
+          delete newCache[key];
+          delete newExpiry[key];
+        });
+      }
+      
+      newCache[id] = content;
+      newExpiry[id] = expiryTime;
+      
       return {
         ...state,
-        searchQuery: '',
-        searchResults: initialState.searchResults,
-        isSearching: false,
-        error: null,
+        contentCache: newCache,
+        cacheExpiry: newExpiry,
       };
-    
+
+    case 'CLEAR_CACHE':
+      return {
+        ...state,
+        contentCache: {},
+        cacheExpiry: {},
+      };
+
+    case 'REMOVE_FROM_CACHE':
+      const updatedCacheAfterRemoval = { ...state.contentCache };
+      const updatedExpiryAfterRemoval = { ...state.cacheExpiry };
+      delete updatedCacheAfterRemoval[action.payload];
+      delete updatedExpiryAfterRemoval[action.payload];
+      
+      return {
+        ...state,
+        contentCache: updatedCacheAfterRemoval,
+        cacheExpiry: updatedExpiryAfterRemoval,
+      };
+
+    // UI actions
+    case 'SET_ACTIVE_TAB':
+      return {
+        ...state,
+        activeTab: action.payload,
+      };
+
+    case 'TOGGLE_FILTERS':
+      return {
+        ...state,
+        showFilters: !state.showFilters,
+      };
+
+    case 'SET_GRID_VIEW':
+      return {
+        ...state,
+        gridView: action.payload,
+      };
+
+    case 'SET_LOADING':
+      return {
+        ...state,
+        isLoading: action.payload,
+      };
+
+    case 'SET_ERROR':
+      return {
+        ...state,
+        error: action.payload,
+        isLoading: false,
+      };
+
     default:
       return state;
   }
-};
+}
 
-// Context interface
+// Enhanced Context interface
 interface DiscoveryContextType extends DiscoveryState {
   // Search functions
   search: (query: SearchQuery) => Promise<void>;
@@ -195,6 +500,12 @@ interface DiscoveryContextType extends DiscoveryState {
   fetchFeed: (refresh?: boolean) => Promise<void>;
   loadMoreFeed: () => Promise<void>;
   
+  // Enhanced functions
+  loadCategories: () => Promise<void>;
+  updatePreferences: (preferences: Partial<UserPreferences>) => Promise<void>;
+  addToViewingHistory: (item: ViewHistoryItem) => Promise<void>;
+  getCachedContent: (id: string) => ContentItem | null;
+  
   // User actions
   followCreator: (creatorId: string) => Promise<void>;
   unfollowCreator: (creatorId: string) => Promise<void>;
@@ -205,6 +516,21 @@ interface DiscoveryContextType extends DiscoveryState {
   isContentLiked: (contentId: string) => boolean;
   isContentBookmarked: (contentId: string) => boolean;
   clearError: () => void;
+  
+  // Missing functions used by components
+  user?: any; // Current user
+  getCategoryContent: (categoryId: string) => Promise<void>;
+  getTrendingCategories: () => Promise<void>;
+  getCuratedCollections: () => Promise<void>;
+  getContentById: (contentId: string) => ContentItem | null;
+  toggleLike: (contentId: string) => Promise<void>;
+  toggleBookmark: (contentId: string) => Promise<void>;
+  toggleFollow: (creatorId: string) => Promise<void>;
+  purchaseContent: (contentId: string, option: any) => Promise<void>;
+  getRelatedContent: (contentId: string) => Promise<void>;
+  getCreatorContent: (creatorId: string) => Promise<void>;
+  getCategoryById: (categoryId: string) => ContentCategory | null;
+  loadMoreCategoryContent: (categoryId: string) => Promise<void>;
   
   // Mock data functions (for development)
   loadMockData: () => void;
@@ -220,42 +546,131 @@ export const useDiscovery = (): DiscoveryContextType => {
   return context;
 };
 
-const STORAGE_KEYS = {
-  FOLLOWED_CREATORS: '@directfanz_followed_creators',
-  ENGAGEMENT: '@directfanz_engagement',
-  SEARCH_FILTERS: '@directfanz_search_filters',
-};
+// Storage keys already defined above
 
 export const DiscoveryProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [state, dispatch] = useReducer(discoveryReducer, initialState);
+  const [state, dispatch] = useReducer(discoveryReducer, initialDiscoveryState);
   const { user, token } = useAuth();
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const cacheCleanupIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load cached data on mount
-  React.useEffect(() => {
+  useEffect(() => {
     loadCachedData();
     loadMockData(); // Remove this when API is ready
   }, []);
+  
+  // Persist data when it changes
+  useEffect(() => {
+    if (state.preferences !== initialDiscoveryState.preferences) {
+      AsyncStorage.setItem(STORAGE_KEYS.USER_PREFERENCES, JSON.stringify(state.preferences));
+    }
+  }, [state.preferences]);
+
+  useEffect(() => {
+    if (state.viewingHistory.items.length > 0) {
+      AsyncStorage.setItem(STORAGE_KEYS.VIEWING_HISTORY, JSON.stringify(state.viewingHistory));
+    }
+  }, [state.viewingHistory]);
+
+  useEffect(() => {
+    if (state.searchHistory.length > 0) {
+      AsyncStorage.setItem(STORAGE_KEYS.SEARCH_HISTORY, JSON.stringify(state.searchHistory));
+    }
+  }, [state.searchHistory]);
+  
+  // Setup cache cleanup interval
+  useEffect(() => {
+    const clearExpiredCache = () => {
+      const now = Date.now();
+      const expiredKeys = Object.keys(state.cacheExpiry).filter(
+        key => state.cacheExpiry[key] < now
+      );
+      
+      expiredKeys.forEach(key => {
+        dispatch({ type: 'REMOVE_FROM_CACHE', payload: key });
+      });
+    };
+    
+    cacheCleanupIntervalRef.current = setInterval(clearExpiredCache, DISCOVERY_CONSTANTS.CACHE_DURATION);
+
+    return () => {
+      if (cacheCleanupIntervalRef.current) {
+        clearInterval(cacheCleanupIntervalRef.current);
+      }
+    };
+  }, [state.cacheExpiry]);
 
   const loadCachedData = async () => {
     try {
-      const [followedCreators, engagement, searchFilters] = await Promise.all([
+      const [
+        userPreferences,
+        viewingHistory, 
+        searchHistory,
+        followedCreators,
+        engagement,
+        searchFilters,
+      ] = await Promise.all([
+        AsyncStorage.getItem(STORAGE_KEYS.USER_PREFERENCES),
+        AsyncStorage.getItem(STORAGE_KEYS.VIEWING_HISTORY),
+        AsyncStorage.getItem(STORAGE_KEYS.SEARCH_HISTORY),
         AsyncStorage.getItem(STORAGE_KEYS.FOLLOWED_CREATORS),
         AsyncStorage.getItem(STORAGE_KEYS.ENGAGEMENT),
         AsyncStorage.getItem(STORAGE_KEYS.SEARCH_FILTERS),
       ]);
 
+      // Load user preferences
+      if (userPreferences) {
+        const preferences = JSON.parse(userPreferences);
+        dispatch({ type: 'UPDATE_PREFERENCES', payload: preferences });
+      }
+
+      // Load viewing history
+      if (viewingHistory) {
+        const history = JSON.parse(viewingHistory);
+        if (history.items && Array.isArray(history.items)) {
+          history.items.forEach((item: ViewHistoryItem) => {
+            dispatch({ type: 'ADD_TO_VIEWING_HISTORY', payload: item });
+          });
+        }
+      }
+
+      // Load search history
+      if (searchHistory) {
+        const history = JSON.parse(searchHistory);
+        if (Array.isArray(history)) {
+          history.forEach((query: string) => {
+            dispatch({ type: 'ADD_TO_SEARCH_HISTORY', payload: query });
+          });
+        }
+      }
+
+      // Load followed creators
       if (followedCreators) {
         const followed = JSON.parse(followedCreators);
-        followed.forEach((creatorId: string) => {
-          dispatch({ type: 'FOLLOW_CREATOR', payload: creatorId });
-        });
+        if (Array.isArray(followed)) {
+          followed.forEach((creatorId: string) => {
+            dispatch({ type: 'FOLLOW_CREATOR', payload: creatorId });
+          });
+        }
       }
 
+      // Load engagement data
       if (engagement) {
         const engagementData = JSON.parse(engagement);
-        // Update engagement state
+        if (engagementData.likedContent && Array.isArray(engagementData.likedContent)) {
+          engagementData.likedContent.forEach((contentId: string) => {
+            dispatch({ type: 'LIKE_CONTENT', payload: contentId });
+          });
+        }
+        if (engagementData.bookmarkedContent && Array.isArray(engagementData.bookmarkedContent)) {
+          engagementData.bookmarkedContent.forEach((contentId: string) => {
+            dispatch({ type: 'BOOKMARK_CONTENT', payload: contentId });
+          });
+        }
       }
 
+      // Load search filters
       if (searchFilters) {
         const filters = JSON.parse(searchFilters);
         dispatch({ type: 'SET_SEARCH_FILTERS', payload: filters });
@@ -583,6 +998,64 @@ export const DiscoveryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     dispatch({ type: 'SET_LOADING', payload: false });
   };
 
+  // Enhanced methods
+  const loadFeed = useCallback(async (refresh = false) => {
+    if (!refresh && state.feed && state.feedLoading) return;
+    dispatch({ type: 'SET_FEED_LOADING', payload: true });
+    
+    try {
+      // Use existing fetchFeed but adapt to new structure
+      await fetchFeed(refresh);
+    } catch (error) {
+      dispatch({ type: 'SET_FEED_ERROR', payload: 'Failed to load feed' });
+    }
+  }, [state.feed, state.feedLoading, fetchFeed]);
+  
+  const loadCategories = useCallback(async () => {
+    dispatch({ type: 'SET_CATEGORIES_LOADING', payload: true });
+    try {
+      // Mock categories for now
+      const mockCategories = [
+        {
+          id: 'music',
+          name: 'Music',
+          slug: 'music',
+          description: 'Audio content and music',
+          icon: '🎵',
+          color: '#FF6B6B',
+          contentCount: 1250,
+          trending: true,
+          order: 1,
+        },
+      ];
+      dispatch({ type: 'SET_CATEGORIES', payload: mockCategories });
+    } catch (error) {
+      console.error('Failed to load categories');
+    }
+  }, []);
+  
+  const updatePreferences = useCallback(async (preferences: Partial<UserPreferences>) => {
+    dispatch({ type: 'UPDATE_PREFERENCES', payload: preferences });
+  }, []);
+  
+  const addToViewingHistory = useCallback(async (item: ViewHistoryItem) => {
+    dispatch({ type: 'ADD_TO_VIEWING_HISTORY', payload: item });
+  }, []);
+  
+  const getCachedContent = useCallback((id: string): ContentItem | null => {
+    const content = state.contentCache[id];
+    const expiry = state.cacheExpiry[id];
+    
+    if (!content || !expiry || expiry < Date.now()) {
+      if (content) {
+        dispatch({ type: 'REMOVE_FROM_CACHE', payload: id });
+      }
+      return null;
+    }
+    
+    return content;
+  }, [state.contentCache, state.cacheExpiry]);
+
   const value: DiscoveryContextType = {
     ...state,
     search,
@@ -592,14 +1065,18 @@ export const DiscoveryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     fetchTrending,
     fetchRecommendedCreators,
     fetchRecommendedContent,
-    fetchFeed,
+    fetchFeed: loadFeed,
     loadMoreFeed,
+    loadCategories,
+    updatePreferences,
+    addToViewingHistory,
     followCreator,
     unfollowCreator,
     interactWithContent,
     isCreatorFollowed,
     isContentLiked,
     isContentBookmarked,
+    getCachedContent,
     clearError,
     loadMockData,
   };
