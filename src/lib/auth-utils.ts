@@ -37,16 +37,18 @@ export async function getCurrentUser() {
     return null;
   }
 
-  const user = await prisma.users.findUnique({
-    where: {
-      id: session.user.id,
-    },
-    include: {
-      artists: true,
-    },
-  });
+  return await retryDatabaseOperation(async () => {
+    const user = await prisma.users.findUnique({
+      where: {
+        id: session.user.id,
+      },
+      include: {
+        artists: true,
+      },
+    });
 
-  return user;
+    return user;
+  });
 }
 
 export async function requireAuth() {
@@ -113,46 +115,85 @@ export async function verifyPassword(password: string, hashedPassword: string): 
   return await bcrypt.compare(password, hashedPassword);
 }
 
+// Retry utility for database operations
+const retryDatabaseOperation = async <T>(
+  operation: () => Promise<T>,
+  maxRetries: number = 3,
+  delay: number = 1000
+): Promise<T> => {
+  let lastError: Error;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error as Error;
+      
+      // Check if it's a prepared statement conflict
+      if (error instanceof Error && error.message.includes('prepared statement') && error.message.includes('already exists')) {
+        console.warn(`Database prepared statement conflict (attempt ${attempt}/${maxRetries}):`, error.message);
+        
+        if (attempt < maxRetries) {
+          // Wait before retrying with exponential backoff
+          await new Promise(resolve => setTimeout(resolve, delay * Math.pow(2, attempt - 1)));
+          continue;
+        }
+      }
+      
+      // For non-retry-able errors or final attempt, throw immediately
+      throw error;
+    }
+  }
+  
+  throw lastError!;
+};
+
 // User creation utilities
 export async function createUser(data: z.infer<typeof signUpSchema>) {
   const validatedData = signUpSchema.parse(data);
 
-  // Check if user already exists
-  const existingUser = await prisma.users.findUnique({
-    where: { email: validatedData.email },
-  });
-
-  if (existingUser) {
-    throw new Error('User already exists with this email');
-  }
-
-  // Hash password
-  const hashedPassword = await hashPassword(validatedData.password);
-
-  // Create user
-  const user = await prisma.users.create({
-    data: {
-      id: randomUUID(),
-      email: validatedData.email,
-      password: hashedPassword,
-      displayName: validatedData.displayName,
-      role: validatedData.role,
-      updatedAt: new Date(),
-    },
-  });
-
-  // Create artist profile if role is ARTIST
-  if (validatedData.role === 'ARTIST') {
-    await prisma.artists.create({
-      data: {
-        id: randomUUID(),
-        userId: user.id,
-        updatedAt: new Date(),
-      },
+  return await retryDatabaseOperation(async () => {
+    // Check if user already exists
+    const existingUser = await prisma.users.findUnique({
+      where: { email: validatedData.email },
     });
-  }
 
-  return user;
+    if (existingUser) {
+      throw new Error('User already exists with this email');
+    }
+
+    // Hash password
+    const hashedPassword = await hashPassword(validatedData.password);
+
+    // Create user in a transaction to ensure consistency
+    const user = await prisma.$transaction(async (tx) => {
+      const newUser = await tx.users.create({
+        data: {
+          id: randomUUID(),
+          email: validatedData.email,
+          password: hashedPassword,
+          displayName: validatedData.displayName,
+          role: validatedData.role,
+          updatedAt: new Date(),
+        },
+      });
+
+      // Create artist profile if role is ARTIST
+      if (validatedData.role === 'ARTIST') {
+        await tx.artists.create({
+          data: {
+            id: randomUUID(),
+            userId: newUser.id,
+            updatedAt: new Date(),
+          },
+        });
+      }
+
+      return newUser;
+    });
+
+    return user;
+  });
 }
 
 // Profile update utilities

@@ -2,8 +2,8 @@ import { createServer } from 'node:http';
 import next from 'next';
 import { Server as SocketIOServer } from 'socket.io';
 import { parse } from 'node:url';
-import { initializeSocket } from './src/lib/socket-server.ts';
-import { logger } from './src/lib/logger.js';
+import { initializeSocket } from './src/lib/socket-server';
+import { logger } from './src/lib/logger';
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = 'localhost';
