@@ -3,6 +3,7 @@
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import ContentUploader from '@/components/upload/ContentUploader';
 
 export default function ArtistUploadPage() {
   const { data: session, status } = useSession();
@@ -40,54 +41,7 @@ export default function ArtistUploadPage() {
           <p className="mt-2 text-gray-600">Share new content with your fans</p>
         </div>
 
-        <div className="bg-white shadow rounded-lg">
-          <div className="px-6 py-8 text-center">
-            <div className="text-6xl mb-4">📤</div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Content Upload Studio</h3>
-            <p className="text-gray-600 mb-6">
-              This feature is coming soon! You'll be able to upload videos, photos, audio,
-              and other content to share with your fans and subscribers.
-            </p>
-            <div className="space-y-4">
-              <button
-                onClick={() => router.push('/dashboard/artist')}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium mr-4"
-              >
-                Back to Dashboard
-              </button>
-              <button
-                onClick={() => router.push('/upload')}
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md font-medium"
-              >
-                Try Simple Upload
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Upload options preview */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-white rounded-lg shadow p-6 text-center">
-            <div className="text-3xl mb-3">🎵</div>
-            <h3 className="font-semibold text-gray-900 mb-2">Audio</h3>
-            <p className="text-gray-600 text-sm">Upload songs, podcasts, and voice notes</p>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6 text-center">
-            <div className="text-3xl mb-3">🎥</div>
-            <h3 className="font-semibold text-gray-900 mb-2">Video</h3>
-            <p className="text-gray-600 text-sm">Share videos and live recordings</p>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6 text-center">
-            <div className="text-3xl mb-3">📷</div>
-            <h3 className="font-semibold text-gray-900 mb-2">Photos</h3>
-            <p className="text-gray-600 text-sm">Upload behind-the-scenes photos</p>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6 text-center">
-            <div className="text-3xl mb-3">📝</div>
-            <h3 className="font-semibold text-gray-900 mb-2">Posts</h3>
-            <p className="text-gray-600 text-sm">Create text posts and updates</p>
-          </div>
-        </div>
+        <ContentUploader />
       </div>
     </div>
   );

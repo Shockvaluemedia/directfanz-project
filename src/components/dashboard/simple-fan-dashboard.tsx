@@ -146,6 +146,19 @@ export default function SimpleFanDashboard() {
         {/* Quick Actions */}
         <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12'>
           <Link
+            href='/feed'
+            className='bg-white rounded-lg p-6 shadow hover:shadow-md transition-shadow'
+          >
+            <div className='flex items-center gap-3'>
+              <span className='text-2xl'>🎵</span>
+              <div>
+                <h3 className='font-semibold'>Content Feed</h3>
+                <p className='text-sm text-gray-600'>Explore artist content</p>
+              </div>
+            </div>
+          </Link>
+
+          <Link
             href='/campaigns'
             className='bg-white rounded-lg p-6 shadow hover:shadow-md transition-shadow'
           >

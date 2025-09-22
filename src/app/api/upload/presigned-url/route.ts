@@ -34,13 +34,29 @@ export async function POST(request: NextRequest) {
       throw ValidationError('File validation failed', { errors: validationErrors });
     }
 
-    // Generate presigned URL
-    const uploadInfo = await generatePresignedUrl({
-      fileName: validatedData.fileName,
-      fileType: validatedData.fileType,
-      fileSize: validatedData.fileSize,
-      artistId: session.user.id,
-    });
+    // Check if we're using local storage for development
+    const useLocalStorage = process.env.USE_LOCAL_STORAGE === 'true';
+    
+    let uploadInfo;
+    if (useLocalStorage) {
+      // For local development, create a mock response
+      const mockFileUrl = `/uploads/${session.user.id}/${Date.now()}-${validatedData.fileName}`;
+      uploadInfo = {
+        uploadUrl: mockFileUrl,
+        fileUrl: mockFileUrl,
+        key: `content/${session.user.id}/${Date.now()}-${validatedData.fileName}`,
+        useLocalStorage: true,
+      };
+    } else {
+      // Generate presigned URL for S3
+      uploadInfo = await generatePresignedUrl({
+        fileName: validatedData.fileName,
+        fileType: validatedData.fileType,
+        fileSize: validatedData.fileSize,
+        artistId: session.user.id,
+      });
+      uploadInfo.useLocalStorage = false;
+    }
 
     // Log the upload request
     logger.info('Presigned URL generated', {
