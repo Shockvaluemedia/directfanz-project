@@ -7,7 +7,7 @@
  */
 
 import sharp from 'sharp';
-import { mediaProcessor } from './media-processing';
+import { unifiedMediaProcessor } from './media-processing';
 import { logger } from './logger';
 
 // Optimization strategies
@@ -586,7 +586,7 @@ export class ContentOptimizer {
 
   private async optimizeVideo(filePath: string, options: any): Promise<any[]> {
     // Use existing media processor with optimized settings
-    const result = await mediaProcessor.processMedia(filePath, {
+    const result = await unifiedMediaProcessor.processMedia(filePath, {
       type: 'video',
       ...options,
     });
@@ -602,7 +602,7 @@ export class ContentOptimizer {
 
   private async optimizeAudio(filePath: string, options: any): Promise<any[]> {
     // Use existing media processor with optimized settings
-    const result = await mediaProcessor.processMedia(filePath, {
+    const result = await unifiedMediaProcessor.processMedia(filePath, {
       type: 'audio',
       ...options,
     });

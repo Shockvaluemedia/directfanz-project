@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
 import crypto from 'crypto';
-import { ChallengeType, ChallengeStatus, string } from '@/lib/types/enums';
+import { ChallengeType, ChallengeStatus, SubmissionContentType } from '@/lib/types/enums';
 
 // Validation schema for creating challenges
 const createChallengeSchema = z.object({
@@ -18,7 +18,7 @@ const createChallengeSchema = z.object({
     criteria: z.array(z.string()),
   }),
   requirements: z.array(z.string()).optional(),
-  submissionTypes: z.array(z.nativeEnum(string)),
+  submissionTypes: z.array(z.nativeEnum(SubmissionContentType)),
   scoringCriteria: z.object({
     criteria: z.array(
       z.object({

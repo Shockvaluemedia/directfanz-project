@@ -4,13 +4,13 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
-import { string, SubmissionStatus } from '@/lib/types/enums';
+import { SubmissionContentType, SubmissionStatus } from '@/lib/types/enums';
 
 // Validation schema for creating submissions
 const createSubmissionSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().optional(),
-  contentType: z.nativeEnum(string),
+  contentType: z.nativeEnum(SubmissionContentType),
   contentUrl: z.string().url(),
   thumbnailUrl: z.string().url().optional(),
   metadata: z.record(z.any()).optional(),
