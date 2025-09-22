@@ -77,3 +77,4 @@ public/uploads/content/
 public/uploads/temp/
 !public/uploads/.gitkeep
 .env.local.backup
+~/
