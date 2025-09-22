@@ -3,7 +3,7 @@
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import ArtistDashboard from '@/components/dashboard/artist-dashboard';
+import ArtistDashboard from "@/components/dashboard/artist-dashboard";
 import { LoadingSpinner } from '@/components/ui/loading';
 import { ClientOnly } from '@/components/ui/ClientOnly';
 

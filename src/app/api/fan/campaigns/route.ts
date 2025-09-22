@@ -33,9 +33,9 @@ export async function GET(request: NextRequest) {
         ...(status && { status: status as any }),
       },
       include: {
-        challenge: {
+        challenges: {
           include: {
-            campaign: {
+            campaigns: {
               select: {
                 id: true,
                 title: true,
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
                 targetValue: true,
                 currentValue: true,
                 totalParticipants: true,
-                artist: {
+                users: {
                   select: {
                     id: true,
                     displayName: true,
@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
       participationStatus: participation.status,
       currentScore: participation.currentScore,
       joinedAt: participation.joinedAt,
-      challenge_submissions: participation.submissions,
+      challenge_submissions: participation.challenge_submissions,
     }));
 
     return NextResponse.json({ campaigns });

@@ -2,14 +2,8 @@ import { createServer } from 'node:http';
 import next from 'next';
 import { Server as SocketIOServer } from 'socket.io';
 import { parse } from 'node:url';
-import { webSocketInstance } from './src/lib/websocket-instance.js';
+import { initializeSocket } from './src/lib/socket-server.ts';
 import { logger } from './src/lib/logger.js';
-import type {
-  ServerToClientEvents,
-  ClientToServerEvents,
-  InterServerEvents,
-  SocketData,
-} from './src/types/websocket.js';
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = 'localhost';
@@ -34,25 +28,8 @@ export default async function createCustomServer() {
     }
   });
 
-  // Create Socket.IO server
-  const io = new SocketIOServer<
-    ClientToServerEvents,
-    ServerToClientEvents,
-    InterServerEvents,
-    SocketData
-  >(httpServer, {
-    cors: {
-      origin: process.env.NEXT_PUBLIC_APP_URL || `http://localhost:${port}`,
-      methods: ['GET', 'POST'],
-      credentials: true,
-    },
-    pingTimeout: 60000,
-    pingInterval: 25000,
-    transports: ['websocket', 'polling'],
-  });
-
-  // Initialize WebSocket handlers
-  webSocketInstance.setIO(io);
+  // Initialize Socket.IO server with messaging system
+  const io = initializeSocket(httpServer);
 
   // Global error handling for Socket.IO
   io.engine.on('connection_error', err => {

@@ -21,7 +21,94 @@ export async function GET(request: NextRequest) {
       const { searchParams } = new URL(request.url);
       const limit = parseInt(searchParams.get('limit') || '10');
 
-      // Get recent activities for this artist
+      // Optimized: Fetch all activity types in parallel with proper date ranges
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      
+      const [recentSubscriptions, recentMessages, recentComments] = await Promise.all([
+        // Get recent subscriptions (new fans) - last 30 days
+        prisma.subscriptions.findMany({
+          where: {
+            artistId: req.user.id,
+            status: 'ACTIVE',
+            createdAt: {
+              gte: thirtyDaysAgo,
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: Math.min(Math.ceil(limit / 2), 10), // Limit to prevent excessive data
+          select: {
+            id: true,
+            createdAt: true,
+            users: {
+              select: {
+                displayName: true,
+                avatar: true,
+              },
+            },
+            tiers: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        }),
+        
+        // Get recent messages - last 7 days
+        prisma.messages.findMany({
+          where: {
+            recipientId: req.user.id,
+            createdAt: {
+              gte: sevenDaysAgo,
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: Math.min(Math.ceil(limit / 2), 10),
+          select: {
+            id: true,
+            content: true,
+            createdAt: true,
+            users_messages_senderIdTousers: {
+              select: {
+                displayName: true,
+                avatar: true,
+              },
+            },
+          },
+        }),
+        
+        // Get recent comments on content - last 7 days
+        prisma.comments.findMany({
+          where: {
+            content: {
+              artistId: req.user.id,
+            },
+            createdAt: {
+              gte: sevenDaysAgo,
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: Math.min(Math.ceil(limit / 3), 8),
+          select: {
+            id: true,
+            text: true,
+            createdAt: true,
+            users: {
+              select: {
+                displayName: true,
+                avatar: true,
+              },
+            },
+            content: {
+              select: {
+                title: true,
+              },
+            },
+          },
+        }),
+      ]);
+
+      // Process activities more efficiently
       const activities: Array<{
         id: string;
         type: 'subscription' | 'message' | 'content' | 'comment';
@@ -34,121 +121,44 @@ export async function GET(request: NextRequest) {
         };
       }> = [];
 
-      // Get recent subscriptions (new fans)
-      const recentSubscriptions = await prisma.subscriptions.findMany({
-        where: {
-          artistId: req.user.id,
-          status: 'ACTIVE',
-          createdAt: {
-            gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Last 30 days
-          },
+      // Process subscriptions
+      activities.push(...recentSubscriptions.map(sub => ({
+        id: `sub_${sub.id}`,
+        type: 'subscription' as const,
+        title: 'New Subscriber',
+        description: `${sub.users.displayName} subscribed to ${sub.tiers.name} tier`,
+        timestamp: sub.createdAt.toISOString(),
+        user: {
+          name: sub.users.displayName,
+          avatar: sub.users.avatar || undefined,
         },
-        orderBy: { createdAt: 'desc' },
-        take: Math.ceil(limit / 2),
-        include: {
-          users: {
-            select: {
-              displayName: true,
-              avatar: true,
-            },
-          },
-          tiers: {
-            select: {
-              name: true,
-              minimumPrice: true,
-            },
-          },
-        },
-      });
+      })));
 
-      for (const sub of recentSubscriptions) {
-        activities.push({
-          id: `sub_${sub.id}`,
-          type: 'subscription',
-          title: 'New Subscriber',
-          description: `${sub.users.displayName} subscribed to ${sub.tiers.name} tier`,
-          timestamp: sub.createdAt.toISOString(),
-          user: {
-            name: sub.users.displayName,
-            avatar: sub.users.avatar || undefined,
-          },
-        });
-      }
-
-      // Get recent messages
-      const recentMessages = await prisma.messages.findMany({
-        where: {
-          recipientId: req.user.id,
-          createdAt: {
-            gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // Last 7 days
-          },
+      // Process messages
+      activities.push(...recentMessages.map(message => ({
+        id: `msg_${message.id}`,
+        type: 'message' as const,
+        title: 'New Message',
+        description: `Message from ${message.users_messages_senderIdTousers.displayName}: ${message.content.length > 50 ? message.content.substring(0, 50) + '...' : message.content}`,
+        timestamp: message.createdAt.toISOString(),
+        user: {
+          name: message.users_messages_senderIdTousers.displayName,
+          avatar: message.users_messages_senderIdTousers.avatar || undefined,
         },
-        orderBy: { createdAt: 'desc' },
-        take: Math.ceil(limit / 2),
-        include: {
-          users_messages_senderIdTousers: {
-            select: {
-              displayName: true,
-              avatar: true,
-            },
-          },
-        },
-      });
+      })));
 
-      for (const message of recentMessages) {
-        activities.push({
-          id: `msg_${message.id}`,
-          type: 'message',
-          title: 'New Message',
-          description: `Message from ${message.users_messages_senderIdTousers.displayName}: ${message.content.length > 50 ? message.content.substring(0, 50) + '...' : message.content}`,
-          timestamp: message.createdAt.toISOString(),
-          user: {
-            name: message.users_messages_senderIdTousers.displayName,
-            avatar: message.users_messages_senderIdTousers.avatar || undefined,
-          },
-        });
-      }
-
-      // Get recent comments on content
-      const recentComments = await prisma.comments.findMany({
-        where: {
-          content: {
-            artistId: req.user.id,
-          },
-          createdAt: {
-            gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // Last 7 days
-          },
+      // Process comments
+      activities.push(...recentComments.map(comment => ({
+        id: `comment_${comment.id}`,
+        type: 'comment' as const,
+        title: 'New Comment',
+        description: `${comment.users.displayName} commented on "${comment.content.title}": ${comment.text.length > 40 ? comment.text.substring(0, 40) + '...' : comment.text}`,
+        timestamp: comment.createdAt.toISOString(),
+        user: {
+          name: comment.users.displayName,
+          avatar: comment.users.avatar || undefined,
         },
-        orderBy: { createdAt: 'desc' },
-        take: Math.ceil(limit / 3),
-        include: {
-          users: {
-            select: {
-              displayName: true,
-              avatar: true,
-            },
-          },
-          content: {
-            select: {
-              title: true,
-            },
-          },
-        },
-      });
-
-      for (const comment of recentComments) {
-        activities.push({
-          id: `comment_${comment.id}`,
-          type: 'comment',
-          title: 'New Comment',
-          description: `${comment.users.displayName} commented on "${comment.content.title}": ${comment.text.length > 40 ? comment.text.substring(0, 40) + '...' : comment.text}`,
-          timestamp: comment.createdAt.toISOString(),
-          user: {
-            name: comment.users.displayName,
-            avatar: comment.users.avatar || undefined,
-          },
-        });
-      }
+      })));
 
       // Sort all activities by timestamp and take the requested limit
       const sortedActivities = activities

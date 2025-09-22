@@ -51,7 +51,7 @@ export default function SimpleUploadPage() {
         tags: []
       }));
 
-      const response = await fetch('/api/content/upload', {
+      const response = await fetch('/api/simple-upload', {
         method: 'POST',
         body: formData,
       });
@@ -66,7 +66,7 @@ export default function SimpleUploadPage() {
       setFile(null);
     } catch (error) {
       console.error('Upload error:', error);
-      alert('Upload failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      console.log("Full upload error details:", error, result); alert("Upload failed: " + (result?.error || error?.message || "Check console") + " - See browser console for full details");
     } finally {
       setUploading(false);
     }

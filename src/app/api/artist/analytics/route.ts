@@ -42,8 +42,12 @@ export async function GET(request: NextRequest) {
 
     // Handle dashboard summary request
     if (summary === 'true') {
-      // Get basic artist stats for dashboard
-      const [artistProfile, subscriptions, content, messages] = await Promise.all([
+      // Optimized: Get all artist stats in fewer, more efficient queries
+      const now = new Date();
+      const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      
+      const [artistProfile, subscriptionStats, contentCount, unreadMessages] = await Promise.all([
+        // Get artist profile with cached subscriber count
         prisma.artists.findUnique({
           where: { userId: session.user.id },
           select: {
@@ -51,19 +55,47 @@ export async function GET(request: NextRequest) {
             totalEarnings: true,
           },
         }),
-        prisma.subscriptions.findMany({
+        
+        // Get subscription stats in a single optimized query
+        prisma.subscriptions.aggregate({
           where: {
             artistId: session.user.id,
             status: 'ACTIVE',
           },
-          select: {
-            amount: true,
-            currentPeriodStart: true,
+          _count: {
+            id: true,
           },
+          _sum: {
+            amount: true,
+          },
+        }).then(async (activeStats) => {
+          // Get monthly revenue separately for efficiency
+          const monthlyRevenue = await prisma.subscriptions.aggregate({
+            where: {
+              artistId: session.user.id,
+              status: 'ACTIVE',
+              currentPeriodStart: {
+                gte: thisMonth,
+              },
+            },
+            _sum: {
+              amount: true,
+            },
+          });
+          
+          return {
+            activeCount: activeStats._count.id,
+            totalRevenue: Number(activeStats._sum.amount || 0),
+            monthlyRevenue: Number(monthlyRevenue._sum.amount || 0),
+          };
         }),
+        
+        // Get content count
         prisma.content.count({
           where: { artistId: session.user.id },
         }),
+        
+        // Get unread messages count
         prisma.messages.count({
           where: {
             recipientId: session.user.id,
@@ -72,18 +104,12 @@ export async function GET(request: NextRequest) {
         }),
       ]);
 
-      // Calculate monthly revenue from current subscriptions
-      const now = new Date();
-      const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const monthlyRevenue = subscriptions
-        .filter(sub => new Date(sub.currentPeriodStart) >= thisMonth)
-        .reduce((sum, sub) => sum + Number(sub.amount), 0);
-
-      // Calculate engagement rate (simplified - could be more sophisticated)
+      // Calculate engagement rate (simplified but more efficient)
       const totalSubscribers = artistProfile?.totalSubscribers || 0;
+      const activeSubscribers = subscriptionStats.activeCount;
       const engagementRate =
         totalSubscribers > 0
-          ? Math.min(100, Math.round((subscriptions.length / totalSubscribers) * 100))
+          ? Math.min(100, Math.round((activeSubscribers / totalSubscribers) * 100))
           : 0;
 
       return NextResponse.json({
@@ -91,10 +117,10 @@ export async function GET(request: NextRequest) {
         data: {
           stats: {
             totalSubscribers,
-            monthlyRevenue,
-            totalContent: content,
+            monthlyRevenue: subscriptionStats.monthlyRevenue,
+            totalContent: contentCount,
             engagementRate,
-            unreadMessages: messages,
+            unreadMessages: unreadMessages,
             pendingNotifications: 0, // TODO: implement notifications system
           },
         },
