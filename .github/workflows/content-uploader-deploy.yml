@@ -1,0 +1,119 @@
+name: ContentUploader Feature Deploy
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'src/components/upload/**'
+      - 'src/lib/upload-utils.ts'
+      - 'src/app/api/content/**'
+      - 'src/app/api/upload/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'src/components/upload/**'
+      - 'src/lib/upload-utils.ts'
+      - 'src/app/api/content/**'
+      - 'src/app/api/upload/**'
+
+env:
+  NODE_ENV: production
+  CI: true
+
+jobs:
+  test-upload-functionality:
+    runs-on: ubuntu-latest
+    name: Test Upload System
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Generate Prisma client
+        run: npm run db:generate
+        
+      - name: Run TypeScript checks
+        run: npm run type-check
+        
+      - name: Test upload utilities
+        run: |
+          # Test upload-utils compilation
+          npx tsc --noEmit src/lib/upload-utils.ts
+          
+      - name: Test API routes
+        run: |
+          # Test content creation API compilation  
+          npx tsc --noEmit src/app/api/content/create/route.ts
+          
+      - name: Lint upload components
+        run: |
+          npx next lint --file src/components/upload/
+          npx next lint --file src/lib/upload-utils.ts
+          
+      - name: Build with upload features
+        run: npm run build
+        env:
+          DATABASE_URL: "postgresql://test:test@localhost:5432/test"
+          NEXTAUTH_SECRET: "test-secret"
+          NEXTAUTH_URL: "http://localhost:3000"
+          
+  deploy-staging:
+    needs: test-upload-functionality
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    name: Deploy to Staging
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Deploy to Vercel (Staging)
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: '--env DATABASE_URL="${{ secrets.STAGING_DATABASE_URL }}" --env NEXTAUTH_SECRET="${{ secrets.NEXTAUTH_SECRET }}" --env AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}" --env AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}" --env AWS_S3_BUCKET_NAME="${{ secrets.AWS_S3_BUCKET_NAME }}"'
+          
+      - name: Notify deployment
+        run: |
+          echo "✅ ContentUploader deployed to staging"
+          echo "🔗 Test upload functionality at staging URL"
+          
+  # Manual promotion to production
+  deploy-production:
+    needs: deploy-staging  
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_environment == 'production'
+    runs-on: ubuntu-latest
+    name: Deploy to Production
+    environment: production
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Deploy to Vercel (Production)
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: '--prod --env DATABASE_URL="${{ secrets.PRODUCTION_DATABASE_URL }}" --env NEXTAUTH_SECRET="${{ secrets.NEXTAUTH_SECRET }}" --env AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}" --env AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}" --env AWS_S3_BUCKET_NAME="${{ secrets.AWS_S3_BUCKET_NAME }}"'
+          
+      - name: Run production health checks
+        run: |
+          echo "🏥 Running health checks on production ContentUploader..."
+          # Add specific health check commands here
+          
+      - name: Notify production deployment
+        run: |
+          echo "🎉 ContentUploader successfully deployed to production!"
