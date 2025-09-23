@@ -17,7 +17,7 @@ import {
   EyeIcon,
   Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
-import { getPresignedUrl, uploadFileWithProgress, validateFile, formatFileSize } from '@/lib/upload-utils';
+import { getPresignedUrl, uploadFileWithProgress, validateFile } from '@/lib/upload-utils';
 
 interface FileUpload {
   id: string;
