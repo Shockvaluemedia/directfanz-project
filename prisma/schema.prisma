@@ -263,29 +263,29 @@ model content {
   fileUrl          String
   thumbnailUrl     String?
   visibility       String             @default("PUBLIC")
-  status           String             @default("PUBLISHED")
   fileSize         Int
   duration         Int?
   format           String
   tags             String
-  metadata         String?
   totalViews       Int                @default(0)
   uniqueViews      Int                @default(0)
   totalLikes       Int                @default(0)
   lastViewedAt     DateTime?
-  reviewedAt       DateTime?
-  reviewedBy       String?
-  reviewReason     String?
   createdAt        DateTime           @default(now())
   updatedAt        DateTime
+  status           String             @default("PUBLISHED")
+  metadata         String?
+  reviewReason     String?
+  reviewedAt       DateTime?
+  reviewedBy       String?
   campaign_rewards campaign_rewards[]
   comments         comments[]
   users            users              @relation(fields: [artistId], references: [id], onDelete: Cascade)
   content_likes    content_likes[]
   content_views    content_views[]
+  moderation_logs  moderation_logs[]
   playlist_items   playlist_items[]
   tiers            tiers[]            @relation("TierContent")
-  moderation_logs  moderation_logs[]
 
   @@index([artistId, visibility])
   @@index([type, visibility])
@@ -743,9 +743,11 @@ model users {
   live_streams                         live_streams[]
   messages_messages_recipientIdTousers messages[]                 @relation("messages_recipientIdTousers")
   messages_messages_senderIdTousers    messages[]                 @relation("messages_senderIdTousers")
+  moderation_logs                      moderation_logs[]
   oauth_tokens                         oauth_tokens[]
   playlist_likes                       playlist_likes[]
   playlists                            playlists[]
+  price_optimizations                  price_optimizations[]
   refresh_tokens                       refresh_tokens[]
   reports_reports_reporterIdTousers    reports[]                  @relation("reports_reporterIdTousers")
   reports_reports_reviewedByTousers    reports[]                  @relation("reports_reviewedByTousers")
@@ -757,8 +759,6 @@ model users {
   stream_viewers                       stream_viewers[]
   subscriptions                        subscriptions[]
   tiers                                tiers[]
-  moderation_logs                      moderation_logs[]
-  price_optimizations                  price_optimizations[]
 
   @@index([role, createdAt])
   @@index([lastSeenAt])
@@ -775,15 +775,13 @@ model verificationtokens {
   @@unique([identifier, token])
 }
 
-// AI-related models for content moderation and revenue optimization
 model moderation_logs {
   id        String   @id @default(cuid())
-  contentId String
-  userId    String
-  result    String   // JSON string containing ModerationResult
+  result    String
   status    String   @default("PENDING_REVIEW")
+  contentId String
   createdAt DateTime @default(now())
-  
+  userId    String
   content   content  @relation(fields: [contentId], references: [id], onDelete: Cascade)
   user      users    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -793,21 +791,20 @@ model moderation_logs {
 }
 
 model price_optimizations {
-  id               String    @id @default(cuid())
-  artistId         String
-  originalPriceId  String
-  testPriceId      String?
-  originalAmount   Decimal
-  optimizedAmount  Decimal
-  testStartDate    DateTime  @default(now())
-  testEndDate      DateTime?
-  status           String    @default("TESTING")
-  isActive         Boolean   @default(true)
-  results          String?   // JSON string containing test results
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  
-  artist           users     @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  id              String    @id @default(cuid())
+  status          String    @default("TESTING")
+  results         String?
+  artistId        String
+  createdAt       DateTime  @default(now())
+  isActive        Boolean   @default(true)
+  optimizedAmount Decimal
+  originalAmount  Decimal
+  originalPriceId String
+  testEndDate     DateTime?
+  testPriceId     String?
+  testStartDate   DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  artist          users     @relation(fields: [artistId], references: [id], onDelete: Cascade)
 
   @@index([artistId, createdAt])
   @@index([status, isActive])
@@ -816,15 +813,15 @@ model price_optimizations {
 
 model ai_agent_logs {
   id               String   @id @default(cuid())
+  result           String?
+  success          Boolean  @default(false)
   agentId          String
   agentType        String
-  taskType         String
-  taskData         String?  // JSON string containing task parameters
-  result           String?  // JSON string containing task result
-  success          Boolean  @default(false)
-  processingTimeMs Int      @default(0)
-  errorMessage     String?
   createdAt        DateTime @default(now())
+  errorMessage     String?
+  processingTimeMs Int      @default(0)
+  taskData         String?
+  taskType         String
 
   @@index([agentType, createdAt])
   @@index([success, createdAt])

@@ -18,7 +18,7 @@ export { ContentCurationAgent, type ContentCurationConfig, type ContentItem, typ
 export { RevenueOptimizationAgent, type RevenueOptimizationConfig, type RevenueStream, type PricingStrategy, type MonetizationOpportunity, type CustomerSegmentation, type PricingModel } from './agents/revenue-optimization-agent';
 
 // Safety and Operations Agents
-export { ModerationSafetyAgent, type ModerationSafetyConfig, type ModerationResult, type FraudDetection, type UserSafetyProfile, ViolationType, ActionType } from './agents/moderation-safety-agent';
+export { ModerationSafetyAgent, type ModerationSafetyConfig, type FraudDetection, type UserSafetyProfile, ActionType } from './agents/moderation-safety-agent';
 export { AdminOperationsAgent, type AdminOperationsConfig, type SystemHealth, type ResourceOptimization, type UserManagement, type FinancialOperations, type ComplianceMonitoring } from './agents/admin-operations-agent';
 
 // Agent Registry and Coordination
@@ -250,8 +250,8 @@ export const createAdminOperationsAgent = (
   return new AdminOperationsAgent(id, config);
 };
 
-// Default configurations
-export const defaultConfigurations = {
+// Default configurations and factory functions
+export const DEFAULT_AGENT_CONFIGS = {
   orchestrator: {
     maxConcurrentTasks: 100,
     taskTimeout: 300000,
@@ -445,4 +445,28 @@ export const defaultConfigurations = {
     enablePredictiveAnalytics: true,
     retainLogsFor: 365,
   },
+};
+
+// Task creation helper function
+export const createAgentTask = (
+  type: string,
+  payload: any = {},
+  options: {
+    priority?: number;
+    timeout?: number;
+    retries?: number;
+    metadata?: Record<string, any>;
+  } = {}
+): AgentTask => {
+  return {
+    id: `task_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`,
+    type,
+    payload,
+    priority: options.priority || 1,
+    timeout: options.timeout || 30000,
+    retries: options.retries || 0,
+    metadata: options.metadata || {},
+    createdAt: Date.now(),
+    status: 'pending' as const,
+  };
 };

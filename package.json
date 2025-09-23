@@ -100,7 +100,8 @@
     "health:check:all": "node scripts/health-check-all.js",
     "deploy:status": "node scripts/deployment-status.js",
     "quick-launch": "node scripts/quick-launch.cjs",
-    "demo:ai-features": "node scripts/demo-ai-features.cjs"
+    "demo:ai-features": "node scripts/demo-ai-features.cjs",
+    "test:openai": "node scripts/test-openai-integration.cjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.470.0",

@@ -99,7 +99,7 @@ class PerformanceMonitor {
     value: number,
     category: PerformanceBenchmark['category'],
     metadata?: Record<string, any>
-  ) {
+  ): Promise<number> {
     // Use existing measurement infrastructure
     return measurePerformance(
       metricName,

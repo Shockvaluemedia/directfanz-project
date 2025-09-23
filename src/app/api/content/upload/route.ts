@@ -129,9 +129,6 @@ export async function POST(request: NextRequest) {
       // Step 2: Upload and process file
       const uploadResult = await UploaderClass.uploadFile(file, req.user.id);
 
-      // Determine content type
-      const contentType = UploaderClass.getContentType(file);
-
       // Determine content status based on moderation
       const contentStatus = moderationResult 
         ? (moderationResult.approved ? 'PUBLISHED' : 'PENDING_REVIEW')
