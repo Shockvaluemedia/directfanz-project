@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import {
@@ -12,8 +12,16 @@ import {
   XMarkIcon,
   CheckCircleIcon,
   ExclamationTriangleIcon,
+  FolderPlusIcon,
+  EyeIcon,
+  TagIcon,
+  Cog6ToothIcon,
+  PlayIcon,
+  PauseIcon,
 } from '@heroicons/react/24/outline';
+import { PlayIcon as PlaySolid, PauseIcon as PauseSolid } from '@heroicons/react/24/solid';
 import { SUPPORTED_FILE_TYPES, FILE_SIZE_LIMITS } from '@/lib/s3';
+import Image from 'next/image';
 
 interface FileUpload {
   id: string;
@@ -23,34 +31,62 @@ interface FileUpload {
   error?: string;
   fileUrl?: string;
   thumbnailUrl?: string;
+  preview?: string;
+  metadata?: ContentMetadata;
+  duration?: number;
+  dimensions?: { width: number; height: number };
 }
 
 interface ContentMetadata {
   title: string;
   description: string;
   tags: string[];
+  category: 'MUSIC' | 'VIDEO' | 'IMAGE' | 'TUTORIAL' | 'PODCAST' | 'OTHER';
   visibility: 'PUBLIC' | 'PRIVATE' | 'TIER_LOCKED';
   tierIds: string[];
+  scheduledAt?: Date;
+  allowComments: boolean;
+  allowDownload: boolean;
+  isExclusive: boolean;
+  contentWarning?: string;
 }
 
 const INITIAL_METADATA: ContentMetadata = {
   title: '',
   description: '',
   tags: [],
+  category: 'OTHER',
   visibility: 'PRIVATE',
   tierIds: [],
+  allowComments: true,
+  allowDownload: false,
+  isExclusive: false,
 };
+
+const CATEGORIES = [
+  { id: 'MUSIC', name: 'Music & Audio', icon: MusicalNoteIcon, color: 'purple' },
+  { id: 'VIDEO', name: 'Video Content', icon: VideoCameraIcon, color: 'blue' },
+  { id: 'IMAGE', name: 'Photos & Art', icon: PhotoIcon, color: 'green' },
+  { id: 'TUTORIAL', name: 'Tutorial & Education', icon: DocumentIcon, color: 'orange' },
+  { id: 'PODCAST', name: 'Podcast & Talk', icon: MusicalNoteIcon, color: 'red' },
+  { id: 'OTHER', name: 'Other Content', icon: FolderPlusIcon, color: 'gray' },
+];
 
 export default function ContentUploader() {
   const { data: session } = useSession();
   const router = useRouter();
   const [uploads, setUploads] = useState<FileUpload[]>([]);
   const [isDragActive, setIsDragActive] = useState(false);
-  const [metadata, setMetadata] = useState<ContentMetadata>(INITIAL_METADATA);
-  const [showMetadataForm, setShowMetadataForm] = useState(false);
+  const [globalMetadata, setGlobalMetadata] = useState<ContentMetadata>(INITIAL_METADATA);
+  const [showMetadataModal, setShowMetadataModal] = useState(false);
   const [currentUploadId, setCurrentUploadId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [batchMode, setBatchMode] = useState(false);
+  const [selectedUploads, setSelectedUploads] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [previewFile, setPreviewFile] = useState<FileUpload | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dragCounterRef = useRef(0);
 
   const getFileIcon = (fileType: string) => {
     if (fileType.startsWith('image/')) return PhotoIcon;
@@ -90,13 +126,76 @@ export default function ContentUploader() {
     return null;
   };
 
-  const handleFileSelect = useCallback((files: FileList | null) => {
+  // Generate preview for files
+  const generatePreview = useCallback(async (file: File): Promise<{ preview?: string; duration?: number; dimensions?: { width: number; height: number } }> => {
+    return new Promise((resolve) => {
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        const img = new window.Image();
+        
+        reader.onload = (e) => {
+          const result = e.target?.result as string;
+          img.onload = () => {
+            resolve({ 
+              preview: result, 
+              dimensions: { width: img.width, height: img.height } 
+            });
+          };
+          img.onerror = () => resolve({});
+          img.src = result;
+        };
+        reader.onerror = () => resolve({});
+        reader.readAsDataURL(file);
+      } else if (file.type.startsWith('video/')) {
+        const video = document.createElement('video');
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        video.onloadeddata = () => {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          video.currentTime = Math.min(2, video.duration / 4); // Thumbnail at 25% or 2 seconds
+        };
+        
+        video.onseeked = () => {
+          if (ctx) {
+            ctx.drawImage(video, 0, 0);
+            const preview = canvas.toDataURL('image/jpeg', 0.8);
+            resolve({ 
+              preview, 
+              duration: video.duration,
+              dimensions: { width: video.videoWidth, height: video.videoHeight }
+            });
+          } else {
+            resolve({ duration: video.duration });
+          }
+        };
+        
+        video.onerror = () => resolve({});
+        video.src = URL.createObjectURL(file);
+        video.load();
+      } else if (file.type.startsWith('audio/')) {
+        const audio = new Audio();
+        audio.onloadeddata = () => {
+          resolve({ duration: audio.duration });
+        };
+        audio.onerror = () => resolve({});
+        audio.src = URL.createObjectURL(file);
+        audio.load();
+      } else {
+        resolve({});
+      }
+    });
+  }, []);
+
+  const handleFileSelect = useCallback(async (files: FileList | null) => {
     if (!files || files.length === 0) return;
 
     const newUploads: FileUpload[] = [];
 
-    Array.from(files).forEach(file => {
+    for (const file of Array.from(files)) {
       const validationError = validateFile(file);
+      const previewData = validationError ? {} : await generatePreview(file);
       
       const upload: FileUpload = {
         id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -104,13 +203,15 @@ export default function ContentUploader() {
         status: validationError ? 'error' : 'pending',
         progress: 0,
         error: validationError || undefined,
+        metadata: { ...INITIAL_METADATA },
+        ...previewData,
       };
 
       newUploads.push(upload);
-    });
+    }
 
     setUploads(prev => [...prev, ...newUploads]);
-  }, []);
+  }, [generatePreview]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
