@@ -17,6 +17,7 @@ import {
   EyeIcon,
   Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
+import { getPresignedUrl, uploadFileWithProgress, validateFile, formatFileSize } from '@/lib/upload-utils';
 
 interface FileUpload {
   id: string;
@@ -121,28 +122,40 @@ const ContentUploader: React.FC = () => {
     );
 
     try {
-      // Simulate upload progress
-      for (let progress = 10; progress <= 100; progress += 10) {
-        await new Promise(resolve => setTimeout(resolve, 200));
-        setUploads(prev => 
-          prev.map(u => 
-            u.id === upload.id ? { ...u, progress } : u
-          )
-        );
-      }
+      // Get presigned URL from server
+      const presignedResponse = await getPresignedUrl({
+        fileName: upload.file.name,
+        fileType: upload.file.type,
+        fileSize: upload.file.size,
+      });
+
+      // Upload file with progress tracking
+      const fileUrl = await uploadFileWithProgress(
+        upload.file,
+        presignedResponse.data,
+        (progress) => {
+          setUploads(prev => 
+            prev.map(u => 
+              u.id === upload.id ? { ...u, progress } : u
+            )
+          );
+        }
+      );
 
       setUploads(prev => 
         prev.map(u => 
           u.id === upload.id 
-            ? { ...u, status: 'success', progress: 100, url: 'mock-url' } 
+            ? { ...u, status: 'success', progress: 100, url: fileUrl } 
             : u
         )
       );
     } catch (error) {
+      console.error('Upload failed:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Upload failed';
       setUploads(prev => 
         prev.map(u => 
           u.id === upload.id 
-            ? { ...u, status: 'error', error: 'Upload failed' } 
+            ? { ...u, status: 'error', error: errorMessage } 
             : u
         )
       );
@@ -213,8 +226,73 @@ const ContentUploader: React.FC = () => {
   };
 
   const submitContent = async (publish: boolean = true) => {
-    console.log('Submitting content:', { metadata, publish, currentUploadId });
-    closeMetadataModal();
+    if (!currentUploadId) {
+      console.error('No upload selected for publishing');
+      return;
+    }
+
+    const upload = uploads.find(u => u.id === currentUploadId);
+    if (!upload || !upload.url) {
+      console.error('Upload not found or no URL available');
+      return;
+    }
+
+    try {
+      // Prepare content data for API
+      const contentData = {
+        title: metadata.title,
+        description: metadata.description,
+        type: determineContentType(upload.file),
+        fileUrl: upload.url,
+        thumbnailUrl: upload.preview,
+        visibility: metadata.visibility === 'SUBSCRIBERS' ? 'SUBSCRIBERS_ONLY' : metadata.visibility,
+        fileSize: upload.file.size,
+        format: upload.file.type,
+        tags: metadata.tags.join(','),
+        category: metadata.category,
+        allowComments: metadata.allowComments,
+        allowDownloads: metadata.allowDownload,
+        matureContent: metadata.contentWarning,
+        isPremium: metadata.visibility === 'PREMIUM',
+        price: metadata.price,
+      };
+
+      // Submit to API
+      const response = await fetch('/api/content/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(contentData),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Failed to publish content' }));
+        throw new Error(error.error || 'Failed to publish content');
+      }
+
+      const result = await response.json();
+
+      // Mark upload as published and remove from list
+      setUploads(prev => prev.filter(u => u.id !== currentUploadId));
+      
+      // Show success message (you might want to add a toast notification here)
+      console.log('Content published successfully:', result.data);
+      
+      closeMetadataModal();
+    } catch (error) {
+      console.error('Failed to publish content:', error);
+      // You might want to show an error message to the user here
+      alert(error instanceof Error ? error.message : 'Failed to publish content');
+    }
+  };
+
+  const determineContentType = (file: File): 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT' => {
+    const type = file.type.toLowerCase();
+    if (type.startsWith('image/')) return 'IMAGE';
+    if (type.startsWith('video/')) return 'VIDEO';
+    if (type.startsWith('audio/')) return 'AUDIO';
+    return 'DOCUMENT';
   };
 
   const removeTag = (index: number) => {
