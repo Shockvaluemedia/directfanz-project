@@ -5,9 +5,14 @@
  * Handles keeping local, staging, and production environments in sync
  */
 
-const { execSync } = require('child_process');
-const fs = require('fs');
-const path = require('path');
+import { execSync, spawn } from 'child_process';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const colors = {
   reset: '\x1b[0m',
@@ -51,15 +56,12 @@ function checkGitStatus() {
     log('⚠️  You have uncommitted changes:', colors.yellow);
     log(status);
     
-    const response = require('readline-sync').question('Do you want to commit these changes? (y/n): ');
-    if (response.toLowerCase() === 'y') {
-      const message = require('readline-sync').question('Commit message: ');
-      execCommand(`git add .`);
-      execCommand(`git commit -m "${message}"`);
-      log('✅ Changes committed', colors.green);
-    } else {
-      log('⚠️  Continuing with uncommitted changes...', colors.yellow);
-    }
+    // Skip interactive prompts in sync mode - will commit with auto message
+    console.log('Found uncommitted changes, committing automatically...');
+    const message = 'Auto-commit: sync environment changes';
+    execCommand(`git add .`);
+    execCommand(`git commit -m "${message}"`);
+    log('✅ Changes committed', colors.green);
   } else {
     log('✅ Working directory clean', colors.green);
   }
@@ -196,7 +198,7 @@ function checkEnvironmentHealth() {
   
   // Start development server in background
   log('🚀 Starting development server...', colors.blue);
-  const serverProcess = require('child_process').spawn('npm', ['run', 'dev'], {
+  const serverProcess = spawn('npm', ['run', 'dev'], {
     detached: true,
     stdio: 'ignore'
   });
@@ -244,13 +246,7 @@ async function main() {
     log('🎯 DirectFanZ Environment Synchronization', colors.bright);
     log('==========================================\\n', colors.bright);
     
-    // Install readline-sync if not present
-    try {
-      require('readline-sync');
-    } catch (error) {
-      log('📦 Installing readline-sync...', colors.blue);
-      execCommand('npm install --no-save readline-sync');
-    }
+    // Note: Using non-interactive mode for sync
     
     checkGitStatus();
     const currentBranch = syncWithRemote();
@@ -275,6 +271,5 @@ process.on('SIGINT', () => {
   process.exit(0);
 });
 
-if (require.main === module) {
-  main();
-}
+// Always run when called directly
+main();
