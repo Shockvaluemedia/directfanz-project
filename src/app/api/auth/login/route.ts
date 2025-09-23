@@ -1,18 +1,27 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { businessMetrics } from '@/lib/business-metrics';
 import { userEngagementTracker } from '@/lib/user-engagement-tracking';
+import { 
+  withApiHandler, 
+  ApiRequestContext, 
+  validateApiRequest 
+} from '@/lib/api-error-handler';
+import { AppError, ErrorCode } from '@/lib/errors';
+import { z } from 'zod';
 
-export async function POST(request: NextRequest) {
-  try {
+const loginSchema = z.object({
+  email: z.string().email('Invalid email format').min(1, 'Email is required'),
+  password: z.string().min(1, 'Password is required'),
+});
+
+export const POST = withApiHandler(
+  async (context: ApiRequestContext, request: NextRequest) => {
+    // Validate request body
     const body = await request.json();
-    const { email, password } = body;
-
-    if (!email || !password) {
-      return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
-    }
+    const { email, password } = validateApiRequest(loginSchema, body, context);
 
     // Find user by email with timeout protection
     const user = await Promise.race([
@@ -20,7 +29,13 @@ export async function POST(request: NextRequest) {
         where: { email: email.toLowerCase() },
       }),
       new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Database query timeout')), 10000)
+        setTimeout(() => reject(new AppError(
+          ErrorCode.REQUEST_TIMEOUT,
+          'Database query timeout',
+          408,
+          undefined,
+          context.requestId
+        )), 10000)
       )
     ]) as any;
 
@@ -32,16 +47,28 @@ export async function POST(request: NextRequest) {
           reason: 'user_not_found',
           email,
         },
-      }).catch(err => console.warn('Failed to track login failure:', err));
+      }).catch?.(err => console.warn('Failed to track login failure:', err));
 
-      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+      throw new AppError(
+        ErrorCode.UNAUTHORIZED,
+        'Invalid credentials',
+        401,
+        undefined,
+        context.requestId
+      );
     }
 
     // Compare password with timeout protection
     const isPasswordValid = await Promise.race([
       bcrypt.compare(password, user.password),
       new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Password comparison timeout')), 5000)
+        setTimeout(() => reject(new AppError(
+          ErrorCode.REQUEST_TIMEOUT,
+          'Password comparison timeout',
+          408,
+          undefined,
+          context.requestId
+        )), 5000)
       )
     ]) as boolean;
 
@@ -54,9 +81,15 @@ export async function POST(request: NextRequest) {
           reason: 'invalid_password',
           email,
         },
-      }).catch(err => console.warn('Failed to track login failure:', err));
+      }).catch?.(err => console.warn('Failed to track login failure:', err));
 
-      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+      throw new AppError(
+        ErrorCode.UNAUTHORIZED,
+        'Invalid credentials',
+        401,
+        undefined,
+        context.requestId
+      );
     }
 
     // Generate JWT token
@@ -65,15 +98,6 @@ export async function POST(request: NextRequest) {
       process.env.JWT_SECRET || process.env.NEXTAUTH_SECRET || 'fallback-secret',
       { expiresIn: '24h' }
     );
-
-    // Return success immediately, track metrics async
-    const { password: _, ...userWithoutPassword } = user;
-    const response = NextResponse.json({
-      success: true,
-      message: 'Login successful',
-      user: userWithoutPassword,
-      token,
-    });
 
     // Track successful login (non-blocking)
     Promise.all([
@@ -99,18 +123,12 @@ export async function POST(request: NextRequest) {
       )
     ]).catch(err => console.warn('Failed to track login success:', err));
 
-    return response;
-  } catch (error) {
-    console.error('Login error:', error);
-    
-    if (error instanceof SyntaxError) {
-      return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 });
-    }
-    
-    if (error?.message?.includes('timeout')) {
-      return NextResponse.json({ error: 'Login request timed out, please try again' }, { status: 408 });
-    }
-    
-    return NextResponse.json({ error: 'Login failed. Please try again.' }, { status: 500 });
+    // Return success data (wrapper handles response structure)
+    const { password: _, ...userWithoutPassword } = user;
+    return {
+      message: 'Login successful',
+      user: userWithoutPassword,
+      token,
+    };
   }
-}
+);

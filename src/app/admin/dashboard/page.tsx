@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { TouchCard } from '@/components/ui/TouchCard';
 import { TouchButton } from '@/components/ui/TouchButton';
+import AIInsightsDashboard from '@/components/admin/AIInsightsDashboard';
 import {
   Users,
   FileText,
@@ -17,6 +18,7 @@ import {
   Ban,
   CheckCircle,
   XCircle,
+  Brain,
 } from 'lucide-react';
 
 interface DashboardStats {
@@ -48,6 +50,7 @@ export default function AdminDashboardPage() {
   });
   const [loading, setLoading] = useState(true);
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [showAIDashboard, setShowAIDashboard] = useState(false);
 
   // Check if user is admin
   const isAdmin = session?.user?.role === 'ADMIN' || session?.user?.email === 'admin@directfan.com';
@@ -188,10 +191,26 @@ export default function AdminDashboardPage() {
     <div className='min-h-screen bg-gray-50'>
       <div className='max-w-7xl mx-auto p-6'>
         {/* Header */}
-        <div className='mb-8'>
-          <h1 className='text-3xl font-bold text-gray-900 mb-2'>Admin Dashboard</h1>
-          <p className='text-gray-600'>Platform overview and management tools</p>
+        <div className='mb-8 flex items-center justify-between'>
+          <div>
+            <h1 className='text-3xl font-bold text-gray-900 mb-2'>Admin Dashboard</h1>
+            <p className='text-gray-600'>Platform overview and management tools</p>
+          </div>
+          <TouchButton
+            variant={showAIDashboard ? 'primary' : 'outline'}
+            onClick={() => setShowAIDashboard(!showAIDashboard)}
+            leftIcon={<Brain size={20} />}
+          >
+            {showAIDashboard ? 'Hide AI Insights' : 'Show AI Insights'}
+          </TouchButton>
         </div>
+
+        {/* AI Insights Dashboard */}
+        {showAIDashboard && (
+          <div className='mb-8'>
+            <AIInsightsDashboard />
+          </div>
+        )}
 
         {/* Stats Grid */}
         <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8'>

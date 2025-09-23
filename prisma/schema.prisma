@@ -247,8 +247,8 @@ model comments {
   text      String
   createdAt DateTime @default(now())
   updatedAt DateTime
-  users     users    @relation(fields: [fanId], references: [id], onDelete: Cascade)
   content   content  @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  users     users    @relation(fields: [fanId], references: [id], onDelete: Cascade)
 
   @@index([contentId, createdAt])
   @@index([fanId])
@@ -263,14 +263,19 @@ model content {
   fileUrl          String
   thumbnailUrl     String?
   visibility       String             @default("PUBLIC")
+  status           String             @default("PUBLISHED")
   fileSize         Int
   duration         Int?
   format           String
   tags             String
+  metadata         String?
   totalViews       Int                @default(0)
   uniqueViews      Int                @default(0)
   totalLikes       Int                @default(0)
   lastViewedAt     DateTime?
+  reviewedAt       DateTime?
+  reviewedBy       String?
+  reviewReason     String?
   createdAt        DateTime           @default(now())
   updatedAt        DateTime
   campaign_rewards campaign_rewards[]
@@ -280,6 +285,7 @@ model content {
   content_views    content_views[]
   playlist_items   playlist_items[]
   tiers            tiers[]            @relation("TierContent")
+  moderation_logs  moderation_logs[]
 
   @@index([artistId, visibility])
   @@index([type, visibility])
@@ -288,6 +294,11 @@ model content {
   @@index([artistId, type, createdAt])
   @@index([visibility, createdAt])
   @@index([tags])
+  @@index([artistId, createdAt, visibility])
+  @@index([type, createdAt, visibility])
+  @@index([totalViews, createdAt])
+  @@index([status])
+  @@index([reviewedAt])
 }
 
 model content_likes {
@@ -295,8 +306,8 @@ model content_likes {
   userId    String
   contentId String
   createdAt DateTime @default(now())
-  users     users    @relation(fields: [userId], references: [id], onDelete: Cascade)
   content   content  @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  users     users    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, contentId])
   @@index([userId])
@@ -379,6 +390,8 @@ model live_streams {
   @@index([scheduledAt])
   @@index([isPublic, status])
   @@index([status, startedAt])
+  @@index([isPublic, scheduledAt])
+  @@index([artistId, isPublic, status])
 }
 
 model messages {
@@ -398,6 +411,8 @@ model messages {
   @@index([senderId, createdAt])
   @@index([recipientId, readAt])
   @@index([recipientId, createdAt])
+  @@index([senderId, recipientId, createdAt])
+  @@index([readAt, createdAt])
 }
 
 model oauth_tokens {
@@ -437,8 +452,8 @@ model playlist_items {
   contentId  String
   position   Int
   addedAt    DateTime  @default(now())
-  playlists  playlists @relation(fields: [playlistId], references: [id], onDelete: Cascade)
   content    content   @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  playlists  playlists @relation(fields: [playlistId], references: [id], onDelete: Cascade)
 
   @@unique([playlistId, contentId])
   @@unique([playlistId, position])
@@ -449,8 +464,8 @@ model playlist_likes {
   userId     String
   playlistId String
   createdAt  DateTime  @default(now())
-  users      users     @relation(fields: [userId], references: [id], onDelete: Cascade)
   playlists  playlists @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  users      users     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, playlistId])
   @@index([userId])
@@ -508,8 +523,8 @@ model reports {
   reviewedAt                      DateTime?
   createdAt                       DateTime  @default(now())
   updatedAt                       DateTime
-  users_reports_reviewedByTousers users?    @relation("reports_reviewedByTousers", fields: [reviewedBy], references: [id])
   users_reports_reporterIdTousers users     @relation("reports_reporterIdTousers", fields: [reporterId], references: [id], onDelete: Cascade)
+  users_reports_reviewedByTousers users?    @relation("reports_reviewedByTousers", fields: [reviewedBy], references: [id])
 
   @@index([reporterId])
   @@index([targetType, targetId])
@@ -561,8 +576,8 @@ model stream_chat_messages {
   moderatedBy      String?
   moderationReason String?
   createdAt        DateTime     @default(now())
-  live_streams     live_streams @relation(fields: [streamId], references: [id], onDelete: Cascade)
   users            users?       @relation(fields: [senderId], references: [id])
+  live_streams     live_streams @relation(fields: [streamId], references: [id], onDelete: Cascade)
 
   @@index([streamId, createdAt])
   @@index([senderId])
@@ -669,8 +684,8 @@ model subscriptions {
   updatedAt            DateTime
   invoices             invoices[]
   payment_failures     payment_failures[]
-  tiers                tiers              @relation(fields: [tierId], references: [id], onDelete: Cascade)
   users                users              @relation(fields: [fanId], references: [id], onDelete: Cascade)
+  tiers                tiers              @relation(fields: [tierId], references: [id], onDelete: Cascade)
 
   @@unique([fanId, tierId])
   @@index([fanId])
@@ -732,8 +747,8 @@ model users {
   playlist_likes                       playlist_likes[]
   playlists                            playlists[]
   refresh_tokens                       refresh_tokens[]
-  reports_reports_reviewedByTousers    reports[]                  @relation("reports_reviewedByTousers")
   reports_reports_reporterIdTousers    reports[]                  @relation("reports_reporterIdTousers")
+  reports_reports_reviewedByTousers    reports[]                  @relation("reports_reviewedByTousers")
   reward_distributions                 reward_distributions[]
   sessions                             sessions[]
   stream_chat_messages                 stream_chat_messages[]
@@ -742,10 +757,14 @@ model users {
   stream_viewers                       stream_viewers[]
   subscriptions                        subscriptions[]
   tiers                                tiers[]
+  moderation_logs                      moderation_logs[]
+  price_optimizations                  price_optimizations[]
 
   @@index([role, createdAt])
   @@index([lastSeenAt])
   @@index([emailVerified])
+  @@index([displayName])
+  @@index([role, lastSeenAt])
 }
 
 model verificationtokens {
@@ -754,4 +773,60 @@ model verificationtokens {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+// AI-related models for content moderation and revenue optimization
+model moderation_logs {
+  id        String   @id @default(cuid())
+  contentId String
+  userId    String
+  result    String   // JSON string containing ModerationResult
+  status    String   @default("PENDING_REVIEW")
+  createdAt DateTime @default(now())
+  
+  content   content  @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  user      users    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([contentId, createdAt])
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+}
+
+model price_optimizations {
+  id               String    @id @default(cuid())
+  artistId         String
+  originalPriceId  String
+  testPriceId      String?
+  originalAmount   Decimal
+  optimizedAmount  Decimal
+  testStartDate    DateTime  @default(now())
+  testEndDate      DateTime?
+  status           String    @default("TESTING")
+  isActive         Boolean   @default(true)
+  results          String?   // JSON string containing test results
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  
+  artist           users     @relation(fields: [artistId], references: [id], onDelete: Cascade)
+
+  @@index([artistId, createdAt])
+  @@index([status, isActive])
+  @@index([testStartDate, testEndDate])
+}
+
+model ai_agent_logs {
+  id               String   @id @default(cuid())
+  agentId          String
+  agentType        String
+  taskType         String
+  taskData         String?  // JSON string containing task parameters
+  result           String?  // JSON string containing task result
+  success          Boolean  @default(false)
+  processingTimeMs Int      @default(0)
+  errorMessage     String?
+  createdAt        DateTime @default(now())
+
+  @@index([agentType, createdAt])
+  @@index([success, createdAt])
+  @@index([taskType, createdAt])
 }

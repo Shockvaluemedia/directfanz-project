@@ -35,6 +35,7 @@ export enum ErrorCode {
   DATABASE_ERROR = 'DATABASE_ERROR',
   EXTERNAL_SERVICE_ERROR = 'EXTERNAL_SERVICE_ERROR',
   RATE_LIMIT_EXCEEDED = 'RATE_LIMIT_EXCEEDED',
+  REQUEST_TIMEOUT = 'REQUEST_TIMEOUT',
 }
 
 export interface ErrorDetails {
@@ -208,6 +209,7 @@ export const getUserFriendlyMessage = (error: AppError): string => {
     [ErrorCode.EXTERNAL_SERVICE_ERROR]:
       'External service is temporarily unavailable. Please try again later.',
     [ErrorCode.RATE_LIMIT_EXCEEDED]: 'Too many requests. Please wait a moment and try again.',
+    [ErrorCode.REQUEST_TIMEOUT]: 'Request timed out. Please try again.',
   };
 
   return friendlyMessages[error.code] || 'An unexpected error occurred. Please try again.';

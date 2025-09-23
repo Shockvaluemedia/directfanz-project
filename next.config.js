@@ -70,7 +70,7 @@ const nextConfig = {
   },
 
   // Configure webpack to handle Node.js built-ins
-  webpack: (config, { isServer }) => {
+  webpack: (config, { isServer, dev }) => {
     // For client-side builds, provide fallbacks for Node.js modules
     if (!isServer) {
       config.resolve.fallback = {
@@ -83,6 +83,37 @@ const nextConfig = {
         os: false,
       };
     }
+
+    // Optimize webpack for better performance and smaller bundles
+    if (!dev) {
+      // Enable tree shaking
+      config.optimization.usedExports = true;
+      
+      // Better chunk splitting
+      config.optimization.splitChunks = {
+        ...config.optimization.splitChunks,
+        cacheGroups: {
+          ...config.optimization.splitChunks.cacheGroups,
+          vendor: {
+            test: /[\\/]node_modules[\\/]/,
+            name: 'vendors',
+            chunks: 'all',
+            priority: 10,
+          },
+          common: {
+            minChunks: 2,
+            name: 'common',
+            chunks: 'all',
+            priority: 5,
+            reuseExistingChunk: true,
+          },
+        },
+      };
+    }
+
+    // Reduce webpack cache serialization warnings
+    config.optimization.concatenateModules = true;
+    
     return config;
   },
 

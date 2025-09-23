@@ -1,0 +1,449 @@
+/* Accessibility CSS Styles for DirectFanZ */
+
+/* Screen Reader Only Content */
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+/* Show screen reader content when focused */
+.sr-only:focus,
+.focus\:not-sr-only:focus {
+  position: static !important;
+  width: auto !important;
+  height: auto !important;
+  padding: inherit !important;
+  margin: inherit !important;
+  overflow: visible !important;
+  clip: auto !important;
+  white-space: normal !important;
+}
+
+/* Text Scaling */
+:root {
+  --text-scale: 1;
+  --focus-ring-color: #4f46e5;
+  --focus-ring-offset: 2px;
+  --focus-ring-width: 2px;
+}
+
+body {
+  font-size: calc(1rem * var(--text-scale));
+}
+
+h1 { font-size: calc(2.25rem * var(--text-scale)); }
+h2 { font-size: calc(1.875rem * var(--text-scale)); }
+h3 { font-size: calc(1.5rem * var(--text-scale)); }
+h4 { font-size: calc(1.25rem * var(--text-scale)); }
+h5 { font-size: calc(1.125rem * var(--text-scale)); }
+h6 { font-size: calc(1rem * var(--text-scale)); }
+
+/* High Contrast Theme */
+.high-contrast {
+  --bg-primary: #000000;
+  --bg-secondary: #ffffff;
+  --text-primary: #ffffff;
+  --text-secondary: #000000;
+  --accent-primary: #ffff00;
+  --accent-secondary: #00ffff;
+  --border-primary: #ffffff;
+  --border-secondary: #ffff00;
+  --focus-ring-color: #ffff00;
+}
+
+.high-contrast body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.high-contrast .bg-white { background-color: var(--bg-primary) !important; }
+.high-contrast .bg-gray-50 { background-color: var(--bg-primary) !important; }
+.high-contrast .bg-gray-100 { background-color: var(--bg-secondary) !important; }
+.high-contrast .bg-gray-200 { background-color: var(--bg-secondary) !important; }
+
+.high-contrast .text-gray-900 { color: var(--text-primary) !important; }
+.high-contrast .text-gray-800 { color: var(--text-primary) !important; }
+.high-contrast .text-gray-700 { color: var(--text-primary) !important; }
+.high-contrast .text-gray-600 { color: var(--text-secondary) !important; }
+.high-contrast .text-gray-500 { color: var(--text-secondary) !important; }
+
+.high-contrast .border-gray-200 { border-color: var(--border-primary) !important; }
+.high-contrast .border-gray-300 { border-color: var(--border-primary) !important; }
+
+.high-contrast .bg-indigo-600 { background-color: var(--accent-primary) !important; color: var(--bg-primary) !important; }
+.high-contrast .bg-indigo-700 { background-color: var(--accent-secondary) !important; color: var(--bg-primary) !important; }
+.high-contrast .text-indigo-600 { color: var(--accent-primary) !important; }
+.high-contrast .text-indigo-700 { color: var(--accent-primary) !important; }
+
+/* Color-blind Friendly Themes */
+.colorblind-friendly {
+  --primary-blue: #0891b2;
+  --primary-orange: #ea580c;
+  --primary-purple: #7c3aed;
+  --primary-green: #059669;
+  --danger-color: #dc2626;
+  --warning-color: #d97706;
+  --success-color: #059669;
+}
+
+.colorblind-friendly .bg-red-500 { background-color: var(--danger-color) !important; }
+.colorblind-friendly .bg-green-500 { background-color: var(--success-color) !important; }
+.colorblind-friendly .bg-blue-500 { background-color: var(--primary-blue) !important; }
+.colorblind-friendly .bg-yellow-500 { background-color: var(--warning-color) !important; }
+
+.colorblind-friendly .text-red-600 { color: var(--danger-color) !important; }
+.colorblind-friendly .text-green-600 { color: var(--success-color) !important; }
+.colorblind-friendly .text-blue-600 { color: var(--primary-blue) !important; }
+.colorblind-friendly .text-yellow-600 { color: var(--warning-color) !important; }
+
+/* Focus Indicators */
+.focus-visible *:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color) !important;
+  outline-offset: var(--focus-ring-offset) !important;
+  border-radius: 4px;
+}
+
+/* Enhanced focus for high contrast */
+.high-contrast.focus-visible *:focus-visible {
+  outline: 3px solid var(--accent-primary) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 1px var(--bg-primary), 0 0 0 4px var(--accent-primary) !important;
+}
+
+/* Reduced Motion */
+.reduced-motion * {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+.reduced-motion *::before,
+.reduced-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
+/* Skip Links */
+.skip-links a {
+  position: absolute;
+  top: -40px;
+  left: 6px;
+  background: #000;
+  color: #fff;
+  padding: 8px;
+  text-decoration: none;
+  border-radius: 4px;
+  z-index: 9999;
+  font-weight: 600;
+  transition: top 0.3s;
+}
+
+.skip-links a:focus {
+  top: 6px;
+}
+
+/* Better link styling for accessibility */
+a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+}
+
+a:hover {
+  text-decoration-thickness: 2px;
+}
+
+/* Button focus states */
+button:focus-visible,
+.btn:focus-visible {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 2px;
+}
+
+/* Form field focus states */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: -2px;
+  border-color: var(--focus-ring-color);
+}
+
+/* High contrast form improvements */
+.high-contrast input,
+.high-contrast textarea,
+.high-contrast select {
+  background-color: var(--bg-secondary) !important;
+  color: var(--text-secondary) !important;
+  border: 2px solid var(--border-primary) !important;
+}
+
+.high-contrast input:focus,
+.high-contrast textarea:focus,
+.high-contrast select:focus {
+  border-color: var(--accent-primary) !important;
+  background-color: var(--bg-secondary) !important;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --focus-ring-color: #60a5fa;
+  }
+}
+
+/* High contrast media query support */
+@media (prefers-contrast: high) {
+  :root {
+    --focus-ring-width: 3px;
+    --focus-ring-offset: 2px;
+  }
+  
+  body {
+    font-weight: 500;
+  }
+  
+  button,
+  a,
+  .btn {
+    font-weight: 600;
+  }
+}
+
+/* Reduced motion media query support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Large text support */
+@media (min-resolution: 1.5dppx) {
+  body {
+    font-size: calc(1.125rem * var(--text-scale));
+  }
+}
+
+/* Windows High Contrast Mode */
+@media screen and (-ms-high-contrast: active) {
+  * {
+    background-color: transparent !important;
+    color: windowText !important;
+  }
+  
+  button,
+  .btn {
+    border: 2px solid buttonText !important;
+    background-color: buttonFace !important;
+    color: buttonText !important;
+  }
+  
+  a {
+    color: linkText !important;
+  }
+  
+  input,
+  textarea,
+  select {
+    background-color: window !important;
+    color: windowText !important;
+    border: 2px solid windowText !important;
+  }
+}
+
+/* Aria live regions styling */
+[aria-live] {
+  position: absolute !important;
+  left: -10000px !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+}
+
+/* Improved table accessibility */
+table {
+  border-collapse: collapse;
+}
+
+th,
+td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+}
+
+th {
+  background-color: #f5f5f5;
+  font-weight: 600;
+}
+
+.high-contrast th {
+  background-color: var(--bg-secondary) !important;
+  color: var(--text-secondary) !important;
+  border-color: var(--border-primary) !important;
+}
+
+.high-contrast td {
+  border-color: var(--border-primary) !important;
+}
+
+/* Better checkbox and radio styling */
+input[type="checkbox"],
+input[type="radio"] {
+  width: 1.125rem;
+  height: 1.125rem;
+  margin-right: 0.5rem;
+}
+
+.high-contrast input[type="checkbox"],
+.high-contrast input[type="radio"] {
+  border: 2px solid var(--border-primary) !important;
+  background-color: var(--bg-secondary) !important;
+}
+
+.high-contrast input[type="checkbox"]:checked,
+.high-contrast input[type="radio"]:checked {
+  background-color: var(--accent-primary) !important;
+  border-color: var(--accent-primary) !important;
+}
+
+/* Loading indicators */
+.loading-spinner {
+  animation: spin 1s linear infinite;
+}
+
+.reduced-motion .loading-spinner {
+  animation: none;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Error states */
+.error {
+  color: #dc2626;
+  border-color: #dc2626;
+}
+
+.high-contrast .error {
+  color: var(--danger-color) !important;
+  border-color: var(--danger-color) !important;
+}
+
+.colorblind-friendly .error {
+  color: var(--danger-color) !important;
+  border-color: var(--danger-color) !important;
+}
+
+/* Success states */
+.success {
+  color: #059669;
+  border-color: #059669;
+}
+
+.high-contrast .success {
+  color: var(--success-color) !important;
+  border-color: var(--success-color) !important;
+}
+
+.colorblind-friendly .success {
+  color: var(--success-color) !important;
+  border-color: var(--success-color) !important;
+}
+
+/* Warning states */
+.warning {
+  color: #d97706;
+  border-color: #d97706;
+}
+
+.high-contrast .warning {
+  color: var(--warning-color) !important;
+  border-color: var(--warning-color) !important;
+}
+
+.colorblind-friendly .warning {
+  color: var(--warning-color) !important;
+  border-color: var(--warning-color) !important;
+}
+
+/* Utility classes for screen readers */
+.visually-hidden {
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+/* Better focus management for modals */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.high-contrast .modal-overlay {
+  background-color: var(--bg-primary);
+  border: 3px solid var(--accent-primary);
+}
+
+/* Responsive accessibility improvements */
+@media (max-width: 768px) {
+  button,
+  .btn,
+  a {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 12px;
+  }
+  
+  input,
+  textarea,
+  select {
+    min-height: 44px;
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+}
+
+/* Print accessibility */
+@media print {
+  .sr-only {
+    position: static !important;
+    width: auto !important;
+    height: auto !important;
+    clip: auto !important;
+    overflow: visible !important;
+  }
+  
+  a[href^="http"]:after {
+    content: " (" attr(href) ")";
+  }
+  
+  .no-print {
+    display: none !important;
+  }
+}

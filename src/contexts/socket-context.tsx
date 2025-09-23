@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useSession } from 'next-auth/react';
 
@@ -87,6 +87,10 @@ export function SocketProvider({ children }: SocketProviderProps) {
   const [messages, setMessages] = useState<{ [conversationId: string]: Message[] }>({});
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
   const [onlineUsers, setOnlineUsers] = useState<UserStatus[]>([]);
+
+  // Use refs to prevent stale closures and improve performance
+  const socketRef = useRef<Socket | null>(null);
+  const typingTimeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   // Initialize socket connection
   useEffect(() => {
@@ -239,9 +243,19 @@ export function SocketProvider({ children }: SocketProviderProps) {
 
     return () => {
       console.log('Cleaning up socket connection');
+      
+      // Remove ALL event listeners before disconnecting
+      newSocket.removeAllListeners();
       newSocket.disconnect();
+      
+      // Clear refs and state
+      socketRef.current = null;
       setSocket(null);
       setIsConnected(false);
+      
+      // Clear all typing timeouts
+      typingTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
+      typingTimeoutsRef.current.clear();
     };
   }, [session, status]);
 
@@ -318,7 +332,8 @@ export function SocketProvider({ children }: SocketProviderProps) {
     socket.emit('get_conversations');
   }, [socket, isConnected]);
 
-  const value: SocketContextType = {
+  // Memoize context value to prevent unnecessary re-renders
+  const value: SocketContextType = useMemo(() => ({
     socket,
     isConnected,
     conversations,
@@ -333,7 +348,22 @@ export function SocketProvider({ children }: SocketProviderProps) {
     markMessagesAsRead,
     getConversationHistory,
     refreshConversations,
-  };
+  }), [
+    socket,
+    isConnected,
+    conversations,
+    messages,
+    typingUsers,
+    onlineUsers,
+    sendMessage,
+    joinConversation,
+    leaveConversation,
+    startTyping,
+    stopTyping,
+    markMessagesAsRead,
+    getConversationHistory,
+    refreshConversations,
+  ]);
 
   return (
     <SocketContext.Provider value={value}>

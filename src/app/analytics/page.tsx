@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import AnalyticsDashboard from '@/components/analytics/AnalyticsDashboard';
+import SearchAnalytics from '@/components/analytics/SearchAnalytics';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import {
   ArrowPathIcon,
@@ -174,12 +175,17 @@ export default function AnalyticsPage() {
             </div>
           </div>
         ) : (
-          <AnalyticsDashboard
-            userRole={userRole as 'ARTIST' | 'ADMIN'}
-            userId={session?.user?.id}
-            timeRange={selectedTimeRange}
-            className='space-y-8'
-          />
+          <div className='space-y-8'>
+            <AnalyticsDashboard
+              userRole={userRole as 'ARTIST' | 'ADMIN'}
+              userId={session?.user?.id}
+              timeRange={selectedTimeRange}
+            />
+            
+            <SearchAnalytics
+              analyticsData={analyticsData}
+            />
+          </div>
         )}
       </div>
     </div>
