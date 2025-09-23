@@ -39,7 +39,7 @@ import {
 } from 'lucide-react';
 import { ContentAnalyticsChart } from './ContentAnalyticsChart';
 import { ContentEditor } from './ContentEditor';
-import { FileUpload } from '../content/FileUpload';
+import ContentUploader from '../upload/ContentUploader';
 
 interface Content {
   id: string;
@@ -427,17 +427,13 @@ export function ContentDashboard() {
 
       {/* Upload Dialog */}
       <Dialog open={showUploader} onOpenChange={setShowUploader}>
-        <DialogContent className='max-w-2xl'>
+        <DialogContent className='max-w-4xl max-h-[90vh] overflow-hidden'>
           <DialogHeader>
             <DialogTitle>Upload New Content</DialogTitle>
           </DialogHeader>
-          <FileUpload
-            onUploadComplete={() => {
-              setShowUploader(false);
-              fetchContent();
-              fetchAnalytics();
-            }}
-          />
+          <div className="overflow-y-auto max-h-[80vh] pr-2">
+            <ContentUploader />
+          </div>
         </DialogContent>
       </Dialog>
 
