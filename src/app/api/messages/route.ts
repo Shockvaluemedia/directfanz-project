@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
           attachmentUrl,
         },
         include: {
-          sender: {
+          users_messages_senderIdTousers: {
             select: {
               id: true,
               displayName: true,
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
         if (prefs.messages !== false) {
           await sendNotification({
             userId: recipientId,
-            type: 'message',
+            type: 'new_message' as any,
             title: 'New message',
             message: `You have a new message from ${req.user.name || req.user.email}`,
             data: {
@@ -129,7 +129,8 @@ export async function POST(request: NextRequest) {
           attachmentUrl: message.attachmentUrl,
           createdAt: message.createdAt,
           readAt: message.readAt,
-          sender: message.sender,
+          sender: message.users_messages_senderIdTousers,
+ssages_senderIdTousers,
         },
       });
     } catch (error) {
@@ -197,7 +198,7 @@ export async function GET(request: NextRequest) {
       const messages = await prisma.messages.findMany({
         where: whereClause,
         include: {
-          sender: {
+          users_messages_senderIdTousers: {
             select: {
               id: true,
               displayName: true,

@@ -23,7 +23,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     const comment = await prisma.comments.findUnique({
       where: { id: params.id },
       include: {
-        fan: {
+        users: {
           select: {
             id: true,
             displayName: true,
@@ -83,7 +83,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         text: validatedData.text,
       },
       include: {
-        fan: {
+        users: {
           select: {
             id: true,
             displayName: true,

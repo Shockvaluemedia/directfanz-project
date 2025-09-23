@@ -93,7 +93,8 @@
     "cache:clear": "node -e \"import('./src/lib/redis.js').then(({deleteCachedPattern}) => deleteCachedPattern('*').then(() => console.log('Cache cleared')))\"",
     "cache:warm": "node scripts/warm-cache.js",
     "health:check:all": "node scripts/health-check-all.js",
-    "deploy:status": "node scripts/deployment-status.js"
+    "deploy:status": "node scripts/deployment-status.js",
+    "quick-launch": "node scripts/quick-launch.cjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.470.0",
