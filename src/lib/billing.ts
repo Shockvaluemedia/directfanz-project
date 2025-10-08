@@ -307,7 +307,7 @@ export async function changeTier(
     // Update local database
     await prisma.$transaction(async tx => {
       // Update subscription
-      await tx.subscription.update({
+      await tx.subscriptions.update({
         where: { id: subscriptionId },
         data: {
           tierId: newTierId,
@@ -330,17 +330,17 @@ export async function changeTier(
     // Send notification if requested
     if (options.sendNotification && subscription.fan?.email) {
       await sendEmail({
-        to: subscription.users.email!,
+        to: subscription.fan.email!,
         subject: `Subscription ${isUpgrade ? 'Upgraded' : 'Changed'} - ${newTier.artist?.displayName}`,
         html: `
           <h1>Subscription ${isUpgrade ? 'Upgraded' : 'Changed'}</h1>
-          <p>Your subscription to ${subscription.tiers.artist?.displayName}'s content has been changed from ${subscription.tiers.name} tier to ${newTier.name} tier.</p>
+          <p>Your subscription to ${subscription.tier.artist?.displayName}'s content has been changed from ${subscription.tier.name} tier to ${newTier.name} tier.</p>
           <p>New amount: $${newAmount.toFixed(2)}</p>
           ${proration.prorationAmount !== 0 ? `<p>Proration amount: $${proration.prorationAmount.toFixed(2)}</p>` : ''}
           <p>Next billing date: ${subscription.currentPeriodEnd.toLocaleDateString()}</p>
           <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions">Manage your subscriptions</a></p>
         `,
-        text: `Subscription ${isUpgrade ? 'Upgraded' : 'Changed'}\n\nYour subscription to ${subscription.tiers.artist?.displayName}'s content has been changed from ${subscription.tiers.name} tier to ${newTier.name} tier.\n\nNew amount: $${newAmount.toFixed(2)}\n${proration.prorationAmount !== 0 ? `Proration amount: $${proration.prorationAmount.toFixed(2)}\n` : ''}Next billing date: ${subscription.currentPeriodEnd.toLocaleDateString()}\n\nManage your subscriptions: ${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions`,
+        text: `Subscription ${isUpgrade ? 'Upgraded' : 'Changed'}\n\nYour subscription to ${subscription.tier.artist?.displayName}'s content has been changed from ${subscription.tier.name} tier to ${newTier.name} tier.\n\nNew amount: $${newAmount.toFixed(2)}\n${proration.prorationAmount !== 0 ? `Proration amount: $${proration.prorationAmount.toFixed(2)}\n` : ''}Next billing date: ${subscription.currentPeriodEnd.toLocaleDateString()}\n\nManage your subscriptions: ${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions`,
       });
     }
 

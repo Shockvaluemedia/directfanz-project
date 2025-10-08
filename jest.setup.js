@@ -788,6 +788,7 @@ jest.mock('next/server', () => ({
 // Mock Prisma Client
 jest.mock('@/lib/prisma', () => ({
   prisma: {
+    // User model (singular and plural for compatibility)
     user: {
       findUnique: jest.fn(),
       findMany: jest.fn(),
@@ -796,13 +797,32 @@ jest.mock('@/lib/prisma', () => ({
       delete: jest.fn(),
       count: jest.fn(),
     },
+    users: {
+      findUnique: jest.fn(),
+      findMany: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+      count: jest.fn(),
+    },
+    // Subscription model (singular and plural for compatibility)
     subscription: {
+      findUnique: jest.fn(),
       findFirst: jest.fn(),
       findMany: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
       count: jest.fn(),
     },
+    subscriptions: {
+      findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      count: jest.fn(),
+    },
+    // Content model (singular and plural for compatibility)
     content: {
       findUnique: jest.fn(),
       findMany: jest.fn(),
@@ -810,7 +830,14 @@ jest.mock('@/lib/prisma', () => ({
       update: jest.fn(),
       count: jest.fn(),
     },
+    // Tier model (singular and plural for compatibility)
     tier: {
+      findUnique: jest.fn(),
+      findMany: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+    },
+    tiers: {
       findUnique: jest.fn(),
       findMany: jest.fn(),
       create: jest.fn(),
@@ -861,7 +888,24 @@ jest.mock('@/lib/prisma', () => ({
           delete: jest.fn(),
           count: jest.fn(),
         },
+        users: {
+          findUnique: jest.fn(),
+          findMany: jest.fn(),
+          create: jest.fn(),
+          update: jest.fn(),
+          delete: jest.fn(),
+          count: jest.fn(),
+        },
         subscription: {
+          findUnique: jest.fn(),
+          findFirst: jest.fn(),
+          findMany: jest.fn(),
+          create: jest.fn(),
+          update: jest.fn(),
+          count: jest.fn(),
+        },
+        subscriptions: {
+          findUnique: jest.fn(),
           findFirst: jest.fn(),
           findMany: jest.fn(),
           create: jest.fn(),
@@ -876,6 +920,12 @@ jest.mock('@/lib/prisma', () => ({
           count: jest.fn(),
         },
         tier: {
+          findUnique: jest.fn(),
+          findMany: jest.fn(),
+          create: jest.fn(),
+          update: jest.fn(),
+        },
+        tiers: {
           findUnique: jest.fn(),
           findMany: jest.fn(),
           create: jest.fn(),

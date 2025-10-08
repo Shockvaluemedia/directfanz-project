@@ -159,8 +159,21 @@ export default function MessagesPage() {
                       size="sm"
                       leftIcon={<Plus className="w-4 h-4" />}
                       onClick={() => {
-                        // Demo: Start a new conversation
-                        console.log('Demo: Starting new conversation...');
+                        // Demo: Create a conversation with a demo user
+                        const demoUserId = 'user_artist_1'; // ArtistAlex
+                        const demoConv: Conversation = {
+                          conversationId: `conv_${session?.user?.id}_${demoUserId}`,
+                          participants: [{
+                            userId: demoUserId,
+                            username: 'ArtistAlex',
+                            role: 'ARTIST',
+                            isOnline: true
+                          }],
+                          lastActivity: new Date(),
+                          unreadCount: 0
+                        };
+                        setSelectedConversation(demoConv);
+                        console.log('Demo: Started conversation with ArtistAlex');
                       }}
                     >
                       Start Demo Chat

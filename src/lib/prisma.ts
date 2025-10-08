@@ -26,7 +26,7 @@ export const prisma = globalForPrisma.prisma ?? new PrismaClient({
     : ['error'],
   datasources: {
     db: {
-      url: getDatabaseUrl(),
+      url: process.env.DATABASE_URL + '?prepared_statements=false&statement_cache_size=0',
     },
   },
   // Prevent connection timeout issues

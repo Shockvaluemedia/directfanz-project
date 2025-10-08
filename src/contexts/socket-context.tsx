@@ -99,9 +99,14 @@ export function SocketProvider({ children }: SocketProviderProps) {
 
     console.log('Initializing socket connection...');
     
-    const newSocket = io(process.env.NODE_ENV === 'production' 
-      ? process.env.NEXT_PUBLIC_SITE_URL || '' 
-      : 'http://localhost:3000', {
+    // WebSocket URL configuration
+    const websocketUrl = process.env.NODE_ENV === 'production'
+      ? process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'wss://your-websocket-server.railway.app' 
+      : 'http://localhost:3001';
+    
+    console.log('Connecting to WebSocket:', websocketUrl);
+    
+    const newSocket = io(websocketUrl, {
       withCredentials: true,
       transports: ['websocket', 'polling'],
     });

@@ -927,7 +927,8 @@ const getFileIcon = (fileType: string) => {
 const generatePreview = async (file: File): Promise<{ preview?: string; dimensions?: { width: number; height: number }; duration?: number }> => {
   return new Promise((resolve) => {
     if (file.type.startsWith('image/')) {
-      const img = new Image();
+      // Use HTMLImageElement constructor instead of Image to avoid Next.js conflict
+      const img = document.createElement('img');
       const url = URL.createObjectURL(file);
       
       img.onload = () => {

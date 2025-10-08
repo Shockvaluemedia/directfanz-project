@@ -7,6 +7,11 @@
   "regions": [
     "iad1"
   ],
+  "functions": {
+    "src/app/api/health/route.ts": {
+      "maxDuration": 10
+    }
+  },
   "headers": [
     {
       "source": "/(.*)",

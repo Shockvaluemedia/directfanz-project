@@ -39,18 +39,32 @@ export const getRedisClient = async () => {
     try {
       const url = process.env.REDIS_URL;
 
-      if (!url) {
+      if (!url || url.trim() === '') {
         logger.warn('Redis URL not configured, caching disabled');
         return null;
       }
 
-      redisClient = createClient({ url });
+      redisClient = createClient({ 
+        url,
+        socket: {
+          connectTimeout: 5000, // 5 second timeout
+          lazyConnect: true
+        }
+      });
 
       redisClient.on('error', err => {
         logger.error('Redis client error', {}, err);
+        // Don't crash on Redis errors
+        redisClient = null;
       });
 
-      await redisClient.connect();
+      // Add connection timeout
+      const connectPromise = redisClient.connect();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Redis connection timeout')), 5000)
+      );
+
+      await Promise.race([connectPromise, timeoutPromise]);
       logger.info('Redis client connected');
     } catch (error) {
       logger.error('Failed to initialize Redis client', {}, error as Error);

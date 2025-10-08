@@ -31,29 +31,52 @@ const updateStreamSchema = z.object({
   maxViewers: z.number().min(1).max(10000).optional(),
 });
 
-// GET /api/livestream - Get user's streams
+// GET /api/livestream - Get streams (public discovery or user's streams)
 export async function GET(request: NextRequest) {
   let session: any;
   try {
     session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    
+    const { searchParams } = new URL(request.url);
+    const status = searchParams.get('status');
+    const limit = Math.min(parseInt(searchParams.get('limit') || '10'), 50);
+    const offset = parseInt(searchParams.get('offset') || '0');
+    const myStreamsOnly = searchParams.get('myStreams') === 'true';
+    const category = searchParams.get('category');
+    const search = searchParams.get('search');
+
+    // If requesting user's own streams, require authentication
+    if (myStreamsOnly && !session?.user?.id) {
       return NextResponse.json(
         { success: false, error: { message: 'Unauthorized' } },
         { status: 401 }
       );
     }
 
-    const { searchParams } = new URL(request.url);
-    const status = searchParams.get('status');
-    const limit = Math.min(parseInt(searchParams.get('limit') || '10'), 50);
-    const offset = parseInt(searchParams.get('offset') || '0');
+    const where: any = {};
+    
+    // Filter by user's streams or public streams
+    if (myStreamsOnly) {
+      where.artistId = session.user.id;
+    } else {
+      // For public discovery, only show public streams
+      where.isPublic = true;
+    }
 
-    const where: any = {
-      artistId: session.user.id,
-    };
-
-    if (status) {
+    // Add filters
+    if (status && status !== 'all') {
       where.status = status.toUpperCase();
+    }
+    
+    // Add category filter (would need category field in schema)
+    // For now, we'll skip category filtering
+    
+    // Add search filter
+    if (search && search.trim()) {
+      where.OR = [
+        { title: { contains: search.trim() } },
+        { description: { contains: search.trim() } }
+      ];
     }
 
     const streams = await prisma.live_streams.findMany({
@@ -64,11 +87,11 @@ export async function GET(request: NextRequest) {
       take: limit,
       skip: offset,
       include: {
-        _count: {
+        users: {
           select: {
-            viewers: true,
-            chatMessages: true,
-            tips: true,
+            id: true,
+            displayName: true,
+            avatar: true,
           },
         },
       },
@@ -82,9 +105,33 @@ export async function GET(request: NextRequest) {
         streams: streams.map(stream => ({
           ...stream,
           tierIds: JSON.parse(stream.tierIds),
-          totalViewers: stream._count.viewers,
-          totalMessages: stream._count.chatMessages,
-          totalTips: stream._count.tips,
+          streamer: {
+            id: stream.users.id,
+            userName: stream.users.displayName, // Using displayName as username
+            displayName: stream.users.displayName,
+            avatar: stream.users.avatar,
+            isVerified: false, // TODO: implement verification system
+            isOnline: true, // TODO: implement online status
+            followers: 0, // TODO: implement follower count
+          },
+          metadata: {
+            currentViewers: 0, // TODO: implement real-time viewer count
+            totalViews: stream.totalViewers || 0,
+            duration: 0, // TODO: calculate stream duration
+            totalDonations: stream.totalTips || 0,
+            likes: 0, // TODO: implement likes system
+            shares: 0, // TODO: implement shares system
+            chatMessages: 0, // TODO: implement chat message count
+            quality: ['720p'], // TODO: implement quality options
+            maxQuality: '720p',
+          },
+          settings: {
+            enableChat: true,
+            enableDonations: true,
+            chatModeration: 'moderate',
+            subscribersOnly: false,
+            isPrivate: !stream.isPublic,
+          },
         })),
         pagination: {
           total,
@@ -96,6 +143,24 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     logger.error('Failed to fetch livestreams', { userId: session?.user?.id }, error as Error);
+    
+    // Check if it's a missing table error
+    if (error instanceof Error && error.message.includes('does not exist')) {
+      return NextResponse.json({
+        success: true,
+        data: {
+          streams: [],
+          pagination: {
+            total: 0,
+            limit,
+            offset,
+            hasMore: false,
+          },
+        },
+        message: 'Streaming feature is being set up. Check back soon!'
+      });
+    }
+    
     return NextResponse.json(
       { success: false, error: { message: 'Internal server error' } },
       { status: 500 }
@@ -199,6 +264,15 @@ export async function POST(request: NextRequest) {
     }
 
     logger.error('Failed to create livestream', { userId: session?.user?.id }, error as Error);
+    
+    // Check if it's a missing table error
+    if (error instanceof Error && error.message.includes('does not exist')) {
+      return NextResponse.json(
+        { success: false, error: { message: 'Streaming feature is being set up. Please try again later.' } },
+        { status: 503 }
+      );
+    }
+    
     return NextResponse.json(
       { success: false, error: { message: 'Internal server error' } },
       { status: 500 }

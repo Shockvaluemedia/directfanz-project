@@ -1,14 +1,17 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { redis } from '@/lib/redis';
+import { checkDatabaseHealth, checkRedisHealth } from '@/lib/health-utils';
 import { logger } from '@/lib/logger';
 
 // Force this route to be dynamic
 export const dynamic = 'force-dynamic';
 
+// Serverless function timeout (25 seconds for Vercel)
+const FUNCTION_TIMEOUT = 25000;
+const CONNECTION_TIMEOUT = 5000; // 5 seconds max per connection check
+
 /**
- * Health check endpoint for monitoring system status
- * This endpoint checks database and Redis connectivity
+ * Health check endpoint optimized for serverless environment
+ * This endpoint checks database and Redis connectivity with timeouts
  */
 export async function GET() {
   const startTime = Date.now();
@@ -16,60 +19,82 @@ export async function GET() {
     api: { status: 'ok' },
   };
 
-  // Check database connection
-  try {
-    const dbStartTime = Date.now();
-    await prisma.$queryRaw`SELECT 1`;
-    checks.database = {
-      status: 'ok',
-      latency: Date.now() - dbStartTime,
-    };
-  } catch (error) {
-    logger.error('Health check: Database connection failed', {}, error as Error);
+  // Helper function to run checks with timeout
+  const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Operation timed out')), timeoutMs)
+    );
+    return Promise.race([promise, timeout]);
+  };
+
+  // Run database and Redis checks in parallel with timeout
+  const [databaseResult, redisResult] = await Promise.allSettled([
+    withTimeout(checkDatabaseHealth(), CONNECTION_TIMEOUT),
+    withTimeout(checkRedisHealth(), CONNECTION_TIMEOUT),
+  ]);
+
+  // Process database check result
+  if (databaseResult.status === 'fulfilled') {
+    checks.database = databaseResult.value;
+  } else {
+    const error = databaseResult.reason;
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Health check: Database check failed', { error: message });
     checks.database = {
       status: 'error',
-      message: 'Could not connect to database',
+      latency: 0,
+      message: message.includes('timed out') ? 'Database connection timeout' : 'Database health check failed',
     };
   }
 
-  // Check Redis connection
-  try {
-    const redisStartTime = Date.now();
-    await redis.ping();
-    checks.redis = {
-      status: 'ok',
-      latency: Date.now() - redisStartTime,
-    };
-  } catch (error) {
-    logger.error('Health check: Redis connection failed', {}, error as Error);
+  // Process Redis check result
+  if (redisResult.status === 'fulfilled') {
+    checks.redis = redisResult.value;
+  } else {
+    const error = redisResult.reason;
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Health check: Redis check failed', { error: message });
     checks.redis = {
       status: 'error',
-      message: 'Could not connect to Redis',
+      latency: 0,
+      message: message.includes('timed out') ? 'Redis connection timeout' : 'Redis health check failed',
     };
   }
 
-  // Overall status
-  const isHealthy = Object.values(checks).every(check => check.status === 'ok');
+  // Overall status - consider degraded if Redis fails but DB is ok
+  const dbHealthy = checks.database.status === 'ok';
+  const redisHealthy = checks.redis.status === 'ok';
+  const isHealthy = dbHealthy && redisHealthy;
+  const isDegraded = dbHealthy && !redisHealthy; // Can still function without Redis
+  
   const totalLatency = Date.now() - startTime;
 
   // Log health check results
   if (isHealthy) {
     logger.info('Health check passed', { latency: totalLatency });
+  } else if (isDegraded) {
+    logger.warn('Health check degraded - Redis unavailable', { checks, latency: totalLatency });
   } else {
-    logger.warn('Health check failed', { checks, latency: totalLatency });
+    logger.error('Health check failed', { checks, latency: totalLatency });
   }
+
+  // Return appropriate status
+  const status = isHealthy ? 'healthy' : isDegraded ? 'degraded' : 'unhealthy';
+  const httpStatus = isHealthy ? 200 : isDegraded ? 200 : 503; // 200 for degraded (still functional)
 
   return NextResponse.json(
     {
-      status: isHealthy ? 'healthy' : 'unhealthy',
+      status,
       timestamp: new Date().toISOString(),
       checks,
       latency: totalLatency,
+      environment: process.env.NODE_ENV || 'unknown',
     },
     {
-      status: isHealthy ? 200 : 503,
+      status: httpStatus,
       headers: {
         'Cache-Control': 'no-store, max-age=0',
+        'X-Health-Check': 'true',
       },
     }
   );
