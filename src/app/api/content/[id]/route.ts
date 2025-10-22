@@ -100,7 +100,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         success: true,
         data: {
           ...content,
-          tags: JSON.parse(content.tags),
+          tags: content.tags ? JSON.parse(content.tags) : [],
         },
       });
     } catch (error) {
@@ -232,7 +232,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         message: 'Content updated successfully',
         data: {
           ...updatedContent,
-          tags: JSON.parse(updatedContent.tags),
+          tags: updatedContent.tags ? JSON.parse(updatedContent.tags) : [],
         },
       });
     } catch (error) {
@@ -291,9 +291,11 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
       // Extract S3 keys from URLs for cleanup
       try {
-        const fileKey = content.fileUrl.split('/').pop();
-        if (fileKey && content.fileUrl.includes('amazonaws.com')) {
-          await FileUploader.deleteFromS3(fileKey);
+        if (content.fileUrl) {
+          const fileKey = content.fileUrl.split('/').pop();
+          if (fileKey && content.fileUrl.includes('amazonaws.com')) {
+            await FileUploader.deleteFromS3(fileKey);
+          }
         }
 
         if (content.thumbnailUrl) {

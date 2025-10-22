@@ -220,13 +220,13 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
       });
 
       // Send notification email to fan about payment failure
-      if (subscription.users.email) {
+      if (subscription.fan.email) {
         await sendEmail({
-          to: subscription.users.email,
-          subject: `Payment Failed for ${subscription.tiers.artist?.displayName || 'Artist'} Subscription`,
+          to: subscription.fan.email,
+          subject: `Payment Failed for ${subscription.tier.artist?.displayName || 'Artist'} Subscription`,
           html: `
             <h1>Payment Failed</h1>
-            <p>We were unable to process your payment for your subscription to ${subscription.tiers.name}.</p>
+            <p>We were unable to process your payment for your subscription to ${subscription.tier.name}.</p>
             <p>This was attempt ${invoice.attempt_count} of 3. ${
               invoice.next_payment_attempt
                 ? `We'll try again on ${new Date(invoice.next_payment_attempt * 1000).toLocaleDateString()}.`
@@ -235,8 +235,8 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
             <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions">Manage your subscriptions</a></p>
           `,
           text:
-            `Payment Failed for ${subscription.tiers.artist?.displayName || 'Artist'} Subscription\n\n` +
-            `We were unable to process your payment for your subscription to ${subscription.tiers.name}.\n\n` +
+            `Payment Failed for ${subscription.tier.artist?.displayName || 'Artist'} Subscription\n\n` +
+            `We were unable to process your payment for your subscription to ${subscription.tier.name}.\n\n` +
             `This was attempt ${invoice.attempt_count} of 3. ${
               invoice.next_payment_attempt
                 ? `We'll try again on ${new Date(invoice.next_payment_attempt * 1000).toLocaleDateString()}.`
