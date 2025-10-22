@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { redis } from '@/lib/redis';
 import { logger } from '@/lib/logger';
 import { captureMessage } from '@/lib/sentry';
-import { SubscriptionStatus } from '@prisma/client';
+import { SubscriptionStatus } from '@/lib/types/enums';
 
 /**
  * Cron health check endpoint for scheduled monitoring
