@@ -466,7 +466,7 @@ export class AudioProcessor {
     }
 
     // Metadata
-    args.push('-metadata', 'encoder=Nahvee Audio Processor');
+    args.push('-metadata', 'encoder=DirectFanz Audio Processor');
 
     // Output file
     args.push(outputFile);

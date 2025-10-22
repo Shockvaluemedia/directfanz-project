@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { AdvancedAnalyticsDashboard } from '@/components/analytics/AdvancedAnalyticsDashboard';
 
 export const metadata = {
-  title: 'Analytics | Nahvee Even',
+  title: 'Analytics | DirectFanz',
   description: 'Comprehensive analytics and insights for your content',
 };
 

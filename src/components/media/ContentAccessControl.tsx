@@ -384,7 +384,7 @@ export function ContentAccessControl({
             <Lock className='h-12 w-12 mx-auto mb-4 text-muted-foreground' />
             <h3 className='text-lg font-semibold mb-2'>Sign in to access exclusive content</h3>
             <p className='text-muted-foreground mb-4'>
-              Join Nahvee Even to subscribe to your favorite artists and access exclusive content
+              Join DirectFanz to subscribe to your favorite artists and access exclusive content
             </p>
             <div className='flex justify-center space-x-3'>
               <Button>Sign In</Button>

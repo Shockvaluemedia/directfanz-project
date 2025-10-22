@@ -17,16 +17,16 @@ import { ProcessingOutput } from './core';
 export const STREAMING_CONFIG = {
   // CDN Settings
   CDN: {
-    primaryDomain: process.env.AWS_CLOUDFRONT_DOMAIN || 'cdn.nahvee.com',
+    primaryDomain: process.env.AWS_CLOUDFRONT_DOMAIN || 'cdn.directfanz.com',
     fallbackDomains: [
       process.env.AWS_S3_BUCKET_NAME + '.s3.amazonaws.com',
-      'backup-cdn.nahvee.com',
+      'backup-cdn.directfanz.com',
     ],
     regionMapping: {
-      'us-east-1': 'us-east.cdn.nahvee.com',
-      'us-west-2': 'us-west.cdn.nahvee.com',
-      'eu-west-1': 'eu.cdn.nahvee.com',
-      'ap-southeast-1': 'asia.cdn.nahvee.com',
+      'us-east-1': 'us-east.cdn.directfanz.com',
+      'us-west-2': 'us-west.cdn.directfanz.com',
+      'eu-west-1': 'eu.cdn.directfanz.com',
+      'ap-southeast-1': 'asia.cdn.directfanz.com',
     },
   },
 

@@ -8,7 +8,7 @@ interface ContentPageProps {
 }
 
 export const metadata = {
-  title: 'Content | Nahvee Even',
+  title: 'Content | DirectFanz',
   description: 'View exclusive content from your favorite artists',
 };
 

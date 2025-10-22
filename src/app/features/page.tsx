@@ -233,7 +233,7 @@ export default function FeaturesPage() {
             </h1>
 
             <p className='text-xl md:text-2xl text-white/90 mb-8 max-w-4xl mx-auto'>
-              Discover the cutting-edge technology that sets Nahvee Even apart from every other
+              Discover the cutting-edge technology that sets DirectFanz apart from every other
               creator platform
             </p>
 

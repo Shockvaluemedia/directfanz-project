@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { ContentDashboard } from '@/components/dashboard/ContentDashboard';
 
 export const metadata = {
-  title: 'Content Management | Nahvee Even',
+  title: 'Content Management | DirectFanz',
   description: 'Manage your content and track performance',
 };
 

@@ -122,7 +122,7 @@ export default function UIShowcasePage() {
             UI Components Showcase
           </h1>
           <Typewriter
-            text='Experience the polished interface of Nahvee Even'
+            text='Experience the polished interface of DirectFanz'
             speed={50}
             className='text-lg text-gray-600 dark:text-gray-400'
           />
