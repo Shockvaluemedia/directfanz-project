@@ -14,7 +14,7 @@ import {
   BellIcon,
   Cog6ToothIcon,
   ArrowLeftOnRectangleIcon,
-  MusicNoteIcon,
+  MusicalNoteIcon,
   VideoCameraIcon,
   ChatBubbleLeftRightIcon,
   BanknotesIcon,
@@ -62,7 +62,7 @@ const navItems: NavItem[] = [
     id: 'content',
     label: 'My Content',
     href: '/dashboard/content',
-    icon: MusicNoteIcon,
+    icon: MusicalNoteIcon,
     roles: ['ARTIST'],
   },
   {
@@ -187,7 +187,7 @@ export default function MobileNav({ className }: MobileNavProps) {
             <div className='flex items-center justify-between p-4 border-b border-gray-200'>
               <div className='flex items-center space-x-3'>
                 <div className='w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center'>
-                  <MusicNoteIcon className='w-5 h-5 text-white' />
+                  <MusicalNoteIcon className='w-5 h-5 text-white' />
                 </div>
                 <div>
                   <h2 className='font-semibold text-gray-900'>Direct Fan</h2>

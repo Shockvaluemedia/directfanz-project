@@ -10,7 +10,7 @@
  */
 
 import ffmpeg from 'fluent-ffmpeg';
-import ffmpegStatic from 'ffmpeg-static';
+import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import ffprobeStatic from 'ffprobe-static';
 import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
@@ -22,10 +22,10 @@ import { logger } from '../logger';
 import { ContentType } from '../types/enums';
 
 // Configure FFmpeg paths
-if (ffmpegStatic) {
-  ffmpeg.setFfmpegPath(ffmpegStatic);
+if (ffmpegInstaller?.path) {
+  ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 }
-if (ffprobeStatic) {
+if (ffprobeStatic?.path) {
   ffmpeg.setFfprobePath(ffprobeStatic.path);
 }
 

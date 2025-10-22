@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   UserIcon,
-  MusicNoteIcon,
+  MusicalNoteIcon,
   HeartIcon,
   StarIcon,
   CheckIcon,
@@ -94,7 +94,7 @@ const RoleSelectionStep = ({
         onClick={() => setSelectedRole('ARTIST')}
       >
         <div className='w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full mx-auto mb-4 flex items-center justify-center'>
-          <MusicNoteIcon className='w-8 h-8 text-white' />
+          <MusicalNoteIcon className='w-8 h-8 text-white' />
         </div>
         <h3 className='text-xl font-semibold text-gray-900 mb-2'>I'm a Creator</h3>
         <p className='text-gray-600 mb-4'>I create content and want to monetize my fanbase</p>

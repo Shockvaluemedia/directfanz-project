@@ -14,7 +14,7 @@ import {
   UserIcon,
   TagIcon,
   FireIcon,
-  TrendingUpIcon,
+  TrendingUpIcon as TrendingUp,
   SparklesIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
@@ -78,7 +78,7 @@ const typeOptions = [
 const sortOptions = [
   { value: 'RECENT', label: 'Most Recent', icon: CalendarIcon },
   { value: 'POPULAR', label: 'Most Popular', icon: HeartIcon },
-  { value: 'TRENDING', label: 'Trending', icon: TrendingUpIcon },
+  { value: 'TRENDING', label: 'Trending', icon: TrendingUpIcon as TrendingUp },
   { value: 'RECOMMENDED', label: 'Recommended', icon: SparklesIcon },
 ];
 

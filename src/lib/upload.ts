@@ -7,15 +7,15 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import sharp from 'sharp';
 import ffmpeg from 'fluent-ffmpeg';
-import ffmpegStatic from 'ffmpeg-static';
+import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import { lookup as mimeTypeLookup } from 'mime-types';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { ContentType } from '@/lib/types/enums';
 
 // Set ffmpeg binary path
-if (ffmpegStatic) {
-  ffmpeg.setFfmpegPath(ffmpegStatic);
+if (ffmpegInstaller?.path) {
+  ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 }
 
 // Configure AWS S3 client

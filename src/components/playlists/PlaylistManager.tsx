@@ -25,7 +25,7 @@ import {
   Lock,
   Users,
   Clock,
-  DragHandleDots2Icon,
+  GripVertical,
   GripVertical,
 } from 'lucide-react';
 import {
