@@ -13,9 +13,7 @@ import {
   UserGroupIcon,
   ChartBarIcon,
   SparklesIcon,
-  CrownIcon,
-  ShieldIcon,
-  LightningBoltIcon,
+  ShieldCheckIcon,
   BeakerIcon,
 } from '@heroicons/react/24/outline';
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
@@ -746,7 +744,7 @@ export default function FanEngagementHub({ currentUser, className = '' }: FanEng
                         <p className='text-sm text-gray-600'>Level {level.level}</p>
                       </div>
                       {currentUser.level >= level.level && (
-                        <CrownIcon className='w-5 h-5 text-yellow-500' />
+                        <TrophyIcon className='w-5 h-5 text-yellow-500' />
                       )}
                     </div>
 

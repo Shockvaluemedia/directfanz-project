@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id || session.user.role !== 'ARTIST') {
-      throw UnauthorizedError('Artist authentication required');
+      throw new UnauthorizedError('Artist authentication required');
     }
 
     const body = await request.json();
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     );
 
     if (validationErrors.length > 0) {
-      throw ValidationError('File validation failed', { errors: validationErrors });
+      throw new ValidationError('File validation failed', { errors: validationErrors });
     }
 
     // Generate presigned URL
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
 
     if (error instanceof z.ZodError) {
       return createErrorResponse(
-        ValidationError('Invalid request data', { errors: error.errors }),
+        new ValidationError('Invalid request data', { errors: error.errors }),
         requestId || undefined
       );
     }
