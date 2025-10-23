@@ -1,6 +1,7 @@
 import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
-// OAuth providers removed - add back when credentials are configured
+import GoogleProvider from 'next-auth/providers/google';
+// import FacebookProvider from 'next-auth/providers/facebook'; // Uncomment when Facebook credentials are ready
 import bcrypt from 'bcryptjs';
 import { prisma } from './prisma';
 
@@ -58,7 +59,23 @@ export const authOptions: NextAuthOptions = {
         }
       },
     }),
-    // OAuth providers removed - add back when credentials are configured
+    // Google OAuth Provider
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID || '',
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+      authorization: {
+        params: {
+          prompt: 'consent',
+          access_type: 'offline',
+          response_type: 'code',
+        },
+      },
+    }),
+    // Facebook OAuth Provider - Uncomment when credentials are ready
+    // FacebookProvider({
+    //   clientId: process.env.FACEBOOK_CLIENT_ID || '',
+    //   clientSecret: process.env.FACEBOOK_CLIENT_SECRET || '',
+    // }),
   ],
   session: {
     strategy: 'jwt',
