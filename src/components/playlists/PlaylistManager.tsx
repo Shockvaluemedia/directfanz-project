@@ -26,7 +26,6 @@ import {
   Users,
   Clock,
   GripVertical,
-  GripVertical,
 } from 'lucide-react';
 import {
   Dialog,

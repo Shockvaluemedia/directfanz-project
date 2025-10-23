@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
+// Temporarily disabled Google Fonts due to network requirements in build environment
+// import { Inter } from 'next/font/google';
 import './globals.css';
 import AuthSessionProvider from '@/components/providers/session-provider';
 import { WebSocketClientProvider } from '@/components/providers/WebSocketClientProvider';
@@ -11,7 +12,9 @@ import StaticHeader from '@/components/navigation/StaticHeader';
 import StaticBreadcrumbs from '@/components/navigation/StaticBreadcrumbs';
 import ErrorBoundary from '@/components/ErrorBoundary';
 
-const inter = Inter({ subsets: ['latin'] });
+// const inter = Inter({ subsets: ['latin'] });
+// Using system fonts as fallback during offline build
+const inter = { className: 'font-sans' };
 
 // Generate CSP directives - DISABLED FOR DEBUGGING
 // const csp = generateCSP();
