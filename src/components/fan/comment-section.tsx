@@ -1,10 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { Comment } from '@prisma/client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 
-interface CommentWithUser extends Comment {
+interface CommentWithUser {
+  id: string;
+  contentId: string;
+  fanId: string;
+  text: string;
+  createdAt: Date;
+  updatedAt: Date;
   fan: {
     id: string;
     displayName: string;

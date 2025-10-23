@@ -3,10 +3,11 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import {
   createErrorResponse,
+  createApiContext,
   UnauthorizedError,
-  ValidationError,
   NotFoundError,
 } from '@/lib/api-error-handler';
+import { AppError, ErrorCode } from '@/lib/errors';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { s3Client } from '@/lib/s3';
@@ -86,15 +87,30 @@ export async function POST(request: NextRequest) {
       throw new Error('Failed to verify file upload');
     }
   } catch (error) {
-    const requestId = request.headers.get('x-request-id');
+    const context = createApiContext(request);
 
     if (error instanceof z.ZodError) {
       return createErrorResponse(
-        new ValidationError('Invalid request data', { errors: error.errors }),
-        requestId || undefined
+        new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          'Invalid request data',
+          400,
+          { errors: error.errors }
+        ),
+        context
       );
     }
 
-    return createErrorResponse(error, requestId || undefined);
+    // Convert error to AppError if it isn't already
+    const appError =
+      error instanceof AppError
+        ? error
+        : new AppError(
+            ErrorCode.INTERNAL_SERVER_ERROR,
+            error instanceof Error ? error.message : 'An unexpected error occurred',
+            500
+          );
+
+    return createErrorResponse(appError, context);
   }
 }

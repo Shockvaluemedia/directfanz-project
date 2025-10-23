@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { generatePresignedUrl, validateFileUpload } from '@/lib/s3';
-import { createErrorResponse, UnauthorizedError, ValidationError } from '@/lib/api-error-handler';
+import { createErrorResponse, createApiContext, UnauthorizedError } from '@/lib/api-error-handler';
+import { AppError, ErrorCode } from '@/lib/errors';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 
@@ -31,7 +32,12 @@ export async function POST(request: NextRequest) {
     );
 
     if (validationErrors.length > 0) {
-      throw new ValidationError('File validation failed', { errors: validationErrors });
+      throw new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        'File validation failed',
+        400,
+        { errors: validationErrors }
+      );
     }
 
     // Generate presigned URL
@@ -56,15 +62,30 @@ export async function POST(request: NextRequest) {
       data: uploadInfo,
     });
   } catch (error) {
-    const requestId = request.headers.get('x-request-id');
+    const context = createApiContext(request);
 
     if (error instanceof z.ZodError) {
       return createErrorResponse(
-        new ValidationError('Invalid request data', { errors: error.errors }),
-        requestId || undefined
+        new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          'Invalid request data',
+          400,
+          { errors: error.errors }
+        ),
+        context
       );
     }
 
-    return createErrorResponse(error, requestId || undefined);
+    // Convert error to AppError if it isn't already
+    const appError =
+      error instanceof AppError
+        ? error
+        : new AppError(
+            ErrorCode.INTERNAL_SERVER_ERROR,
+            error instanceof Error ? error.message : 'An unexpected error occurred',
+            500
+          );
+
+    return createErrorResponse(appError, context);
   }
 }

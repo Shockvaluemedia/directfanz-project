@@ -4,14 +4,13 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   ChartBarIcon,
-  ArrowTrendingUpIcon as TrendingUp,
+  ArrowTrendingUpIcon,
   ArrowTrendingDownIcon,
   EyeIcon,
   HeartIcon,
   BanknotesIcon,
   UserGroupIcon,
   CalendarIcon,
-  TrendingUpIcon as TrendingUp,
   DocumentTextIcon,
   GlobeAltIcon,
   DevicePhoneMobileIcon,
@@ -107,7 +106,7 @@ function MetricCard({ title, value, change, icon: Icon, color, subtitle }: Metri
           }`}
         >
           {isPositive ? (
-            <ArrowTrendingUpIcon as TrendingUp className='w-4 h-4' />
+            <ArrowTrendingUpIcon className='w-4 h-4' />
           ) : (
             <ArrowTrendingDownIcon className='w-4 h-4' />
           )}

@@ -64,7 +64,8 @@ export async function GET() {
   // Check Redis connection and memory usage
   try {
     const info = await redis.info();
-    const memoryMatch = info.match(/used_memory_human:(.+)/);
+    const infoString = typeof info === 'string' ? info : Buffer.isBuffer(info) ? info.toString('utf-8') : String(info);
+    const memoryMatch = infoString.match(/used_memory_human:(.+)/);
     const memoryUsage = memoryMatch ? memoryMatch[1].trim() : 'unknown';
 
     metrics.redis = {

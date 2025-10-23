@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
     const stripeInvoice = await stripe.invoices.retrieve(stripeInvoiceId);
 
     // Verify ownership
-    const subscription = await prisma.subscriptions.findUnique({
+    const subscription = await prisma.subscriptions.findFirst({
       where: {
         stripeSubscriptionId: stripeInvoice.subscription as string,
         OR: [{ fanId: session.user.id }, { artistId: session.user.id }],

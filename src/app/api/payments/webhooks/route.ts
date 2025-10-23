@@ -206,7 +206,7 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
       });
 
       // Create a payment failure record for tracking
-      await prisma.paymentFailure.create({
+      await prisma.payment_failures.create({
         data: {
           subscriptionId: subscription.id,
           stripeInvoiceId: invoice.id,
