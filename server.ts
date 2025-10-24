@@ -5,6 +5,7 @@ import { parse } from 'node:url';
 import { webSocketInstance } from './src/lib/websocket-instance';
 import { logger } from './src/lib/logger';
 import { startScheduledPublishJob } from './src/lib/cron/publish-scheduled-content';
+import { startArtistSimilarityJob } from './src/lib/cron/calculate-artist-similarity';
 import type {
   ServerToClientEvents,
   ClientToServerEvents,
@@ -76,9 +77,12 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         logger.info(`🚀 Server ready on http://${hostname}:${port}`);
         logger.info('📡 WebSocket and WebRTC signaling server active');
 
-        // Start scheduled content publish cron job
+        // Start cron jobs
         startScheduledPublishJob();
         logger.info('⏰ Scheduled content publish job initialized');
+
+        startArtistSimilarityJob();
+        logger.info('🔍 Artist similarity calculation job initialized');
       });
     })
     .catch(err => {
