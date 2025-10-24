@@ -4,6 +4,7 @@ import { Server as SocketIOServer } from 'socket.io';
 import { parse } from 'node:url';
 import { webSocketInstance } from './src/lib/websocket-instance';
 import { logger } from './src/lib/logger';
+import { startScheduledPublishJob } from './src/lib/cron/publish-scheduled-content';
 import type {
   ServerToClientEvents,
   ClientToServerEvents,
@@ -74,6 +75,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       httpServer.listen(port, () => {
         logger.info(`🚀 Server ready on http://${hostname}:${port}`);
         logger.info('📡 WebSocket and WebRTC signaling server active');
+
+        // Start scheduled content publish cron job
+        startScheduledPublishJob();
+        logger.info('⏰ Scheduled content publish job initialized');
       });
     })
     .catch(err => {
