@@ -1015,13 +1015,378 @@ export class StreamingServer {
 
   // Helper methods (implementation details)
   private async getUserFromDatabase(userId: string): Promise<any> {
-    // Implementation to get user from database
-    return { id: userId, name: 'User', avatar: null };
+    try {
+      const user = await prisma.users.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          avatar: true,
+          stripeAccountId: true,
+        },
+      });
+
+      return user;
+    } catch (error) {
+      logger.error('Failed to get user from database', { userId, error });
+      return null;
+    }
   }
 
   private async canUserStream(userId: string): Promise<boolean> {
-    // Check if user has streaming permissions
-    return true; // Implement actual logic
+    try {
+      // Check if user is an artist
+      const user = await prisma.users.findFirst({
+        where: {
+          id: userId,
+          role: 'ARTIST',
+        },
+      });
+
+      if (!user) {
+        return false;
+      }
+
+      // Check if user has Stripe account set up
+      if (!user.stripeAccountId) {
+        logger.warn('Artist cannot stream without Stripe account', { userId });
+        return false;
+      }
+
+      // Check if user has any active subscriptions or is verified
+      // You can add additional business logic here
+      return true;
+    } catch (error) {
+      logger.error('Failed to check streaming permissions', { userId, error });
+      return false;
+    }
+  }
+
+  private async checkStreamAccess(userId: string, stream: StreamSession): Promise<boolean> {
+    try {
+      // Public streams are accessible to everyone
+      if (stream.isPrivate === false) {
+        return true;
+      }
+
+      // Stream owner always has access
+      if (stream.streamerId === userId) {
+        return true;
+      }
+
+      // Check tier-based access
+      if (stream.settings.subscribersOnly) {
+        const subscription = await prisma.subscriptions.findFirst({
+          where: {
+            fanId: userId,
+            artistId: stream.streamerId,
+            status: 'ACTIVE',
+          },
+        });
+
+        if (!subscription) {
+          return false;
+        }
+
+        // If specific tiers are required, check if user has one of them
+        const requiredTiers = JSON.parse(stream.settings.rtmpKey || '[]');
+        if (requiredTiers.length > 0) {
+          return requiredTiers.includes(subscription.tierId);
+        }
+
+        return true;
+      }
+
+      // Check payment requirement
+      if (stream.metadata.totalDonations > 0) {
+        // You can add logic to check if user has paid for stream access
+        return true;
+      }
+
+      return true;
+    } catch (error) {
+      logger.error('Failed to check stream access', { userId, streamId: stream.id, error });
+      return false;
+    }
+  }
+
+  private async canUserChat(userId: string, stream: StreamSession): Promise<boolean> {
+    try {
+      if (!stream.settings.enableChat) {
+        return false;
+      }
+
+      // Check if user is banned or muted
+      // You can implement a ban/mute system here
+
+      // Check if chat is subscribers-only
+      if (stream.settings.subscribersOnly) {
+        const subscription = await prisma.subscriptions.findFirst({
+          where: {
+            fanId: userId,
+            artistId: stream.streamerId,
+            status: 'ACTIVE',
+          },
+        });
+
+        return !!subscription;
+      }
+
+      return true;
+    } catch (error) {
+      logger.error('Failed to check chat permissions', { userId, streamId: stream.id, error });
+      return false;
+    }
+  }
+
+  private async getStreamerInfo(streamerId: string): Promise<any> {
+    try {
+      const user = await prisma.users.findUnique({
+        where: { id: streamerId },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          avatar: true,
+          bio: true,
+          role: true,
+          artists: {
+            select: {
+              displayName: true,
+              bio: true,
+              profilePicture: true,
+              _count: {
+                select: {
+                  subscriptions: true,
+                  content: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!user) {
+        return null;
+      }
+
+      return {
+        id: user.id,
+        name: user.name,
+        avatar: user.avatar || user.artists[0]?.profilePicture,
+        bio: user.bio || user.artists[0]?.bio,
+        displayName: user.artists[0]?.displayName || user.name,
+        subscriberCount: user.artists[0]?._count?.subscriptions || 0,
+        contentCount: user.artists[0]?._count?.content || 0,
+      };
+    } catch (error) {
+      logger.error('Failed to get streamer info', { streamerId, error });
+      return null;
+    }
+  }
+
+  private async getStreamerSocket(streamerId: string): Promise<any> {
+    try {
+      // Find the socket for the streamer
+      const sockets = await this.io.fetchSockets();
+      const streamerSocket = sockets.find(socket => socket.data.user?.id === streamerId);
+      return streamerSocket || null;
+    } catch (error) {
+      logger.error('Failed to get streamer socket', { streamerId, error });
+      return null;
+    }
+  }
+
+  private async sendUserStreams(socket: any): Promise<void> {
+    try {
+      const user = socket.data.user;
+      if (!user) return;
+
+      // Get user's active streams (if they're an artist)
+      const streams = await prisma.live_streams.findMany({
+        where: {
+          artistId: user.id,
+          status: {
+            in: ['LIVE', 'SCHEDULED', 'STARTING'],
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        take: 10,
+      });
+
+      socket.emit('user_streams', {
+        streams: streams.map(stream => ({
+          id: stream.id,
+          title: stream.title,
+          status: stream.status,
+          scheduledAt: stream.scheduledAt,
+          startedAt: stream.startedAt,
+          viewerCount: stream.totalViewers,
+        })),
+      });
+    } catch (error) {
+      logger.error('Failed to send user streams', { userId: socket.data.user?.id, error });
+    }
+  }
+
+  private async getStreamChatHistory(streamId: string, limit: number = 50): Promise<StreamChatMessage[]> {
+    try {
+      const messages = await prisma.stream_chat_messages.findMany({
+        where: {
+          streamId,
+          isModerated: false,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        take: limit,
+      });
+
+      return messages.map(msg => ({
+        id: msg.id,
+        streamId: msg.streamId,
+        userId: msg.senderId || 'anonymous',
+        userName: msg.senderName,
+        avatar: undefined,
+        content: msg.message,
+        type: msg.type.toLowerCase() as 'message' | 'donation' | 'subscription' | 'system',
+        isModerated: msg.isModerated,
+        createdAt: msg.createdAt,
+      })).reverse(); // Reverse to show oldest first
+    } catch (error) {
+      logger.error('Failed to get chat history', { streamId, error });
+      return [];
+    }
+  }
+
+  private async notifyStreamStart(streamId: string): Promise<void> {
+    try {
+      const stream = this.activeStreams.get(streamId);
+      if (!stream) return;
+
+      // Get all subscribers of the artist
+      const subscribers = await prisma.subscriptions.findMany({
+        where: {
+          artistId: stream.streamerId,
+          status: 'ACTIVE',
+        },
+        include: {
+          fan: {
+            select: {
+              id: true,
+              email: true,
+              name: true,
+            },
+          },
+        },
+      });
+
+      const streamerInfo = await this.getStreamerInfo(stream.streamerId);
+
+      // Send notifications to all subscribers
+      const notificationPromises = subscribers.map(async sub => {
+        try {
+          // Import notification service dynamically to avoid circular dependency
+          const { sendNotification } = await import('../notifications');
+
+          await sendNotification({
+            userId: sub.fanId,
+            type: 'content_uploaded', // Reusing existing type
+            title: `${streamerInfo?.displayName || 'An artist'} is now live!`,
+            message: `${stream.title} - Join the stream now!`,
+            data: {
+              streamId: stream.id,
+              streamUrl: `/stream/${stream.id}`,
+              artistId: stream.streamerId,
+            },
+            channels: ['email', 'push', 'in_app'],
+            priority: 'high',
+          });
+        } catch (error) {
+          logger.error('Failed to notify subscriber', { subscriberId: sub.fanId, error });
+        }
+      });
+
+      await Promise.allSettled(notificationPromises);
+
+      logger.info('Notified subscribers of stream start', {
+        streamId,
+        subscriberCount: subscribers.length,
+      });
+    } catch (error) {
+      logger.error('Failed to notify stream start', { streamId, error });
+    }
+  }
+
+  private async handleModerateMessage(
+    socket: any,
+    data: { messageId: string; action: 'delete' | 'timeout' }
+  ): Promise<void> {
+    const user = socket.data.user;
+
+    try {
+      // Get the message
+      const message = await prisma.stream_chat_messages.findUnique({
+        where: { id: data.messageId },
+        include: {
+          live_streams: {
+            select: {
+              artistId: true,
+            },
+          },
+        },
+      });
+
+      if (!message) {
+        socket.emit('error', { message: 'Message not found' });
+        return;
+      }
+
+      // Check if user is the stream owner
+      if (message.live_streams.artistId !== user.id) {
+        socket.emit('error', { message: 'Not authorized to moderate' });
+        return;
+      }
+
+      if (data.action === 'delete') {
+        // Mark message as moderated
+        await prisma.stream_chat_messages.update({
+          where: { id: data.messageId },
+          data: {
+            isModerated: true,
+            moderatedBy: user.id,
+            moderationReason: 'Deleted by moderator',
+          },
+        });
+
+        // Broadcast message deletion
+        this.io.to(message.streamId).emit('message_deleted', {
+          messageId: data.messageId,
+          streamId: message.streamId,
+        });
+
+        logger.info('Message moderated', {
+          messageId: data.messageId,
+          streamId: message.streamId,
+          action: data.action,
+          moderatorId: user.id,
+        });
+      } else if (data.action === 'timeout') {
+        // Implement timeout logic - remove user from stream temporarily
+        // This would require a separate timeout tracking system
+        logger.info('User timeout requested', {
+          userId: message.senderId,
+          streamId: message.streamId,
+        });
+      }
+    } catch (error) {
+      logger.error('Failed to moderate message', { messageId: data.messageId, error });
+      socket.emit('error', { message: 'Failed to moderate message' });
+    }
   }
 
   private generateRTMPKey(): string {
@@ -1078,15 +1443,112 @@ export class StreamingServer {
   }
 
   private async setupStreamProcessing(streamId: string): Promise<void> {
-    // Setup multi-quality stream processing
-    // This would involve FFmpeg or similar for transcoding
+    const stream = this.activeStreams.get(streamId);
+    if (!stream) return;
+
+    try {
+      // Setup adaptive bitrate streaming with multiple quality levels
+      // This creates HLS (HTTP Live Streaming) segments for different quality levels
+
+      const streamDir = path.join(process.cwd(), 'streams', streamId);
+      const hlsDir = path.join(streamDir, 'hls');
+      await fs.mkdir(hlsDir, { recursive: true });
+
+      // Create FFmpeg process for each quality level
+      const qualities = stream.settings.qualities.filter(q => q.enabled);
+
+      for (const quality of qualities) {
+        const outputPath = path.join(hlsDir, `${quality.name}.m3u8`);
+
+        const ffmpegArgs = [
+          '-f',
+          'flv',
+          '-i',
+          `rtmp://localhost:${STREAMING_CONFIG.RTMP.port}/live/${stream.settings.rtmpKey}`,
+          '-c:v',
+          'libx264',
+          '-c:a',
+          'aac',
+          '-b:v',
+          `${quality.bitrate}`,
+          '-s',
+          `${quality.width}x${quality.height}`,
+          '-r',
+          `${quality.framerate}`,
+          '-f',
+          'hls',
+          '-hls_time',
+          STREAMING_CONFIG.STREAM.segmentDuration.toString(),
+          '-hls_list_size',
+          '6',
+          '-hls_flags',
+          'delete_segments',
+          '-hls_segment_filename',
+          path.join(hlsDir, `${quality.name}_%03d.ts`),
+          outputPath,
+        ];
+
+        const ffmpeg = spawn('ffmpeg', ffmpegArgs);
+
+        ffmpeg.stderr.on('data', data => {
+          // Log FFmpeg output for debugging
+          logger.debug(`FFmpeg ${quality.name}`, { output: data.toString() });
+        });
+
+        ffmpeg.on('error', error => {
+          logger.error('Stream processing error', { streamId, quality: quality.name, error });
+        });
+
+        ffmpeg.on('close', code => {
+          logger.info('Stream processing ended', { streamId, quality: quality.name, code });
+        });
+
+        this.streamProcesses.set(`${streamId}_${quality.name}`, ffmpeg);
+      }
+
+      // Generate master playlist that references all quality levels
+      const masterPlaylist = this.generateMasterPlaylist(qualities);
+      await fs.writeFile(path.join(hlsDir, 'master.m3u8'), masterPlaylist);
+
+      logger.info('Stream processing setup complete', {
+        streamId,
+        qualities: qualities.map(q => q.name),
+      });
+    } catch (error) {
+      logger.error('Failed to setup stream processing', { streamId, error });
+      // Don't throw - stream can still work without adaptive bitrate
+    }
+  }
+
+  private generateMasterPlaylist(qualities: StreamQuality[]): string {
+    let playlist = '#EXTM3U\n#EXT-X-VERSION:3\n\n';
+
+    for (const quality of qualities) {
+      playlist += `#EXT-X-STREAM-INF:BANDWIDTH=${quality.bitrate},RESOLUTION=${quality.width}x${quality.height},NAME="${quality.name}"\n`;
+      playlist += `${quality.name}.m3u8\n\n`;
+    }
+
+    return playlist;
   }
 
   private async stopStreamProcessing(streamId: string): Promise<void> {
-    const process = this.streamProcesses.get(streamId);
-    if (process) {
-      process.kill('SIGTERM');
-      this.streamProcesses.delete(streamId);
+    // Stop all quality-specific processes for this stream
+    const processesToStop: string[] = [];
+
+    for (const [key, process] of this.streamProcesses.entries()) {
+      if (key.startsWith(`${streamId}_`)) {
+        process.kill('SIGTERM');
+        processesToStop.push(key);
+      }
+    }
+
+    // Remove from map
+    for (const key of processesToStop) {
+      this.streamProcesses.delete(key);
+    }
+
+    if (processesToStop.length > 0) {
+      logger.info('Stopped stream processing', { streamId, processCount: processesToStop.length });
     }
   }
 
@@ -1125,26 +1587,296 @@ export class StreamingServer {
 
   // Database operations (implement based on your schema)
   private async saveStreamToDatabase(stream: StreamSession): Promise<void> {
-    // Implementation to save stream to database
+    try {
+      await prisma.live_streams.create({
+        data: {
+          id: stream.id,
+          artistId: stream.streamerId,
+          title: stream.title,
+          description: stream.description,
+          status: stream.status.toUpperCase(),
+          streamKey: stream.settings.rtmpKey || '',
+          maxViewers: stream.maxViewers || STREAMING_CONFIG.STREAM.maxViewers,
+          isRecorded: stream.settings.enableRecording,
+          recordingUrl: stream.recordingPath,
+          thumbnailUrl: stream.thumbnailUrl,
+          scheduledAt: stream.scheduledStart,
+          startedAt: stream.actualStart,
+          endedAt: stream.endTime,
+          peakViewers: stream.metadata.peakViewers,
+          totalViewers: stream.metadata.totalViews,
+          totalTips: stream.metadata.totalDonations,
+          totalMessages: stream.metadata.chatMessages,
+          tierIds: JSON.stringify([]), // Store as JSON string
+          isPublic: !stream.isPrivate,
+          requiresPayment: false,
+          paymentAmount: null,
+          updatedAt: new Date(),
+        },
+      });
+
+      logger.info('Stream saved to database', { streamId: stream.id });
+    } catch (error) {
+      logger.error('Failed to save stream to database', { streamId: stream.id, error });
+      throw error;
+    }
   }
 
   private async updateStreamInDatabase(stream: StreamSession): Promise<void> {
-    // Implementation to update stream in database
+    try {
+      await prisma.live_streams.update({
+        where: { id: stream.id },
+        data: {
+          status: stream.status.toUpperCase(),
+          startedAt: stream.actualStart,
+          endedAt: stream.endTime,
+          peakViewers: stream.metadata.peakViewers,
+          totalViewers: stream.metadata.totalViews,
+          totalTips: stream.metadata.totalDonations,
+          totalMessages: stream.metadata.chatMessages,
+          recordingUrl: stream.recordingPath,
+          thumbnailUrl: stream.thumbnailUrl,
+          updatedAt: new Date(),
+        },
+      });
+
+      logger.info('Stream updated in database', { streamId: stream.id, status: stream.status });
+    } catch (error) {
+      logger.error('Failed to update stream in database', { streamId: stream.id, error });
+      throw error;
+    }
   }
 
   private async saveChatMessage(message: StreamChatMessage): Promise<void> {
-    // Implementation to save chat message to database
+    try {
+      await prisma.stream_chat_messages.create({
+        data: {
+          id: message.id,
+          streamId: message.streamId,
+          senderId: message.userId !== 'anonymous' ? message.userId : null,
+          senderName: message.userName,
+          message: message.content,
+          type: message.type.toUpperCase(),
+          isHighlighted: message.type === 'donation' || message.type === 'subscription',
+          isModerated: message.isModerated,
+          moderatedBy: null,
+          moderationReason: null,
+          createdAt: message.createdAt,
+        },
+      });
+
+      logger.debug('Chat message saved', { messageId: message.id, streamId: message.streamId });
+    } catch (error) {
+      logger.error('Failed to save chat message', { messageId: message.id, error });
+      // Don't throw - chat messages should not break the stream
+    }
   }
 
   private async saveDonation(donation: StreamDonation): Promise<void> {
-    // Implementation to save donation to database
+    try {
+      await prisma.stream_tips.create({
+        data: {
+          id: donation.id,
+          streamId: donation.streamId,
+          tipperId: donation.donorId !== 'anonymous' ? donation.donorId : null,
+          tipperName: donation.donorName,
+          amount: donation.amount,
+          message: donation.message,
+          currency: donation.currency,
+          stripePaymentIntentId: null, // Will be updated when payment is processed
+          status: donation.status.toUpperCase(),
+          processedAt: donation.status === 'completed' ? new Date() : null,
+          createdAt: donation.createdAt,
+        },
+      });
+
+      logger.info('Donation saved to database', {
+        donationId: donation.id,
+        amount: donation.amount,
+        streamId: donation.streamId,
+      });
+    } catch (error) {
+      logger.error('Failed to save donation', { donationId: donation.id, error });
+      throw error;
+    }
   }
 
   private async processStreamDonation(
     donation: StreamDonation
   ): Promise<{ success: boolean; error?: string }> {
-    // Implementation to process payment via Stripe
-    return { success: true };
+    try {
+      // Import Stripe dynamically
+      const { stripe } = await import('../stripe');
+
+      // Get stream info to get artist's Stripe account
+      const stream = this.activeStreams.get(donation.streamId);
+      if (!stream) {
+        return { success: false, error: 'Stream not found' };
+      }
+
+      const artist = await prisma.users.findUnique({
+        where: { id: stream.streamerId },
+        select: { stripeAccountId: true },
+      });
+
+      if (!artist?.stripeAccountId) {
+        return { success: false, error: 'Artist Stripe account not configured' };
+      }
+
+      // Create payment intent
+      const amountInCents = Math.round(donation.amount * 100);
+      const platformFee = Math.round(
+        amountInCents * STREAMING_CONFIG.DONATIONS.platformFee
+      );
+      const artistAmount = amountInCents - platformFee;
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amountInCents,
+        currency: donation.currency.toLowerCase(),
+        application_fee_amount: platformFee,
+        transfer_data: {
+          destination: artist.stripeAccountId,
+        },
+        metadata: {
+          donationId: donation.id,
+          streamId: donation.streamId,
+          donorId: donation.donorId,
+          donorName: donation.donorName,
+        },
+        description: `Stream tip: ${donation.message || 'No message'}`,
+      });
+
+      // Update donation with payment intent ID
+      await prisma.stream_tips.update({
+        where: { id: donation.id },
+        data: {
+          stripePaymentIntentId: paymentIntent.id,
+          status: 'COMPLETED',
+          processedAt: new Date(),
+        },
+      });
+
+      logger.info('Donation payment processed', {
+        donationId: donation.id,
+        paymentIntentId: paymentIntent.id,
+        amount: donation.amount,
+        artistAmount: artistAmount / 100,
+        platformFee: platformFee / 100,
+      });
+
+      return { success: true };
+    } catch (error: any) {
+      logger.error('Failed to process donation payment', {
+        donationId: donation.id,
+        error: error.message,
+      });
+
+      // Update donation status to failed
+      try {
+        await prisma.stream_tips.update({
+          where: { id: donation.id },
+          data: {
+            status: 'FAILED',
+          },
+        });
+      } catch (updateError) {
+        logger.error('Failed to update donation status', { donationId: donation.id, updateError });
+      }
+
+      return { success: false, error: error.message };
+    }
+  }
+
+  private async updateStreamRecording(streamId: string, recordingUrl: string): Promise<void> {
+    try {
+      await prisma.live_streams.update({
+        where: { id: streamId },
+        data: {
+          recordingUrl,
+          updatedAt: new Date(),
+        },
+      });
+
+      // Also create a stream_recordings entry for tracking
+      await prisma.stream_recordings.create({
+        data: {
+          id: `recording_${streamId}_${Date.now()}`,
+          streamId,
+          fileUrl: recordingUrl,
+          fileSize: 0, // Can be populated if we track file size
+          duration: 0, // Can be calculated from stream duration
+          format: 'mp4',
+          createdAt: new Date(),
+        },
+      });
+
+      logger.info('Stream recording URL updated', { streamId, recordingUrl });
+    } catch (error) {
+      logger.error('Failed to update stream recording', { streamId, error });
+      throw error;
+    }
+  }
+
+  private async updateStreamAnalytics(streamId: string): Promise<void> {
+    try {
+      const stream = this.activeStreams.get(streamId);
+      if (!stream) return;
+
+      // Calculate final analytics
+      const duration = stream.endTime && stream.actualStart
+        ? stream.endTime.getTime() - stream.actualStart.getTime()
+        : stream.metadata.duration;
+
+      // Get viewer statistics
+      const viewers = await prisma.stream_viewers.findMany({
+        where: { streamId },
+        select: {
+          watchTime: true,
+          leftAt: true,
+          joinedAt: true,
+        },
+      });
+
+      const totalWatchTime = viewers.reduce((sum, v) => sum + v.watchTime, 0);
+      const averageWatchTime = viewers.length > 0 ? totalWatchTime / viewers.length : 0;
+
+      // Get total tips
+      const tips = await prisma.stream_tips.aggregate({
+        where: {
+          streamId,
+          status: 'COMPLETED',
+        },
+        _sum: {
+          amount: true,
+        },
+      });
+
+      const totalTips = tips._sum.amount || 0;
+
+      // Update stream with final analytics
+      await prisma.live_streams.update({
+        where: { id: streamId },
+        data: {
+          totalTips,
+          totalViewers: stream.metadata.totalViews,
+          peakViewers: stream.metadata.peakViewers,
+          totalMessages: stream.metadata.chatMessages,
+          updatedAt: new Date(),
+        },
+      });
+
+      logger.info('Stream analytics updated', {
+        streamId,
+        duration: Math.round(duration / 1000),
+        totalViewers: stream.metadata.totalViews,
+        peakViewers: stream.metadata.peakViewers,
+        totalTips: Number(totalTips),
+        averageWatchTime: Math.round(averageWatchTime),
+      });
+    } catch (error) {
+      logger.error('Failed to update stream analytics', { streamId, error });
+      // Don't throw - analytics failure shouldn't prevent stream ending
+    }
   }
 
   private setupCleanupHandlers(): void {
