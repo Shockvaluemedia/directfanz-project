@@ -761,6 +761,9 @@ model users {
   subscriptions                        subscriptions[]
   tiers                                tiers[]
   onboarding_progress                  onboarding_progress?
+  user_interactions                    user_interactions[]
+  artist_similarity_from               artist_similarity[]    @relation("ArtistSimilarityFrom")
+  artist_similarity_to                 artist_similarity[]    @relation("ArtistSimilarityTo")
 
   @@index([role, createdAt])
   @@index([lastSeenAt])
@@ -806,6 +809,45 @@ model scheduled_publish {
 
   @@index([scheduledFor, published])
   @@index([published])
+}
+
+model user_interactions {
+  id              String   @id @default(cuid())
+  userId          String
+  user            users    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  interactionType String   // VIEW, LIKE, SUBSCRIBE, COMMENT, SHARE
+  targetType      String   // CONTENT, ARTIST, STREAM
+  targetId        String
+
+  duration        Int?     // For views (seconds)
+  metadata        Json?    // Additional context
+
+  createdAt       DateTime @default(now())
+
+  @@index([userId, interactionType])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+  @@index([userId, createdAt])
+}
+
+model artist_similarity {
+  id              String   @id @default(cuid())
+  artistId        String
+  artist          users    @relation("ArtistSimilarityFrom", fields: [artistId], references: [id], onDelete: Cascade)
+  similarArtistId String
+  similarArtist   users    @relation("ArtistSimilarityTo", fields: [similarArtistId], references: [id], onDelete: Cascade)
+
+  similarityScore Float    // 0.0 to 1.0
+  sharedTags      String[] // Common tags
+  sharedGenre     String?
+
+  calculatedAt    DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([artistId, similarArtistId])
+  @@index([artistId, similarityScore])
+  @@index([similarityScore])
 }
 
 model verificationtokens {
