@@ -3,6 +3,12 @@ import { headers } from 'next/headers';
 import { stripe } from '@/lib/stripe';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import {
+  sendTrialEndingEmail,
+  sendTrialConvertedEmail,
+  sendPaymentFailedEmail,
+  sendNewSubscriberEmail,
+} from '@/lib/email/email-service';
 import Stripe from 'stripe';
 
 /**
@@ -125,7 +131,15 @@ async function handleTrialWillEnd(subscription: Stripe.Subscription) {
     artistId: dbSubscription.artistId,
   });
 
-  // TODO: Send email notification
+  // Send email notification
+  await sendTrialEndingEmail({
+    fanEmail: dbSubscription.fan.email,
+    fanName: dbSubscription.fan.displayName,
+    artistName: dbSubscription.artist.displayName,
+    tierName: dbSubscription.tier.name,
+    amount: Number(dbSubscription.amount),
+    trialEndDate: dbSubscription.trialEndDate!,
+  });
 }
 
 /**
@@ -205,6 +219,15 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
       subscriptionId: dbSubscription.id,
       fanId: dbSubscription.fanId,
       artistId: dbSubscription.artistId,
+    });
+
+    // Send email to fan
+    await sendTrialConvertedEmail({
+      fanEmail: dbSubscription.fan.email,
+      fanName: dbSubscription.fan.displayName,
+      artistName: dbSubscription.artist.displayName,
+      tierName: dbSubscription.tier.name,
+      amount: Number(dbSubscription.amount),
     });
   } else {
     // Regular status update
@@ -370,6 +393,14 @@ async function handlePaymentFailed(invoice: Stripe.Invoice) {
 
   logger.info('Payment failure notification sent', {
     fanId: dbSubscription.fanId,
+  });
+
+  // Send email notification
+  await sendPaymentFailedEmail({
+    fanEmail: dbSubscription.fan.email,
+    fanName: dbSubscription.fan.displayName,
+    artistName: dbSubscription.artist.displayName,
+    amount: invoice.amount_due / 100,
   });
 }
 
