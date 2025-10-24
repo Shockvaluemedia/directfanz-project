@@ -702,6 +702,7 @@ model tiers {
   name             String
   description      String
   minimumPrice     Decimal
+  stripePriceId    String?
   isActive         Boolean         @default(true)
   subscriberCount  Int             @default(0)
   allowFreeTrial   Boolean         @default(true)
@@ -726,6 +727,7 @@ model users {
   avatar                               String?
   socialLinks                          Json?
   notificationPreferences              Json?
+  stripeCustomerId                     String?                    @unique
   lastSeenAt                           DateTime?
   emailVerified                        DateTime?
   image                                String?
