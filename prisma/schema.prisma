@@ -271,6 +271,11 @@ model content {
   uniqueViews      Int                @default(0)
   totalLikes       Int                @default(0)
   lastViewedAt     DateTime?
+  publishedAt      DateTime?
+  scheduledFor     DateTime?
+  isScheduled      Boolean            @default(false)
+  publishStatus    String             @default("PUBLISHED")
+  autoPublish      Boolean            @default(true)
   createdAt        DateTime           @default(now())
   updatedAt        DateTime
   campaign_rewards campaign_rewards[]
@@ -280,6 +285,7 @@ model content {
   content_views    content_views[]
   playlist_items   playlist_items[]
   tiers            tiers[]            @relation("TierContent")
+  scheduled_publish scheduled_publish?
 
   @@index([artistId, visibility])
   @@index([type, visibility])
@@ -288,6 +294,8 @@ model content {
   @@index([artistId, type, createdAt])
   @@index([visibility, createdAt])
   @@index([tags])
+  @@index([scheduledFor, isScheduled])
+  @@index([publishStatus])
 }
 
 model content_likes {
@@ -665,6 +673,10 @@ model subscriptions {
   status               String
   currentPeriodStart   DateTime
   currentPeriodEnd     DateTime
+  isTrialing           Boolean            @default(false)
+  trialStartDate       DateTime?
+  trialEndDate         DateTime?
+  convertedFromTrial   Boolean            @default(false)
   createdAt            DateTime           @default(now())
   updatedAt            DateTime
   invoices             invoices[]
@@ -681,21 +693,25 @@ model subscriptions {
   @@index([artistId, status])
   @@index([status, currentPeriodEnd])
   @@index([fanId, artistId, status])
+  @@index([isTrialing, trialEndDate])
 }
 
 model tiers {
-  id              String          @id
-  artistId        String
-  name            String
-  description     String
-  minimumPrice    Decimal
-  isActive        Boolean         @default(true)
-  subscriberCount Int             @default(0)
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime
-  subscriptions   subscriptions[]
-  users           users           @relation(fields: [artistId], references: [id], onDelete: Cascade)
-  content         content[]       @relation("TierContent")
+  id               String          @id
+  artistId         String
+  name             String
+  description      String
+  minimumPrice     Decimal
+  isActive         Boolean         @default(true)
+  subscriberCount  Int             @default(0)
+  allowFreeTrial   Boolean         @default(true)
+  trialDays        Int             @default(7)
+  trialDescription String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime
+  subscriptions    subscriptions[]
+  users            users           @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  content          content[]       @relation("TierContent")
 
   @@index([artistId, isActive])
 }
@@ -742,10 +758,52 @@ model users {
   stream_viewers                       stream_viewers[]
   subscriptions                        subscriptions[]
   tiers                                tiers[]
+  onboarding_progress                  onboarding_progress?
 
   @@index([role, createdAt])
   @@index([lastSeenAt])
   @@index([emailVerified])
+}
+
+model onboarding_progress {
+  id                     String    @id @default(cuid())
+  userId                 String    @unique
+  user                   users     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  profileComplete        Boolean   @default(false)
+  stripeConnected        Boolean   @default(false)
+  firstTierCreated       Boolean   @default(false)
+  firstContentUploaded   Boolean   @default(false)
+  profileShared          Boolean   @default(false)
+
+  completionPercentage   Int       @default(0)
+  currentStep            String?
+  dismissedAt            DateTime?
+  completedAt            DateTime?
+
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([completionPercentage])
+}
+
+model scheduled_publish {
+  id           String   @id @default(cuid())
+  contentId    String   @unique
+  content      content  @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  scheduledFor DateTime
+  timezone     String   @default("UTC")
+  published    Boolean  @default(false)
+  failedAt     DateTime?
+  error        String?
+  retryCount   Int      @default(0)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([scheduledFor, published])
+  @@index([published])
 }
 
 model verificationtokens {
