@@ -45,6 +45,39 @@ export async function GET() {
     };
   }
 
+  // Check Tier 1 Features
+  try {
+    // Check onboarding_progress table
+    await prisma.onboarding_progress.findFirst();
+
+    // Check scheduled_publish table
+    const pendingPublishes = await prisma.scheduled_publish.count({
+      where: {
+        published: false,
+        scheduledFor: { lte: new Date() },
+      },
+    });
+
+    // Check failed publishes
+    const failedPublishes = await prisma.scheduled_publish.count({
+      where: {
+        failedAt: { not: null },
+        published: false,
+      },
+    });
+
+    checks.tier1Features = {
+      status: failedPublishes > 20 ? 'error' : 'ok',
+      message: failedPublishes > 20 ? `${failedPublishes} failed publishes` : undefined,
+    };
+  } catch (error) {
+    logger.error('Health check: Tier 1 features check failed', {}, error as Error);
+    checks.tier1Features = {
+      status: 'error',
+      message: 'Tier 1 features check failed',
+    };
+  }
+
   // Overall status
   const isHealthy = Object.values(checks).every(check => check.status === 'ok');
   const totalLatency = Date.now() - startTime;
