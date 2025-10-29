@@ -1,5 +1,5 @@
 /**
- * Performance testing script for the Direct Fan Platform
+ * Performance testing script for the DirectFanz
  *
  * This script runs a series of tests to measure the performance of key API endpoints
  * and database operations with and without caching. It also includes production monitoring
@@ -7,7 +7,7 @@
  *
  * Usage:
  *   - Development: node scripts/performance-test.js
- *   - Production: APP_URL=https://your-app.com node scripts/performance-test.js
+ *   - Production: APP_URL=https://directfanz.io node scripts/performance-test.js
  */
 
 import { performance } from 'perf_hooks';
@@ -18,7 +18,7 @@ import path from 'path';
 
 // Configuration
 const API_BASE_URL =
-  process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://www.directfanz.io';
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 const TEST_ITERATIONS = process.env.NODE_ENV === 'production' ? 20 : 10;
 const PERFORMANCE_THRESHOLD_MS = 300; // Maximum acceptable response time

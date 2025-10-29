@@ -4,6 +4,18 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import { prisma } from './prisma';
 
+// Environment variable validation
+if (!process.env.NEXTAUTH_SECRET) {
+  console.error('❌ NEXTAUTH_SECRET is not set!');
+}
+if (!process.env.DATABASE_URL) {
+  console.error('❌ DATABASE_URL is not set!');
+}
+
+console.log('🔧 NextAuth Configuration Loading...');
+console.log('🔧 NEXTAUTH_SECRET:', process.env.NEXTAUTH_SECRET ? 'SET' : 'NOT SET');
+console.log('🔧 DATABASE_URL:', process.env.DATABASE_URL ? 'SET' : 'NOT SET');
+
 export const authOptions: NextAuthOptions = {
   debug: process.env.NODE_ENV === 'development',
   providers: [
@@ -14,24 +26,32 @@ export const authOptions: NextAuthOptions = {
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
+        console.log('🔐 AUTHORIZE FUNCTION CALLED');
+        console.log('📧 Email:', credentials?.email);
+        console.log('🔑 Password length:', credentials?.password?.length);
+        
         if (!credentials?.email || !credentials?.password) {
+          console.log('❌ Missing credentials');
           return null;
         }
 
         try {
+          console.log('🔍 Looking up user in database...');
+          console.log('🗃️ DATABASE_URL:', process.env.DATABASE_URL?.substring(0, 30) + '...');
           const user = await prisma.users.findUnique({
             where: {
               email: credentials.email,
             },
-            include: {
-              artists: true,
-            },
           });
 
+          console.log('👤 User found:', !!user, 'Has password:', !!user?.password);
+
           if (!user || !user.password) {
+            console.log('❌ User not found or no password');
             return null;
           }
 
+          console.log('🔐 Comparing passwords...');
           const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
 
           console.log(
@@ -42,16 +62,20 @@ export const authOptions: NextAuthOptions = {
           );
 
           if (!isPasswordValid) {
+            console.log('❌ Password validation failed');
             return null;
           }
 
-          return {
+          const result = {
             id: user.id,
             email: user.email,
             name: user.displayName,
             image: user.avatar,
             role: user.role,
           };
+          
+          console.log('✅ Authorization successful, returning user:', result);
+          return result;
         } catch (error) {
           console.error('🔐 NextAuth: Error during authorization:', error);
           return null;
@@ -60,6 +84,34 @@ export const authOptions: NextAuthOptions = {
     }),
     // OAuth providers removed - add back when credentials are configured
   ],
+  cookies: {
+    sessionToken: {
+      name: 'next-auth.session-token',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production', // Only secure in production
+      },
+    },
+    callbackUrl: {
+      name: 'next-auth.callback-url',
+      options: {
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production', // Only secure in production
+      },
+    },
+    csrfToken: {
+      name: 'next-auth.csrf-token',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production', // Only secure in production
+      },
+    },
+  },
   session: {
     strategy: 'jwt',
     maxAge: 2 * 60 * 60, // 2 hours for better security
@@ -79,8 +131,8 @@ export const authOptions: NextAuthOptions = {
           iat: Math.floor(Date.now() / 1000),
           exp: Math.floor(Date.now() / 1000) + 2 * 60 * 60,
           jti: crypto.randomUUID(), // JWT ID for revocation support
-          iss: process.env.NEXTAUTH_URL || 'nahvee-even',
-          aud: 'nahvee-even-platform',
+          iss: process.env.NEXTAUTH_URL || 'directfanz',
+          aud: 'directfanz-platform',
         },
         secret,
         {
@@ -94,8 +146,8 @@ export const authOptions: NextAuthOptions = {
       try {
         return jwt.verify(token!, secret, {
           algorithms: ['HS256'],
-          issuer: process.env.NEXTAUTH_URL || 'nahvee-even',
-          audience: 'nahvee-even-platform',
+          issuer: process.env.NEXTAUTH_URL || 'directfanz',
+          audience: 'directfanz-platform',
         }) as any;
       } catch (error) {
         console.error('JWT verification failed:', error);
@@ -108,6 +160,12 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async redirect({ url, baseUrl }) {
       const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || baseUrl;
+      
+      // Handle static generation where URLs might not be available
+      if (!appUrl || appUrl === '') {
+        return url.startsWith('/') ? url : '/';
+      }
+      
       try {
         const target = new URL(url, appUrl);
         const normalizedBase = new URL(appUrl);
@@ -115,8 +173,10 @@ export const authOptions: NextAuthOptions = {
         target.host = normalizedBase.host;
         target.protocol = normalizedBase.protocol;
         return target.toString();
-      } catch {
-        return appUrl;
+      } catch (error) {
+        console.warn('URL construction failed during static generation:', { url, appUrl, error });
+        // Return safe fallback
+        return url.startsWith('/') ? url : appUrl || '/';
       }
     },
     async jwt({ token, user, account, profile, trigger }) {

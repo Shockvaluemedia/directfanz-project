@@ -1,0 +1,25 @@
+{
+  "name": "directfanz-websocket-server",
+  "version": "1.0.0",
+  "description": "DirectFanZ WebSocket server for real-time messaging",
+  "main": "websocket-server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node websocket-server.js",
+    "dev": "node websocket-server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "socket.io": "^4.7.2"
+  },
+  "keywords": [
+    "websocket",
+    "realtime",
+    "messaging",
+    "directfanz"
+  ],
+  "author": "DirectFanZ",
+  "license": "MIT"
+}

@@ -173,12 +173,12 @@ export default function StreamDashboard() {
         search: searchQuery,
       });
 
-      const response = await fetch(`/api/streams?${params}`);
+      const response = await fetch(`/api/livestream?${params}`);
       const data = await response.json();
 
       if (data.success) {
-        setStreams(data.streams || []);
-        setFeaturedStreams(data.featured || []);
+        setStreams(data.data?.streams || []);
+        setFeaturedStreams(data.data?.featured || []);
       }
     } catch (error) {
       console.error('Failed to load streams:', error);
@@ -190,11 +190,11 @@ export default function StreamDashboard() {
 
   const loadMyStreams = useCallback(async () => {
     try {
-      const response = await fetch('/api/streams/my-streams');
+      const response = await fetch('/api/livestream?myStreams=true');
       const data = await response.json();
 
       if (data.success) {
-        setMyStreams(data.streams || []);
+        setMyStreams(data.data?.streams || []);
       }
     } catch (error) {
       console.error('Failed to load my streams:', error);
@@ -203,12 +203,14 @@ export default function StreamDashboard() {
 
   const loadStreamStats = useCallback(async () => {
     try {
-      const response = await fetch('/api/streams/stats');
-      const data = await response.json();
-
-      if (data.success) {
-        setStreamStats(data.stats);
-      }
+      // TODO: Implement stream stats endpoint
+      // For now, use mock data
+      setStreamStats({
+        totalLiveStreams: 0,
+        totalViewers: 0,
+        popularCategories: [],
+        trendingStreams: []
+      });
     } catch (error) {
       console.error('Failed to load stream stats:', error);
     }

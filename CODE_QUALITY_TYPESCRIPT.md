@@ -305,7 +305,7 @@ export * from './lib/constants';
 // src/lib/constants.ts
 
 export const APP_CONFIG = {
-  NAME: 'Nahvee Even',
+  NAME: 'DirectFanZ Project',
   VERSION: process.env.npm_package_version || '1.0.0',
   ENVIRONMENT: process.env.NODE_ENV || 'development',
   API_BASE_URL: process.env.NEXT_PUBLIC_API_URL || '/api',

@@ -1,6 +1,6 @@
 # Content Management System
 
-Your Nahvee Even platform now includes a comprehensive content management system
+Your DirectFanZ Project platform now includes a comprehensive content management system
 that allows artists to upload, process, and share exclusive content with their
 fans. This system supports multiple media types with tier-based access control
 and real-time analytics.
@@ -373,7 +373,7 @@ LOG_LEVEL=debug
 
 ## 📄 License
 
-This content management system is part of the Nahvee Even platform and follows
+This content management system is part of the DirectFanZ Project platform and follows
 the same licensing terms as the main project.
 
 ---

@@ -1,4 +1,4 @@
-# DirectFanz
+# DirectFanZProject
 
 A platform that connects independent artists with their superfans through
 subscription-based exclusive content access.
@@ -34,8 +34,8 @@ subscription-based exclusive content access.
 1. **Clone the repository** (if not already done):
 
    ```bash
-   git clone <your-repo-url>
-   cd directfanz
+   git clone https://github.com/your-username/directfanz-project-project.git
+   cd directfanz-project-project
    ```
 
 2. **Set up environment variables**:
@@ -53,10 +53,10 @@ subscription-based exclusive content access.
    ```
 
 4. **Access the application**:
-   - Main app: http://localhost:3000
+   - Main app: https://www.directfanz-project-project.io
    - PostgreSQL: localhost:5432
    - Redis: localhost:6379
-   - pgAdmin: http://localhost:5050 (admin@example.com / admin)
+   - pgAdmin: http://localhost:5050 (admin@directfanz-project-project.io / admin)
 
 ### Docker Services
 
@@ -117,14 +117,14 @@ Key environment variables you need to configure in `.env.local`:
 
 ```env
 # Database (automatically configured for Docker)
-DATABASE_URL="postgresql://postgres:password@postgres:5432/directfanz"
+DATABASE_URL="postgresql://postgres:password@postgres:5432/directfanz-project-project"
 
 # Redis (automatically configured for Docker)
 REDIS_URL="redis://redis:6379"
 
 # NextAuth.js
 NEXTAUTH_SECRET="your-secret-key-change-in-production"
-NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_URL="https://www.directfanz-project-project.io"
 
 # Stripe (required for payments)
 STRIPE_PUBLISHABLE_KEY="pk_test_..."
@@ -138,7 +138,7 @@ AWS_S3_BUCKET_NAME="your-bucket-name"
 
 # SendGrid (required for emails)
 SENDGRID_API_KEY="SG...."
-FROM_EMAIL="noreply@yourplatform.com"
+FROM_EMAIL="noreply@directfanz-project-project.io"
 ```
 
 ## Troubleshooting

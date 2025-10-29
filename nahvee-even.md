@@ -1,4 +1,4 @@
-# Nahvee Even - Direct Fan Platform
+# DirectFanZ Project - Direct Fan Platform
 
 A comprehensive direct fan platform built with Next.js, Prisma, and modern web
 technologies.

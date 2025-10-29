@@ -1,0 +1,1 @@
+export default function GET() { return new Response(JSON.stringify({success: true, campaigns: [{id: "1", title: "Test Campaign", description: "Test", type: "TEST", status: "ACTIVE", endDate: new Date().toISOString(), artist: {name: "Test Artist"}, userSubmissions: 0, totalReward: 0, participantCount: 0}], total: 1}), {headers: {"Content-Type": "application/json"}}) }

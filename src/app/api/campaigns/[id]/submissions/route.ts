@@ -4,13 +4,13 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
-import { SubmissionContentType } from '@prisma/client';
+import { string } from '@prisma/client';
 
 const createSubmissionSchema = z.object({
   challengeId: z.string().cuid(),
   title: z.string().min(1).max(200),
   description: z.string().optional(),
-  contentType: z.nativeEnum(SubmissionContentType),
+  contentType: z.nativeEnum(string),
   content: z.string().min(1), // For text content or description
   contentUrl: z.string().url().optional(), // For file uploads
   thumbnailUrl: z.string().url().optional(),
@@ -80,7 +80,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         take: limit,
         orderBy: [{ totalScore: 'desc' }, { submittedAt: 'desc' }],
         include: {
-          submitter: {
+          users: {
             select: { id: true, displayName: true, avatar: true },
           },
           challenge: {
@@ -233,7 +233,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
           reviewStatus: 'PENDING',
         },
         include: {
-          submitter: {
+          users: {
             select: { id: true, displayName: true, avatar: true },
           },
           challenge: {
@@ -252,7 +252,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       });
 
       // Update challenge submission count
-      await tx.challenge.update({
+      await tx.challenges.update({
         where: { id: challenge.id },
         data: { submissionCount: { increment: 1 } },
       });

@@ -1,8 +1,8 @@
-# 🚀 Vercel Deployment Guide for Direct Fan Platform
+# 🚀 Vercel Deployment Guide for DirectFanZProject
 
 ## Overview
 
-This guide walks you through deploying your Direct Fan Platform to Vercel with
+This guide walks you through deploying your DirectFanZProject to Vercel with
 proper environment variable configuration.
 
 ## Prerequisites
@@ -55,7 +55,7 @@ Make sure you have:
    ```
    DATABASE_URL = your_postgresql_connection_string
    NEXTAUTH_SECRET = your_generated_secret
-   NEXTAUTH_URL = https://your-domain.vercel.app
+   NEXTAUTH_URL = https://www.directfanz-project.io
 
    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY = pk_live_...
    STRIPE_SECRET_KEY = sk_live_...
@@ -67,7 +67,7 @@ Make sure you have:
    AWS_REGION = us-east-1
 
    SENDGRID_API_KEY = SG.your_key
-   SENDGRID_FROM_EMAIL = noreply@yourdomain.com
+   SENDGRID_FROM_EMAIL = noreply@directfanz-project.io
 
    REDIS_URL = redis://...
    SENTRY_DSN = https://...
@@ -117,13 +117,13 @@ Make sure you have:
 1. In Vercel dashboard, go to your project
 2. Go to "Settings" → "Domains"
 3. Click "Add Domain"
-4. Enter your domain (e.g., `yourdomain.com`)
+4. Enter your domain (e.g., `directfanz-project.io`)
 
 ### 3.2 Configure DNS
 
 Add these DNS records with your domain provider:
 
-**For Apex Domain (yourdomain.com):**
+**For Apex Domain (directfanz-project.io):**
 
 ```
 Type: A
@@ -144,7 +144,7 @@ Value: cname.vercel-dns.com
 After adding your domain, update:
 
 ```
-NEXTAUTH_URL = https://yourdomain.com
+NEXTAUTH_URL = https://directfanz-project.io
 ```
 
 ## Step 4: Database Migrations
@@ -179,7 +179,7 @@ vercel exec -- npx prisma migrate deploy
 ### 5.1 Update Stripe Webhooks
 
 1. Go to Stripe Dashboard → Developers → Webhooks
-2. Update endpoint URL to: `https://yourdomain.com/api/webhooks/stripe`
+2. Update endpoint URL to: `https://directfanz-project.io/api/webhooks/stripe`
 3. Test webhook delivery
 
 ### 5.2 Test Payment Flow
@@ -193,7 +193,7 @@ vercel exec -- npx prisma migrate deploy
 ### 6.1 SSL Certificate
 
 - Vercel automatically provides SSL certificates
-- Verify HTTPS works: `https://yourdomain.com`
+- Verify HTTPS works: `https://directfanz-project.io`
 - Check certificate validity in browser
 
 ### 6.2 Security Headers
@@ -201,7 +201,7 @@ vercel exec -- npx prisma migrate deploy
 Verify security headers are working:
 
 ```bash
-curl -I https://yourdomain.com
+curl -I https://directfanz-project.io
 ```
 
 Should include:
@@ -385,7 +385,7 @@ vercel remove <deployment-name>
 
 ---
 
-**🎉 Congratulations! Your Direct Fan Platform is now live in production!**
+**🎉 Congratulations! Your DirectFanZProject is now live in production!**
 
 For ongoing maintenance:
 

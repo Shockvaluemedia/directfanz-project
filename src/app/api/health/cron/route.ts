@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { redis } from '@/lib/redis';
 import { logger } from '@/lib/logger';
 import { captureMessage } from '@/lib/sentry';
-import { SubscriptionStatus } from '@prisma/client';
+
+// Force this route to be dynamic
+export const dynamic = 'force-dynamic';
+import { string } from '@prisma/client';
 
 /**
  * Cron health check endpoint for scheduled monitoring
@@ -28,7 +30,7 @@ export async function GET() {
     // Check active subscriptions
     const activeSubscriptions = await prisma.subscriptions.count({
       where: {
-        status: SubscriptionStatus.ACTIVE,
+        status: string.ACTIVE,
       },
     });
 

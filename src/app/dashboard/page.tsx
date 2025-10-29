@@ -20,8 +20,13 @@ export default function DashboardIndex() {
     }
 
     const role = (session.user as any).role || 'FAN';
+    
+    console.log('Dashboard redirect - User role:', role);
+    
     if (role === 'ARTIST') {
       router.replace('/dashboard/artist');
+    } else if (role === 'ADMIN') {
+      router.replace('/admin/dashboard');
     } else {
       router.replace('/dashboard/fan');
     }

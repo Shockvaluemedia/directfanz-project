@@ -1,36 +1,27 @@
 {
-  "extends": "@react-native/typescript-config",
   "compilerOptions": {
-    "strict": false,
-    "noImplicitAny": false,
+    "target": "esnext",
+    "lib": ["dom", "dom.iterable", "es6"],
     "allowJs": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
-    "jsx": "react-native",
+    "strict": false,
+    "noImplicitAny": false,
+    "forceConsistentCasingInFileNames": true,
     "module": "esnext",
     "moduleResolution": "node",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "target": "esnext",
-    "lib": ["es2017"],
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["../src/mobile/*"]
-    }
+    "jsx": "react-jsx"
   },
   "include": [
-    "../src/mobile/**/*.ts",
-    "../src/mobile/**/*.tsx",
+    "src/**/*",
     "**/*.ts",
     "**/*.tsx"
   ],
   "exclude": [
-    "**/node_modules",
-    "**/Pods",
-    "../src/app/**/*",
-    "../src/components/**/*",
-    "../src/lib/**/*"
+    "node_modules"
   ]
 }

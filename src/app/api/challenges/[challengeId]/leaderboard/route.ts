@@ -109,7 +109,7 @@ export async function GET(request: NextRequest, { params }: { params: { challeng
         title: true,
         totalScore: true,
         submittedAt: true,
-        submitter: {
+        users: {
           select: {
             id: true,
             displayName: true,
@@ -229,7 +229,7 @@ async function recalculateLeaderboard(challengeId: string) {
 
     for (const participation of participations) {
       // Calculate total score from all approved submissions
-      const totalScore = participation.submissions.reduce(
+      const totalScore = participation.challenge_submissions.reduce(
         (sum, submission) => sum + submission.totalScore,
         0
       );
@@ -243,7 +243,7 @@ async function recalculateLeaderboard(challengeId: string) {
       leaderboardUpdates.push({
         userId: participation.participantId,
         score: totalScore,
-        challenge_submissions: participation.submissions.length,
+        challenge_submissions: participation.challenge_submissions.length,
       });
     }
 

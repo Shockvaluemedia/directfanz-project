@@ -3,6 +3,11 @@ import { withAdminApi } from '@/lib/api-auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
+import { safeParseURL } from '@/lib/api-utils';
+
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 const analyticsSchema = z.object({
   period: z.enum(['7d', '30d', '90d', '1y', 'all']).default('30d'),
@@ -14,7 +19,8 @@ const analyticsSchema = z.object({
 export async function GET(request: NextRequest) {
   return withAdminApi(request, async req => {
     try {
-      const { searchParams } = new URL(request.url);
+      const url = safeParseURL(request);
+      const searchParams = url?.searchParams || new URLSearchParams();
 
       const params = analyticsSchema.parse({
         period: searchParams.get('period') || '30d',

@@ -71,3 +71,10 @@ pids
 tmp/
 temp/
 .vercel
+
+# Local file uploads (don't commit user uploads)
+public/uploads/content/
+public/uploads/temp/
+!public/uploads/.gitkeep
+.env.local.backup
+~/

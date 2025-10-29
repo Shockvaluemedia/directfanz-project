@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if artist is onboarded with Stripe
-    if (!tier.users.artists?.stripeAccountId || !tier.users.artists.isStripeOnboarded) {
+    if (!tier.artist.artists?.stripeAccountId || !tier.artist.artists.isStripeOnboarded) {
       return NextResponse.json(
         { error: 'Artist is not set up to receive payments' },
         { status: 400 }
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Already subscribed to this tier' }, { status: 400 });
     }
 
-    const stripeAccountId = tier.users.artists.stripeAccountId;
+    const stripeAccountId = tier.artist.artists.stripeAccountId;
 
     // Create or retrieve Stripe customer
     const customerId = await createOrRetrieveCustomer(

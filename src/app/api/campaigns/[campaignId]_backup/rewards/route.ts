@@ -55,7 +55,7 @@ export async function GET(request: NextRequest, { params }: { params: { campaign
     }
 
     const { searchParams } = new URL(request.url);
-    const type = searchParams.get('type') as RewardType | null;
+    const type = searchParams.get('type') as string | null;
     const activeOnly = searchParams.get('active') === 'true';
 
     // Build where clause

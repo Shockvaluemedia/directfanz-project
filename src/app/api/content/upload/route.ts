@@ -4,6 +4,12 @@ import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { FileUploader, ContentType } from '@/lib/upload';
+import { LocalFileUploader } from '@/lib/local-storage';
+import { moderateContent, ModerationResult } from '@/lib/ai-content-moderation';
+
+// Use local storage if AWS is not configured
+const USE_LOCAL_STORAGE = !process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_S3_BUCKET_NAME;
+const UploaderClass = USE_LOCAL_STORAGE ? LocalFileUploader : FileUploader;
 
 const uploadSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title too long'),
@@ -11,6 +17,7 @@ const uploadSchema = z.object({
   visibility: z.enum(['PUBLIC', 'PRIVATE', 'TIER_LOCKED']).default('PRIVATE'),
   tierIds: z.array(z.string().cuid()).optional().default([]),
   tags: z.array(z.string()).optional().default([]),
+  skipModeration: z.boolean().optional().default(false), // Allow skipping for admin users
 });
 
 export async function POST(request: NextRequest) {
@@ -52,18 +59,86 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      logger.info('Starting file upload', {
+      logger.info('Starting file upload with AI moderation', {
         userId: req.user.id,
         fileName: file.name,
         fileSize: file.size,
         contentType: file.type,
       });
 
-      // Upload and process file
-      const uploadResult = await FileUploader.uploadFile(file, req.user.id);
+      // Step 1: AI Content Moderation (unless skipped by admin)
+      let moderationResult: ModerationResult | null = null;
+      const contentType = UploaderClass.getContentType(file);
+      
+      if (!validatedData.skipModeration) {
+        logger.info('Running AI content moderation', {
+          userId: req.user.id,
+          fileName: file.name,
+          contentType
+        });
+        
+        moderationResult = await moderateContent(
+          file,
+          contentType,
+          req.user.id,
+          {
+            title: validatedData.title,
+            description: validatedData.description,
+            tags: validatedData.tags,
+            filename: file.name
+          }
+        );
+        
+        logger.info('AI moderation completed', {
+          userId: req.user.id,
+          fileName: file.name,
+          approved: moderationResult.approved,
+          riskLevel: moderationResult.riskLevel,
+          flagsCount: moderationResult.flags.length,
+          processingTime: moderationResult.processingTime
+        });
+        
+        // Handle moderation result
+        if (!moderationResult.approved) {
+          logger.warn('Content rejected by AI moderation', {
+            userId: req.user.id,
+            fileName: file.name,
+            flags: moderationResult.flags,
+            riskLevel: moderationResult.riskLevel
+          });
+          
+          return NextResponse.json({
+            success: false,
+            error: 'Content moderation failed',
+            moderation: {
+              approved: moderationResult.approved,
+              riskLevel: moderationResult.riskLevel,
+              flags: moderationResult.flags,
+              recommendations: moderationResult.recommendations
+            },
+            message: 'Content did not pass AI moderation checks. Please review and try again.'
+          }, { status: 400 });
+        }
+      } else {
+        logger.info('AI moderation skipped (admin override)', {
+          userId: req.user.id,
+          fileName: file.name
+        });
+      }
 
-      // Determine content type
-      const contentType = FileUploader.getContentType(file);
+      // Step 2: Upload and process file
+      const uploadResult = await UploaderClass.uploadFile(file, req.user.id);
+
+      // Determine content status based on moderation
+      const contentStatus = moderationResult 
+        ? (moderationResult.approved ? 'PUBLISHED' : 'PENDING_REVIEW')
+        : 'PUBLISHED'; // If moderation was skipped
+      
+      const requiresReview = moderationResult && (
+        moderationResult.riskLevel === 'high' || 
+        moderationResult.riskLevel === 'critical' ||
+        moderationResult.flags.some(f => f.severity === 'high' || f.severity === 'critical')
+      );
 
       // Create content record in database
       const content = await prisma.content.create({
@@ -79,6 +154,22 @@ export async function POST(request: NextRequest) {
           format: uploadResult.format,
           tags: JSON.stringify(validatedData.tags),
           visibility: validatedData.visibility,
+          status: contentStatus,
+          // Store moderation results in metadata
+          metadata: JSON.stringify({
+            moderation: moderationResult ? {
+              approved: moderationResult.approved,
+              confidence: moderationResult.confidence,
+              riskLevel: moderationResult.riskLevel,
+              flagsCount: moderationResult.flags.length,
+              processingTime: moderationResult.processingTime,
+              timestamp: new Date().toISOString()
+            } : null,
+            upload: {
+              originalFileName: file.name,
+              uploadTimestamp: new Date().toISOString()
+            }
+          }),
           tiers: {
             connect: validatedData.tierIds.map(id => ({ id })),
           },
@@ -109,17 +200,52 @@ export async function POST(request: NextRequest) {
         fileSize: uploadResult.fileSize,
       });
 
+      // Store detailed moderation results separately for admin review if needed
+      if (moderationResult && requiresReview) {
+        try {
+          await prisma.moderationLog.create({
+            data: {
+              contentId: content.id,
+              userId: req.user.id,
+              result: JSON.stringify(moderationResult),
+              status: 'PENDING_REVIEW',
+              createdAt: new Date()
+            }
+          }).catch(() => {
+            // Table might not exist yet, just log it
+            logger.info('Moderation log table not available - moderation data stored in content metadata');
+          });
+        } catch (error) {
+          logger.warn('Failed to store moderation log', error);
+        }
+      }
+
+      const responseData = {
+        ...content,
+        tags: JSON.parse(content.tags),
+        metadata: {
+          width: uploadResult.width,
+          height: uploadResult.height,
+        },
+        moderation: moderationResult ? {
+          approved: moderationResult.approved,
+          confidence: moderationResult.confidence,
+          riskLevel: moderationResult.riskLevel,
+          recommendations: moderationResult.recommendations,
+          requiresReview
+        } : null
+      };
+
+      const message = moderationResult 
+        ? (requiresReview 
+            ? 'Content uploaded but requires manual review before publishing'
+            : 'Content uploaded and approved by AI moderation')
+        : 'Content uploaded successfully';
+
       return NextResponse.json({
         success: true,
-        message: 'Content uploaded successfully',
-        data: {
-          ...content,
-          tags: JSON.parse(content.tags),
-          metadata: {
-            width: uploadResult.width,
-            height: uploadResult.height,
-          },
-        },
+        message,
+        data: responseData,
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -160,6 +286,13 @@ export async function PUT(request: NextRequest) {
           { error: 'fileName, contentType, and fileSize are required' },
           { status: 400 }
         );
+      }
+
+      // For local storage, we don't use presigned URLs
+      if (USE_LOCAL_STORAGE) {
+        return NextResponse.json({
+          error: 'Presigned URLs not supported with local storage. Use direct upload via POST /api/content/upload'
+        }, { status: 400 });
       }
 
       // Validate file type and size

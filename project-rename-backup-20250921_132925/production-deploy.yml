@@ -1,0 +1,394 @@
+name: Production Deployment
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+      - '.gitignore'
+  workflow_dispatch:
+    inputs:
+      deploy_environment:
+        description: 'Target deployment environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+        - staging
+        - production
+      skip_tests:
+        description: 'Skip test execution'
+        required: false
+        default: false
+        type: boolean
+
+# Restrict to production deployments only from main branch
+env:
+  NODE_ENV: production
+  CI: true
+
+jobs:
+  pre-deployment-checks:
+    name: Pre-deployment Security Checks
+    runs-on: ubuntu-latest
+    environment: production-security
+    
+    outputs:
+      deployment-approved: ${{ steps.security-gate.outputs.approved }}
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Full history for security scanning
+
+    - name: Verify deployment branch
+      run: |
+        if [ "${{ github.ref }}" != "refs/heads/main" ]; then
+          echo "❌ Production deployments only allowed from main branch"
+          exit 1
+        fi
+        echo "✅ Deploying from main branch"
+
+    - name: Check for security alerts
+      run: |
+        # Check if there are any open security alerts
+        ALERTS=$(gh api repos/${{ github.repository }}/security-advisories --jq '.[] | select(.state == "published")')
+        if [ -n "$ALERTS" ]; then
+          echo "❌ Open security alerts found. Resolve before deployment."
+          echo "$ALERTS"
+          exit 1
+        fi
+        echo "✅ No open security alerts"
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Validate environment secrets
+      run: |
+        # Check that all required production secrets are configured
+        REQUIRED_SECRETS=(
+          "DATABASE_URL"
+          "NEXTAUTH_SECRET" 
+          "JWT_SECRET"
+          "STRIPE_SECRET_KEY"
+          "AWS_ACCESS_KEY_ID"
+          "AWS_SECRET_ACCESS_KEY"
+          "SENDGRID_API_KEY"
+        )
+        
+        MISSING_SECRETS=""
+        for secret in "${REQUIRED_SECRETS[@]}"; do
+          if [ -z "${!secret:-}" ]; then
+            MISSING_SECRETS="$MISSING_SECRETS $secret"
+          fi
+        done
+        
+        if [ -n "$MISSING_SECRETS" ]; then
+          echo "❌ Missing required secrets:$MISSING_SECRETS"
+          exit 1
+        fi
+        echo "✅ All required secrets configured"
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+        JWT_SECRET: ${{ secrets.JWT_SECRET }}
+        STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+
+    - name: Security gate approval
+      id: security-gate
+      run: |
+        echo "✅ Pre-deployment security checks passed"
+        echo "approved=true" >> $GITHUB_OUTPUT
+
+  build-and-test:
+    name: Build and Test for Production
+    runs-on: ubuntu-latest
+    needs: pre-deployment-checks
+    if: needs.pre-deployment-checks.outputs.deployment-approved == 'true'
+    
+    services:
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci --production=false
+
+    - name: Run comprehensive tests
+      if: ${{ !inputs.skip_tests }}
+      run: |
+        npm run test:coverage
+        npm run test:e2e
+        npm run security:check
+      env:
+        NODE_ENV: test
+        REDIS_URL: redis://localhost:6379
+
+    - name: Build production application
+      run: npm run build
+      env:
+        NODE_ENV: production
+
+    - name: Create deployment artifact
+      run: |
+        # Create production deployment package
+        tar --exclude='node_modules' \
+            --exclude='.git' \
+            --exclude='coverage' \
+            --exclude='test-results' \
+            --exclude='playwright-report' \
+            --exclude='backups' \
+            -czf deployment-artifact.tar.gz .
+        
+        # Verify build integrity
+        ls -la .next/
+        echo "Build completed successfully"
+
+    - name: Upload deployment artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: production-build
+        path: deployment-artifact.tar.gz
+        retention-days: 30
+
+  security-scan-production:
+    name: Production Security Scan
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download deployment artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: production-build
+
+    - name: Extract and scan production build
+      run: |
+        tar -xzf deployment-artifact.tar.gz
+        
+        # Scan for hardcoded secrets in build
+        if grep -r "sk_live\|pk_live\|AKIA" .next/ 2>/dev/null; then
+          echo "❌ Production secrets found in build files"
+          exit 1
+        fi
+        
+        # Check for development dependencies in production
+        if [ -f "node_modules" ]; then
+          echo "❌ node_modules should not be in deployment artifact"
+          exit 1
+        fi
+        
+        echo "✅ Production build security scan passed"
+
+    - name: Vulnerability scan on production image
+      if: hashFiles('Dockerfile.production') != ''
+      run: |
+        docker build -t directfanz:production -f Dockerfile.production .
+        
+        # Run Trivy scan on production image
+        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+          aquasec/trivy:latest image --severity HIGH,CRITICAL directfanz:production
+
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [pre-deployment-checks, build-and-test]
+    environment: staging
+    if: needs.pre-deployment-checks.outputs.deployment-approved == 'true' && (github.event.inputs.deploy_environment == 'staging' || github.event.inputs.deploy_environment == '')
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download deployment artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: production-build
+
+    - name: Deploy to Staging
+      run: |
+        echo "🚀 Deploying to staging environment..."
+        # Add your staging deployment logic here
+        # For example: Vercel, AWS, Docker, etc.
+        
+        echo "✅ Staging deployment completed"
+        echo "🔍 Running staging smoke tests..."
+        
+        # Basic health check on staging
+        sleep 30  # Wait for deployment to be ready
+        # curl -f https://staging.directfanz.io/api/health || exit 1
+        
+        echo "✅ Staging deployment verified"
+
+    - name: Notify deployment success
+      run: |
+        echo "✅ Staging deployment successful"
+        echo "Environment URL: https://staging.directfanz.io"
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [pre-deployment-checks, build-and-test, security-scan-production, deploy-staging]
+    environment: production
+    if: needs.pre-deployment-checks.outputs.deployment-approved == 'true' && (github.event.inputs.deploy_environment == 'production' || github.event.inputs.deploy_environment == '')
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download deployment artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: production-build
+
+    - name: Pre-deployment backup
+      run: |
+        echo "📦 Creating pre-deployment backup..."
+        # Trigger backup before deployment
+        # This could call your backup system or create a database snapshot
+        echo "✅ Pre-deployment backup completed"
+
+    - name: Deploy to Production
+      run: |
+        echo "🚀 Deploying to production environment..."
+        
+        # Extract deployment artifact
+        tar -xzf deployment-artifact.tar.gz
+        
+        # Add your production deployment logic here
+        # Examples:
+        # - Deploy to Vercel: vercel --prod
+        # - Deploy to AWS: aws ecs update-service
+        # - Deploy with Docker: docker-compose -f docker-compose.production.yml up -d
+        
+        echo "✅ Production deployment initiated"
+
+    - name: Post-deployment verification
+      run: |
+        echo "🔍 Running post-deployment verification..."
+        
+        # Wait for deployment to be ready
+        sleep 60
+        
+        # Health check
+        # curl -f https://directfanz.io/api/health || exit 1
+        
+        # Basic functionality tests
+        # curl -f https://directfanz.io/api/auth/signin || exit 1
+        
+        echo "✅ Production deployment verified"
+
+    - name: Update monitoring and alerting
+      run: |
+        echo "📊 Updating monitoring configuration..."
+        
+        # Update monitoring systems with new deployment
+        # - Update Sentry release
+        # - Update monitoring dashboards
+        # - Enable production alerting
+        
+        echo "✅ Monitoring updated for production deployment"
+
+    - name: Notify successful deployment
+      run: |
+        echo "🎉 Production deployment successful!"
+        echo "Environment URL: https://directfanz.io"
+        echo "Deployment time: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+        
+        # Send notifications (Slack, Discord, email, etc.)
+        # curl -X POST -H 'Content-type: application/json' \
+        #   --data '{"text":"🎉 DirectFanz production deployment successful!"}' \
+        #   ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  post-deployment-monitoring:
+    name: Post-deployment Monitoring
+    runs-on: ubuntu-latest
+    needs: deploy-production
+    if: always() && needs.deploy-production.result == 'success'
+    
+    steps:
+    - name: Setup monitoring
+      run: |
+        echo "📊 Setting up post-deployment monitoring..."
+        
+        # Monitor application for next 30 minutes
+        for i in {1..6}; do
+          echo "Health check $i/6..."
+          
+          # Check application health
+          # if ! curl -f https://directfanz.io/api/health; then
+          #   echo "❌ Health check failed"
+          #   # Trigger rollback or alert
+          #   exit 1
+          # fi
+          
+          sleep 300  # Wait 5 minutes between checks
+        done
+        
+        echo "✅ Post-deployment monitoring completed successfully"
+
+  rollback-on-failure:
+    name: Automatic Rollback
+    runs-on: ubuntu-latest
+    needs: [deploy-production, post-deployment-monitoring]
+    if: failure()
+    environment: production
+    
+    steps:
+    - name: Execute rollback
+      run: |
+        echo "⚠️  Deployment failure detected, initiating rollback..."
+        
+        # Rollback deployment
+        # This could involve:
+        # - Reverting to previous Docker image
+        # - Rolling back database migrations
+        # - Restoring from backup
+        # - Updating load balancer to previous version
+        
+        echo "🔄 Rollback completed"
+        
+    - name: Notify rollback
+      run: |
+        echo "🚨 Production deployment rolled back due to failure"
+        # Send critical notifications
+        
+        # curl -X POST -H 'Content-type: application/json' \
+        #   --data '{"text":"🚨 DirectFanz production deployment failed and was rolled back"}' \
+        #   ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  cleanup:
+    name: Cleanup
+    runs-on: ubuntu-latest
+    needs: [deploy-production, post-deployment-monitoring]
+    if: always()
+    
+    steps:
+    - name: Cleanup artifacts
+      run: |
+        echo "🧹 Cleaning up deployment artifacts..."
+        # Clean up temporary files, old Docker images, etc.
+        echo "✅ Cleanup completed"

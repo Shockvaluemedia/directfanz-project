@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 import { getCurrentUser, updateUserProfile, updateProfileSchema } from '@/lib/auth-utils';
 import { z } from 'zod';
 

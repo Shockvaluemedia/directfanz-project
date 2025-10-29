@@ -83,7 +83,7 @@ export async function GET(request: NextRequest, { params }: { params: { challeng
         take: limit,
         orderBy,
         include: {
-          submitter: {
+          users: {
             select: { id: true, displayName: true, avatar: true },
           },
           participation: {
@@ -189,7 +189,7 @@ export async function POST(request: NextRequest, { params }: { params: { challen
     }
 
     // Check submission limits
-    if (challenge.maxSubmissions && participation.submissions.length >= challenge.maxSubmissions) {
+    if (challenge.maxSubmissions && participation.challenge_submissions.length >= challenge.maxSubmissions) {
       return NextResponse.json(
         {
           error: `Maximum ${challenge.maxSubmissions} submissions allowed per participant`,
@@ -227,7 +227,7 @@ export async function POST(request: NextRequest, { params }: { params: { challen
           metadata: validatedData.metadata ? JSON.stringify(validatedData.metadata) : null,
         },
         include: {
-          submitter: {
+          users: {
             select: { id: true, displayName: true, avatar: true },
           },
           challenge: {
@@ -246,7 +246,7 @@ export async function POST(request: NextRequest, { params }: { params: { challen
       });
 
       // Update challenge submission count
-      await tx.challenge.update({
+      await tx.challenges.update({
         where: { id: params.challengeId },
         data: {
           submissionCount: { increment: 1 },

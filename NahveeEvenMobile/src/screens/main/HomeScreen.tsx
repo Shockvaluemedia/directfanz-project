@@ -1,19 +1,48 @@
-import React from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
-  SafeAreaView,
   ScrollView,
+  StyleSheet,
   TouchableOpacity,
+  RefreshControl,
+  StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useDiscovery } from '../../contexts/DiscoveryContext';
 import { useAuth } from '../../contexts/AuthContext';
-import LinearGradient from 'react-native-linear-gradient';
+
+// Components
+import FeedSection from '../../components/discovery/FeedSection';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
+import EmptyState from '../../components/common/EmptyState';
+
+// Types
+import { ContentItem, ContentCategory } from '../../types/discovery';
+import { HomeStackParamList } from '../../types/navigation';
+import { StackNavigationProp } from '@react-navigation/stack';
+
+type HomeScreenNavigationProp = StackNavigationProp<HomeStackParamList, 'HomeMain'>;
 
 const HomeScreen: React.FC = () => {
   const { theme } = useTheme();
-  const { user, logout } = useAuth();
+  const navigation = useNavigation<HomeScreenNavigationProp>();
+  const { user } = useAuth();
+  const {
+    getFeedContent,
+    getTrendingContent,
+    getCategories,
+  } = useDiscovery();
+
+  // State
+  const [feedContent, setFeedContent] = useState<ContentItem[]>([]);
+  const [trendingContent, setTrendingContent] = useState<ContentItem[]>([]);
+  const [categories, setCategories] = useState<ContentCategory[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const styles = StyleSheet.create({
     container: {
@@ -22,154 +51,197 @@ const HomeScreen: React.FC = () => {
     },
     header: {
       paddingHorizontal: 20,
-      paddingTop: 20,
-      paddingBottom: 15,
+      paddingTop: 60,
+      paddingBottom: 20,
     },
-    greeting: {
+    welcomeText: {
       fontSize: 28,
       fontWeight: 'bold',
       color: theme.colors.text,
-      marginBottom: 5,
+      marginBottom: 8,
     },
-    subtitle: {
+    welcomeSubtext: {
       fontSize: 16,
       color: theme.colors.textSecondary,
     },
     content: {
       flex: 1,
-      paddingHorizontal: 20,
     },
     section: {
-      marginBottom: 30,
+      marginBottom: 32,
     },
-    sectionTitle: {
-      fontSize: 20,
-      fontWeight: '600',
-      color: theme.colors.text,
-      marginBottom: 15,
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingTop: 60,
     },
-    card: {
-      backgroundColor: theme.colors.surface,
-      borderRadius: 12,
-      padding: 20,
-      marginBottom: 15,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-    },
-    cardTitle: {
+    loadingText: {
       fontSize: 16,
-      fontWeight: '600',
-      color: theme.colors.text,
-      marginBottom: 8,
-    },
-    cardDescription: {
-      fontSize: 14,
       color: theme.colors.textSecondary,
-      lineHeight: 20,
+      marginTop: 16,
     },
-    gradientCard: {
-      borderRadius: 12,
-      padding: 20,
-      marginBottom: 15,
+    errorContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 40,
     },
-    gradientText: {
-      color: 'white',
+    errorText: {
       fontSize: 16,
-      fontWeight: '600',
-      marginBottom: 8,
+      color: theme.colors.error,
+      textAlign: 'center',
+      marginBottom: 16,
     },
-    gradientSubtext: {
-      color: 'rgba(255, 255, 255, 0.9)',
-      fontSize: 14,
-    },
-    logoutButton: {
-      backgroundColor: theme.colors.error,
+    retryButton: {
+      backgroundColor: theme.colors.primary,
       paddingHorizontal: 20,
       paddingVertical: 12,
-      borderRadius: 8,
-      alignSelf: 'center',
-      marginTop: 20,
+      borderRadius: theme.borderRadius.medium,
     },
-    logoutText: {
+    retryButtonText: {
       color: 'white',
+      fontSize: 14,
       fontWeight: '600',
     },
   });
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.greeting}>
-          Hello, {user?.name?.split(' ')[0] || 'there'}! 👋
-        </Text>
-        <Text style={styles.subtitle}>Welcome to your creative space</Text>
-      </View>
+  // Load initial data
+  const loadData = useCallback(async () => {
+    try {
+      setError(null);
+      
+      const [
+        feedData,
+        trendingData, 
+        categoriesData,
+      ] = await Promise.all([
+        getFeedContent({ limit: 10 }),
+        getTrendingContent({ limit: 10 }),
+        getCategories(),
+      ]);
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Start</Text>
-          <LinearGradient
-            colors={theme.gradients.primary}
-            style={styles.gradientCard}
-          >
-            <Text style={styles.gradientText}>Start Creating Today</Text>
-            <Text style={styles.gradientSubtext}>
-              Share your creativity with the world. Upload your first content
-              and connect with your audience.
-            </Text>
-          </LinearGradient>
+      setFeedContent(feedData);
+      setTrendingContent(trendingData);
+      setCategories(categoriesData.slice(0, 8));
+      
+    } catch (err) {
+      console.error('Failed to load home data:', err);
+      setError('Failed to load content. Please try again.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [getFeedContent, getTrendingContent, getCategories]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadData();
+  }, [loadData]);
+
+  const handleContentPress = useCallback((content: ContentItem) => {
+    navigation.navigate('ContentDetail', { 
+      contentId: content.id,
+      content 
+    });
+  }, [navigation]);
+
+  const handleTrendingPress = useCallback(() => {
+    navigation.navigate('Trending');
+  }, [navigation]);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <LoadingSpinner size="large" />
+          <Text style={styles.loadingText}>Loading your content...</Text>
         </View>
+      </SafeAreaView>
+    );
+  }
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recent Activity</Text>
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Welcome to Nahvee Even!</Text>
-            <Text style={styles.cardDescription}>
-              You've successfully joined our creative community. Start by
-              exploring content from other creators or upload your own work.
-            </Text>
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Complete Your Profile</Text>
-            <Text style={styles.cardDescription}>
-              Add a profile picture and bio to help others discover your work
-              and connect with you.
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Discover</Text>
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Trending Content</Text>
-            <Text style={styles.cardDescription}>
-              Check out what's popular in the community right now.
-            </Text>
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>New Artists</Text>
-            <Text style={styles.cardDescription}>
-              Discover emerging talent and be the first to support new creators.
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Account</Text>
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Role: {user?.role}</Text>
-            <Text style={styles.cardDescription}>Email: {user?.email}</Text>
-          </View>
-
-          <TouchableOpacity
-            style={styles.logoutButton}
-            onPress={() => logout()}
-          >
-            <Text style={styles.logoutText}>Sign Out</Text>
+  if (error) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={loadData}>
+            <Text style={styles.retryButtonText}>Try Again</Text>
           </TouchableOpacity>
         </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.welcomeText}>
+          {user ? `Hey, ${user.displayName?.split(' ')[0]}! 👋` : 'Welcome to Nahvee Even! 🎵'}
+        </Text>
+        <Text style={styles.welcomeSubtext}>
+          Discover amazing content from talented creators
+        </Text>
+      </View>
+
+      {/* Content */}
+      <ScrollView
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={theme.colors.primary}
+            colors={[theme.colors.primary]}
+          />
+        }
+      >
+        {/* Trending Section */}
+        {trendingContent.length > 0 && (
+          <View style={styles.section}>
+            <FeedSection
+              title="Trending Now"
+              subtitle="What's popular today"
+              content={trendingContent}
+              onContentPress={handleContentPress}
+              onSeeAllPress={handleTrendingPress}
+            />
+          </View>
+        )}
+
+        {/* Main Feed */}
+        {feedContent.length > 0 && (
+          <View style={styles.section}>
+            <FeedSection
+              title="Discover More"
+              subtitle="Explore our diverse content library"
+              content={feedContent}
+              onContentPress={handleContentPress}
+              onSeeAllPress={() => {
+                // Navigate to main discover feed
+              }}
+            />
+          </View>
+        )}
+
+        {/* Empty State */}
+        {feedContent.length === 0 && trendingContent.length === 0 && (
+          <EmptyState
+            title="No content available"
+            message="Check back soon for amazing content from our creators!"
+            actionText="Refresh"
+            onAction={handleRefresh}
+          />
+        )}
       </ScrollView>
     </SafeAreaView>
   );

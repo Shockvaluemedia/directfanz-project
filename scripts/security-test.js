@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Security Testing Suite for Direct Fan Platform
+ * Security Testing Suite for DirectFanz
  * Tests all OAuth security enhancements and vulnerabilities
  */
 
@@ -12,7 +12,7 @@ import { URL } from 'url';
 import { fileURLToPath } from 'url';
 
 class SecurityTester {
-  constructor(baseUrl = 'http://localhost:3000') {
+  constructor(baseUrl = 'https://www.directfanz.io') {
     this.baseUrl = baseUrl;
     this.results = {
       passed: 0,
@@ -594,7 +594,7 @@ const __filename = fileURLToPath(import.meta.url);
 const isMainModule = import.meta.url.endsWith(process.argv[1]);
 
 if (isMainModule) {
-  const tester = new SecurityTester(process.argv[2] || 'http://localhost:3000');
+  const tester = new SecurityTester(process.argv[2] || 'https://www.directfanz.io');
   tester.runAllTests().catch(console.error);
 }
 

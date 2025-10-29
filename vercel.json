@@ -77,8 +77,25 @@
   ],
 
   "functions": {
+    "src/app/api/health/route.ts": {
+      "maxDuration": 10
+    },
     "app/api/**/*.ts": {
       "maxDuration": 10
     }
-  }
+  },
+
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "directfanz-project.io"
+        }
+      ],
+      "destination": "https://www.directfanz-project.io/$1",
+      "permanent": true
+    }
+  ]
 }
