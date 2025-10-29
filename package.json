@@ -71,7 +71,12 @@
     "production:setup": "npm run deploy:setup && npm run infrastructure:init && npm run monitoring:setup",
     "production:deploy": "npm run verify:all && npm run deploy:aws",
     "production:monitoring": "npm run monitoring:start",
-    "production:backup": "npm run backup:full"
+    "production:backup": "npm run backup:full",
+    "vercel:setup": "node scripts/vercel-production-setup.js",
+    "vercel:check": "node scripts/vercel-setup-checklist.js",
+    "vercel:deploy": "vercel --prod",
+    "vercel:preview": "vercel",
+    "vercel:env": "vercel env pull .env.vercel"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.470.0",

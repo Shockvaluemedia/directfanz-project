@@ -5,6 +5,18 @@
   "installCommand": "npm ci",
   "framework": "nextjs",
   "regions": ["iad1"],
+
+  "env": {
+    "NODE_ENV": "production"
+  },
+
+  "build": {
+    "env": {
+      "NEXT_PUBLIC_APP_NAME": "DirectFanz",
+      "SKIP_ENV_VALIDATION": "false"
+    }
+  },
+
   "headers": [
     {
       "source": "/(.*)",
@@ -28,6 +40,10 @@
         {
           "key": "Permissions-Policy",
           "value": "camera=(), microphone=(), geolocation=()"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=31536000; includeSubDomains"
         }
       ]
     },
@@ -59,6 +75,7 @@
       ]
     }
   ],
+
   "crons": [
     {
       "path": "/api/billing/invoices/sync",
@@ -68,5 +85,11 @@
       "path": "/api/health/cron",
       "schedule": "0 6 * * *"
     }
-  ]
+  ],
+
+  "functions": {
+    "app/api/**/*.ts": {
+      "maxDuration": 30
+    }
+  }
 }

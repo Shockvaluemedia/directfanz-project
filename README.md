@@ -185,13 +185,52 @@ docker-compose logs -f app
 
 ## Production Deployment
 
-For production deployment, consider:
+### Quick Start (Deploy to Vercel in 5 minutes)
 
-1. Use managed database services (AWS RDS, Vercel Postgres)
-2. Use managed Redis (AWS ElastiCache, Upstash)
-3. Deploy to Vercel, AWS, or similar platforms
-4. Configure proper environment variables for production
-5. Set up monitoring and logging
+```bash
+# Automated setup wizard
+npm run vercel:setup
+
+# Or manual deployment
+npm install -g vercel
+vercel login
+vercel --prod
+```
+
+**📖 See [PRODUCTION_QUICKSTART.md](./PRODUCTION_QUICKSTART.md) for detailed instructions**
+
+### Pre-Deployment Checklist
+
+```bash
+# Run automated checks
+npm run vercel:check
+```
+
+### Available Deployment Scripts
+
+- `npm run vercel:setup` - Interactive production setup wizard
+- `npm run vercel:check` - Run pre-deployment checklist
+- `npm run vercel:deploy` - Deploy to production
+- `npm run vercel:preview` - Deploy preview environment
+- `npm run vercel:env` - Pull environment variables
+
+### Required Services
+
+For production deployment, you'll need:
+
+1. **Database**: Vercel Postgres, Supabase, or AWS RDS
+2. **Cache**: Upstash Redis (recommended for Vercel)
+3. **Storage**: AWS S3 for media files
+4. **Payments**: Stripe account with live keys
+5. **Email**: SendGrid or similar service
+6. **Monitoring**: Sentry for error tracking (optional)
+
+### Documentation
+
+- [Production Quick Start](./PRODUCTION_QUICKSTART.md) - 5-minute deployment guide
+- [Detailed Vercel Guide](./docs/vercel-deployment.md) - Complete deployment documentation
+- [AWS S3 Setup](./docs/aws-s3-setup.md) - Configure file storage
+- [Environment Variables](/.env.production.vercel) - Required configuration
 
 ## Contributing
 
