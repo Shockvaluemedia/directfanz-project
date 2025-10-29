@@ -91,10 +91,10 @@
       "has": [
         {
           "type": "host",
-          "value": "directfanz-project.io"
+          "value": "directfanz.io"
         }
       ],
-      "destination": "https://www.directfanz-project.io/$1",
+      "destination": "https://www.directfanz.io/$1",
       "permanent": true
     }
   ]

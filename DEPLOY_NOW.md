@@ -2,7 +2,7 @@
 
 ## Current Status
 
-✅ **Vercel project exists**: `nahvee-even-platform`
+✅ **Domain**: directfanz.io
 ✅ **Vercel CLI installed**: v48.6.7
 ✅ **Environment secrets ready**: `.env.production.secrets`
 ✅ **Code pushed**: All latest changes on branch
@@ -43,13 +43,13 @@ Your secrets are already in `.env.production.secrets`:
 
 **You still need to add these in Vercel Dashboard:**
 
-1. Go to: https://vercel.com/demetrius-brooks-projects/nahvee-even-platform/settings/environment-variables
+1. Go to your Vercel project settings → Environment Variables
 
 2. Add these variables (get values from your local .env or services):
 
 ### Required
 - `DATABASE_URL` - Your PostgreSQL connection string
-- `NEXTAUTH_URL` - Will be `https://nahvee-even-platform.vercel.app` (or your custom domain)
+- `NEXTAUTH_URL` - Will be `https://www.directfanz.io` (your production domain)
 - `STRIPE_SECRET_KEY` - From Stripe dashboard
 - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` - From Stripe dashboard
 - `STRIPE_WEBHOOK_SECRET` - From Stripe webhooks
@@ -150,7 +150,7 @@ vercel open
 ## Need Help?
 
 - **Vercel Docs**: https://vercel.com/docs
-- **Your Project Dashboard**: https://vercel.com/demetrius-brooks-projects/nahvee-even-platform
+- **Your Project Dashboard**: Check Vercel dashboard for your DirectFanz project
 - **Deployment Logs**: Check in Vercel dashboard under "Deployments"
 
 ---
