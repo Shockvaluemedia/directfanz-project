@@ -76,9 +76,20 @@
     }
   ],
 
+  "crons": [
+    {
+      "path": "/api/billing/invoices/sync",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/health/cron",
+      "schedule": "0 6 * * *"
+    }
+  ],
+
   "functions": {
     "app/api/**/*.ts": {
-      "maxDuration": 10
+      "maxDuration": 30
     }
   }
 }
