@@ -1,7 +1,15 @@
-# DirectFanZProject
+# DirectFanz
 
 A platform that connects independent artists with their superfans through
 subscription-based exclusive content access.
+
+## 🚀 Ready to Deploy to Production?
+
+**Your DirectFanz platform is 95% production-ready!**
+
+→ **[START HERE: DEPLOYMENT_READY.md](./DEPLOYMENT_READY.md)** ←
+
+This master guide will take you from zero to live in ~50 minutes.
 
 ## Features
 
@@ -53,10 +61,10 @@ subscription-based exclusive content access.
    ```
 
 4. **Access the application**:
-   - Main app: https://www.directfanz-project-project.io
+   - Main app: http://localhost:3000
    - PostgreSQL: localhost:5432
    - Redis: localhost:6379
-   - pgAdmin: http://localhost:5050 (admin@directfanz-project-project.io / admin)
+   - pgAdmin: http://localhost:5050 (admin@directfanz.io / admin)
 
 ### Docker Services
 
@@ -117,14 +125,14 @@ Key environment variables you need to configure in `.env.local`:
 
 ```env
 # Database (automatically configured for Docker)
-DATABASE_URL="postgresql://postgres:password@postgres:5432/directfanz-project-project"
+DATABASE_URL="postgresql://postgres:password@postgres:5432/directfanz"
 
 # Redis (automatically configured for Docker)
 REDIS_URL="redis://redis:6379"
 
 # NextAuth.js
 NEXTAUTH_SECRET="your-secret-key-change-in-production"
-NEXTAUTH_URL="https://www.directfanz-project-project.io"
+NEXTAUTH_URL="http://localhost:3000"
 
 # Stripe (required for payments)
 STRIPE_PUBLISHABLE_KEY="pk_test_..."
@@ -138,7 +146,7 @@ AWS_S3_BUCKET_NAME="your-bucket-name"
 
 # SendGrid (required for emails)
 SENDGRID_API_KEY="SG...."
-FROM_EMAIL="noreply@directfanz-project-project.io"
+FROM_EMAIL="noreply@directfanz.io"
 ```
 
 ## Troubleshooting
@@ -185,19 +193,32 @@ docker-compose logs -f app
 
 ## Production Deployment
 
-### Quick Start (Deploy to Vercel in 5 minutes)
+### 🎯 Ready to Go Live?
 
+**Your DirectFanz platform is production-ready!**
+
+**→ [DEPLOYMENT_READY.md](./DEPLOYMENT_READY.md)** - Master deployment guide (start here)
+
+### Quick Deploy Options
+
+**Option 1: GitHub → Vercel** (Recommended, ~50 minutes)
+```bash
+# 1. Go to https://vercel.com/new
+# 2. Import repository: Shockvaluemedia/directfanz-project
+# 3. Add environment variables
+# 4. Deploy!
+```
+See: [DEPLOY_FROM_GITHUB.md](./DEPLOY_FROM_GITHUB.md)
+
+**Option 2: Vercel CLI** (~1 hour)
 ```bash
 # Automated setup wizard
 npm run vercel:setup
 
 # Or manual deployment
-npm install -g vercel
-vercel login
-vercel --prod
+./deploy-to-vercel.sh
 ```
-
-**📖 See [PRODUCTION_QUICKSTART.md](./PRODUCTION_QUICKSTART.md) for detailed instructions**
+See: [DEPLOY_NOW.md](./DEPLOY_NOW.md)
 
 ### Pre-Deployment Checklist
 
@@ -227,10 +248,14 @@ For production deployment, you'll need:
 
 ### Documentation
 
-- [Production Quick Start](./PRODUCTION_QUICKSTART.md) - 5-minute deployment guide
-- [Detailed Vercel Guide](./docs/vercel-deployment.md) - Complete deployment documentation
-- [AWS S3 Setup](./docs/aws-s3-setup.md) - Configure file storage
-- [Environment Variables](/.env.production.vercel) - Required configuration
+**Deployment Guides:**
+- [DEPLOYMENT_READY.md](./DEPLOYMENT_READY.md) - **Master deployment guide (start here)**
+- [NEXT_STEPS.md](./NEXT_STEPS.md) - Comprehensive action plan & feature roadmap
+- [DEPLOY_FROM_GITHUB.md](./DEPLOY_FROM_GITHUB.md) - GitHub integration (recommended)
+- [DEPLOY_NOW.md](./DEPLOY_NOW.md) - Quick CLI deployment
+- [VERCEL_ENV_CHECKLIST.md](./VERCEL_ENV_CHECKLIST.md) - Environment variables guide
+- [AWS_DEPLOYMENT_GUIDE.md](./AWS_DEPLOYMENT_GUIDE.md) - AWS architecture alternative
+- [PRODUCTION_QUICKSTART.md](./PRODUCTION_QUICKSTART.md) - 5-minute quick start
 
 ## Contributing
 
