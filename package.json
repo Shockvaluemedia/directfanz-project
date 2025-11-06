@@ -191,7 +191,7 @@
     "workbox-webpack-plugin": "^7.3.0",
     "ws": "^8.18.3",
     "zod": "^3.22.4",
-    "zustand": "^4.5.7"
+    "zustand": "^5.0.8"
   },
   "devDependencies": {
     "@playwright/test": "^1.54.1",
