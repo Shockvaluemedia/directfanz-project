@@ -181,7 +181,7 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Download deployment artifact
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v6
       with:
         name: production-build
 
@@ -224,7 +224,7 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Download deployment artifact
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v6
       with:
         name: production-build
 
@@ -260,7 +260,7 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Download deployment artifact
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v6
       with:
         name: production-build
 
