@@ -48,7 +48,7 @@
     </style>
   </head>
   <body>
-    <h1>Direct Fan Platform - Simple Signin Test</h1>
+    <h1>DirectFanz - Simple Signin Test</h1>
 
     <form id="signinForm">
       <div class="form-group">
@@ -76,13 +76,13 @@
           console.log('Testing signin for:', email);
 
           // First, get CSRF token
-          const csrfResponse = await fetch('http://localhost:3000/api/auth/csrf');
+          const csrfResponse = await fetch('https://www.directfanz.io/api/auth/csrf');
           const csrfData = await csrfResponse.json();
           console.log('CSRF Token:', csrfData.csrfToken);
 
           // Then try to sign in
           const signinResponse = await fetch(
-            'http://localhost:3000/api/auth/callback/credentials',
+            'https://www.directfanz.io/api/auth/callback/credentials',
             {
               method: 'POST',
               headers: {
@@ -92,7 +92,7 @@
                 email: email,
                 password: password,
                 csrfToken: csrfData.csrfToken,
-                callbackUrl: 'http://localhost:3000',
+                callbackUrl: 'https://www.directfanz.io',
                 json: 'true',
               }),
             }
@@ -107,7 +107,7 @@
                             <h3>✅ Signin Successful!</h3>
                             <p>Authentication working properly.</p>
                             <p>Response: ${JSON.stringify(signinData)}</p>
-                            <p>Now test in the main app: <a href="http://localhost:3000/auth/signin" target="_blank">Open Signin Page</a></p>
+                            <p>Now test in the main app: <a href="https://www.directfanz.io/auth/signin" target="_blank">Open Signin Page</a></p>
                         </div>
                     `;
           } else {

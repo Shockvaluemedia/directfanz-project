@@ -27,13 +27,13 @@ import {
 jest.mock('next-auth');
 jest.mock('@/lib/prisma', () => ({
   prisma: {
-    user: {
+    users: {
       findUnique: jest.fn(),
     },
-    tier: {
+    tiers: {
       findUnique: jest.fn(),
     },
-    subscription: {
+    subscriptions: {
       findUnique: jest.fn(),
     },
   },
@@ -80,7 +80,7 @@ describe('/api/payments/create-checkout', () => {
         expires: '2024-01-01',
       });
 
-      mockPrisma.user.findUnique.mockResolvedValue({
+      mockPrisma.users.findUnique.mockResolvedValue({
         id: 'user-1',
         email: 'test@example.com',
         role: 'ARTIST',
@@ -109,7 +109,7 @@ describe('/api/payments/create-checkout', () => {
         expires: '2024-01-01',
       });
 
-      mockPrisma.user.findUnique.mockResolvedValue({
+      mockPrisma.users.findUnique.mockResolvedValue({
         id: 'fan-1',
         email: 'fan@example.com',
         role: 'FAN',
@@ -140,7 +140,7 @@ describe('/api/payments/create-checkout', () => {
         expires: '2024-01-01',
       });
 
-      mockPrisma.user.findUnique.mockResolvedValue({
+      mockPrisma.users.findUnique.mockResolvedValue({
         id: 'fan-1',
         email: 'fan@example.com',
         role: 'FAN',
@@ -202,7 +202,7 @@ describe('/api/payments/create-checkout', () => {
         expires: '2024-01-01',
       });
 
-      mockPrisma.user.findUnique.mockResolvedValue({
+      mockPrisma.users.findUnique.mockResolvedValue({
         id: 'fan-1',
         email: 'fan@example.com',
         role: 'FAN',
@@ -264,7 +264,7 @@ describe('/api/payments/create-checkout', () => {
         expires: '2024-01-01',
       });
 
-      mockPrisma.user.findUnique.mockResolvedValue({
+      mockPrisma.users.findUnique.mockResolvedValue({
         id: 'fan-1',
         email: 'fan@example.com',
         role: 'FAN',
@@ -326,7 +326,7 @@ describe('/api/payments/create-checkout', () => {
         expires: '2024-01-01',
       });
 
-      mockPrisma.user.findUnique.mockResolvedValue({
+      mockPrisma.users.findUnique.mockResolvedValue({
         id: 'fan-1',
         email: 'fan@example.com',
         role: 'FAN',
@@ -371,7 +371,7 @@ describe('/api/payments/create-checkout', () => {
         },
       });
 
-      mockPrisma.subscription.findUnique.mockResolvedValue({
+      mockPrisma.subscriptions.findUnique.mockResolvedValue({
         id: 'sub-1',
         fanId: 'fan-1',
         artistId: 'artist-1',
@@ -402,7 +402,7 @@ describe('/api/payments/create-checkout', () => {
         expires: '2024-01-01',
       });
 
-      mockPrisma.user.findUnique.mockResolvedValue({
+      mockPrisma.users.findUnique.mockResolvedValue({
         id: 'fan-1',
         email: 'fan@example.com',
         role: 'FAN',
@@ -447,7 +447,7 @@ describe('/api/payments/create-checkout', () => {
         },
       });
 
-      mockPrisma.subscription.findUnique.mockResolvedValue(null);
+      mockPrisma.subscriptions.findUnique.mockResolvedValue(null);
 
       mockCreateOrRetrieveCustomer.mockResolvedValue('cus_123');
       mockCreateStripeProduct.mockResolvedValue('prod_123');

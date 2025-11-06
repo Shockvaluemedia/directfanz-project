@@ -8,10 +8,10 @@ export default function StaticHeader() {
           {/* Logo */}
           <div className='flex-shrink-0 flex items-center'>
             <Link href='/' className='flex items-center'>
-              <div className='w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center mr-3'>
-                <span className='text-white font-bold text-lg'>D</span>
+              <div className='w-8 h-8 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-lg flex items-center justify-center mr-3 shadow-lg'>
+                <span className='text-white font-bold text-lg'>DF</span>
               </div>
-              <span className='text-xl font-bold text-gray-900'>Direct Fan</span>
+              <span className='text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent'>DirectFanz</span>
             </Link>
           </div>
 

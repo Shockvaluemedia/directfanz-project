@@ -1,0 +1,76 @@
+Testing DirectFanz Pages - Sun Sep 21 11:15:59 CDT 2025
+=================================
+
+
+Core Pages:
+────────────────────────
+/ | 200 | 1517ms | OK
+/page-simple | 200 | 1300ms | OK
+
+Authentication:
+────────────────────────
+/auth/signin | 200 | 226ms | OK
+/auth/signup | 200 | 216ms | OK
+/auth-debug | 200 | 233ms | OK
+/test-auth | 200 | 240ms | OK
+/test-auth-simple | 200 | 249ms | OK
+/test-signin | 200 | 360ms | OK
+/simple-signin | 200 | 280ms | OK
+
+Dashboard & Profile:
+────────────────────────
+/dashboard | 200 | 283ms | OK
+/profile | 200 | 426ms | OK
+
+Creator Studio:
+────────────────────────
+/studio | 200 | 350ms | OK
+/upload | 200 | 313ms | OK
+/upload-simple | 200 | 314ms | OK
+/analytics | 200 | 627ms | OK
+/content | 200 | 684ms | OK
+
+Fan Experience:
+────────────────────────
+/discover | 307 | 549ms | REDIRECT
+/stream | 200 | 545ms | OK
+/streams | 200 | 422ms | OK
+/player | 200 | 436ms | OK
+/search | 200 | 454ms | OK
+/playlists | 200 | 499ms | OK
+
+Communication:
+────────────────────────
+/messages | 200 | 688ms | OK
+/chat | 200 | 633ms | OK
+
+Admin & Settings:
+────────────────────────
+/admin | 200 | 607ms | OK
+/settings | 200 | 655ms | OK
+
+Feature Pages:
+────────────────────────
+/features | 200 | 517ms | OK
+/features-demo | 200 | 524ms | OK
+/campaigns | 200 | 510ms | OK
+/artist | 307 | 608ms | REDIRECT
+
+Demo & Test Pages:
+────────────────────────
+/home-demo | 200 | 825ms | OK
+/simple-demo | 200 | 570ms | OK
+/ui-showcase | 200 | 609ms | OK
+/css-test | 200 | 581ms | OK
+/minimal-test | 200 | 567ms | OK
+/test | 200 | 566ms | OK
+/test-simple | 200 | 590ms | OK
+/test-minimal | 200 | 620ms | OK
+/test-js | 200 | 650ms | OK
+
+S3 & Upload Tests:
+────────────────────────
+/s3-upload-test | 200 | 815ms | OK
+
+SUMMARY:
+Total: 40 | Successful: 40 | Failed: 0 | Success Rate: 100.0%

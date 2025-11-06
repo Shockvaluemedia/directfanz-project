@@ -1,262 +1,393 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useSocket, Message, Conversation, TypingUser } from '@/contexts/socket-context';
 import { useSession } from 'next-auth/react';
-import { PaperAirplaneIcon, PhotoIcon, MicrophoneIcon } from '@heroicons/react/24/outline';
-import { useApi, useApiMutation } from '@/hooks/use-api';
-import { LoadingState, LoadingSpinner } from '@/components/ui/loading';
-
-interface Message {
-  id: string;
-  senderId: string;
-  recipientId: string;
-  content: string;
-  type: 'TEXT' | 'IMAGE' | 'AUDIO';
-  attachmentUrl?: string;
-  createdAt: string;
-  readAt?: string;
-  sender: {
-    id: string;
-    displayName: string;
-    avatar?: string;
-  };
-}
-
-interface Conversation {
-  id: string;
-  participants: Array<{
-    id: string;
-    displayName: string;
-    avatar?: string;
-  }>;
-  lastMessage?: Message;
-  unreadCount: number;
-}
+import { EnhancedCard, EnhancedCardHeader, EnhancedCardContent, EnhancedCardTitle } from '@/components/ui/enhanced-card';
+import { EnhancedButton } from '@/components/ui/enhanced-button';
+import { LoadingSpinner } from '@/components/ui/loading';
+import { 
+  Send, 
+  Paperclip, 
+  Smile, 
+  Phone, 
+  Video, 
+  MoreHorizontal,
+  CheckCheck,
+  Check,
+  Clock,
+  AlertCircle,
+  Music,
+  Crown,
+  Circle
+} from 'lucide-react';
+import { formatDistanceToNow, format, isToday, isYesterday } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 interface ChatInterfaceProps {
-  conversationWith: string;
-  onClose?: () => void;
+  conversation: Conversation | null;
+  className?: string;
 }
 
-export default function ChatInterface({ conversationWith, onClose }: ChatInterfaceProps) {
+export function ChatInterface({ conversation, className }: ChatInterfaceProps) {
   const { data: session } = useSession();
-  const [newMessage, setNewMessage] = useState('');
+  const { 
+    messages, 
+    sendMessage, 
+    joinConversation, 
+    leaveConversation,
+    startTyping,
+    stopTyping,
+    markMessagesAsRead,
+    getConversationHistory,
+    typingUsers,
+    isConnected 
+  } = useSocket();
+  
+  const [messageText, setMessageText] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messageInputRef = useRef<HTMLTextAreaElement>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout>();
 
-  // Fetch messages
-  const {
-    data: messagesResponse,
-    loading: loadingMessages,
-    error: messagesError,
-    execute: fetchMessages,
-  } = useApi<{
-    messages: Message[];
-    conversation: Conversation;
-  }>(`/api/messages?conversationWith=${conversationWith}`, {
-    immediate: true,
-  });
+  const conversationMessages = conversation 
+    ? messages[conversation.conversationId] || []
+    : [];
 
-  // Send message mutation
-  const {
-    loading: sendingMessage,
-    mutate: sendMessage,
-    error: sendError,
-  } = useApiMutation<
-    any,
-    {
-      recipientId: string;
-      content: string;
-      type?: string;
-    }
-  >('/api/messages', {
-    onSuccess: () => {
-      setNewMessage('');
-      fetchMessages(); // Refresh messages
-    },
-  });
+  const participant = conversation?.participants[0];
 
-  const messages = messagesResponse?.messages || [];
-  const conversation = messagesResponse?.conversation;
-
-  // Scroll to bottom when messages change
-  useEffect(() => {
+  // Auto-scroll to bottom when new messages arrive
+  const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, []);
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMessage.trim() || sendingMessage) return;
+  useEffect(() => {
+    scrollToBottom();
+  }, [conversationMessages, scrollToBottom]);
 
-    try {
-      await sendMessage({
-        recipientId: conversationWith,
-        content: newMessage.trim(),
-        type: 'text',
-      });
-    } catch (error) {
-      console.error('Failed to send message:', error);
+  // Join/leave conversation when selection changes
+  useEffect(() => {
+    if (conversation) {
+      joinConversation(conversation.conversationId);
+      getConversationHistory(conversation.conversationId);
+
+      return () => {
+        leaveConversation(conversation.conversationId);
+      };
+    }
+  }, [conversation, joinConversation, leaveConversation, getConversationHistory]);
+
+  // Mark messages as read when conversation is viewed
+  useEffect(() => {
+    if (conversation && conversationMessages.length > 0) {
+      const unreadMessages = conversationMessages
+        .filter(msg => msg.receiverId === session?.user?.id && !msg.read)
+        .map(msg => msg.id);
+      
+      if (unreadMessages.length > 0) {
+        markMessagesAsRead(conversation.conversationId, unreadMessages);
+      }
+    }
+  }, [conversation, conversationMessages, session?.user?.id, markMessagesAsRead]);
+
+  // Handle typing indicators
+  const handleTypingStart = useCallback(() => {
+    if (!isTyping && conversation && participant) {
+      setIsTyping(true);
+      startTyping(conversation.conversationId, participant.userId);
+    }
+
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    // Set new timeout to stop typing
+    typingTimeoutRef.current = setTimeout(() => {
+      if (conversation && participant) {
+        setIsTyping(false);
+        stopTyping(conversation.conversationId, participant.userId);
+      }
+    }, 3000);
+  }, [isTyping, conversation, participant, startTyping, stopTyping]);
+
+  const handleSendMessage = () => {
+    if (!messageText.trim() || !conversation || !participant) return;
+
+    sendMessage(participant.userId, messageText.trim(), 'text', conversation.conversationId);
+    setMessageText('');
+
+    // Stop typing
+    if (isTyping) {
+      setIsTyping(false);
+      stopTyping(conversation.conversationId, participant.userId);
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    }
+
+    // Focus back to input
+    messageInputRef.current?.focus();
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
     }
   };
 
-  const formatMessageTime = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const isToday = date.toDateString() === now.toDateString();
+  const getMessageStatus = (message: Message) => {
+    if (message.senderId !== session?.user?.id) return null;
 
-    if (isToday) {
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (message.status === 'sending') {
+      return <Clock className="w-3 h-3 text-gray-400" />;
     }
-    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    
+    if (message.read) {
+      return <CheckCheck className="w-3 h-3 text-blue-500" />;
+    }
+    
+    return <Check className="w-3 h-3 text-gray-400" />;
   };
 
-  if (loadingMessages && !messages.length) {
+  const formatMessageTime = (timestamp: Date) => {
+    if (isToday(timestamp)) {
+      return format(timestamp, 'HH:mm');
+    } else if (isYesterday(timestamp)) {
+      return 'Yesterday ' + format(timestamp, 'HH:mm');
+    } else {
+      return format(timestamp, 'MMM d, HH:mm');
+    }
+  };
+
+  const getTypingIndicator = () => {
+    if (!conversation) return null;
+    
+    const typingInConversation = typingUsers.filter(
+      user => user.conversationId === conversation.conversationId
+    );
+
+    if (typingInConversation.length === 0) return null;
+
     return (
-      <div className='flex-1 flex items-center justify-center'>
-        <LoadingSpinner size='lg' />
+      <div className="flex items-center gap-2 px-4 py-2">
+        <div className="flex items-center gap-1">
+          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+        </div>
+        <span className="text-sm text-gray-500">
+          {typingInConversation[0].username} is typing...
+        </span>
       </div>
     );
-  }
+  };
 
-  if (messagesError) {
+  if (!conversation) {
     return (
-      <div className='flex-1 flex items-center justify-center'>
-        <div className='text-center'>
-          <p className='text-red-600 mb-2'>Failed to load messages</p>
-          <button
-            onClick={() => fetchMessages()}
-            className='text-indigo-600 hover:text-indigo-500 font-medium'
-          >
-            Try again
-          </button>
+      <EnhancedCard variant="elevated" className={cn("h-full flex items-center justify-center", className)}>
+        <div className="text-center">
+          <Send className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-600 mb-2">Select a conversation</h3>
+          <p className="text-gray-500">Choose a conversation from the left to start messaging</p>
         </div>
-      </div>
+      </EnhancedCard>
     );
   }
 
   return (
-    <div className='flex flex-col h-full'>
+    <EnhancedCard variant="elevated" className={cn("h-full flex flex-col", className)}>
       {/* Header */}
-      <div className='flex items-center justify-between p-4 border-b border-gray-200 bg-white'>
-        <div className='flex items-center space-x-3'>
-          {conversation?.participants
-            .filter(p => p.id !== session?.user.id)
-            .map(participant => (
-              <div key={participant.id} className='flex items-center space-x-3'>
-                <div className='w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center'>
-                  {participant.avatar ? (
-                    <img
-                      src={participant.avatar}
-                      alt={participant.displayName}
-                      className='w-10 h-10 rounded-full object-cover'
-                    />
-                  ) : (
-                    <span className='text-indigo-600 font-medium'>
-                      {participant.displayName.charAt(0).toUpperCase()}
-                    </span>
-                  )}
-                </div>
-                <div>
-                  <h2 className='font-semibold text-gray-900'>{participant.displayName}</h2>
-                  <p className='text-sm text-gray-500'>Active now</p>
-                </div>
+      <EnhancedCardHeader className="border-b border-gray-200">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <div className={cn(
+                "w-10 h-10 rounded-full flex items-center justify-center font-semibold text-white",
+                participant?.role === 'ARTIST' ? 'bg-purple-500' : 'bg-blue-500'
+              )}>
+                {participant?.username.charAt(0).toUpperCase()}
               </div>
-            ))}
-        </div>
-        {onClose && (
-          <button onClick={onClose} className='text-gray-400 hover:text-gray-600 p-2'>
-            ✕
-          </button>
-        )}
-      </div>
+              
+              {participant?.isOnline && (
+                <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full" />
+              )}
+            </div>
 
-      {/* Messages */}
-      <div className='flex-1 overflow-y-auto p-4 space-y-4'>
-        {messages.length === 0 ? (
-          <div className='flex items-center justify-center h-full'>
-            <div className='text-center text-gray-500'>
-              <p>No messages yet</p>
-              <p className='text-sm'>Send a message to start the conversation</p>
+            <div>
+              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                {participant?.username}
+                <div className={cn(
+                  "px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1",
+                  participant?.role === 'ARTIST' 
+                    ? 'text-purple-600 bg-purple-100'
+                    : 'text-blue-600 bg-blue-100'
+                )}>
+                  {participant?.role === 'ARTIST' ? <Music className="w-3 h-3" /> : <Crown className="w-3 h-3" />}
+                  {participant?.role}
+                </div>
+              </h3>
+              
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                <Circle className={cn(
+                  "w-2 h-2 rounded-full",
+                  participant?.isOnline ? "text-green-500 fill-green-500" : "text-gray-400 fill-gray-400"
+                )} />
+                {participant?.isOnline ? 'Online' : 'Offline'}
+                {!isConnected && (
+                  <span className="text-red-500">• Disconnected</span>
+                )}
+              </div>
             </div>
           </div>
-        ) : (
-          messages.map(message => (
-            <div
-              key={message.id}
-              className={`flex ${
-                message.senderId === session?.user.id ? 'justify-end' : 'justify-start'
-              }`}
-            >
-              <div
-                className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                  message.senderId === session?.user.id
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-gray-100 text-gray-900'
-                }`}
-              >
-                <div className='break-words'>{message.content}</div>
-                <div
-                  className={`text-xs mt-1 ${
-                    message.senderId === session?.user.id ? 'text-indigo-200' : 'text-gray-500'
-                  }`}
-                >
-                  {formatMessageTime(message.createdAt)}
-                  {message.readAt && message.senderId === session?.user.id && (
-                    <span className='ml-1'>✓</span>
-                  )}
-                </div>
+
+          <div className="flex items-center gap-2">
+            <EnhancedButton variant="ghost" size="sm">
+              <Phone className="w-4 h-4" />
+            </EnhancedButton>
+            <EnhancedButton variant="ghost" size="sm">
+              <Video className="w-4 h-4" />
+            </EnhancedButton>
+            <EnhancedButton variant="ghost" size="sm">
+              <MoreHorizontal className="w-4 h-4" />
+            </EnhancedButton>
+          </div>
+        </div>
+      </EnhancedCardHeader>
+
+      {/* Messages */}
+      <EnhancedCardContent className="flex-1 p-0 overflow-hidden">
+        <div className="h-full overflow-y-auto">
+          {conversationMessages.length === 0 ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <Send className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                <p className="text-gray-500">Start your conversation!</p>
               </div>
             </div>
-          ))
-        )}
-        <div ref={messagesEndRef} />
-      </div>
+          ) : (
+            <div className="p-4 space-y-4">
+              {conversationMessages.map((message, index) => {
+                const isOwnMessage = message.senderId === session?.user?.id;
+                const showAvatar = index === 0 || 
+                  conversationMessages[index - 1].senderId !== message.senderId;
+
+                return (
+                  <div
+                    key={message.id}
+                    className={cn(
+                      "flex gap-3",
+                      isOwnMessage ? "flex-row-reverse" : "flex-row"
+                    )}
+                  >
+                    {/* Avatar */}
+                    <div className="flex-shrink-0">
+                      {showAvatar ? (
+                        <div className={cn(
+                          "w-8 h-8 rounded-full flex items-center justify-center font-semibold text-white text-sm",
+                          isOwnMessage ? 'bg-indigo-500' : 
+                          message.senderRole === 'ARTIST' ? 'bg-purple-500' : 'bg-blue-500'
+                        )}>
+                          {message.senderUsername.charAt(0).toUpperCase()}
+                        </div>
+                      ) : (
+                        <div className="w-8 h-8" />
+                      )}
+                    </div>
+
+                    {/* Message */}
+                    <div className={cn(
+                      "max-w-xs lg:max-w-md",
+                      isOwnMessage ? "items-end" : "items-start"
+                    )}>
+                      {showAvatar && !isOwnMessage && (
+                        <p className="text-xs text-gray-500 mb-1">
+                          {message.senderUsername}
+                        </p>
+                      )}
+                      
+                      <div className={cn(
+                        "px-4 py-2 rounded-2xl",
+                        isOwnMessage 
+                          ? "bg-indigo-500 text-white" 
+                          : "bg-gray-100 text-gray-900"
+                      )}>
+                        <p className="text-sm whitespace-pre-wrap">
+                          {message.content}
+                        </p>
+                      </div>
+
+                      <div className={cn(
+                        "flex items-center gap-1 mt-1 text-xs text-gray-500",
+                        isOwnMessage ? "justify-end" : "justify-start"
+                      )}>
+                        <span>{formatMessageTime(message.timestamp)}</span>
+                        {getMessageStatus(message)}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              
+              {/* Typing indicator */}
+              {getTypingIndicator()}
+              
+              <div ref={messagesEndRef} />
+            </div>
+          )}
+        </div>
+      </EnhancedCardContent>
 
       {/* Message Input */}
-      <div className='border-t border-gray-200 p-4 bg-white'>
-        <form onSubmit={handleSendMessage} className='flex items-center space-x-3'>
-          <div className='flex-1'>
-            <input
-              type='text'
-              value={newMessage}
-              onChange={e => setNewMessage(e.target.value)}
-              placeholder='Type a message...'
-              className='w-full px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
-              disabled={sendingMessage}
+      <div className="border-t border-gray-200 p-4">
+        <div className="flex items-end gap-3">
+          <EnhancedButton variant="ghost" size="sm" className="mb-2">
+            <Paperclip className="w-4 h-4" />
+          </EnhancedButton>
+
+          <div className="flex-1">
+            <textarea
+              ref={messageInputRef}
+              value={messageText}
+              onChange={(e) => {
+                setMessageText(e.target.value);
+                handleTypingStart();
+              }}
+              onKeyPress={handleKeyPress}
+              placeholder={`Message ${participant?.username}...`}
+              disabled={!isConnected}
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              rows={1}
+              style={{
+                minHeight: '40px',
+                maxHeight: '120px',
+                height: 'auto',
+              }}
             />
           </div>
 
-          <div className='flex items-center space-x-2'>
-            <button
-              type='button'
-              className='p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100'
-              title='Attach photo'
-            >
-              <PhotoIcon className='w-5 h-5' />
-            </button>
-            <button
-              type='button'
-              className='p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100'
-              title='Voice message'
-            >
-              <MicrophoneIcon className='w-5 h-5' />
-            </button>
-            <button
-              type='submit'
-              disabled={!newMessage.trim() || sendingMessage}
-              className='p-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed'
-            >
-              {sendingMessage ? (
-                <LoadingSpinner size='sm' color='white' />
-              ) : (
-                <PaperAirplaneIcon className='w-5 h-5' />
-              )}
-            </button>
+          <EnhancedButton variant="ghost" size="sm" className="mb-2">
+            <Smile className="w-4 h-4" />
+          </EnhancedButton>
+
+          <EnhancedButton
+            onClick={handleSendMessage}
+            disabled={!messageText.trim() || !isConnected}
+            className="mb-2"
+            size="sm"
+          >
+            <Send className="w-4 h-4" />
+          </EnhancedButton>
+        </div>
+
+        {!isConnected && (
+          <div className="flex items-center gap-2 mt-2 text-sm text-amber-600">
+            <AlertCircle className="w-4 h-4" />
+            Reconnecting...
           </div>
-        </form>
-        {sendError && (
-          <p className='text-red-600 text-sm mt-2'>Failed to send message. Please try again.</p>
         )}
       </div>
-    </div>
+    </EnhancedCard>
   );
 }

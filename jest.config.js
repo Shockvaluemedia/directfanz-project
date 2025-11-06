@@ -30,7 +30,7 @@ const customJestConfig = {
   testPathIgnorePatterns: ['<rootDir>/.next/', '<rootDir>/node_modules/', '<rootDir>/e2e/'],
   // Handle ES modules that Jest can't parse by default
   transformIgnorePatterns: [
-    'node_modules/(?!(jose|openid-client|next-auth|@next-auth|oauth4webapi)/)',
+    'node_modules/(?!(jose|openid-client|next-auth|@next-auth|oauth4webapi|uuid)/)',
   ],
 };
 

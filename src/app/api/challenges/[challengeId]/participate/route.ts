@@ -135,7 +135,7 @@ export async function POST(request: NextRequest, { params }: { params: { challen
       });
 
       // Update challenge participant count
-      await tx.challenge.update({
+      await tx.challenges.update({
         where: { id: params.challengeId },
         data: {
           participantCount: { increment: 1 },
@@ -228,7 +228,7 @@ export async function DELETE(
     }
 
     // Don't allow leaving if user has submissions (to maintain leaderboard integrity)
-    if (participation.submissions.length > 0) {
+    if (participation.challenge_submissions.length > 0) {
       return NextResponse.json(
         {
           error: 'Cannot leave challenge after making submissions. You can withdraw instead.',
@@ -246,7 +246,7 @@ export async function DELETE(
       });
 
       // Update challenge participant count
-      await tx.challenge.update({
+      await tx.challenges.update({
         where: { id: params.challengeId },
         data: {
           participantCount: { decrement: 1 },
@@ -255,7 +255,7 @@ export async function DELETE(
 
       // Update campaign participant count
       await tx.campaigns.update({
-        where: { id: participation.challenge.campaigns.id },
+        where: { id: participation.challenges.campaigns.id },
         data: {
           totalParticipants: { decrement: 1 },
         },

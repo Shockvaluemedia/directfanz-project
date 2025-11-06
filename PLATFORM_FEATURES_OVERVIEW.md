@@ -1,8 +1,8 @@
-# DirectFanz - Complete Features Overview
+# DirectFanZProject - Complete Features Overview
 
 ## 🎯 Platform Overview
 
-**DirectFanz** is a comprehensive creator economy platform that enables
+**DirectFanZProject** is a comprehensive creator economy platform that enables
 artists to connect directly with their superfans through exclusive content,
 subscriptions, and interactive features.
 

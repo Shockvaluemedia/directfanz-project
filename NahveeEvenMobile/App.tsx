@@ -9,9 +9,13 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import SplashScreen from './src/screens/SplashScreen';
 import AuthNavigator from './src/navigation/AuthNavigator';
 import MainNavigator from './src/navigation/MainNavigator';
+import ContentPlayerScreen from './src/screens/player/ContentPlayerScreen';
+import ContentPreviewModal from './src/components/discovery/ContentPreviewModal';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { ThemeProvider } from './src/contexts/ThemeContext';
 import { PlayerProvider } from './src/contexts/PlayerContext';
+import { ProfileProvider } from './src/contexts/ProfileContext';
+import { DiscoveryProvider } from './src/contexts/DiscoveryContext';
 
 // Import types
 import { RootStackParamList } from './src/types/navigation';
@@ -33,6 +37,26 @@ function AppContent() {
         ) : (
           <Stack.Screen name="Auth" component={AuthNavigator} />
         )}
+        
+        {/* Modal Screens */}
+        <Stack.Screen
+          name="Player"
+          component={ContentPlayerScreen}
+          options={{
+            presentation: 'modal',
+            gestureEnabled: true,
+            gestureDirection: 'vertical',
+          }}
+        />
+        
+        <Stack.Screen
+          name="ContentPreview"
+          component={ContentPreviewModal}
+          options={{
+            presentation: 'transparentModal',
+            gestureEnabled: true,
+          }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );
@@ -44,16 +68,20 @@ function App(): JSX.Element {
       <SafeAreaProvider>
         <ThemeProvider>
           <AuthProvider>
-            <PlayerProvider>
-              <StatusBar
-                barStyle={
-                  Platform.OS === 'ios' ? 'dark-content' : 'light-content'
-                }
-                backgroundColor="transparent"
-                translucent
-              />
-              <AppContent />
-            </PlayerProvider>
+            <ProfileProvider>
+              <DiscoveryProvider>
+                <PlayerProvider>
+                  <StatusBar
+                    barStyle={
+                      Platform.OS === 'ios' ? 'dark-content' : 'light-content'
+                    }
+                    backgroundColor="transparent"
+                    translucent
+                  />
+                  <AppContent />
+                </PlayerProvider>
+              </DiscoveryProvider>
+            </ProfileProvider>
           </AuthProvider>
         </ThemeProvider>
       </SafeAreaProvider>

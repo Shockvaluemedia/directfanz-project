@@ -788,6 +788,7 @@ jest.mock('next/server', () => ({
 // Mock Prisma Client
 jest.mock('@/lib/prisma', () => ({
   prisma: {
+    // User model (singular and plural for compatibility)
     user: {
       findUnique: jest.fn(),
       findMany: jest.fn(),
@@ -796,13 +797,32 @@ jest.mock('@/lib/prisma', () => ({
       delete: jest.fn(),
       count: jest.fn(),
     },
+    users: {
+      findUnique: jest.fn(),
+      findMany: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+      count: jest.fn(),
+    },
+    // Subscription model (singular and plural for compatibility)
     subscription: {
+      findUnique: jest.fn(),
       findFirst: jest.fn(),
       findMany: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
       count: jest.fn(),
     },
+    subscriptions: {
+      findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      count: jest.fn(),
+    },
+    // Content model (singular and plural for compatibility)
     content: {
       findUnique: jest.fn(),
       findMany: jest.fn(),
@@ -810,7 +830,14 @@ jest.mock('@/lib/prisma', () => ({
       update: jest.fn(),
       count: jest.fn(),
     },
+    // Tier model (singular and plural for compatibility)
     tier: {
+      findUnique: jest.fn(),
+      findMany: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+    },
+    tiers: {
       findUnique: jest.fn(),
       findMany: jest.fn(),
       create: jest.fn(),
@@ -861,7 +888,24 @@ jest.mock('@/lib/prisma', () => ({
           delete: jest.fn(),
           count: jest.fn(),
         },
+        users: {
+          findUnique: jest.fn(),
+          findMany: jest.fn(),
+          create: jest.fn(),
+          update: jest.fn(),
+          delete: jest.fn(),
+          count: jest.fn(),
+        },
         subscription: {
+          findUnique: jest.fn(),
+          findFirst: jest.fn(),
+          findMany: jest.fn(),
+          create: jest.fn(),
+          update: jest.fn(),
+          count: jest.fn(),
+        },
+        subscriptions: {
+          findUnique: jest.fn(),
           findFirst: jest.fn(),
           findMany: jest.fn(),
           create: jest.fn(),
@@ -876,6 +920,12 @@ jest.mock('@/lib/prisma', () => ({
           count: jest.fn(),
         },
         tier: {
+          findUnique: jest.fn(),
+          findMany: jest.fn(),
+          create: jest.fn(),
+          update: jest.fn(),
+        },
+        tiers: {
           findUnique: jest.fn(),
           findMany: jest.fn(),
           create: jest.fn(),
@@ -1155,4 +1205,177 @@ jest.mock('prom-client', () => ({
     resetMetrics: jest.fn(),
     contentType: 'text/plain; version=0.0.4; charset=utf-8',
   },
+}));
+
+// Mock AWS S3 services
+jest.mock('@aws-sdk/client-s3', () => {
+  return {
+    S3Client: jest.fn().mockImplementation(() => ({
+      send: jest.fn().mockImplementation((command) => {
+        // Mock different responses based on command type
+        if (command.constructor.name === 'PutObjectCommand') {
+          return Promise.resolve({ 
+            ETag: '"mockedETag"', 
+            ServerSideEncryption: 'AES256' 
+          });
+        }
+        
+        if (command.constructor.name === 'GetObjectCommand') {
+          return Promise.resolve({ 
+            Body: { 
+              transformToByteArray: () => new Uint8Array([1, 2, 3, 4]),
+              transformToString: () => 'mocked-content'
+            },
+            ContentType: 'image/jpeg',
+            ContentLength: 12345
+          });
+        }
+        
+        return Promise.resolve({ success: true });
+      })
+    })),
+    PutObjectCommand: jest.fn(),
+    GetObjectCommand: jest.fn(),
+    HeadObjectCommand: jest.fn(),
+    ListObjectsV2Command: jest.fn(),
+    DeleteObjectCommand: jest.fn()
+  };
+});
+
+jest.mock('@aws-sdk/s3-request-presigner', () => {
+  return {
+    getSignedUrl: jest.fn().mockResolvedValue('https://mock-presigned-url.com/test-file')
+  };
+});
+
+jest.mock('@aws-sdk/lib-storage', () => {
+  return {
+    Upload: jest.fn().mockImplementation(() => ({
+      done: jest.fn().mockResolvedValue({
+        Location: 'https://mock-s3-url.com/test-file',
+        Bucket: 'test-bucket',
+        Key: 'test-key',
+        ETag: '"mockedETag"'
+      })
+    }))
+  };
+});
+
+// Mock FFmpeg
+jest.mock('fluent-ffmpeg', () => {
+  const mockFfmpeg = jest.fn().mockImplementation(() => ({
+    input: jest.fn().mockReturnThis(),
+    inputFormat: jest.fn().mockReturnThis(),
+    outputFormat: jest.fn().mockReturnThis(),
+    output: jest.fn().mockReturnThis(),
+    outputOptions: jest.fn().mockReturnThis(),
+    videoCodec: jest.fn().mockReturnThis(),
+    audioCodec: jest.fn().mockReturnThis(),
+    audioBitrate: jest.fn().mockReturnThis(),
+    videoBitrate: jest.fn().mockReturnThis(),
+    fps: jest.fn().mockReturnThis(),
+    size: jest.fn().mockReturnThis(),
+    addOption: jest.fn().mockReturnThis(),
+    addOptions: jest.fn().mockReturnThis(),
+    noAudio: jest.fn().mockReturnThis(),
+    noVideo: jest.fn().mockReturnThis(),
+    toFormat: jest.fn().mockReturnThis(),
+    format: jest.fn().mockReturnThis(),
+    on: jest.fn().mockImplementation((event, cb) => {
+      if (event === 'end') {
+        setTimeout(() => cb(), 10);
+      }
+      return mockFfmpeg();
+    }),
+    run: jest.fn().mockImplementation(cb => {
+      setTimeout(() => cb(), 10);
+      return mockFfmpeg();
+    }),
+    save: jest.fn().mockImplementation((path, cb) => {
+      setTimeout(() => cb(), 10);
+      return mockFfmpeg();
+    })
+  }));
+
+  // Add static methods
+  mockFfmpeg.setFfmpegPath = jest.fn();
+  mockFfmpeg.setFfprobePath = jest.fn();
+  mockFfmpeg.ffprobe = jest.fn().mockImplementation((path, cb) => {
+    cb(null, {
+      streams: [
+        {
+          codec_type: 'video',
+          width: 1920,
+          height: 1080,
+          duration: 60,
+          bit_rate: 5000000,
+          r_frame_rate: '30/1'
+        },
+        {
+          codec_type: 'audio',
+          duration: 60,
+          bit_rate: 128000,
+          sample_rate: 44100,
+          channels: 2
+        }
+      ],
+      format: {
+        duration: 60,
+        size: 5000000,
+        bit_rate: 6000000
+      }
+    });
+  });
+
+  return mockFfmpeg;
+});
+
+jest.mock('ffmpeg-static', () => 'mocked-ffmpeg-path');
+jest.mock('ffprobe-static', () => ({
+  path: 'mocked-ffprobe-path'
+}));
+
+// Mock Sharp image processing
+jest.mock('sharp', () => {
+  return jest.fn().mockImplementation(() => ({
+    metadata: jest.fn().mockResolvedValue({
+      width: 1920,
+      height: 1080,
+      format: 'jpeg',
+      size: 1024 * 1024,
+      channels: 3
+    }),
+    stats: jest.fn().mockResolvedValue({
+      channels: [{ mean: 128, std: 64 }],
+      isOpaque: true,
+      entropy: 7.2
+    }),
+    resize: jest.fn().mockReturnThis(),
+    jpeg: jest.fn().mockReturnThis(),
+    png: jest.fn().mockReturnThis(),
+    webp: jest.fn().mockReturnThis(),
+    avif: jest.fn().mockReturnThis(),
+    toFile: jest.fn().mockResolvedValue({ size: 512 * 1024 }),
+    toBuffer: jest.fn().mockResolvedValue(Buffer.from('mocked-image-data'))
+  }));
+});
+
+// Mock fs/promises for file stats
+jest.mock('fs/promises', () => ({
+  stat: jest.fn().mockResolvedValue({
+    size: 1024 * 1024, // 1MB mock file size
+    isFile: () => true,
+    isDirectory: () => false,
+    mtime: new Date(),
+    ctime: new Date()
+  }),
+  readFile: jest.fn().mockResolvedValue(Buffer.from('mocked-file-content')),
+  writeFile: jest.fn().mockResolvedValue(undefined),
+  access: jest.fn().mockResolvedValue(undefined)
+}));
+
+// Mock UUID
+jest.mock('uuid', () => ({
+  v4: jest.fn(() => 'mocked-uuid-v4'),
+  v1: jest.fn(() => 'mocked-uuid-v1'),
 }));

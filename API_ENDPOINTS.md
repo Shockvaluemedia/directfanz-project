@@ -1,7 +1,7 @@
 # New API Endpoints - Core Functionality Implementation
 
 This document describes the newly implemented API endpoints that were missing
-from the core functionality of the Nahvee Even platform.
+from the core functionality of the DirectFanZ Project platform.
 
 ## Overview
 

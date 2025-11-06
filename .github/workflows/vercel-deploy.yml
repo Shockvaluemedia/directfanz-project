@@ -1,0 +1,120 @@
+name: Deploy to Vercel
+
+on:
+  push:
+    branches:
+      - main
+      - claude/setup-production-deployment-*
+  pull_request:
+    branches:
+      - main
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+jobs:
+  deploy:
+    name: Deploy to Vercel
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel Environment Information
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Set Environment Variables in Vercel
+        run: |
+          echo "Setting environment variables in Vercel..."
+
+          # Core secrets from GitHub Secrets
+          echo "${{ secrets.NEXTAUTH_SECRET }}" | vercel env add NEXTAUTH_SECRET production --token=${{ secrets.VERCEL_TOKEN }} --yes || true
+          echo "${{ secrets.ENCRYPTION_KEY }}" | vercel env add ENCRYPTION_KEY production --token=${{ secrets.VERCEL_TOKEN }} --yes || true
+          echo "${{ secrets.JWT_SECRET }}" | vercel env add JWT_SECRET production --token=${{ secrets.VERCEL_TOKEN }} --yes || true
+
+          # Configuration
+          echo "production" | vercel env add NODE_ENV production --token=${{ secrets.VERCEL_TOKEN }} --yes || true
+          echo "${{ secrets.NEXTAUTH_URL }}" | vercel env add NEXTAUTH_URL production --token=${{ secrets.VERCEL_TOKEN }} --yes || true
+
+          # Database
+          echo "${{ secrets.DATABASE_URL }}" | vercel env add DATABASE_URL production --token=${{ secrets.VERCEL_TOKEN }} --yes || true
+
+          # Stripe
+          echo "${{ secrets.STRIPE_SECRET_KEY }}" | vercel env add STRIPE_SECRET_KEY production --token=${{ secrets.VERCEL_TOKEN }} --yes || true
+          echo "${{ secrets.STRIPE_PUBLISHABLE_KEY }}" | vercel env add STRIPE_PUBLISHABLE_KEY production --token=${{ secrets.VERCEL_TOKEN }} --yes || true
+          echo "${{ secrets.STRIPE_WEBHOOK_SECRET }}" | vercel env add STRIPE_WEBHOOK_SECRET production --token=${{ secrets.VERCEL_TOKEN }} --yes || true
+
+          # AWS (if set)
+          if [ -n "${{ secrets.AWS_ACCESS_KEY_ID }}" ]; then
+            echo "${{ secrets.AWS_ACCESS_KEY_ID }}" | vercel env add AWS_ACCESS_KEY_ID production --token=${{ secrets.VERCEL_TOKEN }} --yes || true
+            echo "${{ secrets.AWS_SECRET_ACCESS_KEY }}" | vercel env add AWS_SECRET_ACCESS_KEY production --token=${{ secrets.VERCEL_TOKEN }} --yes || true
+            echo "${{ secrets.AWS_S3_BUCKET_NAME }}" | vercel env add AWS_S3_BUCKET_NAME production --token=${{ secrets.VERCEL_TOKEN }} --yes || true
+            echo "${{ secrets.AWS_REGION }}" | vercel env add AWS_REGION production --token=${{ secrets.VERCEL_TOKEN }} --yes || true
+          fi
+
+          # SendGrid (if set)
+          if [ -n "${{ secrets.SENDGRID_API_KEY }}" ]; then
+            echo "${{ secrets.SENDGRID_API_KEY }}" | vercel env add SENDGRID_API_KEY production --token=${{ secrets.VERCEL_TOKEN }} --yes || true
+            echo "${{ secrets.FROM_EMAIL }}" | vercel env add FROM_EMAIL production --token=${{ secrets.VERCEL_TOKEN }} --yes || true
+          fi
+
+          # Redis (if set)
+          if [ -n "${{ secrets.REDIS_URL }}" ]; then
+            echo "${{ secrets.REDIS_URL }}" | vercel env add REDIS_URL production --token=${{ secrets.VERCEL_TOKEN }} --yes || true
+          fi
+
+          echo "✅ Environment variables synced from GitHub Secrets to Vercel"
+
+      - name: Build Project Artifacts
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          # Provide env vars for build time
+          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          NODE_ENV: production
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
+
+      - name: Deploy to Vercel (Production)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }} > deployment-url.txt
+          echo "DEPLOYMENT_URL=$(cat deployment-url.txt)" >> $GITHUB_ENV
+
+      - name: Deploy to Vercel (Preview)
+        if: github.ref != 'refs/heads/main'
+        run: |
+          vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} > deployment-url.txt
+          echo "DEPLOYMENT_URL=$(cat deployment-url.txt)" >> $GITHUB_ENV
+
+      - name: Deployment Summary
+        run: |
+          echo "🚀 Deployment successful!"
+          echo "📍 URL: ${{ env.DEPLOYMENT_URL }}"
+          echo "🌿 Branch: ${{ github.ref_name }}"
+          echo "📦 Commit: ${{ github.sha }}"
+
+      - name: Comment on PR (Preview Deployments)
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🚀 Preview Deployment Ready\n\n✅ Your preview deployment is ready!\n\n**URL**: ${{ env.DEPLOYMENT_URL }}\n**Branch**: \`${{ github.ref_name }}\`\n**Commit**: \`${{ github.sha }}\`\n\nThis preview will be automatically updated on new commits.`
+            })

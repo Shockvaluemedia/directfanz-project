@@ -1,16 +1,41 @@
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
-// Initialize S3 client
-export const s3Client = new S3Client({
-  region: process.env.AWS_REGION!,
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-  },
-});
+// Initialize S3 client dynamically to ensure environment variables are loaded
+let _s3Client: S3Client | null = null;
 
-const BUCKET_NAME = process.env.AWS_S3_BUCKET_NAME!;
+const getS3Client = () => {
+  if (!_s3Client) {
+    const region = process.env.AWS_REGION;
+    const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
+    const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
+    
+    if (!region || !accessKeyId || !secretAccessKey) {
+      throw new Error('Missing AWS credentials: AWS_REGION, AWS_ACCESS_KEY_ID, and AWS_SECRET_ACCESS_KEY are required');
+    }
+    
+    _s3Client = new S3Client({
+      region,
+      credentials: {
+        accessKeyId,
+        secretAccessKey,
+      },
+    });
+  }
+  return _s3Client;
+};
+
+// Export the getter function for dynamic access
+export { getS3Client as s3Client };
+
+// Use a getter function to ensure environment variables are loaded when accessed
+const getBucketName = () => {
+  const bucketName = process.env.AWS_S3_BUCKET_NAME;
+  if (!bucketName) {
+    throw new Error('AWS_S3_BUCKET_NAME environment variable is not set');
+  }
+  return bucketName;
+};
 
 // Supported file types and their MIME types
 export const SUPPORTED_FILE_TYPES = {
@@ -86,7 +111,7 @@ export async function generatePresignedUrl({
 
   // Create the put object command
   const command = new PutObjectCommand({
-    Bucket: BUCKET_NAME,
+    Bucket: getBucketName(),
     Key: key,
     ContentType: fileType,
     ContentLength: fileSize,
@@ -98,10 +123,10 @@ export async function generatePresignedUrl({
   });
 
   // Generate presigned URL (expires in 1 hour)
-  const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+  const uploadUrl = await getSignedUrl(getS3Client(), command, { expiresIn: 3600 });
 
   // Construct the public URL for the file
-  const fileUrl = `https://${BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+  const fileUrl = `https://${getBucketName()}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
 
   return {
     uploadUrl,
@@ -115,18 +140,18 @@ export async function generatePresignedUrl({
  */
 export async function deleteFile(key: string): Promise<void> {
   const command = new DeleteObjectCommand({
-    Bucket: BUCKET_NAME,
+    Bucket: getBucketName(),
     Key: key,
   });
 
-  await s3Client.send(command);
+  await getS3Client().send(command);
 }
 
 /**
  * Extract file key from S3 URL
  */
 export function extractKeyFromUrl(url: string): string {
-  const bucketName = process.env.AWS_S3_BUCKET_NAME!;
+  const bucketName = getBucketName();
   const urlParts = url.split('/');
   const bucketIndex = urlParts.findIndex(part => part.includes(bucketName));
   if (bucketIndex === -1) {

@@ -3,6 +3,14 @@
 A platform that connects independent artists with their superfans through
 subscription-based exclusive content access.
 
+## 🚀 Ready to Deploy to Production?
+
+**Your DirectFanz platform is 95% production-ready!**
+
+→ **[START HERE: DEPLOYMENT_READY.md](./DEPLOYMENT_READY.md)** ←
+
+This master guide will take you from zero to live in ~50 minutes.
+
 ## Features
 
 - **Artist Dashboard**: Create subscription tiers, upload exclusive content,
@@ -34,8 +42,8 @@ subscription-based exclusive content access.
 1. **Clone the repository** (if not already done):
 
    ```bash
-   git clone <your-repo-url>
-   cd directfanz
+   git clone https://github.com/your-username/directfanz-project-project.git
+   cd directfanz-project-project
    ```
 
 2. **Set up environment variables**:
@@ -56,7 +64,7 @@ subscription-based exclusive content access.
    - Main app: http://localhost:3000
    - PostgreSQL: localhost:5432
    - Redis: localhost:6379
-   - pgAdmin: http://localhost:5050 (admin@example.com / admin)
+   - pgAdmin: http://localhost:5050 (admin@directfanz.io / admin)
 
 ### Docker Services
 
@@ -138,7 +146,7 @@ AWS_S3_BUCKET_NAME="your-bucket-name"
 
 # SendGrid (required for emails)
 SENDGRID_API_KEY="SG...."
-FROM_EMAIL="noreply@yourplatform.com"
+FROM_EMAIL="noreply@directfanz.io"
 ```
 
 ## Troubleshooting
@@ -185,13 +193,69 @@ docker-compose logs -f app
 
 ## Production Deployment
 
-For production deployment, consider:
+### 🎯 Ready to Go Live?
 
-1. Use managed database services (AWS RDS, Vercel Postgres)
-2. Use managed Redis (AWS ElastiCache, Upstash)
-3. Deploy to Vercel, AWS, or similar platforms
-4. Configure proper environment variables for production
-5. Set up monitoring and logging
+**Your DirectFanz platform is production-ready!**
+
+**→ [DEPLOYMENT_READY.md](./DEPLOYMENT_READY.md)** - Master deployment guide (start here)
+
+### Quick Deploy Options
+
+**Option 1: GitHub → Vercel** (Recommended, ~50 minutes)
+```bash
+# 1. Go to https://vercel.com/new
+# 2. Import repository: Shockvaluemedia/directfanz-project
+# 3. Add environment variables
+# 4. Deploy!
+```
+See: [DEPLOY_FROM_GITHUB.md](./DEPLOY_FROM_GITHUB.md)
+
+**Option 2: Vercel CLI** (~1 hour)
+```bash
+# Automated setup wizard
+npm run vercel:setup
+
+# Or manual deployment
+./deploy-to-vercel.sh
+```
+See: [DEPLOY_NOW.md](./DEPLOY_NOW.md)
+
+### Pre-Deployment Checklist
+
+```bash
+# Run automated checks
+npm run vercel:check
+```
+
+### Available Deployment Scripts
+
+- `npm run vercel:setup` - Interactive production setup wizard
+- `npm run vercel:check` - Run pre-deployment checklist
+- `npm run vercel:deploy` - Deploy to production
+- `npm run vercel:preview` - Deploy preview environment
+- `npm run vercel:env` - Pull environment variables
+
+### Required Services
+
+For production deployment, you'll need:
+
+1. **Database**: Vercel Postgres, Supabase, or AWS RDS
+2. **Cache**: Upstash Redis (recommended for Vercel)
+3. **Storage**: AWS S3 for media files
+4. **Payments**: Stripe account with live keys
+5. **Email**: SendGrid or similar service
+6. **Monitoring**: Sentry for error tracking (optional)
+
+### Documentation
+
+**Deployment Guides:**
+- [DEPLOYMENT_READY.md](./DEPLOYMENT_READY.md) - **Master deployment guide (start here)**
+- [NEXT_STEPS.md](./NEXT_STEPS.md) - Comprehensive action plan & feature roadmap
+- [DEPLOY_FROM_GITHUB.md](./DEPLOY_FROM_GITHUB.md) - GitHub integration (recommended)
+- [DEPLOY_NOW.md](./DEPLOY_NOW.md) - Quick CLI deployment
+- [VERCEL_ENV_CHECKLIST.md](./VERCEL_ENV_CHECKLIST.md) - Environment variables guide
+- [AWS_DEPLOYMENT_GUIDE.md](./AWS_DEPLOYMENT_GUIDE.md) - AWS architecture alternative
+- [PRODUCTION_QUICKSTART.md](./PRODUCTION_QUICKSTART.md) - 5-minute quick start
 
 ## Contributing
 

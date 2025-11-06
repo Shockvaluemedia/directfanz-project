@@ -12,7 +12,7 @@ const RETRY_DELAY = 5000;
 
 class SmokeTestRunner {
   constructor(baseUrl) {
-    this.baseUrl = baseUrl || process.env.TEST_URL || 'http://localhost:3000';
+    this.baseUrl = baseUrl || process.env.TEST_URL || 'https://www.directfanz.io';
     this.tests = [
       { name: 'Health Check', path: '/api/health', method: 'GET', expectedStatus: 200 },
       { name: 'Metrics Endpoint', path: '/api/metrics', method: 'GET', expectedStatus: 200 },
@@ -227,7 +227,7 @@ class HealthCheckTests {
 }
 
 async function main() {
-  const baseUrl = process.argv[2] || process.env.TEST_URL || 'http://localhost:3000';
+  const baseUrl = process.argv[2] || process.env.TEST_URL || 'https://www.directfanz.io';
 
   console.log(`🚀 Starting smoke tests for: ${baseUrl}`);
 

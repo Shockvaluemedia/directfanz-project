@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withFanApi } from '@/lib/api-auth';
 import { prisma } from '@/lib/prisma';
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function GET(request: NextRequest) {
   return withFanApi(request, async req => {
     try {

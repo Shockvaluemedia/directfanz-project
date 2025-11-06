@@ -17,8 +17,8 @@ const inter = Inter({ subsets: ['latin'] });
 // const csp = generateCSP();
 
 export const metadata: Metadata = {
-  title: 'DirectFanz',
-  description: 'Connect artists with their superfans through exclusive content',
+  title: 'DirectFanz - Empower Your Creative Journey',
+  description: 'The ultimate creator platform for building meaningful fan connections and monetizing your content. Join thousands of creators earning directly from their audience.',
   // Temporarily disabled security headers for debugging
   // other: {
   //   'Content-Security-Policy': csp,

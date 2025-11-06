@@ -1,6 +1,6 @@
 # User Onboarding Guide
 
-This guide provides step-by-step instructions for new users of DirectFanz, covering both artist and fan onboarding processes.
+This guide provides step-by-step instructions for new users of DirectFanZProject, covering both artist and fan onboarding processes.
 
 ## Table of Contents
 

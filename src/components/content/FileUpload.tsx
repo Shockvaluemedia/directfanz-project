@@ -1,5 +1,11 @@
 'use client';
 
+/**
+ * @deprecated Use ContentUploader component instead
+ * This component is deprecated and will be removed in a future version.
+ * Use src/components/upload/ContentUploader.tsx for new implementations.
+ */
+
 import React, { useState, useCallback, useRef } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { MAX_FILE_SIZES, ALLOWED_EXTENSIONS, ContentType } from '@/lib/upload-constants';

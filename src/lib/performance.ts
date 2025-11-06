@@ -3,8 +3,6 @@
  */
 import { logger } from './logger';
 import Redis from 'ioredis';
-import { LRUCache } from 'lru-cache';
-
 // Performance metric types
 export type PerformanceMetric = {
   name: string;
@@ -319,28 +317,50 @@ export class RedisCacheService {
   }
 }
 
-// Memory cache service using LRU
+// Memory cache service using simple Map (for compatibility)
 export class MemoryCacheService {
-  private cache: LRUCache<string, any>;
+  private cache: Map<string, { value: any; expiry: number }> = new Map();
+  private maxSize: number;
+  private defaultTtl: number;
 
   constructor() {
-    this.cache = new LRUCache({
-      max: cacheConfig.memory.max,
-      ttl: cacheConfig.memory.ttl,
-    });
+    this.maxSize = cacheConfig.memory.max;
+    this.defaultTtl = cacheConfig.memory.ttl;
+  }
+
+  private cleanup() {
+    const now = Date.now();
+    for (const [key, item] of this.cache.entries()) {
+      if (item.expiry < now) {
+        this.cache.delete(key);
+      }
+    }
+
+    // Simple LRU: if over max size, remove oldest entries
+    if (this.cache.size > this.maxSize) {
+      const entries = Array.from(this.cache.entries());
+      const toDelete = entries.slice(0, entries.length - this.maxSize);
+      toDelete.forEach(([key]) => this.cache.delete(key));
+    }
   }
 
   get<T>(key: string): T | null {
-    return this.cache.get(key) || null;
+    const item = this.cache.get(key);
+    if (!item) return null;
+    
+    if (Date.now() > item.expiry) {
+      this.cache.delete(key);
+      return null;
+    }
+    
+    return item.value;
   }
 
   set(key: string, value: any, ttlMs?: number): boolean {
     try {
-      if (ttlMs) {
-        this.cache.set(key, value, { ttl: ttlMs });
-      } else {
-        this.cache.set(key, value);
-      }
+      const expiry = Date.now() + (ttlMs || this.defaultTtl);
+      this.cache.set(key, { value, expiry });
+      this.cleanup();
       return true;
     } catch (error) {
       logger.error('Memory cache set error', { key }, error as Error);
@@ -353,7 +373,15 @@ export class MemoryCacheService {
   }
 
   has(key: string): boolean {
-    return this.cache.has(key);
+    const item = this.cache.get(key);
+    if (!item) return false;
+    
+    if (Date.now() > item.expiry) {
+      this.cache.delete(key);
+      return false;
+    }
+    
+    return true;
   }
 
   clear(): void {
@@ -361,6 +389,7 @@ export class MemoryCacheService {
   }
 
   size(): number {
+    this.cleanup();
     return this.cache.size;
   }
 }

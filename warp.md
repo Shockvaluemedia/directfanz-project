@@ -1,18 +1,24 @@
-# 🌊 Warp Terminal Guide - Direct Fan Platform
+# 🌊 Warp Terminal Guide - DirectFanZ Project
+
+**Updated**: September 2025 | **Version**: 2.0 Enterprise Edition
 
 ## 🚀 Quick Start Commands
 
 ### Development Server
 
 ```bash
-# Start development server
+# Start development server (Next.js only)
 npm run dev:next
 
-# Start with custom server (includes WebSocket)
+# Start with custom server (includes WebSocket & real-time features)
 npm run dev
 
 # Check server status
 lsof -i :3001
+lsof -i :3000
+
+# Health check
+npm run health:check
 ```
 
 ### Database Operations
@@ -43,14 +49,76 @@ npm test
 # Run tests in watch mode
 npm run test:watch
 
+# Run with coverage
+npm run test:coverage
+
+# Content Optimization Tests (NEW!)
+npm test -- src/tests/content-optimization.test.ts
+npm test -- src/tests/content-optimization-integration.test.ts
+npm test -- src/tests/api-optimize.test.ts
+npm test -- src/tests/OptimizedContentUploader.test.tsx
+
+# Integration & Workflow Tests (NEW!)
+npm test -- src/tests/full-workflow-integration.test.ts
+npm test -- src/tests/error-handling.test.ts
+npm test -- src/tests/performance-load.test.ts
+
 # Run end-to-end tests
 npm run test:e2e
+npm run test:e2e:ui
+npm run test:e2e:debug
 
-# Run load testing
+# Load and performance testing
 npm run test:load
+npm run perf:test
+npm run perf:test:quick
 
-# Security check
+# System and integration tests
+npm run test:system
+npm run test:integration
+npm run test:smoke
+
+# Full verification suite
+npm run verify:all
+```
+
+### 🔒 Security & Monitoring Commands
+
+```bash
+# Security operations
 npm run security:check
+npm run security:monitor
+npm run validate:secrets
+
+# Staging environment monitoring
+npm run staging:health
+npm run staging:monitor
+npm run staging:security
+
+# Performance monitoring
+npm run perf:baseline
+npm run perf:monitor
+npm run perf:health
+```
+
+### 📋 Analytics & Features
+
+```bash
+# Analytics system (accessible via /dashboard/artist/analytics)
+# - Revenue analytics with growth trends
+# - Subscriber analytics and engagement metrics  
+# - Content performance tracking
+# - Real-time dashboard with filtering
+
+# PWA features
+# - Service worker for offline functionality
+# - Push notifications support
+# - Installation prompts
+
+# Real-time features
+# - WebSocket messaging system
+# - Live streaming capabilities
+# - Real-time notifications
 ```
 
 ## 🔧 Development Workflows
@@ -59,7 +127,7 @@ npm run security:check
 
 ```bash
 # 1. Navigate to project
-cd "/Users/demetriusbrooks/Nahvee Even"
+cd "/Users/demetriusbrooks/DirectFanZ Project"
 
 # 2. Install dependencies (if needed)
 npm install
@@ -67,11 +135,78 @@ npm install
 # 3. Generate Prisma client
 npx prisma generate
 
-# 4. Start development server
-npm run dev:next
+# 4. Run health check
+npm run health:check
 
-# 5. Open in browser
+# 5. Start development server (choose one)
+npm run dev:next      # Standard Next.js server
+npm run dev           # Custom server with WebSocket & real-time features
+
+# 6. Open in browser
 open http://localhost:3001
+open http://localhost:3000  # If using dev:next
+
+# 7. Access key features
+open http://localhost:3001/dashboard/artist/analytics  # Analytics dashboard
+open http://localhost:3001/admin                       # Admin panel
+open http://localhost:3001/messages                    # Real-time messaging
+```
+
+### 🏆 New Enterprise Features Access
+
+```bash
+# Content Optimization System (NEW!)
+open http://localhost:3001/dashboard/artist/upload
+# - Advanced content optimization with 5+ strategies
+# - Multi-format support (images, videos, audio)
+# - Device & connection-aware optimization
+# - Batch processing with concurrent optimization
+# - Real-time optimization progress tracking
+# - AWS S3 integration for optimized storage
+
+# Content Optimization API (NEW!)
+curl -X GET http://localhost:3001/api/content/optimize
+# - GET: Available optimization strategies
+# - POST: Single file optimization
+# - POST: Batch optimization processing
+# - Intelligent content analysis and recommendations
+
+# Enhanced Fan Feed (NEW!)
+open http://localhost:3001/feed
+# - Optimized content delivery
+# - Multiple format variants (WebP, JPEG, MP4, etc.)
+# - Device-specific content serving
+# - Lazy loading with optimization metadata
+
+# Analytics Dashboard
+open http://localhost:3001/dashboard/artist/analytics
+# - Revenue tracking with trends and sparklines
+# - Subscriber growth analysis
+# - Content performance metrics (now includes optimization data)
+# - Interactive charts and filtering
+
+# Real-time Messaging
+open http://localhost:3001/messages
+# - WebSocket-powered real-time chat
+# - Message threads and conversations
+# - Online status indicators
+
+# Live Streaming
+open http://localhost:3001/studio
+# - Stream setup and configuration
+# - Stream control panel
+# - Viewer interface with HLS support
+
+# Advanced Search & Discovery
+open http://localhost:3001/discover
+# - AI-powered search with Algolia/Fuse.js
+# - Advanced filtering and discovery
+# - Content recommendations
+
+# PWA Features
+# - Offline functionality via service worker
+# - Push notifications (when supported)
+# - App installation prompts
 ```
 
 ### Database Management
@@ -90,20 +225,62 @@ npx prisma migrate deploy
 sqlite3 prisma/dev.db ".tables"
 ```
 
-### Production Deployment
+### 🚀 Multi-Environment Deployment
 
+#### Staging Deployment
 ```bash
+# Quick staging deployment
+npm run staging:deploy
+npm run staging:quick
+
+# Monitor staging health
+npm run staging:health
+npm run staging:monitor
+
+# Staging security validation
+npm run staging:security
+```
+
+#### Production Deployment
+```bash
+# Pre-deployment checks
+npm run verify:all
+npm run security:check
+npm run perf:validate
+
 # Build application
 npm run build
 
-# Deploy using automated script
-./scripts/deploy-production.sh
+# Full production setup
+npm run production:setup
+npm run production:deploy
 
-# Set up Railway database
-./scripts/setup-railway-db.sh
+# Production monitoring
+npm run production:monitoring
+npm run production:backup
 
 # Test production deployment
 ./scripts/test-production.sh https://yourdomain.com
+```
+
+#### 🛑 Enterprise Security & Backup
+```bash
+# Comprehensive backup system
+npm run backup:full          # Complete system backup
+npm run backup:code          # Code and configuration
+npm run backup:database      # Database backup
+npm run backup:list          # List available backups
+npm run backup:cleanup       # Clean old backups
+
+# Security infrastructure
+npm run security:monitor     # Real-time security monitoring
+npm run validate:secrets     # Validate environment secrets
+./scripts/setup-branch-protection.sh  # Git security
+./scripts/setup-secrets-management.sh # Secrets management
+
+# Incident response ready
+# See INCIDENT_RESPONSE_PLAN.md for emergency procedures
+# See STAGING_INCIDENT_RESPONSE.md for staging issues
 ```
 
 ## 📊 Monitoring & Debugging
@@ -293,24 +470,71 @@ npm run security:check
 ```
 src/
 ├── app/                 # Next.js App Router pages
+│   ├── dashboard/artist/analytics/  # Analytics dashboard
+│   ├── api/             # API routes with enhanced endpoints
+│   │   ├── content/optimize/        # Content optimization API (NEW!)
+│   │   ├── fan/feed/               # Enhanced fan feed API (NEW!)
+│   │   └── upload/local/           # Local upload handling (NEW!)
+│   ├── admin/           # Admin panel
+│   ├── feed/            # Enhanced fan feed page (NEW!)
+│   └── messages/        # Real-time messaging
 ├── components/          # React components
+│   ├── analytics/       # Analytics charts and widgets
+│   ├── messaging/       # Chat and messaging components
+│   ├── streaming/       # Live streaming components
+│   ├── pwa/             # PWA components
+│   ├── search/          # Advanced search components
+│   └── upload/          # File upload components (ENHANCED!)
+│       ├── ContentUploader.tsx         # Basic content uploader
+│       └── OptimizedContentUploader.tsx # Advanced optimization uploader
 ├── lib/                 # Utility functions
+│   ├── socket-server.ts # WebSocket server
+│   ├── file-upload.ts   # File handling utilities
+│   └── content-optimization.ts      # Content optimization engine (NEW!)
+├── tests/               # Comprehensive testing suite (NEW!)
+│   ├── content-optimization.test.ts         # Unit tests
+│   ├── content-optimization-integration.test.ts # Integration tests
+│   ├── api-optimize.test.ts                # API endpoint tests
+│   ├── OptimizedContentUploader.test.tsx    # Component tests
+│   ├── full-workflow-integration.test.ts   # End-to-end workflow tests
+│   ├── error-handling.test.ts              # Error & edge case tests
+│   ├── performance-load.test.ts            # Performance & load tests
+│   └── integration.test.ts                 # General integration tests
+├── contexts/            # React contexts for state management
+├── hooks/               # Custom React hooks
 ├── types/              # TypeScript definitions
 └── styles/             # CSS and styling
 
 prisma/
-├── schema.prisma       # Database schema
-├── migrations/         # Database migrations
+├── schema.prisma       # Enhanced database schema
+├── migrations/         # Database migrations with performance indexes
 └── seed.ts            # Database seeding
 
 scripts/
-├── deploy-production.sh    # Deployment automation
-├── test-production.sh     # Production testing
-└── setup-railway-db.sh   # Database setup
+├── monitoring/         # Health monitoring and alerts
+│   └── staging-health.js # Staging environment monitoring
+├── deploy-production.sh    # Production deployment
+├── deploy-staging.js       # Staging deployment
+├── backup-system.sh        # Comprehensive backup system
+├── security-monitoring.js  # Security monitoring
+├── setup-secrets-management.sh # Secrets management
+└── setup-branch-protection.sh # Git security
 
 docs/
+├── STAGING_INCIDENT_RESPONSE.md # Staging emergency procedures
 ├── aws-s3-setup.md       # S3 configuration guide
 └── vercel-deployment.md  # Vercel deployment guide
+
+.github/
+├── workflows/           # CI/CD workflows
+│   ├── security.yml     # Security scanning
+│   ├── staging-security.yml # Staging security monitoring
+│   └── production-deploy.yml # Production deployment
+└── dependabot.yml       # Automated dependency updates
+
+monitoring/
+└── staging/             # Staging monitoring configuration
+    └── health-checks.json # Health check definitions
 ```
 
 ### Important Files
@@ -318,19 +542,30 @@ docs/
 ```bash
 # Configuration
 .env                    # Environment variables
+.env.staging           # Staging environment configuration
 .env.example           # Environment template
-package.json           # Dependencies and scripts
-next.config.js         # Next.js configuration
-tailwind.config.js     # Tailwind CSS config
+package.json           # Dependencies and scripts (80+ npm scripts)
+next.config.js         # Next.js configuration with PWA support
+tailwind.config.ts     # Tailwind CSS config
+vercel.json            # Vercel deployment configuration
 
 # Database
 prisma/dev.db          # SQLite database (dev)
-prisma/schema.prisma   # Database schema
+prisma/schema.prisma   # Enhanced database schema
+
+# Security & Operations
+INCIDENT_RESPONSE_PLAN.md       # Main incident response procedures
+STAGING_INCIDENT_RESPONSE.md    # Staging-specific procedures
+AGENT_COORDINATION_PLAN.md      # Multi-agent development coordination
+PROJECT_PROTECTION_SUMMARY.md  # Security protections overview
+SECRETS_ROTATION_SCHEDULE.md    # Secret rotation schedule
 
 # Documentation
-README.md              # Project README
-DEPLOYMENT_SUMMARY.md  # Deployment guide
-PRODUCTION_CHECKLIST.md # Production checklist
+README.md                       # Project README
+TESTING_REPORT.md              # Comprehensive testing documentation (NEW!)
+ANALYTICS_FEATURES.md          # Analytics system documentation
+DEPLOYMENT.md                  # Deployment guide
+STAGING_COORDINATION_SUMMARY.md # Agent coordination summary
 ```
 
 ## 🎯 Common Tasks
@@ -396,11 +631,34 @@ npm run build
 
 ## 🔗 Quick Links
 
-- **Local App**: http://localhost:3001
-- **Prisma Studio**: http://localhost:5555 (run `npx prisma studio`)
+### Development URLs
+- **Main App**: http://localhost:3001
+- **Alternative**: http://localhost:3000 (Next.js dev server)
 - **API Health**: http://localhost:3001/api/health
+- **Prisma Studio**: http://localhost:5555 (run `npx prisma studio`)
+
+### 🏆 Enterprise Features
+- **Content Optimization Upload**: http://localhost:3001/dashboard/artist/upload (NEW!)
+- **Enhanced Fan Feed**: http://localhost:3001/feed (NEW!)
+- **Analytics Dashboard**: http://localhost:3001/dashboard/artist/analytics
+- **Admin Panel**: http://localhost:3001/admin
+- **Real-time Messaging**: http://localhost:3001/messages  
+- **Live Streaming Studio**: http://localhost:3001/studio
+- **Advanced Search**: http://localhost:3001/discover
+- **Basic Content Upload**: http://localhost:3001/upload-simple
+
+### 📋 Resources
 - **Documentation**: Open `docs/` folder
-- **Deployment Scripts**: `scripts/` folder
+- **Security Docs**: `INCIDENT_RESPONSE_PLAN.md`
+- **Analytics Guide**: `ANALYTICS_FEATURES.md`
+- **Staging Guide**: `STAGING_COORDINATION_SUMMARY.md`
+- **Scripts**: `scripts/` folder (50+ automation scripts)
+
+### 🔍 Staging & Production
+- **Staging URL**: https://directfanz-project-staging.vercel.app
+- **Production URL**: https://directfanz-project.vercel.app
+- **GitHub Actions**: https://github.com/Shockvaluemedia/directfanz-project/actions
+- **Monitoring**: `monitoring/staging/health-report.json`
 
 ## 📞 Support Commands
 
@@ -420,5 +678,50 @@ npx next --help
 
 ---
 
-**💡 Pro Tip**: Save this file and reference it whenever you're working on the
-Direct Fan Platform in Warp terminal!
+## 🏆 Enterprise Edition Features Summary
+
+### 📊 Analytics & Business Intelligence
+- **Revenue Analytics**: Growth trends, sparklines, revenue breakdown by source
+- **Subscriber Analytics**: Growth tracking, churn analysis, engagement metrics
+- **Content Performance**: Views, engagement, content type analysis
+- **Interactive Dashboards**: Real-time filtering, date ranges, export capabilities
+
+### 🚀 Real-time & Streaming
+- **WebSocket Messaging**: Real-time chat with conversation threads
+- **Live Streaming**: HLS streaming with control panels and viewer interface
+- **Real-time Notifications**: Instant updates and status indicators
+- **Socket.io Integration**: Full real-time communication stack
+
+### 📏 Advanced Features
+- **Content Optimization System**: Multi-format optimization with 5+ intelligent strategies (NEW!)
+- **Device & Connection Awareness**: Adaptive optimization for mobile, desktop, various network speeds (NEW!)
+- **Batch Processing**: Concurrent optimization of multiple files with AWS S3 integration (NEW!)
+- **PWA Support**: Service workers, offline functionality, installation prompts
+- **Advanced Search**: AI-powered search with Algolia/Fuse.js integration
+- **Enhanced Upload System**: Professional upload with real-time optimization progress (ENHANCED!)
+- **Multi-tier Architecture**: Scalable component structure with comprehensive testing
+
+### 🛑 Enterprise Security & Operations
+- **Multi-environment Support**: Development, staging, production workflows
+- **Comprehensive Security**: Rate limiting, input validation, security headers
+- **Automated Monitoring**: Health checks, performance monitoring, alerting
+- **Backup & Recovery**: Automated backups with encryption and retention policies
+- **Incident Response**: Complete incident management with staging-specific procedures
+- **Multi-agent Coordination**: Structured development with multiple AI agents
+
+### 📋 Performance & Reliability
+- **Performance Monitoring**: Real-time metrics and performance baselines
+- **Comprehensive Testing Suite**: 10+ test suites covering all system aspects (NEW!)
+- **Load Testing**: 50+ concurrent request handling with 90%+ success rate (NEW!)
+- **Content Optimization Testing**: Large file handling (50MB+), concurrent optimization (NEW!)
+- **Error Resilience Testing**: Edge cases, network failures, recovery scenarios (NEW!)
+- **Database Optimization**: Performance indexes and query optimization
+- **CDN Integration**: Optimized content delivery with multi-format variants
+
+---
+
+**💡 DirectFanZ Project Enterprise Edition**: This is now a full-featured, enterprise-grade content creator platform with advanced analytics, real-time features, comprehensive security, and professional deployment workflows.
+
+**🔧 Development Teams**: Multi-agent development coordination with security infrastructure and staging environment support.
+
+**🔖 Save this guide** and reference it whenever you're working on the DirectFanZ Project in Warp terminal!

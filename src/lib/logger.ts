@@ -36,7 +36,7 @@ export interface LogEntry {
   metadata?: Record<string, any>;
 }
 
-class Logger {
+export class Logger {
   private isDevelopment = process.env.NODE_ENV === 'development';
   private isProduction = process.env.NODE_ENV === 'production';
 

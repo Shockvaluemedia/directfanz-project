@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { FileUpload, ContentMetadata } from '@/components/content/FileUpload';
+import ContentUploader from '@/components/upload/ContentUploader';
 import toast from 'react-hot-toast';
 
 export default function UploadPage() {
@@ -27,41 +27,8 @@ export default function UploadPage() {
     }
   }, [session, status, router]);
 
-  const handleUpload = async (file: File, metadata: ContentMetadata) => {
-    try {
-      setUploadingCount(prev => prev + 1);
-
-      // Create FormData for multipart upload
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('metadata', JSON.stringify(metadata));
-
-      const response = await fetch('/api/content/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Upload failed');
-      }
-
-      toast.success(`${metadata.title} uploaded successfully!`);
-    } catch (error) {
-      console.error('Upload error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Upload failed';
-      toast.error(errorMessage);
-      throw error; // Re-throw so FileUpload component can handle it
-    } finally {
-      setUploadingCount(prev => prev - 1);
-    }
-  };
-
-  const handleProgress = (progress: { loaded: number; total: number; percentage: number }) => {
-    // You could use this to show global upload progress
-    console.log('Upload progress:', progress);
-  };
+  // ContentUploader handles its own upload flow, so we just need to track overall progress
+  // The ContentUploader component manages uploads internally
 
   if (status === 'loading') {
     return (
@@ -130,30 +97,11 @@ export default function UploadPage() {
         </div>
 
         {/* Upload Interface */}
-        <div className='bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6'>
-          <FileUpload
-            onUpload={handleUpload}
-            onProgress={handleProgress}
-            disabled={uploadingCount > 0}
-          />
+        <div className='bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700'>
+          <ContentUploader />
         </div>
 
-        {/* Upload Status */}
-        {uploadingCount > 0 && (
-          <div className='fixed bottom-4 right-4 bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700 rounded-lg p-4 max-w-sm'>
-            <div className='flex items-center space-x-3'>
-              <div className='animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600'></div>
-              <div>
-                <p className='text-sm font-medium text-gray-900 dark:text-white'>
-                  Uploading {uploadingCount} file{uploadingCount > 1 ? 's' : ''}...
-                </p>
-                <p className='text-xs text-gray-500 dark:text-gray-400'>
-                  Please don't close this page
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* ContentUploader handles its own upload status display */}
 
         {/* Navigation Links */}
         <div className='mt-8 flex justify-center space-x-4'>

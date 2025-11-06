@@ -2,27 +2,42 @@ import { NextRequest } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { registerSchema, type RegisterInput } from '@/lib/validations';
-import { apiHandler, apiSuccess, apiError, parseAndValidate } from '@/lib/api-utils';
 import { randomUUID } from 'crypto';
+import {
+  withApiHandler,
+  ApiRequestContext,
+  validateApiRequest
+} from '@/lib/api-error-handler';
+import { AppError, ErrorCode } from '@/lib/errors';
 
-export const POST = apiHandler(async (request: NextRequest) => {
-  // Parse and validate request body
-  const body = await parseAndValidate(request, registerSchema);
-  const { email, password, displayName, role = 'FAN' } = body as RegisterInput;
+export const POST = withApiHandler(
+  async (context: ApiRequestContext, request: NextRequest) => {
+    // Parse and validate request body
+    const body = await request.json();
+    const { email, password, displayName, role = 'FAN' } = validateApiRequest(
+      registerSchema,
+      body,
+      context
+    ) as RegisterInput;
 
-  // Check if user already exists
-  const existingUser = await prisma.users.findUnique({
-    where: { email },
-  });
+    // Check if user already exists
+    const existingUser = await prisma.users.findUnique({
+      where: { email },
+    });
 
-  if (existingUser) {
-    return apiError('A user with this email already exists', 400);
-  }
+    if (existingUser) {
+      throw new AppError(
+        ErrorCode.ALREADY_EXISTS,
+        'A user with this email already exists',
+        409,
+        { email },
+        context.requestId
+      );
+    }
 
-  // Hash password
-  const hashedPassword = await bcrypt.hash(password, 12);
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 12);
 
-  try {
     // Create user
     const user = await prisma.users.create({
       data: {
@@ -50,22 +65,22 @@ export const POST = apiHandler(async (request: NextRequest) => {
     }
 
     // Return user data (without password)
-    const userData = {
-      id: user.id,
-      email: user.email,
-      displayName: user.displayName,
-      role: user.role,
-      avatar: user.avatar,
-      createdAt: user.createdAt,
+    return {
+      message: 'User registered successfully',
+      user: {
+        id: user.id,
+        email: user.email,
+        displayName: user.displayName,
+        role: user.role,
+        avatar: user.avatar,
+        createdAt: user.createdAt,
+      }
     };
-
-    return apiSuccess(userData, 'User registered successfully');
-  } catch (error) {
-    console.error('Registration error:', error);
-    return apiError('Failed to create user account', 500);
   }
-});
+);
 
-export const OPTIONS = apiHandler(async () => {
-  return apiSuccess(null, 'OK');
-});
+export const OPTIONS = withApiHandler(
+  async (context: ApiRequestContext) => {
+    return { message: 'OK' };
+  }
+);

@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: directfanz-websocket
+    env: node
+    rootDir: websocket-deployment
+    plan: free
+    buildCommand: npm install
+    startCommand: node websocket-server.js
+    autoDeploy: true
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: WEBSOCKET_PORT
+        value: "3001"
+    domains: []

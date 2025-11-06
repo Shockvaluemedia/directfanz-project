@@ -1,9 +1,9 @@
-# 📦 AWS S3 Setup for Direct Fan Platform
+# 📦 AWS S3 Setup for DirectFanZProject
 
 ## Overview
 
 This guide helps you set up AWS S3 for file storage and content delivery for
-your Direct Fan Platform.
+your DirectFanZProject.
 
 ## Prerequisites
 
@@ -51,9 +51,9 @@ Add the following CORS configuration to your bucket:
     "AllowedHeaders": ["*"],
     "AllowedMethods": ["GET", "PUT", "POST", "DELETE", "HEAD"],
     "AllowedOrigins": [
-      "https://yourdomain.com",
-      "https://*.yourdomain.com",
-      "http://localhost:3000"
+      "https://directfanz-project.io",
+      "https://*.directfanz-project.io",
+      "https://www.directfanz-project.io"
     ],
     "ExposeHeaders": ["ETag", "x-amz-request-id"],
     "MaxAgeSeconds": 3000
@@ -229,5 +229,5 @@ your-bucket-name/
 
 ---
 
-**Important**: Replace `your-bucket-name` and `yourdomain.com` with your actual
+**Important**: Replace `your-bucket-name` and `directfanz-project.io` with your actual
 values throughout this guide.

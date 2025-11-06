@@ -368,7 +368,7 @@ Potential improvements to consider:
 
 ## 📄 License
 
-This WebSocket implementation is part of the Nahvee Even platform and follows
+This WebSocket implementation is part of the DirectFanZ Project platform and follows
 the same licensing terms as the main project.
 
 ---

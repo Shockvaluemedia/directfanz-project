@@ -93,8 +93,12 @@ export default function WebRTCBroadcaster({
     try {
       setConnectionStatus('connecting');
 
-      // Initialize socket connection
-      socketRef.current = io(process.env.NEXT_PUBLIC_WEBSOCKET_URL || '', {
+      // Initialize socket connection for streaming namespace
+      const wsUrl = process.env.NODE_ENV === 'development' 
+        ? 'http://localhost:3001/streaming'
+        : '/streaming';
+        
+      socketRef.current = io(wsUrl, {
         auth: {
           token: session.accessToken || 'placeholder-token',
         },

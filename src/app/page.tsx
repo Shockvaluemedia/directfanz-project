@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowRightIcon, PlayIcon } from '@heroicons/react/24/outline';
+import { ArrowRightIcon, PlayIcon, SparklesIcon, RocketLaunchIcon } from '@heroicons/react/24/outline';
 import PricingSection from '@/components/home/pricing-section';
 import DemoPreviewSection from '@/components/home/demo-preview-section';
 import { SocialProof } from '@/components/ui/social-proof';
@@ -18,10 +18,10 @@ function DemoButton() {
   return (
     <button
       onClick={handleDemoClick}
-      className='group inline-flex items-center px-8 py-4 text-lg font-semibold text-white border-2 border-white/30 rounded-full hover:border-white/50 hover:bg-white/10 transition-all backdrop-blur-sm animate-pulse-glow'
+      className='group inline-flex items-center px-8 py-4 text-lg font-semibold text-white border-2 border-white/40 rounded-full hover:border-white/60 hover:bg-white/10 transition-all backdrop-blur-sm shadow-lg hover:shadow-xl'
     >
       <PlayIcon className='mr-2 w-5 h-5 group-hover:scale-110 transition-transform' />
-      Watch Demo
+      See DirectFanz in Action
     </button>
   );
 }
@@ -57,33 +57,34 @@ export default function Home() {
         <div className='relative z-10 flex flex-col items-center justify-center min-h-[80vh] px-6 text-center'>
           <div className='max-w-4xl mx-auto'>
             {/* Strategic Marketing Messages */}
-            <div className='mb-8'>
-              <div className='inline-flex items-center px-4 py-2 bg-red-500/20 border border-red-400/30 rounded-full text-red-200 text-sm font-medium mb-4'>
-                ⚡ Streaming is Dead
+            <div className='mb-8 flex flex-wrap justify-center gap-3'>
+              <div className='inline-flex items-center px-6 py-3 bg-gradient-to-r from-red-500/20 to-pink-500/20 border border-red-400/40 rounded-full text-red-100 text-sm font-semibold backdrop-blur-sm'>
+                <SparklesIcon className='w-4 h-4 mr-2' />
+                Beyond Streaming Limits
               </div>
-              <div className='inline-flex items-center px-4 py-2 bg-green-500/20 border border-green-400/30 rounded-full text-green-200 text-sm font-medium mb-4 ml-4'>
-                💰 Get Paid from YOUR Art
+              <div className='inline-flex items-center px-6 py-3 bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-400/40 rounded-full text-green-100 text-sm font-semibold backdrop-blur-sm'>
+                <RocketLaunchIcon className='w-4 h-4 mr-2' />
+                Direct Fan Monetization
               </div>
             </div>
 
             <h1 className='text-5xl md:text-7xl font-bold text-white mb-8 leading-tight'>
-              Connect with Your
+              <span className='block'>Empower Your</span>
               <span className='block bg-gradient-to-r from-pink-400 via-purple-400 to-indigo-400 bg-clip-text text-transparent'>
-                Superfans
+                Creative Journey
               </span>
             </h1>
 
-            <p className='text-xl md:text-2xl text-white/80 mb-12 max-w-2xl mx-auto leading-relaxed'>
-              Stop giving away your music for pennies. Build direct relationships with fans who
-              actually pay you what your art is worth.
+            <p className='text-xl md:text-2xl text-white/90 mb-12 max-w-3xl mx-auto leading-relaxed'>
+              Join the creator economy revolution on <span className='font-semibold text-white'>DirectFanz</span>. Build meaningful connections with your audience and earn what your content deserves through direct fan support.
             </p>
 
             <div className='flex flex-col sm:flex-row items-center justify-center gap-4'>
               <Link
                 href='/auth/signup'
-                className='group inline-flex items-center px-8 py-4 text-lg font-semibold text-purple-900 bg-white rounded-full hover:bg-white/90 transition-all transform hover:scale-105 shadow-lg hover:shadow-xl btn-shimmer hover:animate-shimmer'
+                className='group inline-flex items-center px-8 py-4 text-lg font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full hover:from-indigo-700 hover:to-purple-700 transition-all transform hover:scale-105 shadow-xl hover:shadow-2xl'
               >
-                Get Started Free
+                Start Creating Today
                 <ArrowRightIcon className='ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform' />
               </Link>
               <DemoButton />
@@ -91,18 +92,21 @@ export default function Home() {
           </div>
 
           {/* Stats */}
-          <div className='mt-20 grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto'>
-            <div className='glass rounded-2xl p-6 text-center hover:scale-105 transition-transform duration-300'>
-              <div className='text-3xl md:text-4xl font-bold text-white mb-2'>15K+</div>
-              <div className='text-white/70 text-sm uppercase tracking-wide'>Active Artists</div>
+          <div className='mt-20 grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto'>
+            <div className='glass rounded-2xl p-8 text-center hover:scale-105 transition-transform duration-300 border border-white/20'>
+              <div className='text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-300 to-purple-300 bg-clip-text text-transparent mb-3'>1K+</div>
+              <div className='text-white/90 text-base font-medium mb-2'>Active Creators</div>
+              <div className='text-white/60 text-sm'>Building their communities</div>
             </div>
-            <div className='glass rounded-2xl p-6 text-center hover:scale-105 transition-transform duration-300'>
-              <div className='text-3xl md:text-4xl font-bold text-white mb-2'>250K+</div>
-              <div className='text-white/70 text-sm uppercase tracking-wide'>Superfans</div>
+            <div className='glass rounded-2xl p-8 text-center hover:scale-105 transition-transform duration-300 border border-white/20'>
+              <div className='text-4xl md:text-5xl font-bold bg-gradient-to-r from-green-300 to-emerald-300 bg-clip-text text-transparent mb-3'>50K+</div>
+              <div className='text-white/90 text-base font-medium mb-2'>Fan Connections</div>
+              <div className='text-white/60 text-sm'>Supporting their favorite creators</div>
             </div>
-            <div className='glass rounded-2xl p-6 text-center hover:scale-105 transition-transform duration-300'>
-              <div className='text-3xl md:text-4xl font-bold text-white mb-2'>$5M+</div>
-              <div className='text-white/70 text-sm uppercase tracking-wide'>Artist Earnings</div>
+            <div className='glass rounded-2xl p-8 text-center hover:scale-105 transition-transform duration-300 border border-white/20'>
+              <div className='text-4xl md:text-5xl font-bold bg-gradient-to-r from-pink-300 to-rose-300 bg-clip-text text-transparent mb-3'>$100K+</div>
+              <div className='text-white/90 text-base font-medium mb-2'>Creator Earnings</div>
+              <div className='text-white/60 text-sm'>Paid directly to creators</div>
             </div>
           </div>
         </div>
@@ -126,14 +130,13 @@ export default function Home() {
         <div className='max-w-7xl mx-auto px-6 relative'>
           <div className='text-center mb-20'>
             <h2 className='text-4xl md:text-6xl font-bold text-gray-900 mb-6'>
-              Everything You Need to
+              The Complete
               <span className='block bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent'>
-                Succeed as a Creator
+                Creator Ecosystem
               </span>
             </h2>
             <p className='text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed'>
-              Our platform provides all the tools and features you need to build, engage, and
-              monetize your fanbase like never before.
+              DirectFanz provides everything you need to build, grow, and monetize your creative community. From content creation to fan engagement, we've got you covered.
             </p>
           </div>
 
@@ -224,18 +227,17 @@ export default function Home() {
 
         <div className='max-w-4xl mx-auto text-center px-6 relative'>
           <h2 className='text-4xl md:text-5xl font-bold text-white mb-6'>
-            Ready to Transform Your Creative Career?
+            Ready to Join <span className='bg-gradient-to-r from-pink-300 to-purple-300 bg-clip-text text-transparent'>DirectFanz</span>?
           </h2>
           <p className='text-xl text-white/90 mb-8 max-w-2xl mx-auto'>
-            Join thousands of creators who have already discovered the power of direct fan
-            connections. Start building your sustainable income today.
+            Join the growing community of creators who are building sustainable careers through direct fan support. Your creative journey starts here.
           </p>
           <div className='flex flex-col sm:flex-row items-center justify-center gap-4'>
             <Link
               href='/auth/signup'
-              className='group inline-flex items-center px-8 py-4 text-lg font-semibold text-indigo-600 bg-white rounded-full hover:bg-gray-50 transition-all transform hover:scale-105 shadow-lg hover:shadow-xl'
+              className='group inline-flex items-center px-8 py-4 text-lg font-semibold text-purple-700 bg-white rounded-full hover:bg-gray-50 transition-all transform hover:scale-105 shadow-xl hover:shadow-2xl'
             >
-              Start Your Journey
+              Begin Your Creator Journey
               <ArrowRightIcon className='ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform' />
             </Link>
             <LearnMoreButton />
@@ -243,10 +245,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Working status indicator */}
-      <div className='fixed bottom-4 right-4 bg-green-600 text-white p-2 rounded text-xs z-50'>
-        ✅ Homepage Working
-      </div>
     </div>
   );
 }

@@ -60,6 +60,19 @@
   ],
   "shortcuts": [
     {
+      "name": "Go Live",
+      "short_name": "Stream",
+      "description": "Start a new live stream",
+      "url": "/streaming/setup",
+      "icons": [
+        {
+          "src": "/icons/shortcut-stream.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
       "name": "Artist Dashboard",
       "short_name": "Dashboard",
       "description": "Access your artist dashboard",
@@ -76,7 +89,7 @@
       "name": "Upload Content",
       "short_name": "Upload",
       "description": "Upload new content",
-      "url": "/dashboard/artist/upload",
+      "url": "/upload",
       "icons": [
         {
           "src": "/icons/upload-96x96.png",
@@ -117,5 +130,27 @@
     }
   ],
   "lang": "en-US",
-  "dir": "ltr"
+  "dir": "ltr",
+  "share_target": {
+    "action": "/upload",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "media",
+          "accept": ["image/*", "video/*", "audio/*"]
+        }
+      ]
+    }
+  },
+  "protocol_handlers": [
+    {
+      "protocol": "web+directfanz",
+      "url": "/share?url=%s"
+    }
+  ]
 }

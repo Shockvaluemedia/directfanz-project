@@ -5,6 +5,10 @@ jest.mock('@/lib/prisma', () => ({
       findUnique: jest.fn(),
       findMany: jest.fn(),
     },
+    subscriptions: {
+      findUnique: jest.fn(),
+      findMany: jest.fn(),
+    },
   },
 }));
 
@@ -104,7 +108,7 @@ describe('/api/billing/cycle', () => {
       };
 
       mockGetServerSession.mockResolvedValue(mockSession as any);
-      mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
+      mockPrisma.subscriptions.findUnique.mockResolvedValue(mockSubscription as any);
       mockGetBillingCycleInfo.mockResolvedValue(mockBillingInfo);
 
       const request = createMockGetRequest(
@@ -144,7 +148,7 @@ describe('/api/billing/cycle', () => {
 
       mockGetServerSession.mockResolvedValue(mockSession as any);
       mockGetUpcomingInvoices.mockResolvedValue(mockUpcomingInvoices);
-      mockPrisma.subscription.findMany.mockResolvedValue(mockArtistSubscriptions as any);
+      mockPrisma.subscriptions.findMany.mockResolvedValue(mockArtistSubscriptions as any);
 
       const request = createMockGetRequest(
         'http://localhost:3000/api/billing/cycle?action=upcoming'
@@ -215,7 +219,7 @@ describe('/api/billing/cycle', () => {
       };
 
       mockGetServerSession.mockResolvedValue(mockSession as any);
-      mockPrisma.subscription.findUnique.mockResolvedValue(null);
+      mockPrisma.subscriptions.findUnique.mockResolvedValue(null);
 
       const request = createMockGetRequest(
         'http://localhost:3000/api/billing/cycle?action=info&subscriptionId=sub123'

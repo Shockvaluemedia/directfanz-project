@@ -1,11 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { SUPPORTED_FILE_TYPES } from '@/lib/s3';
 import { notifyNewContent } from '@/lib/notifications';
 import { z } from 'zod';
 import crypto from 'crypto';
+import {
+  withArtistApiHandler,
+  ApiRequestContext,
+  validateApiRequest
+} from '@/lib/api-error-handler';
+import { AppError, ErrorCode } from '@/lib/errors';
 
 const createContentSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title too long'),
@@ -20,19 +24,10 @@ const createContentSchema = z.object({
   thumbnailUrl: z.string().url().optional(),
 });
 
-export async function POST(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
-
-    if (!session?.user?.id || session.user.role !== 'ARTIST') {
-      return NextResponse.json(
-        { error: { code: 'UNAUTHORIZED', message: 'Artist authentication required' } },
-        { status: 401 }
-      );
-    }
-
+export const POST = withArtistApiHandler(
+  async (context: ApiRequestContext, userId: string, request: NextRequest) => {
     const body = await request.json();
-    const validatedData = createContentSchema.parse(body);
+    const validatedData = validateApiRequest(createContentSchema, body, context);
 
     // Determine content type from format
     const contentType = Object.entries(SUPPORTED_FILE_TYPES).find(
@@ -40,9 +35,13 @@ export async function POST(request: NextRequest) {
     )?.[1]?.category;
 
     if (!contentType) {
-      return NextResponse.json(
-        { error: { code: 'INVALID_FORMAT', message: 'Unsupported file format' } },
-        { status: 400 }
+      throw new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        'Unsupported file format',
+        400,
+        { format: validatedData.format },
+        context.requestId,
+        userId
       );
     }
 
@@ -51,19 +50,18 @@ export async function POST(request: NextRequest) {
       const tierCount = await prisma.tiers.count({
         where: {
           id: { in: validatedData.tierIds },
-          artistId: session.user.id,
+          artistId: userId,
         },
       });
 
       if (tierCount !== validatedData.tierIds.length) {
-        return NextResponse.json(
-          {
-            error: {
-              code: 'INVALID_TIERS',
-              message: 'One or more tiers do not belong to this artist',
-            },
-          },
-          { status: 400 }
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          'One or more tiers do not belong to this artist',
+          400,
+          { providedTiers: validatedData.tierIds, validTiers: tierCount },
+          context.requestId,
+          userId
         );
       }
     }
@@ -82,7 +80,7 @@ export async function POST(request: NextRequest) {
         format: validatedData.format,
         tags: JSON.stringify(validatedData.tags),
         visibility: validatedData.visibility,
-        users: { connect: { id: session.user.id } },
+        users: { connect: { id: userId } },
         tiers: {
           connect: validatedData.tierIds.map(id => ({ id })),
         },
@@ -100,7 +98,7 @@ export async function POST(request: NextRequest) {
 
     // Get artist name for notification
     const artist = await prisma.users.findUnique({
-      where: { id: session.user.id },
+      where: { id: userId },
       select: { displayName: true },
     });
 
@@ -111,47 +109,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({
-      success: true,
-      data: content,
-    });
-  } catch (error) {
-    console.error('Content creation error:', error);
-
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Invalid request data',
-            details: { errors: error.errors },
-          },
-        },
-        { status: 400 }
-      );
-    }
-
-    return NextResponse.json(
-      { error: { code: 'INTERNAL_ERROR', message: 'Failed to create content' } },
-      { status: 500 }
-    );
+    return content;
   }
-}
+);
 
-export async function GET(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
-
-    if (!session?.user?.id || session.user.role !== 'ARTIST') {
-      return NextResponse.json(
-        { error: { code: 'UNAUTHORIZED', message: 'Artist authentication required' } },
-        { status: 401 }
-      );
-    }
-
+export const GET = withArtistApiHandler(
+  async (context: ApiRequestContext, userId: string, request: NextRequest) => {
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20')));
     const type = searchParams.get('type');
     const search = searchParams.get('search');
 
@@ -159,7 +125,7 @@ export async function GET(request: NextRequest) {
 
     // Build where clause
     const where: any = {
-      artistId: session.user.id,
+      artistId: userId,
     };
 
     if (type && ['AUDIO', 'VIDEO', 'IMAGE', 'DOCUMENT'].includes(type)) {
@@ -193,23 +159,14 @@ export async function GET(request: NextRequest) {
       prisma.content.count({ where }),
     ]);
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        content,
-        pagination: {
-          page,
-          limit,
-          total,
-          pages: Math.ceil(total / limit),
-        },
+    return {
+      content,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
       },
-    });
-  } catch (error) {
-    console.error('Content fetch error:', error);
-    return NextResponse.json(
-      { error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch content' } },
-      { status: 500 }
-    );
+    };
   }
-}
+);

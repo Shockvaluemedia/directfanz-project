@@ -1,11 +1,11 @@
 // Mock dependencies first
 jest.mock('@/lib/prisma', () => ({
   prisma: {
-    subscription: {
+    subscriptions: {
       findUnique: jest.fn(),
       update: jest.fn(),
     },
-    tier: {
+    tiers: {
       findUnique: jest.fn(),
       update: jest.fn(),
     },
@@ -63,18 +63,13 @@ describe('Billing Functions', () => {
         current_period_end: 1643673600, // Feb 1, 2022 (31 days)
       };
 
-      mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
+      mockPrisma.subscriptions.findUnique.mockResolvedValue(mockSubscription as any);
       mockStripe.subscriptions.retrieve.mockResolvedValue(mockStripeSubscription as any);
 
       // Mock current date to be 15 days into the period (16 days remaining)
       const mockDate = new Date('2022-01-16T00:00:00Z');
-      const OriginalDate = Date;
-      jest.spyOn(global, 'Date').mockImplementation((dateString?: string | number) => {
-        if (dateString) {
-          return new OriginalDate(dateString) as any;
-        }
-        return mockDate as any;
-      });
+      jest.useFakeTimers();
+      jest.setSystemTime(mockDate);
 
       const result = await calculateTierChangeProration('sub123', 'tier2', 20.0);
 
@@ -92,7 +87,7 @@ describe('Billing Functions', () => {
       expect(result.prorationAmount).toBeCloseTo(5.16, 2);
       expect(result.nextInvoiceAmount).toBe(20.0);
 
-      jest.restoreAllMocks();
+      jest.useRealTimers();
     });
 
     it('should calculate proration for tier downgrade correctly', async () => {
@@ -107,18 +102,13 @@ describe('Billing Functions', () => {
         current_period_end: 1643673600, // Feb 1, 2022 (31 days)
       };
 
-      mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
+      mockPrisma.subscriptions.findUnique.mockResolvedValue(mockSubscription as any);
       mockStripe.subscriptions.retrieve.mockResolvedValue(mockStripeSubscription as any);
 
       // Mock current date to be 15 days into the period (16 days remaining)
       const mockDate = new Date('2022-01-16T00:00:00Z');
-      const OriginalDate = Date;
-      jest.spyOn(global, 'Date').mockImplementation((dateString?: string | number) => {
-        if (dateString) {
-          return new OriginalDate(dateString) as any;
-        }
-        return mockDate as any;
-      });
+      jest.useFakeTimers();
+      jest.setSystemTime(mockDate);
 
       const result = await calculateTierChangeProration('sub123', 'tier2', 10.0);
 
@@ -127,11 +117,11 @@ describe('Billing Functions', () => {
       expect(result.prorationAmount).toBeCloseTo(-5.16, 2); // Negative for downgrade
       expect(result.nextInvoiceAmount).toBe(10.0);
 
-      jest.restoreAllMocks();
+      jest.useRealTimers();
     });
 
     it('should throw error if subscription not found', async () => {
-      mockPrisma.subscription.findUnique.mockResolvedValue(null);
+      mockPrisma.subscriptions.findUnique.mockResolvedValue(null);
 
       await expect(calculateTierChangeProration('nonexistent', 'tier2', 20.0)).rejects.toThrow(
         'Failed to calculate proration'
@@ -151,18 +141,13 @@ describe('Billing Functions', () => {
         current_period_end: 1643673600, // Feb 1, 2022
       };
 
-      mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
+      mockPrisma.subscriptions.findUnique.mockResolvedValue(mockSubscription as any);
       mockStripe.subscriptions.retrieve.mockResolvedValue(mockStripeSubscription as any);
 
       // Mock current date to be 15 days into the period (16 days remaining)
       const mockDate = new Date('2022-01-16T00:00:00Z');
-      const OriginalDate = Date;
-      jest.spyOn(global, 'Date').mockImplementation((dateString?: string | number) => {
-        if (dateString) {
-          return new OriginalDate(dateString) as any;
-        }
-        return mockDate as any;
-      });
+      jest.useFakeTimers();
+      jest.setSystemTime(mockDate);
 
       const result = await getBillingCycleInfo('sub123');
 
@@ -172,7 +157,7 @@ describe('Billing Functions', () => {
       expect(result.daysInCurrentPeriod).toBe(31);
       expect(result.daysRemaining).toBe(16);
 
-      jest.restoreAllMocks();
+      jest.useRealTimers();
     });
 
     it('should handle past due subscriptions correctly', async () => {
@@ -186,24 +171,19 @@ describe('Billing Functions', () => {
         current_period_end: 1643673600, // Feb 1, 2022
       };
 
-      mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
+      mockPrisma.subscriptions.findUnique.mockResolvedValue(mockSubscription as any);
       mockStripe.subscriptions.retrieve.mockResolvedValue(mockStripeSubscription as any);
 
       // Mock current date to be after the period end
       const mockDate = new Date('2022-02-05T00:00:00Z');
-      const OriginalDate = Date;
-      jest.spyOn(global, 'Date').mockImplementation((dateString?: string | number) => {
-        if (dateString) {
-          return new OriginalDate(dateString) as any;
-        }
-        return mockDate as any;
-      });
+      jest.useFakeTimers();
+      jest.setSystemTime(mockDate);
 
       const result = await getBillingCycleInfo('sub123');
 
       expect(result.daysRemaining).toBe(0); // Should be 0 for past due
 
-      jest.restoreAllMocks();
+      jest.useRealTimers();
     });
   });
 
@@ -240,15 +220,10 @@ describe('Billing Functions', () => {
 
       // Mock current date to be 15 days into the period (16 days remaining)
       const mockDate = new Date('2022-01-16T00:00:00Z');
-      const OriginalDate = Date;
-      jest.spyOn(global, 'Date').mockImplementation((dateString?: string | number) => {
-        if (dateString) {
-          return new OriginalDate(dateString) as any;
-        }
-        return mockDate as any;
-      });
+      jest.useFakeTimers();
+      jest.setSystemTime(mockDate);
 
-      mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
+      mockPrisma.subscriptions.findUnique.mockResolvedValue(mockSubscription as any);
       mockPrisma.tiers.findUnique.mockResolvedValue(mockNewTier as any);
       mockStripe.subscriptions.retrieve.mockResolvedValue(mockStripeSubscription as any);
       mockStripe.subscriptions.update.mockResolvedValue({} as any);
@@ -256,10 +231,10 @@ describe('Billing Functions', () => {
       // Mock transaction
       mockPrisma.$transaction.mockImplementation(async callback => {
         return await callback({
-          subscription: {
+          subscriptions: {
             update: jest.fn().mockResolvedValue({}),
           },
-          tier: {
+          tiers: {
             update: jest.fn().mockResolvedValue({}),
           },
         });
@@ -276,7 +251,7 @@ describe('Billing Functions', () => {
         })
       );
 
-      jest.restoreAllMocks();
+      jest.useRealTimers();
     });
 
     it('should throw error for inactive subscription', async () => {
@@ -285,7 +260,7 @@ describe('Billing Functions', () => {
         status: 'CANCELED',
       };
 
-      mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
+      mockPrisma.subscriptions.findUnique.mockResolvedValue(mockSubscription as any);
 
       await expect(upgradeSubscription('sub123', 'tier2', 20.0)).rejects.toThrow(
         'Can only change tier for active subscriptions'
@@ -304,7 +279,7 @@ describe('Billing Functions', () => {
         minimumPrice: new Decimal(15.0),
       };
 
-      mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
+      mockPrisma.subscriptions.findUnique.mockResolvedValue(mockSubscription as any);
       mockPrisma.tiers.findUnique.mockResolvedValue(mockNewTier as any);
 
       await expect(
@@ -346,15 +321,10 @@ describe('Billing Functions', () => {
 
       // Mock current date to be 15 days into the period (16 days remaining)
       const mockDate = new Date('2022-01-16T00:00:00Z');
-      const OriginalDate = Date;
-      jest.spyOn(global, 'Date').mockImplementation((dateString?: string | number) => {
-        if (dateString) {
-          return new OriginalDate(dateString) as any;
-        }
-        return mockDate as any;
-      });
+      jest.useFakeTimers();
+      jest.setSystemTime(mockDate);
 
-      mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
+      mockPrisma.subscriptions.findUnique.mockResolvedValue(mockSubscription as any);
       mockPrisma.tiers.findUnique.mockResolvedValue(mockNewTier as any);
       mockStripe.subscriptions.retrieve.mockResolvedValue(mockStripeSubscription as any);
       mockStripe.subscriptions.update.mockResolvedValue({} as any);
@@ -362,10 +332,10 @@ describe('Billing Functions', () => {
       // Mock transaction
       mockPrisma.$transaction.mockImplementation(async callback => {
         return await callback({
-          subscription: {
+          subscriptions: {
             update: jest.fn().mockResolvedValue({}),
           },
-          tier: {
+          tiers: {
             update: jest.fn().mockResolvedValue({}),
           },
         });
@@ -376,15 +346,12 @@ describe('Billing Functions', () => {
       expect(result.success).toBe(true);
       expect(result.prorationAmount).toBeLessThan(0); // Should be negative for downgrade
 
-      jest.restoreAllMocks();
+      jest.useRealTimers();
     });
   });
 
   describe('generateInvoiceData', () => {
     it('should generate invoice data correctly', async () => {
-      // Ensure clean mock state
-      mockStripe.invoices.retrieve.mockReset();
-
       const mockInvoice = {
         id: 'in_test123',
         subscription: 'stripe_sub123',
@@ -410,7 +377,10 @@ describe('Billing Functions', () => {
         },
       };
 
-      mockStripe.invoices.retrieve.mockImplementation(() => Promise.resolve(mockInvoice));
+      // Override the global mock for this test
+      (mockStripe.invoices.retrieve as jest.Mock).mockImplementationOnce(() => {
+        return Promise.resolve(mockInvoice);
+      });
 
       const result = await generateInvoiceData('in_test123');
 
@@ -447,14 +417,9 @@ describe('Billing Functions', () => {
     });
 
     it('should throw error when invoice retrieval fails', async () => {
-      // Completely reset and isolate the mock for this test
-      jest.clearAllMocks();
-      mockStripe.invoices.retrieve.mockClear();
-      mockStripe.invoices.retrieve.mockReset();
-
-      // Set up the error mock
-      mockStripe.invoices.retrieve.mockImplementation(() => {
-        throw new Error('Invoice not found');
+      // Override the global mock to throw an error
+      (mockStripe.invoices.retrieve as jest.Mock).mockImplementationOnce(() => {
+        return Promise.reject(new Error('Invoice not found'));
       });
 
       await expect(generateInvoiceData('nonexistent')).rejects.toThrow(
