@@ -1,5 +1,13 @@
 # 🔧 Fix Sign In / Sign Up Not Working
 
+## ⚠️ Already Using Supabase?
+
+If you were previously connected to Supabase, **see RECONNECT_SUPABASE.md instead!**
+
+That guide will help you reconnect your existing Supabase database in 5 minutes.
+
+---
+
 ## 🎯 The Problem
 
 Your sign in and sign up features aren't working because **the database isn't connected**.
