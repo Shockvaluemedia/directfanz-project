@@ -2,7 +2,7 @@
 # Multi-stage build optimized for production deployment
 
 # Base image with Node.js 18 LTS
-FROM node:18-alpine AS base
+FROM node:25-alpine AS base
 WORKDIR /app
 
 # Install security updates and required packages
