@@ -206,17 +206,7 @@ resource "aws_s3_bucket_versioning" "app_storage" {
   }
 }
 
-resource "aws_s3_bucket_encryption" "app_storage" {
-  bucket = aws_s3_bucket.app_storage.id
-
-  server_side_encryption_configuration {
-    rule {
-      apply_server_side_encryption_by_default {
-        sse_algorithm = "AES256"
-      }
-    }
-  }
-}
+# S3 bucket encryption is now handled in kms-encryption.tf
 
 resource "aws_s3_bucket_public_access_block" "app_storage" {
   bucket = aws_s3_bucket.app_storage.id

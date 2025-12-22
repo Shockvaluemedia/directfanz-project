@@ -1,0 +1,6 @@
+# PgBouncer user authentication file
+# Format: "username" "password_hash"
+# Password hashes can be generated using: echo -n "passwordusername" | md5sum
+
+# This file will be populated by the container startup script
+# with the actual database credentials from environment variables

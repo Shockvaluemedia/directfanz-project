@@ -1,0 +1,58 @@
+{
+  "mcpServers": {
+    "aws-docs": {
+      "command": "uvx",
+      "args": ["awslabs.aws-documentation-mcp-server@latest"],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "disabled": false,
+      "autoApprove": ["search_aws_docs", "get_aws_doc"]
+    },
+    "aws-cli": {
+      "command": "uvx",
+      "args": ["mcp-aws-cli@latest"],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "disabled": false,
+      "autoApprove": ["aws_cli_command"]
+    },
+    "terraform": {
+      "command": "uvx",
+      "args": ["mcp-terraform@latest"],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "disabled": false,
+      "autoApprove": ["terraform_plan", "terraform_validate", "terraform_fmt"]
+    },
+    "docker": {
+      "command": "uvx",
+      "args": ["mcp-docker@latest"],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "disabled": false,
+      "autoApprove": ["docker_build", "docker_run", "docker_ps"]
+    },
+    "context7": {
+      "command": "uvx",
+      "args": ["context7@latest"],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "disabled": false,
+      "autoApprove": ["analyze_codebase", "get_file_context", "search_code"]
+    },
+    "brave-search": {
+      "command": "uvx",
+      "args": ["mcp-server-brave-search@latest"],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "disabled": false,
+      "autoApprove": ["brave_web_search", "brave_local_search"]
+    }
+  }
+}
