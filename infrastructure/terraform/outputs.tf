@@ -193,6 +193,11 @@ output "alb_security_group_id" {
   value       = aws_security_group.alb.id
 }
 
+output "ecs_tasks_security_group_id" {
+  description = "Security group ID for ECS tasks"
+  value       = aws_security_group.ecs_tasks.id
+}
+
 output "ecs_web_app_security_group_id" {
   description = "Security group ID for ECS web app"
   value       = aws_security_group.ecs_web_app.id
@@ -201,4 +206,365 @@ output "ecs_web_app_security_group_id" {
 output "ecs_websocket_security_group_id" {
   description = "Security group ID for ECS WebSocket"
   value       = aws_security_group.ecs_websocket.id
+}
+
+# ECS outputs
+output "ecs_cluster_id" {
+  description = "ECS cluster ID"
+  value       = aws_ecs_cluster.main.id
+}
+
+output "ecs_cluster_arn" {
+  description = "ECS cluster ARN"
+  value       = aws_ecs_cluster.main.arn
+}
+
+output "ecs_cluster_name" {
+  description = "ECS cluster name"
+  value       = aws_ecs_cluster.main.name
+}
+
+# ECR outputs
+output "ecr_web_app_repository_url" {
+  description = "ECR repository URL for web app"
+  value       = aws_ecr_repository.web_app.repository_url
+}
+
+output "ecr_websocket_repository_url" {
+  description = "ECR repository URL for websocket"
+  value       = aws_ecr_repository.websocket.repository_url
+}
+
+output "ecr_streaming_repository_url" {
+  description = "ECR repository URL for streaming"
+  value       = aws_ecr_repository.streaming.repository_url
+}
+
+# ECS Service outputs
+output "ecs_web_app_service_name" {
+  description = "ECS web app service name"
+  value       = aws_ecs_service.web_app.name
+}
+
+output "ecs_websocket_service_name" {
+  description = "ECS websocket service name"
+  value       = aws_ecs_service.websocket.name
+}
+
+output "ecs_streaming_service_name" {
+  description = "ECS streaming service name"
+  value       = aws_ecs_service.streaming.name
+}
+
+# Target Group outputs
+output "web_app_target_group_arn" {
+  description = "Web app target group ARN"
+  value       = aws_lb_target_group.web_app.arn
+}
+
+output "websocket_target_group_arn" {
+  description = "WebSocket target group ARN"
+  value       = aws_lb_target_group.websocket.arn
+}
+
+output "streaming_target_group_arn" {
+  description = "Streaming target group ARN"
+  value       = aws_lb_target_group.streaming.arn
+}
+
+# Service Discovery outputs
+output "service_discovery_namespace_id" {
+  description = "Service discovery namespace ID"
+  value       = aws_service_discovery_private_dns_namespace.main.id
+}
+
+output "service_discovery_namespace_name" {
+  description = "Service discovery namespace name"
+  value       = aws_service_discovery_private_dns_namespace.main.name
+}
+
+# Auto Scaling outputs
+output "web_app_autoscaling_target_arn" {
+  description = "Web app auto scaling target ARN"
+  value       = aws_appautoscaling_target.web_app.arn
+}
+
+output "websocket_autoscaling_target_arn" {
+  description = "WebSocket auto scaling target ARN"
+  value       = aws_appautoscaling_target.websocket.arn
+}
+
+output "streaming_autoscaling_target_arn" {
+  description = "Streaming auto scaling target ARN"
+  value       = aws_appautoscaling_target.streaming.arn
+}
+
+# CloudWatch Alarm outputs
+output "web_app_cpu_alarm_arn" {
+  description = "Web app CPU alarm ARN"
+  value       = aws_cloudwatch_metric_alarm.web_app_high_cpu.arn
+}
+
+output "web_app_memory_alarm_arn" {
+  description = "Web app memory alarm ARN"
+  value       = aws_cloudwatch_metric_alarm.web_app_high_memory.arn
+}
+
+output "websocket_cpu_alarm_arn" {
+  description = "WebSocket CPU alarm ARN"
+  value       = aws_cloudwatch_metric_alarm.websocket_high_cpu.arn
+}
+
+output "websocket_memory_alarm_arn" {
+  description = "WebSocket memory alarm ARN"
+  value       = aws_cloudwatch_metric_alarm.websocket_high_memory.arn
+}
+
+output "streaming_cpu_alarm_arn" {
+  description = "Streaming CPU alarm ARN"
+  value       = aws_cloudwatch_metric_alarm.streaming_high_cpu.arn
+}
+
+output "streaming_memory_alarm_arn" {
+  description = "Streaming memory alarm ARN"
+  value       = aws_cloudwatch_metric_alarm.streaming_high_memory.arn
+}
+
+# CodeDeploy outputs
+output "codedeploy_app_name" {
+  description = "CodeDeploy application name"
+  value       = aws_codedeploy_app.ecs_app.name
+}
+
+output "codedeploy_app_id" {
+  description = "CodeDeploy application ID"
+  value       = aws_codedeploy_app.ecs_app.id
+}
+
+output "codedeploy_service_role_arn" {
+  description = "CodeDeploy service role ARN"
+  value       = aws_iam_role.codedeploy_service_role.arn
+}
+
+output "web_app_deployment_group_name" {
+  description = "Web app deployment group name"
+  value       = aws_codedeploy_deployment_group.web_app.deployment_group_name
+}
+
+output "websocket_deployment_group_name" {
+  description = "WebSocket deployment group name"
+  value       = aws_codedeploy_deployment_group.websocket.deployment_group_name
+}
+
+output "streaming_deployment_group_name" {
+  description = "Streaming deployment group name"
+  value       = aws_codedeploy_deployment_group.streaming.deployment_group_name
+}
+
+output "deployment_notifications_topic_arn" {
+  description = "Deployment notifications SNS topic ARN"
+  value       = aws_sns_topic.deployment_notifications.arn
+}
+
+output "deployment_hook_lambda_arn" {
+  description = "Deployment hook Lambda function ARN"
+  value       = var.enable_deployment_hooks ? aws_lambda_function.deployment_hook[0].arn : null
+}
+# S3 Content Storage outputs
+output "content_storage_bucket_name" {
+  description = "S3 content storage bucket name"
+  value       = aws_s3_bucket.content_storage.bucket
+}
+
+output "content_storage_bucket_arn" {
+  description = "S3 content storage bucket ARN"
+  value       = aws_s3_bucket.content_storage.arn
+}
+
+output "content_storage_bucket_domain_name" {
+  description = "S3 content storage bucket domain name"
+  value       = aws_s3_bucket.content_storage.bucket_domain_name
+}
+
+output "static_assets_bucket_name" {
+  description = "S3 static assets bucket name"
+  value       = aws_s3_bucket.static_assets.bucket
+}
+
+output "static_assets_bucket_arn" {
+  description = "S3 static assets bucket ARN"
+  value       = aws_s3_bucket.static_assets.arn
+}
+
+output "static_assets_bucket_domain_name" {
+  description = "S3 static assets bucket domain name"
+  value       = aws_s3_bucket.static_assets.bucket_domain_name
+}
+
+output "content_backup_bucket_name" {
+  description = "S3 content backup bucket name"
+  value       = var.environment == "prod" ? aws_s3_bucket.content_backup[0].bucket : null
+}
+
+output "content_backup_bucket_arn" {
+  description = "S3 content backup bucket ARN"
+  value       = var.environment == "prod" ? aws_s3_bucket.content_backup[0].arn : null
+}
+
+output "content_processor_lambda_arn" {
+  description = "Content processor Lambda function ARN"
+  value       = aws_lambda_function.content_processor.arn
+}
+
+output "content_processor_lambda_name" {
+  description = "Content processor Lambda function name"
+  value       = aws_lambda_function.content_processor.function_name
+}
+
+output "s3_replication_role_arn" {
+  description = "S3 replication IAM role ARN"
+  value       = var.environment == "prod" ? aws_iam_role.replication[0].arn : null
+}
+# CloudFront CDN outputs
+output "cloudfront_distribution_id" {
+  description = "CloudFront distribution ID"
+  value       = aws_cloudfront_distribution.main.id
+}
+
+output "cloudfront_distribution_arn" {
+  description = "CloudFront distribution ARN"
+  value       = aws_cloudfront_distribution.main.arn
+}
+
+output "cloudfront_distribution_domain_name" {
+  description = "CloudFront distribution domain name"
+  value       = aws_cloudfront_distribution.main.domain_name
+}
+
+output "cloudfront_distribution_hosted_zone_id" {
+  description = "CloudFront distribution hosted zone ID"
+  value       = aws_cloudfront_distribution.main.hosted_zone_id
+}
+
+output "cloudfront_distribution_status" {
+  description = "CloudFront distribution status"
+  value       = aws_cloudfront_distribution.main.status
+}
+
+output "cloudfront_origin_access_control_content_id" {
+  description = "CloudFront Origin Access Control ID for content storage"
+  value       = aws_cloudfront_origin_access_control.content_storage_oac.id
+}
+
+output "cloudfront_origin_access_control_static_id" {
+  description = "CloudFront Origin Access Control ID for static assets"
+  value       = aws_cloudfront_origin_access_control.static_assets_oac.id
+}
+
+output "cloudfront_key_group_id" {
+  description = "CloudFront key group ID for signed URLs"
+  value       = aws_cloudfront_key_group.content_signing.id
+}
+
+output "cloudfront_public_key_id" {
+  description = "CloudFront public key ID for signed URLs"
+  value       = aws_cloudfront_public_key.content_signing.id
+}
+
+output "cloudfront_security_headers_function_arn" {
+  description = "CloudFront security headers function ARN"
+  value       = aws_cloudfront_function.security_headers.arn
+}
+
+output "cloudfront_logs_bucket_name" {
+  description = "CloudFront logs S3 bucket name"
+  value       = aws_s3_bucket.cloudfront_logs.bucket
+}
+
+output "cloudfront_logs_bucket_arn" {
+  description = "CloudFront logs S3 bucket ARN"
+  value       = aws_s3_bucket.cloudfront_logs.arn
+}
+
+output "cdn_urls" {
+  description = "CDN URLs for different content types"
+  value = {
+    main_domain    = "https://${var.domain_name}"
+    www_domain     = "https://www.${var.domain_name}"
+    cdn_domain     = "https://cdn.${var.domain_name}"
+    assets_domain  = "https://assets.${var.domain_name}"
+    cloudfront_url = "https://${aws_cloudfront_distribution.main.domain_name}"
+  }
+}
+
+# Streaming Infrastructure Outputs
+output "medialive_input_url" {
+  description = "MediaLive RTMP input URL for streaming"
+  value       = aws_medialive_input.rtmp_input.destinations[0].url
+  sensitive   = true
+}
+
+output "medialive_channel_id" {
+  description = "MediaLive channel ID"
+  value       = aws_medialive_channel.main.id
+}
+
+output "medialive_channel_arn" {
+  description = "MediaLive channel ARN"
+  value       = aws_medialive_channel.main.arn
+}
+
+output "mediastore_endpoint" {
+  description = "MediaStore container endpoint for HLS playback"
+  value       = aws_mediastore_container.streaming.endpoint
+}
+
+output "mediastore_container_name" {
+  description = "MediaStore container name"
+  value       = aws_mediastore_container.streaming.name
+}
+
+output "mediastore_container_arn" {
+  description = "MediaStore container ARN"
+  value       = aws_mediastore_container.streaming.arn
+}
+
+output "streaming_recordings_bucket" {
+  description = "S3 bucket for stream recordings"
+  value       = aws_s3_bucket.streaming_recordings.bucket
+}
+
+output "streaming_recordings_bucket_arn" {
+  description = "S3 bucket ARN for stream recordings"
+  value       = aws_s3_bucket.streaming_recordings.arn
+}
+
+output "vod_content_bucket" {
+  description = "S3 bucket for VOD content"
+  value       = aws_s3_bucket.vod_content.bucket
+}
+
+output "vod_content_bucket_arn" {
+  description = "S3 bucket ARN for VOD content"
+  value       = aws_s3_bucket.vod_content.arn
+}
+
+output "mediaconvert_role_arn" {
+  description = "IAM role ARN for MediaConvert jobs"
+  value       = aws_iam_role.mediaconvert_role.arn
+}
+
+output "mediaconvert_trigger_lambda_arn" {
+  description = "Lambda function ARN for triggering MediaConvert jobs"
+  value       = aws_lambda_function.mediaconvert_trigger.arn
+}
+
+output "streaming_urls" {
+  description = "Streaming-related URLs and endpoints"
+  value = {
+    mediastore_endpoint = aws_mediastore_container.streaming.endpoint
+    hls_base_url       = "${aws_mediastore_container.streaming.endpoint}/live/"
+    rtmp_input_url     = aws_medialive_input.rtmp_input.destinations[0].url
+  }
+  sensitive = true
 }

@@ -2,6 +2,7 @@ import { Server } from 'socket.io';
 import { createServer } from 'http';
 import { parse } from 'cookie';
 import { setupStreamingSignaling } from './streaming/webrtc-signaling-server';
+import { initializeStreamingWebSocket } from './streaming-websocket';
 
 let io: Server | null = null;
 
@@ -316,6 +317,9 @@ export function initializeSocket(server: any) {
 
   // Initialize streaming signaling
   setupStreamingSignaling(io);
+
+  // Initialize streaming WebSocket with authentication
+  initializeStreamingWebSocket(io);
   
   return io;
 }

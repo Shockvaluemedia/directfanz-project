@@ -19,9 +19,20 @@ export const ROLE_PERMISSIONS = {
     'artist:analytics:read',
     'artist:earnings:read',
     'artist:subscribers:read',
+    // Streaming permissions
+    'artist:stream:create',
+    'artist:stream:start',
+    'artist:stream:stop',
+    'artist:stream:delete',
+    'artist:stream:settings',
+    'artist:stream:analytics',
+    'artist:vod:create',
+    'artist:vod:manage',
     // General permissions
     'user:profile:read',
     'user:profile:write',
+    'fan:stream:view', // Artists can also view streams
+    'fan:vod:view', // Artists can also view VOD
   ],
   FAN: [
     // Fan-specific permissions
@@ -36,6 +47,11 @@ export const ROLE_PERMISSIONS = {
     'fan:comments:read',
     'fan:comments:update',
     'fan:comments:delete',
+    // Streaming permissions
+    'fan:stream:view',
+    'fan:stream:chat',
+    'fan:stream:subscribe',
+    'fan:vod:view',
     // General permissions
     'user:profile:read',
     'user:profile:write',

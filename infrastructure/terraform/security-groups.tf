@@ -42,6 +42,66 @@ resource "aws_security_group" "alb" {
   }
 }
 
+# Security Group for ECS Tasks (Unified)
+resource "aws_security_group" "ecs_tasks" {
+  name_prefix = "${var.project_name}-ecs-tasks"
+  description = "Security group for all ECS tasks"
+  vpc_id      = module.vpc.vpc_id
+
+  # Allow traffic from ALB on port 3000 (web app)
+  ingress {
+    from_port       = 3000
+    to_port         = 3000
+    protocol        = "tcp"
+    security_groups = [aws_security_group.alb.id]
+    description     = "Allow web app traffic from ALB"
+  }
+
+  # Allow traffic from ALB on port 3001 (websocket)
+  ingress {
+    from_port       = 3001
+    to_port         = 3001
+    protocol        = "tcp"
+    security_groups = [aws_security_group.alb.id]
+    description     = "Allow WebSocket traffic from ALB"
+  }
+
+  # Allow traffic on port 3002 (streaming service)
+  ingress {
+    from_port   = 3002
+    to_port     = 3002
+    protocol    = "tcp"
+    cidr_blocks = [var.vpc_cidr]
+    description = "Allow streaming service traffic from VPC"
+  }
+
+  # Allow inter-service communication
+  ingress {
+    from_port = 0
+    to_port   = 65535
+    protocol  = "tcp"
+    self      = true
+    description = "Allow inter-service communication"
+  }
+
+  # Allow all outbound traffic
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow all outbound traffic"
+  }
+
+  tags = {
+    Name = "${var.project_name}-ecs-tasks-sg"
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
 # Security Group for ECS Tasks (Web App)
 resource "aws_security_group" "ecs_web_app" {
   name_prefix = "${var.project_name}-ecs-web"
@@ -142,6 +202,16 @@ resource "aws_security_group" "vpc_endpoints" {
 }
 
 # Update RDS security group to allow traffic from ECS tasks
+resource "aws_security_group_rule" "rds_from_ecs_tasks" {
+  type                     = "ingress"
+  from_port                = 5432
+  to_port                  = 5432
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.ecs_tasks.id
+  security_group_id        = aws_security_group.rds.id
+  description              = "Allow PostgreSQL from ECS tasks"
+}
+
 resource "aws_security_group_rule" "rds_from_ecs_web" {
   type                     = "ingress"
   from_port                = 5432
@@ -163,6 +233,16 @@ resource "aws_security_group_rule" "rds_from_ecs_websocket" {
 }
 
 # Update Redis security group to allow traffic from ECS tasks
+resource "aws_security_group_rule" "redis_from_ecs_tasks" {
+  type                     = "ingress"
+  from_port                = 6379
+  to_port                  = 6379
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.ecs_tasks.id
+  security_group_id        = aws_security_group.redis.id
+  description              = "Allow Redis from ECS tasks"
+}
+
 resource "aws_security_group_rule" "redis_from_ecs_web" {
   type                     = "ingress"
   from_port                = 6379

@@ -275,6 +275,97 @@ variable "app_port" {
   default     = 3000
 }
 
+# ECS Configuration
+variable "web_app_cpu" {
+  description = "CPU units for web app task"
+  type        = number
+  default     = 1024
+}
+
+variable "web_app_memory" {
+  description = "Memory for web app task"
+  type        = number
+  default     = 2048
+}
+
+variable "web_app_desired_count" {
+  description = "Desired number of web app tasks"
+  type        = number
+  default     = 2
+}
+
+variable "web_app_min_capacity" {
+  description = "Minimum number of web app tasks"
+  type        = number
+  default     = 2
+}
+
+variable "web_app_max_capacity" {
+  description = "Maximum number of web app tasks"
+  type        = number
+  default     = 20
+}
+
+variable "websocket_cpu" {
+  description = "CPU units for websocket task"
+  type        = number
+  default     = 512
+}
+
+variable "websocket_memory" {
+  description = "Memory for websocket task"
+  type        = number
+  default     = 1024
+}
+
+variable "websocket_desired_count" {
+  description = "Desired number of websocket tasks"
+  type        = number
+  default     = 2
+}
+
+variable "websocket_min_capacity" {
+  description = "Minimum number of websocket tasks"
+  type        = number
+  default     = 2
+}
+
+variable "websocket_max_capacity" {
+  description = "Maximum number of websocket tasks"
+  type        = number
+  default     = 10
+}
+
+variable "streaming_cpu" {
+  description = "CPU units for streaming task"
+  type        = number
+  default     = 2048
+}
+
+variable "streaming_memory" {
+  description = "Memory for streaming task"
+  type        = number
+  default     = 4096
+}
+
+variable "streaming_desired_count" {
+  description = "Desired number of streaming tasks"
+  type        = number
+  default     = 1
+}
+
+variable "streaming_min_capacity" {
+  description = "Minimum number of streaming tasks"
+  type        = number
+  default     = 1
+}
+
+variable "streaming_max_capacity" {
+  description = "Maximum number of streaming tasks"
+  type        = number
+  default     = 5
+}
+
 # Monitoring and Alerting
 variable "enable_monitoring" {
   description = "Enable CloudWatch monitoring"
@@ -295,9 +386,197 @@ variable "domain_name" {
   default     = "directfanz.io"
 }
 
+# Blue-Green Deployment Configuration
+variable "enable_deployment_hooks" {
+  description = "Enable Lambda deployment hooks for blue-green deployments"
+  type        = bool
+  default     = true
+}
+
+variable "deployment_notification_email" {
+  description = "Email address for deployment notifications"
+  type        = string
+  default     = ""
+}
+
+variable "blue_green_termination_wait_minutes" {
+  description = "Wait time in minutes before terminating blue environment"
+  type        = number
+  default     = 5
+  
+  validation {
+    condition     = var.blue_green_termination_wait_minutes >= 0 && var.blue_green_termination_wait_minutes <= 2880
+    error_message = "Termination wait time must be between 0 and 2880 minutes (48 hours)."
+  }
+}
+
+variable "deployment_config_name" {
+  description = "CodeDeploy deployment configuration name"
+  type        = string
+  default     = "CodeDeployDefault.ECSAllAtOnceBlueGreen"
+  
+  validation {
+    condition = contains([
+      "CodeDeployDefault.ECSAllAtOnceBlueGreen",
+      "CodeDeployDefault.ECSLinear10PercentEvery1Minutes",
+      "CodeDeployDefault.ECSLinear10PercentEvery3Minutes",
+      "CodeDeployDefault.ECSCanary10Percent5Minutes",
+      "CodeDeployDefault.ECSCanary10Percent15Minutes"
+    ], var.deployment_config_name)
+    error_message = "Deployment config name must be a valid ECS CodeDeploy configuration."
+  }
+}
+
 # Alert Configuration
 variable "alert_email" {
   description = "Email address for alerts"
   type        = string
   default     = ""
+}
+# S3 Content Storage Configuration
+variable "enable_cross_region_replication" {
+  description = "Enable cross-region replication for content storage"
+  type        = bool
+  default     = true
+}
+
+variable "content_backup_region" {
+  description = "AWS region for content backup bucket"
+  type        = string
+  default     = "us-west-2"
+}
+
+variable "intelligent_tiering_archive_days" {
+  description = "Days before transitioning to archive access tier"
+  type        = number
+  default     = 90
+}
+
+variable "intelligent_tiering_deep_archive_days" {
+  description = "Days before transitioning to deep archive access tier"
+  type        = number
+  default     = 180
+}
+
+variable "content_lifecycle_ia_days" {
+  description = "Days before transitioning content to Standard-IA"
+  type        = number
+  default     = 30
+}
+
+variable "content_lifecycle_glacier_days" {
+  description = "Days before transitioning content to Glacier"
+  type        = number
+  default     = 90
+}
+
+variable "content_lifecycle_deep_archive_days" {
+  description = "Days before transitioning content to Deep Archive"
+  type        = number
+  default     = 365
+}
+
+variable "content_version_retention_days" {
+  description = "Days to retain non-current versions of content"
+  type        = number
+  default     = 365
+}
+
+variable "static_version_retention_days" {
+  description = "Days to retain non-current versions of static assets"
+  type        = number
+  default     = 90
+}
+
+variable "temp_upload_cleanup_days" {
+  description = "Days before cleaning up temporary uploads"
+  type        = number
+  default     = 1
+}
+# CloudFront CDN Configuration
+variable "cloudfront_price_class" {
+  description = "CloudFront distribution price class"
+  type        = string
+  default     = "PriceClass_100"
+  
+  validation {
+    condition = contains([
+      "PriceClass_All",
+      "PriceClass_200", 
+      "PriceClass_100"
+    ], var.cloudfront_price_class)
+    error_message = "Price class must be PriceClass_All, PriceClass_200, or PriceClass_100."
+  }
+}
+
+variable "cloudfront_minimum_protocol_version" {
+  description = "Minimum SSL/TLS protocol version for CloudFront"
+  type        = string
+  default     = "TLSv1.2_2021"
+}
+
+variable "enable_cloudfront_logging" {
+  description = "Enable CloudFront access logging"
+  type        = bool
+  default     = true
+}
+
+variable "cloudfront_log_retention_days" {
+  description = "Number of days to retain CloudFront logs"
+  type        = number
+  default     = 365
+}
+
+variable "cache_ttl_static_assets" {
+  description = "TTL for static assets in seconds"
+  type        = number
+  default     = 31536000 # 1 year
+}
+
+variable "cache_ttl_images" {
+  description = "TTL for images in seconds"
+  type        = number
+  default     = 604800 # 1 week
+}
+
+variable "cache_ttl_videos" {
+  description = "TTL for videos in seconds"
+  type        = number
+  default     = 3600 # 1 hour
+}
+
+variable "cache_ttl_documents" {
+  description = "TTL for documents in seconds"
+  type        = number
+  default     = 86400 # 1 day
+}
+
+variable "cache_ttl_streaming" {
+  description = "TTL for streaming content in seconds"
+  type        = number
+  default     = 30 # 30 seconds
+}
+
+variable "cloudfront_error_rate_threshold" {
+  description = "CloudFront 4xx error rate threshold for alarms"
+  type        = number
+  default     = 5
+}
+
+variable "cloudfront_cache_hit_rate_threshold" {
+  description = "CloudFront cache hit rate threshold for alarms"
+  type        = number
+  default     = 85
+}
+
+variable "enable_signed_urls" {
+  description = "Enable signed URLs for private content"
+  type        = bool
+  default     = true
+}
+
+variable "signed_url_expiration_hours" {
+  description = "Default expiration time for signed URLs in hours"
+  type        = number
+  default     = 24
 }
