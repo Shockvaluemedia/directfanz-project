@@ -1,0 +1,238 @@
+{
+  "timestamp": "2025-12-23T14:26:21.087Z",
+  "config": {
+    "baseUrl": "http://localhost:3000",
+    "iterations": 25,
+    "concurrentUsers": 5,
+    "responseTimeThreshold": 200,
+    "timeout": 5000,
+    "warmupRequests": 5
+  },
+  "endpoints": {
+    "health_check": {
+      "endpoint": "health_check",
+      "path": "/api/health",
+      "method": "GET",
+      "critical": true,
+      "iterations": 25,
+      "successCount": 25,
+      "successRate": 100,
+      "errorCount": 0,
+      "errors": [],
+      "stats": {
+        "avg": 189.91,
+        "min": 103.56,
+        "max": 454.67,
+        "median": 158.07,
+        "p95": 395.79,
+        "p99": 454.67
+      },
+      "thresholdViolations": 5,
+      "thresholdCompliance": 80,
+      "meetsRequirement": false,
+      "status": "FAIL"
+    },
+    "user_profile": {
+      "endpoint": "user_profile",
+      "path": "/api/user/profile",
+      "method": "GET",
+      "critical": true,
+      "iterations": 25,
+      "successCount": 25,
+      "successRate": 100,
+      "errorCount": 0,
+      "errors": [],
+      "stats": {
+        "avg": 172.67,
+        "min": 93.77,
+        "max": 475.07,
+        "median": 139.42,
+        "p95": 429.49,
+        "p99": 475.07
+      },
+      "thresholdViolations": 5,
+      "thresholdCompliance": 80,
+      "meetsRequirement": false,
+      "status": "FAIL"
+    },
+    "content_feed": {
+      "endpoint": "content_feed",
+      "path": "/api/content",
+      "method": "GET",
+      "critical": true,
+      "iterations": 25,
+      "successCount": 25,
+      "successRate": 100,
+      "errorCount": 0,
+      "errors": [],
+      "stats": {
+        "avg": 167.66,
+        "min": 103.92,
+        "max": 436.08,
+        "median": 143,
+        "p95": 415.98,
+        "p99": 436.08
+      },
+      "thresholdViolations": 2,
+      "thresholdCompliance": 92,
+      "meetsRequirement": false,
+      "status": "FAIL"
+    },
+    "subscriptions_list": {
+      "endpoint": "subscriptions_list",
+      "path": "/api/fan/subscriptions",
+      "method": "GET",
+      "critical": true,
+      "iterations": 25,
+      "successCount": 25,
+      "successRate": 100,
+      "errorCount": 0,
+      "errors": [],
+      "stats": {
+        "avg": 159.34,
+        "min": 109.77,
+        "max": 407.88,
+        "median": 145.52,
+        "p95": 259.85,
+        "p99": 407.88
+      },
+      "thresholdViolations": 3,
+      "thresholdCompliance": 88,
+      "meetsRequirement": false,
+      "status": "FAIL"
+    },
+    "streams_live": {
+      "endpoint": "streams_live",
+      "path": "/api/livestream",
+      "method": "GET",
+      "critical": true,
+      "iterations": 25,
+      "successCount": 24,
+      "successRate": 96,
+      "errorCount": 1,
+      "errors": [
+        "HTTP 500"
+      ],
+      "stats": {
+        "avg": 148.93,
+        "min": 96.85,
+        "max": 384.2,
+        "median": 138.12,
+        "p95": 195.23,
+        "p99": 384.2
+      },
+      "thresholdViolations": 1,
+      "thresholdCompliance": 95.83,
+      "meetsRequirement": true,
+      "status": "PASS"
+    },
+    "messages_recent": {
+      "endpoint": "messages_recent",
+      "path": "/api/messages",
+      "method": "GET",
+      "critical": true,
+      "iterations": 25,
+      "successCount": 23,
+      "successRate": 92,
+      "errorCount": 2,
+      "errors": [
+        "HTTP 500",
+        "HTTP 500"
+      ],
+      "stats": {
+        "avg": 171.06,
+        "min": 92.11,
+        "max": 443.16,
+        "median": 158.01,
+        "p95": 359.23,
+        "p99": 443.16
+      },
+      "thresholdViolations": 3,
+      "thresholdCompliance": 86.96,
+      "meetsRequirement": false,
+      "status": "FAIL"
+    },
+    "content_search": {
+      "endpoint": "content_search",
+      "path": "/api/search?q=test",
+      "method": "GET",
+      "critical": false,
+      "iterations": 25,
+      "successCount": 25,
+      "successRate": 100,
+      "errorCount": 0,
+      "errors": [],
+      "stats": {
+        "avg": 156.93,
+        "min": 105.02,
+        "max": 215.93,
+        "median": 159.56,
+        "p95": 215.43,
+        "p99": 215.93
+      },
+      "thresholdViolations": 2,
+      "thresholdCompliance": 92,
+      "meetsRequirement": false,
+      "status": "FAIL"
+    },
+    "campaigns_active": {
+      "endpoint": "campaigns_active",
+      "path": "/api/campaigns",
+      "method": "GET",
+      "critical": false,
+      "iterations": 25,
+      "successCount": 25,
+      "successRate": 100,
+      "errorCount": 0,
+      "errors": [],
+      "stats": {
+        "avg": 177.5,
+        "min": 89.73,
+        "max": 543.46,
+        "median": 167.03,
+        "p95": 221.16,
+        "p99": 543.46
+      },
+      "thresholdViolations": 6,
+      "thresholdCompliance": 76,
+      "meetsRequirement": false,
+      "status": "FAIL"
+    },
+    "analytics_dashboard": {
+      "endpoint": "analytics_dashboard",
+      "path": "/api/analytics",
+      "method": "GET",
+      "critical": false,
+      "iterations": 25,
+      "successCount": 25,
+      "successRate": 100,
+      "errorCount": 0,
+      "errors": [],
+      "stats": {
+        "avg": 173.09,
+        "min": 114.54,
+        "max": 223.56,
+        "median": 181.43,
+        "p95": 214.55,
+        "p99": 223.56
+      },
+      "thresholdViolations": 6,
+      "thresholdCompliance": 76,
+      "meetsRequirement": false,
+      "status": "FAIL"
+    }
+  },
+  "summary": {
+    "totalEndpoints": 9,
+    "passedEndpoints": 1,
+    "failedEndpoints": 8,
+    "errorEndpoints": 0,
+    "passRate": 11.11,
+    "criticalEndpoints": 6,
+    "criticalPassed": 1,
+    "criticalPassRate": 16.67,
+    "overallAvgResponseTime": 168.57,
+    "requirementsMet": false,
+    "responseTimeThreshold": 200
+  }
+}

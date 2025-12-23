@@ -742,3 +742,204 @@ variable "enable_migration_monitoring" {
   type        = bool
   default     = true
 }
+
+# Cost Optimization Configuration
+variable "enable_cost_optimization" {
+  description = "Enable cost optimization features including Spot instances"
+  type        = bool
+  default     = true
+}
+
+variable "background_tasks_desired_count" {
+  description = "Desired number of background task instances"
+  type        = number
+  default     = 1
+}
+
+variable "cost_alert_email" {
+  description = "Email address for cost optimization alerts"
+  type        = string
+  default     = ""
+}
+
+variable "spot_instance_interruption_threshold" {
+  description = "Threshold for Spot instance interruption alarms"
+  type        = number
+  default     = 5
+}
+
+variable "enable_spot_fleet_diversification" {
+  description = "Enable diversification across multiple Spot instance types"
+  type        = bool
+  default     = true
+}
+
+# Cost Monitoring and Alerting Configuration
+variable "monthly_budget_limit" {
+  description = "Monthly budget limit in USD"
+  type        = string
+  default     = "2000"
+}
+
+variable "ecs_monthly_budget_limit" {
+  description = "ECS monthly budget limit in USD"
+  type        = string
+  default     = "800"
+}
+
+variable "rds_monthly_budget_limit" {
+  description = "RDS monthly budget limit in USD"
+  type        = string
+  default     = "400"
+}
+
+variable "s3_monthly_budget_limit" {
+  description = "S3 monthly budget limit in USD"
+  type        = string
+  default     = "200"
+}
+
+variable "cost_alert_emails" {
+  description = "List of email addresses for cost alerts"
+  type        = list(string)
+  default     = []
+}
+
+variable "cost_anomaly_alert_email" {
+  description = "Email address for cost anomaly alerts"
+  type        = string
+  default     = ""
+}
+
+variable "cost_anomaly_threshold" {
+  description = "Cost anomaly threshold in USD"
+  type        = number
+  default     = 100
+}
+
+variable "cost_optimization_alert_email" {
+  description = "Email address for cost optimization recommendations"
+  type        = string
+  default     = ""
+}
+
+# Cache Optimization Configuration
+variable "cache_warming_urls" {
+  description = "List of URLs to warm in cache"
+  type        = list(string)
+  default = [
+    "/",
+    "/api/health",
+    "/api/user/profile",
+    "/static/css/main.css",
+    "/static/js/main.js"
+  ]
+}
+
+variable "cache_warming_schedule" {
+  description = "Schedule expression for cache warming"
+  type        = string
+  default     = "rate(6 hours)"
+}
+
+variable "enable_cache_warming" {
+  description = "Enable automatic cache warming"
+  type        = bool
+  default     = true
+}
+
+variable "cache_optimization_alert_email" {
+  description = "Email address for cache optimization alerts"
+  type        = string
+  default     = ""
+}
+
+# Resource Tagging Configuration
+variable "resource_owner" {
+  description = "Owner of the resources"
+  type        = string
+  default     = "platform-team"
+}
+
+variable "cost_center" {
+  description = "Cost center for billing allocation"
+  type        = string
+  default     = "engineering"
+}
+
+variable "billing_team" {
+  description = "Team responsible for billing"
+  type        = string
+  default     = "finance"
+}
+
+variable "department" {
+  description = "Department owning the resources"
+  type        = string
+  default     = "engineering"
+}
+
+variable "business_unit" {
+  description = "Business unit for cost allocation"
+  type        = string
+  default     = "product"
+}
+
+variable "data_classification" {
+  description = "Data classification level"
+  type        = string
+  default     = "internal"
+  
+  validation {
+    condition     = contains(["public", "internal", "confidential", "restricted"], var.data_classification)
+    error_message = "Data classification must be one of: public, internal, confidential, restricted."
+  }
+}
+
+variable "compliance_scope" {
+  description = "Compliance requirements scope"
+  type        = string
+  default     = "gdpr,ccpa"
+}
+
+variable "auto_start_enabled" {
+  description = "Enable automatic resource start"
+  type        = bool
+  default     = false
+}
+
+variable "auto_stop_enabled" {
+  description = "Enable automatic resource stop"
+  type        = bool
+  default     = false
+}
+
+variable "backup_schedule" {
+  description = "Backup schedule for resources"
+  type        = string
+  default     = "daily"
+}
+
+variable "patch_group" {
+  description = "Patch group for maintenance"
+  type        = string
+  default     = "production"
+}
+
+variable "maintenance_window" {
+  description = "Maintenance window for updates"
+  type        = string
+  default     = "sun:03:00-sun:04:00"
+}
+
+variable "enable_cost_usage_report" {
+  description = "Enable AWS Cost and Usage Report"
+  type        = bool
+  default     = true
+}
+
+variable "enable_tag_enforcement" {
+  description = "Enable tag enforcement policy"
+  type        = bool
+  default     = false
+}

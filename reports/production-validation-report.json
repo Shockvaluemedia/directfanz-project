@@ -1,0 +1,286 @@
+{
+  "validationSummary": {
+    "timestamp": "2025-12-23T18:22:43.979Z",
+    "duration": "15s",
+    "totalIssues": 11,
+    "totalRecommendations": 7
+  },
+  "systemHealth": {
+    "database": {
+      "healthy": true,
+      "metrics": {
+        "responseTime": 182.36052447450805,
+        "errorRate": 0.0069116301856253885,
+        "availability": 99.78205439679962
+      },
+      "lastChecked": "2025-12-23T18:22:30.170Z"
+    },
+    "cache": {
+      "healthy": true,
+      "metrics": {
+        "responseTime": 50.78678712910143,
+        "errorRate": 0.006014860680541689,
+        "availability": 99.65602021457244
+      },
+      "lastChecked": "2025-12-23T18:22:31.109Z"
+    },
+    "containers": {
+      "healthy": false,
+      "error": "containers system showing degraded performance",
+      "metrics": {
+        "responseTime": 1041.1387548553962,
+        "errorRate": 0.011034054759609769,
+        "availability": 95.82895166376395
+      }
+    },
+    "storage": {
+      "healthy": true,
+      "metrics": {
+        "responseTime": 144.70486890973064,
+        "errorRate": 0.008186051212257066,
+        "availability": 99.77775532906284
+      },
+      "lastChecked": "2025-12-23T18:22:33.213Z"
+    },
+    "cdn": {
+      "healthy": true,
+      "metrics": {
+        "responseTime": 237.12695721444092,
+        "errorRate": 0.005070193478648006,
+        "availability": 99.96777448099768
+      },
+      "lastChecked": "2025-12-23T18:22:34.200Z"
+    },
+    "streaming": {
+      "healthy": true,
+      "metrics": {
+        "responseTime": 92.8845028247361,
+        "errorRate": 0.009025128942037582,
+        "availability": 99.5998388461167
+      },
+      "lastChecked": "2025-12-23T18:22:35.137Z"
+    },
+    "security": {
+      "healthy": false,
+      "error": "security system showing degraded performance",
+      "metrics": {
+        "responseTime": 757.2039654664625,
+        "errorRate": 0.09364161167020303,
+        "availability": 95.90087918897004
+      }
+    },
+    "networking": {
+      "healthy": true,
+      "metrics": {
+        "responseTime": 215.55953433512744,
+        "errorRate": 0.00890187999293732,
+        "availability": 99.70755579189884
+      },
+      "lastChecked": "2025-12-23T18:22:37.452Z"
+    }
+  },
+  "monitoringStatus": {
+    "cloudwatch-metrics": {
+      "functional": true,
+      "status": "active",
+      "lastUpdate": "2025-12-23T18:22:37.801Z",
+      "metrics": {
+        "dataPoints": 5388,
+        "alertsConfigured": 17
+      }
+    },
+    "cloudwatch-logs": {
+      "functional": true,
+      "status": "active",
+      "lastUpdate": "2025-12-23T18:22:38.500Z",
+      "metrics": {
+        "dataPoints": 7230,
+        "alertsConfigured": 47
+      }
+    },
+    "xray-tracing": {
+      "functional": false,
+      "error": "xray-tracing not responding or misconfigured"
+    },
+    "sns-notifications": {
+      "functional": true,
+      "status": "active",
+      "lastUpdate": "2025-12-23T18:22:39.413Z",
+      "metrics": {
+        "dataPoints": 1977,
+        "alertsConfigured": 20
+      }
+    },
+    "cloudwatch-alarms": {
+      "functional": true,
+      "status": "active",
+      "lastUpdate": "2025-12-23T18:22:39.777Z",
+      "metrics": {
+        "dataPoints": 2123,
+        "alertsConfigured": 55
+      }
+    },
+    "sentry-integration": {
+      "functional": true,
+      "status": "active",
+      "lastUpdate": "2025-12-23T18:22:40.377Z",
+      "metrics": {
+        "dataPoints": 3156,
+        "alertsConfigured": 43
+      }
+    }
+  },
+  "performanceMetrics": {
+    "api-response-time": {
+      "meetsTarget": true,
+      "actualValue": 82.9,
+      "targetValue": 200,
+      "unit": "ms",
+      "measuredAt": "2025-12-23T18:22:40.760Z"
+    },
+    "database-query-time": {
+      "meetsTarget": true,
+      "actualValue": 24.38,
+      "targetValue": 50,
+      "unit": "ms",
+      "measuredAt": "2025-12-23T18:22:40.941Z"
+    },
+    "cache-hit-rate": {
+      "meetsTarget": false,
+      "actualValue": 90.13,
+      "targetValue": 95,
+      "unit": "%",
+      "measuredAt": "2025-12-23T18:22:41.073Z"
+    },
+    "cdn-cache-hit-rate": {
+      "meetsTarget": true,
+      "actualValue": 94.21,
+      "targetValue": 90,
+      "unit": "%",
+      "measuredAt": "2025-12-23T18:22:41.369Z"
+    },
+    "concurrent-users": {
+      "meetsTarget": false,
+      "actualValue": 996.55,
+      "targetValue": 1000,
+      "unit": "users",
+      "measuredAt": "2025-12-23T18:22:41.576Z"
+    },
+    "streaming-capacity": {
+      "meetsTarget": true,
+      "actualValue": 100.67,
+      "targetValue": 100,
+      "unit": "streams",
+      "measuredAt": "2025-12-23T18:22:41.898Z"
+    }
+  },
+  "availabilityMetrics": {
+    "web-application": {
+      "availability": 99.93,
+      "uptime": 549.17,
+      "unit": "hours",
+      "status": "healthy",
+      "lastIncident": null
+    },
+    "api-endpoints": {
+      "availability": 98.82,
+      "uptime": 260,
+      "unit": "hours",
+      "status": "degraded",
+      "lastIncident": "2025-12-17T16:40:36.025Z"
+    },
+    "websocket-service": {
+      "availability": 99.64,
+      "uptime": 685.1,
+      "unit": "hours",
+      "status": "degraded",
+      "lastIncident": "2025-12-21T13:42:47.113Z"
+    },
+    "streaming-service": {
+      "availability": 98.92,
+      "uptime": 138.26,
+      "unit": "hours",
+      "status": "degraded",
+      "lastIncident": "2025-12-17T19:30:17.554Z"
+    },
+    "database": {
+      "availability": 98.95,
+      "uptime": 295.28,
+      "unit": "hours",
+      "status": "degraded",
+      "lastIncident": "2025-12-21T23:30:58.041Z"
+    },
+    "cache": {
+      "availability": 98.17,
+      "uptime": 716.17,
+      "unit": "hours",
+      "status": "degraded",
+      "lastIncident": "2025-12-22T05:24:35.102Z"
+    },
+    "cdn": {
+      "availability": 99.09,
+      "uptime": 333.48,
+      "unit": "hours",
+      "status": "degraded",
+      "lastIncident": "2025-12-22T03:41:16.638Z"
+    }
+  },
+  "issues": [
+    "containers system validation failed: containers system showing degraded performance",
+    "security system validation failed: security system showing degraded performance",
+    "Monitoring component xray-tracing not functional: xray-tracing not responding or misconfigured",
+    "Performance target not met for cache-hit-rate: 90.13% (target: 95%)",
+    "Performance target not met for concurrent-users: 996.55users (target: 1000users)",
+    "Availability target not met for api-endpoints: 98.82% (target: 99.9%)",
+    "Availability target not met for websocket-service: 99.64% (target: 99.9%)",
+    "Availability target not met for streaming-service: 98.92% (target: 99.9%)",
+    "Availability target not met for database: 98.95% (target: 99.9%)",
+    "Availability target not met for cache: 98.17% (target: 99.9%)",
+    "Availability target not met for cdn: 99.09% (target: 99.9%)"
+  ],
+  "recommendations": [
+    {
+      "category": "System Health",
+      "priority": "HIGH",
+      "description": "2 system(s) showing issues. Immediate investigation required.",
+      "action": "Review system logs and metrics for failing components"
+    },
+    {
+      "category": "Monitoring",
+      "priority": "MEDIUM",
+      "description": "1 monitoring component(s) not functional.",
+      "action": "Verify monitoring configuration and connectivity"
+    },
+    {
+      "category": "Performance",
+      "priority": "MEDIUM",
+      "description": "2 performance target(s) not met.",
+      "action": "Optimize underperforming components and review scaling policies"
+    },
+    {
+      "category": "Availability",
+      "priority": "HIGH",
+      "description": "6 service(s) below 99.9% availability target.",
+      "action": "Investigate service reliability and implement redundancy improvements"
+    },
+    {
+      "category": "Cost Optimization",
+      "priority": "LOW",
+      "description": "Review resource utilization for cost optimization opportunities.",
+      "action": "Analyze CloudWatch metrics and implement right-sizing recommendations"
+    },
+    {
+      "category": "Security",
+      "priority": "MEDIUM",
+      "description": "Conduct regular security audits and vulnerability assessments.",
+      "action": "Schedule monthly security reviews and update security policies"
+    },
+    {
+      "category": "Backup & Recovery",
+      "priority": "MEDIUM",
+      "description": "Test disaster recovery procedures regularly.",
+      "action": "Schedule quarterly DR tests and update recovery documentation"
+    }
+  ],
+  "overallStatus": "CRITICAL"
+}
