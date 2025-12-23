@@ -386,6 +386,37 @@ variable "domain_name" {
   default     = "directfanz.io"
 }
 
+# Multi-region Configuration
+variable "enable_multi_region" {
+  description = "Enable multi-region deployment for DNS load balancing"
+  type        = bool
+  default     = false
+}
+
+variable "west_region_alb_dns" {
+  description = "DNS name of the ALB in us-west-2 region"
+  type        = string
+  default     = ""
+}
+
+variable "west_region_alb_zone_id" {
+  description = "Zone ID of the ALB in us-west-2 region"
+  type        = string
+  default     = ""
+}
+
+variable "eu_region_alb_dns" {
+  description = "DNS name of the ALB in eu-west-1 region"
+  type        = string
+  default     = ""
+}
+
+variable "eu_region_alb_zone_id" {
+  description = "Zone ID of the ALB in eu-west-1 region"
+  type        = string
+  default     = ""
+}
+
 # Blue-Green Deployment Configuration
 variable "enable_deployment_hooks" {
   description = "Enable Lambda deployment hooks for blue-green deployments"
@@ -432,6 +463,74 @@ variable "alert_email" {
   description = "Email address for alerts"
   type        = string
   default     = ""
+}
+
+# CI/CD Configuration
+variable "github_repository" {
+  description = "GitHub repository in format owner/repo-name"
+  type        = string
+  default     = "directfanz/directfanz-project"
+}
+
+variable "github_branch" {
+  description = "GitHub branch to monitor for changes"
+  type        = string
+  default     = "main"
+}
+
+variable "enable_pipeline_notifications" {
+  description = "Enable pipeline notifications via SNS"
+  type        = bool
+  default     = true
+}
+
+variable "enable_codebuild_webhook" {
+  description = "Enable CodeBuild webhook for GitHub integration"
+  type        = bool
+  default     = false
+}
+
+variable "enable_ecr_vulnerability_monitoring" {
+  description = "Enable ECR vulnerability monitoring and alerting"
+  type        = bool
+  default     = true
+}
+
+variable "enable_ecr_scan_processing" {
+  description = "Enable automated ECR scan result processing"
+  type        = bool
+  default     = true
+}
+
+# Deployment Approval Workflow Configuration
+variable "slack_webhook_url" {
+  description = "Slack webhook URL for approval notifications"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "approval_timeout_hours" {
+  description = "Timeout for manual approvals in hours"
+  type        = number
+  default     = 24
+  
+  validation {
+    condition     = var.approval_timeout_hours >= 1 && var.approval_timeout_hours <= 168
+    error_message = "Approval timeout must be between 1 and 168 hours (7 days)."
+  }
+}
+
+variable "enable_approval_tracking" {
+  description = "Enable detailed approval workflow tracking and notifications"
+  type        = bool
+  default     = true
+}
+
+variable "approval_notification_emails" {
+  description = "List of email addresses for approval notifications"
+  type        = list(string)
+  default     = []
 }
 # S3 Content Storage Configuration
 variable "enable_cross_region_replication" {
@@ -616,4 +715,30 @@ variable "waf_log_retention_days" {
   description = "Number of days to retain WAF logs"
   type        = number
   default     = 30
+}
+
+# Migration Progress Tracking Configuration
+variable "migration_alert_email" {
+  description = "Email address for migration alerts"
+  type        = string
+  default     = ""
+}
+
+variable "migration_slack_webhook_url" {
+  description = "Slack webhook URL for migration notifications"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "migration_log_retention_days" {
+  description = "Number of days to retain migration tracking logs"
+  type        = number
+  default     = 30
+}
+
+variable "enable_migration_monitoring" {
+  description = "Enable comprehensive migration progress monitoring"
+  type        = bool
+  default     = true
 }

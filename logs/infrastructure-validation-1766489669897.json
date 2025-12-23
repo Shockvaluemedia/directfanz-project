@@ -1,0 +1,219 @@
+{
+  "timestamp": "2025-12-23T11:34:29.897Z",
+  "project": "direct-fan-platform",
+  "environment": "prod",
+  "region": "us-east-1",
+  "summary": {
+    "passed": 31,
+    "warnings": 0,
+    "failed": 10,
+    "total": 41
+  },
+  "details": [
+    {
+      "timestamp": "2025-12-23T11:34:27.841Z",
+      "type": "info",
+      "message": "🚀 Starting AWS Infrastructure Validation"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:27.848Z",
+      "type": "info",
+      "message": "Project: direct-fan-platform"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:27.848Z",
+      "type": "info",
+      "message": "Environment: prod"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:27.848Z",
+      "type": "info",
+      "message": "Region: us-east-1"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:27.848Z",
+      "type": "info",
+      "message": ""
+    },
+    {
+      "timestamp": "2025-12-23T11:34:27.848Z",
+      "type": "info",
+      "message": "=== Validating VPC and Networking ==="
+    },
+    {
+      "timestamp": "2025-12-23T11:34:28.391Z",
+      "type": "error",
+      "message": "VPC not found"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:28.391Z",
+      "type": "info",
+      "message": ""
+    },
+    {
+      "timestamp": "2025-12-23T11:34:28.392Z",
+      "type": "info",
+      "message": "=== Validating Security Groups ==="
+    },
+    {
+      "timestamp": "2025-12-23T11:34:28.585Z",
+      "type": "error",
+      "message": "VPC not found for security group validation"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:28.585Z",
+      "type": "info",
+      "message": ""
+    },
+    {
+      "timestamp": "2025-12-23T11:34:28.585Z",
+      "type": "info",
+      "message": "=== Validating RDS PostgreSQL Database ==="
+    },
+    {
+      "timestamp": "2025-12-23T11:34:28.791Z",
+      "type": "error",
+      "message": "RDS validation failed: DBInstance direct-fan-platform-postgres not found."
+    },
+    {
+      "timestamp": "2025-12-23T11:34:28.791Z",
+      "type": "info",
+      "message": ""
+    },
+    {
+      "timestamp": "2025-12-23T11:34:28.791Z",
+      "type": "info",
+      "message": "=== Validating ElastiCache Redis ==="
+    },
+    {
+      "timestamp": "2025-12-23T11:34:29.004Z",
+      "type": "error",
+      "message": "ElastiCache validation failed: ReplicationGroup direct-fan-platform-redis not found."
+    },
+    {
+      "timestamp": "2025-12-23T11:34:29.004Z",
+      "type": "info",
+      "message": ""
+    },
+    {
+      "timestamp": "2025-12-23T11:34:29.005Z",
+      "type": "info",
+      "message": "=== Validating S3 Storage ==="
+    },
+    {
+      "timestamp": "2025-12-23T11:34:29.131Z",
+      "type": "error",
+      "message": "No S3 buckets found for project"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:29.131Z",
+      "type": "info",
+      "message": ""
+    },
+    {
+      "timestamp": "2025-12-23T11:34:29.131Z",
+      "type": "info",
+      "message": "=== Validating ECS Fargate Services ==="
+    },
+    {
+      "timestamp": "2025-12-23T11:34:29.336Z",
+      "type": "error",
+      "message": "ECS cluster not found"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:29.336Z",
+      "type": "info",
+      "message": ""
+    },
+    {
+      "timestamp": "2025-12-23T11:34:29.336Z",
+      "type": "info",
+      "message": "=== Validating Application Load Balancer ==="
+    },
+    {
+      "timestamp": "2025-12-23T11:34:29.549Z",
+      "type": "error",
+      "message": "Application Load Balancer not found"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:29.549Z",
+      "type": "info",
+      "message": ""
+    },
+    {
+      "timestamp": "2025-12-23T11:34:29.549Z",
+      "type": "info",
+      "message": "=== Validating CloudWatch Monitoring ==="
+    },
+    {
+      "timestamp": "2025-12-23T11:34:29.549Z",
+      "type": "error",
+      "message": "CloudWatch validation failed: cloudwatch.describeLogGroups is not a function"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:29.549Z",
+      "type": "info",
+      "message": ""
+    },
+    {
+      "timestamp": "2025-12-23T11:34:29.549Z",
+      "type": "info",
+      "message": "=== Validating IAM Roles and Policies ==="
+    },
+    {
+      "timestamp": "2025-12-23T11:34:29.745Z",
+      "type": "error",
+      "message": "IAM validation failed: User: arn:aws:iam::545582548240:user/directfanz-app-user is not authorized to perform: iam:GetRole on resource: role direct-fan-platform-app-role because no identity-based policy allows the iam:GetRole action"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:29.745Z",
+      "type": "info",
+      "message": ""
+    },
+    {
+      "timestamp": "2025-12-23T11:34:29.745Z",
+      "type": "info",
+      "message": "=== Validating Systems Manager Parameters ==="
+    },
+    {
+      "timestamp": "2025-12-23T11:34:29.897Z",
+      "type": "error",
+      "message": "No SSM parameters found"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:29.897Z",
+      "type": "info",
+      "message": ""
+    },
+    {
+      "timestamp": "2025-12-23T11:34:29.897Z",
+      "type": "info",
+      "message": "=== VALIDATION SUMMARY ==="
+    },
+    {
+      "timestamp": "2025-12-23T11:34:29.897Z",
+      "type": "info",
+      "message": "✅ Passed: 26"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:29.897Z",
+      "type": "info",
+      "message": "⚠️  Warnings: 0"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:29.897Z",
+      "type": "info",
+      "message": "❌ Failed: 10"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:29.897Z",
+      "type": "info",
+      "message": ""
+    },
+    {
+      "timestamp": "2025-12-23T11:34:29.897Z",
+      "type": "info",
+      "message": "❌ Some infrastructure validations failed. Please review the issues above."
+    }
+  ]
+}

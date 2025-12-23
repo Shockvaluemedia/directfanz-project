@@ -165,6 +165,114 @@ output "route53_name_servers" {
   value       = aws_route53_zone.main.name_servers
 }
 
+output "route53_zone_arn" {
+  description = "Route 53 hosted zone ARN"
+  value       = aws_route53_zone.main.arn
+}
+
+# ACM Certificate outputs
+output "ssl_certificate_arn" {
+  description = "ARN of the main SSL certificate"
+  value       = aws_acm_certificate.main.arn
+}
+
+output "ssl_certificate_domain_name" {
+  description = "Domain name of the main SSL certificate"
+  value       = aws_acm_certificate.main.domain_name
+}
+
+output "ssl_certificate_status" {
+  description = "Status of the main SSL certificate"
+  value       = aws_acm_certificate.main.status
+}
+
+output "cloudfront_ssl_certificate_arn" {
+  description = "ARN of the CloudFront SSL certificate"
+  value       = aws_acm_certificate.cloudfront.arn
+}
+
+output "cloudfront_ssl_certificate_domain_name" {
+  description = "Domain name of the CloudFront SSL certificate"
+  value       = aws_acm_certificate.cloudfront.domain_name
+}
+
+output "ssl_certificate_validation_status" {
+  description = "Validation status of the main SSL certificate"
+  value       = aws_acm_certificate_validation.main.id
+}
+
+output "cloudfront_ssl_certificate_validation_status" {
+  description = "Validation status of the CloudFront SSL certificate"
+  value       = aws_acm_certificate_validation.cloudfront.id
+}
+
+output "certificate_renewal_lambda_arn" {
+  description = "ARN of the certificate renewal notification Lambda function"
+  value       = aws_lambda_function.certificate_renewal_notifier.arn
+}
+
+# DNS Records outputs
+output "dns_records" {
+  description = "DNS record information"
+  value = {
+    main_domain      = var.domain_name
+    www_domain       = "www.${var.domain_name}"
+    api_domain       = "api.${var.domain_name}"
+    websocket_domain = "ws.${var.domain_name}"
+    streaming_domain = "stream.${var.domain_name}"
+    cdn_domain       = "cdn.${var.domain_name}"
+    admin_domain     = "admin.${var.domain_name}"
+    mobile_api_domain = "mobile-api.${var.domain_name}"
+    assets_domain    = "assets.${var.domain_name}"
+    media_domain     = "media.${var.domain_name}"
+    staging_domain   = var.environment != "prod" ? "staging.${var.domain_name}" : null
+    dev_domain       = var.environment == "dev" ? "dev.${var.domain_name}" : null
+  }
+}
+
+# DNS Routing Policies outputs
+output "dns_routing_policies" {
+  description = "DNS routing policy information"
+  value = {
+    api_weighted_routing = {
+      us_east_weight = 70
+      us_west_weight = var.enable_multi_region ? 30 : 0
+    }
+    streaming_geolocation = {
+      us_routing = "US"
+      eu_routing = var.enable_multi_region ? "EU" : null
+      default_routing = "*"
+    }
+    websocket_latency = {
+      primary_region = var.aws_region
+      secondary_region = var.enable_multi_region ? "us-west-2" : null
+    }
+  }
+}
+
+# Health Check outputs
+output "route53_health_checks" {
+  description = "Route 53 health check IDs"
+  value = {
+    main_primary = aws_route53_health_check.main_primary.id
+    www_primary  = aws_route53_health_check.www_primary.id
+    api          = aws_route53_health_check.api.id
+    websocket    = aws_route53_health_check.websocket.id
+    streaming    = aws_route53_health_check.streaming.id
+  }
+}
+
+output "route53_health_check_arns" {
+  description = "Route 53 health check ARNs"
+  value = {
+    main_primary = aws_route53_health_check.main_primary.arn
+    www_primary  = aws_route53_health_check.www_primary.arn
+    api          = aws_route53_health_check.api.arn
+    websocket    = aws_route53_health_check.websocket.arn
+    streaming    = aws_route53_health_check.streaming.arn
+  }
+}
+
 # KMS outputs
 output "app_kms_key_id" {
   description = "KMS key ID for application encryption"
@@ -653,4 +761,59 @@ output "cloudtrail_log_group_name" {
 output "cloudtrail_s3_bucket" {
   description = "Name of the CloudTrail S3 bucket"
   value       = aws_s3_bucket.cloudtrail_logs.bucket
+}
+
+# CI/CD Pipeline outputs
+output "codepipeline_name" {
+  description = "Name of the CodePipeline"
+  value       = aws_codepipeline.main.name
+}
+
+output "codepipeline_arn" {
+  description = "ARN of the CodePipeline"
+  value       = aws_codepipeline.main.arn
+}
+
+output "codepipeline_role_arn" {
+  description = "ARN of the CodePipeline service role"
+  value       = aws_iam_role.codepipeline_role.arn
+}
+
+output "codebuild_project_name" {
+  description = "Name of the CodeBuild project"
+  value       = aws_codebuild_project.main.name
+}
+
+output "codebuild_project_arn" {
+  description = "ARN of the CodeBuild project"
+  value       = aws_codebuild_project.main.arn
+}
+
+output "codebuild_role_arn" {
+  description = "ARN of the CodeBuild service role"
+  value       = aws_iam_role.codebuild_role.arn
+}
+
+output "github_connection_arn" {
+  description = "ARN of the GitHub CodeStar connection"
+  value       = aws_codestarconnections_connection.github.arn
+}
+
+output "pipeline_artifacts_bucket" {
+  description = "Name of the CodePipeline artifacts S3 bucket"
+  value       = aws_s3_bucket.codepipeline_artifacts.bucket
+}
+
+output "deployment_notifications_topic_arn" {
+  description = "ARN of the deployment notifications SNS topic"
+  value       = aws_sns_topic.deployment_notifications.arn
+}
+
+output "ecr_repositories" {
+  description = "ECR repository URLs for all services"
+  value = {
+    web_app   = aws_ecr_repository.web_app.repository_url
+    websocket = aws_ecr_repository.websocket.repository_url
+    streaming = aws_ecr_repository.streaming.repository_url
+  }
 }

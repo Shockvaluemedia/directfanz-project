@@ -6,7 +6,7 @@ resource "aws_ecs_cluster" "main" {
 
   configuration {
     execute_command_configuration {
-      kms_key_id = aws_kms_key.main.arn
+      kms_key_id = aws_kms_key.app_key.arn
       logging    = "OVERRIDE"
 
       log_configuration {
@@ -97,7 +97,7 @@ resource "aws_ecr_repository" "web_app" {
 
   encryption_configuration {
     encryption_type = "KMS"
-    kms_key         = aws_kms_key.main.arn
+    kms_key         = aws_kms_key.app_key.arn
   }
 
   tags = {
@@ -116,7 +116,7 @@ resource "aws_ecr_repository" "websocket" {
 
   encryption_configuration {
     encryption_type = "KMS"
-    kms_key         = aws_kms_key.main.arn
+    kms_key         = aws_kms_key.app_key.arn
   }
 
   tags = {
@@ -135,7 +135,7 @@ resource "aws_ecr_repository" "streaming" {
 
   encryption_configuration {
     encryption_type = "KMS"
-    kms_key         = aws_kms_key.main.arn
+    kms_key         = aws_kms_key.app_key.arn
   }
 
   tags = {
@@ -302,7 +302,7 @@ resource "aws_iam_role_policy" "ecs_task_execution_additional" {
           "kms:Decrypt"
         ]
         Resource = [
-          aws_kms_key.main.arn
+          aws_kms_key.app_key.arn
         ]
       },
       {

@@ -142,8 +142,8 @@ resource "aws_lb_listener" "https" {
   load_balancer_arn = aws_lb.main.arn
   port              = "443"
   protocol          = "HTTPS"
-  ssl_policy        = "ELBSecurityPolicy-TLS-1-2-2017-01"
-  certificate_arn   = aws_acm_certificate.main.arn
+  ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"  # Updated to latest TLS 1.3 policy
+  certificate_arn   = aws_acm_certificate_validation.main.certificate_arn
 
   # Default action - forward to web app
   default_action {
@@ -154,6 +154,13 @@ resource "aws_lb_listener" "https" {
   tags = {
     Name = "${var.project_name}-https-listener"
   }
+}
+
+# Additional certificate for multi-domain support (if needed)
+resource "aws_lb_listener_certificate" "additional_cert" {
+  count           = var.enable_multi_region ? 1 : 0
+  listener_arn    = aws_lb_listener.https.arn
+  certificate_arn = aws_acm_certificate_validation.main.certificate_arn
 }
 
 # Listener Rule for WebSocket traffic

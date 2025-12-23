@@ -1,0 +1,201 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+      - echo Build started on `date`
+      - echo Installing dependencies...
+      - npm ci --production=false
+      - echo Running linting...
+      - npm run lint
+      - echo Running type checking...
+      - npm run type-check
+      
+  build:
+    commands:
+      - echo Build started on `date`
+      - echo Building the Docker images...
+      
+      # Build web app image
+      - echo Building web app image...
+      - docker build -f Dockerfile.ecs -t $IMAGE_REPO_NAME_WEB_APP:$IMAGE_TAG --target web-app .
+      - docker tag $IMAGE_REPO_NAME_WEB_APP:$IMAGE_TAG $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME_WEB_APP:$IMAGE_TAG
+      - docker tag $IMAGE_REPO_NAME_WEB_APP:$IMAGE_TAG $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME_WEB_APP:$CODEBUILD_RESOLVED_SOURCE_VERSION
+      
+      # Build websocket image
+      - echo Building websocket image...
+      - docker build -f Dockerfile.ecs -t $IMAGE_REPO_NAME_WEBSOCKET:$IMAGE_TAG --target websocket .
+      - docker tag $IMAGE_REPO_NAME_WEBSOCKET:$IMAGE_TAG $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME_WEBSOCKET:$IMAGE_TAG
+      - docker tag $IMAGE_REPO_NAME_WEBSOCKET:$IMAGE_TAG $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME_WEBSOCKET:$CODEBUILD_RESOLVED_SOURCE_VERSION
+      
+      # Build streaming image
+      - echo Building streaming image...
+      - docker build -f Dockerfile.ecs -t $IMAGE_REPO_NAME_STREAMING:$IMAGE_TAG --target streaming .
+      - docker tag $IMAGE_REPO_NAME_STREAMING:$IMAGE_TAG $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME_STREAMING:$IMAGE_TAG
+      - docker tag $IMAGE_REPO_NAME_STREAMING:$IMAGE_TAG $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME_STREAMING:$CODEBUILD_RESOLVED_SOURCE_VERSION
+      
+      # Run tests
+      - echo Running unit tests...
+      - npm run test:unit
+      
+      # Run integration tests
+      - echo Running integration tests...
+      - npm run test:integration
+      
+      # Run property-based tests
+      - echo Running property-based tests...
+      - npm run test:pbt
+      
+      # Generate test coverage report
+      - echo Generating coverage report...
+      - npm run test:coverage
+      
+  post_build:
+    commands:
+      - echo Build completed on `date`
+      - echo Pushing the Docker images...
+      
+      # Push web app image
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME_WEB_APP:$IMAGE_TAG
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME_WEB_APP:$CODEBUILD_RESOLVED_SOURCE_VERSION
+      
+      # Push websocket image
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME_WEBSOCKET:$IMAGE_TAG
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME_WEBSOCKET:$CODEBUILD_RESOLVED_SOURCE_VERSION
+      
+      # Push streaming image
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME_STREAMING:$IMAGE_TAG
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME_STREAMING:$CODEBUILD_RESOLVED_SOURCE_VERSION
+      
+      # Generate task definition files for deployment
+      - echo Generating task definition files...
+      - |
+        cat > taskdef-webapp.json << EOF
+        {
+          "family": "${PROJECT_NAME}-web-app",
+          "networkMode": "awsvpc",
+          "requiresCompatibilities": ["FARGATE"],
+          "cpu": "1024",
+          "memory": "2048",
+          "executionRoleArn": "arn:aws:iam::${AWS_ACCOUNT_ID}:role/${PROJECT_NAME}-ecs-execution-role",
+          "taskRoleArn": "arn:aws:iam::${AWS_ACCOUNT_ID}:role/${PROJECT_NAME}-ecs-task-role",
+          "containerDefinitions": [
+            {
+              "name": "web-app",
+              "image": "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_REPO_NAME_WEB_APP}:${CODEBUILD_RESOLVED_SOURCE_VERSION}",
+              "portMappings": [
+                {
+                  "containerPort": 3000,
+                  "protocol": "tcp"
+                }
+              ],
+              "essential": true,
+              "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                  "awslogs-group": "/ecs/${PROJECT_NAME}-web-app",
+                  "awslogs-region": "${AWS_DEFAULT_REGION}",
+                  "awslogs-stream-prefix": "ecs"
+                }
+              }
+            }
+          ]
+        }
+        EOF
+      
+      - |
+        cat > taskdef-websocket.json << EOF
+        {
+          "family": "${PROJECT_NAME}-websocket",
+          "networkMode": "awsvpc",
+          "requiresCompatibilities": ["FARGATE"],
+          "cpu": "512",
+          "memory": "1024",
+          "executionRoleArn": "arn:aws:iam::${AWS_ACCOUNT_ID}:role/${PROJECT_NAME}-ecs-execution-role",
+          "taskRoleArn": "arn:aws:iam::${AWS_ACCOUNT_ID}:role/${PROJECT_NAME}-ecs-task-role",
+          "containerDefinitions": [
+            {
+              "name": "websocket",
+              "image": "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_REPO_NAME_WEBSOCKET}:${CODEBUILD_RESOLVED_SOURCE_VERSION}",
+              "portMappings": [
+                {
+                  "containerPort": 3001,
+                  "protocol": "tcp"
+                }
+              ],
+              "essential": true,
+              "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                  "awslogs-group": "/ecs/${PROJECT_NAME}-websocket",
+                  "awslogs-region": "${AWS_DEFAULT_REGION}",
+                  "awslogs-stream-prefix": "ecs"
+                }
+              }
+            }
+          ]
+        }
+        EOF
+      
+      # Generate AppSpec files for CodeDeploy
+      - |
+        cat > appspec-webapp.yaml << EOF
+        version: 0.0
+        Resources:
+          - TargetService:
+              Type: AWS::ECS::Service
+              Properties:
+                TaskDefinition: <TASK_DEFINITION>
+                LoadBalancerInfo:
+                  ContainerName: "web-app"
+                  ContainerPort: 3000
+        Hooks:
+          - BeforeInstall: "LambdaFunctionToValidateBeforeInstall"
+          - AfterInstall: "LambdaFunctionToValidateAfterTraffic"
+          - AfterAllowTestTraffic: "LambdaFunctionToValidateAfterTestTrafficStarts"
+          - BeforeAllowTraffic: "LambdaFunctionToValidateBeforeAllowingProductionTraffic"
+          - AfterAllowTraffic: "LambdaFunctionToValidateAfterAllowingProductionTraffic"
+        EOF
+      
+      - |
+        cat > appspec-websocket.yaml << EOF
+        version: 0.0
+        Resources:
+          - TargetService:
+              Type: AWS::ECS::Service
+              Properties:
+                TaskDefinition: <TASK_DEFINITION>
+                LoadBalancerInfo:
+                  ContainerName: "websocket"
+                  ContainerPort: 3001
+        Hooks:
+          - BeforeInstall: "LambdaFunctionToValidateBeforeInstall"
+          - AfterInstall: "LambdaFunctionToValidateAfterTraffic"
+          - AfterAllowTestTraffic: "LambdaFunctionToValidateAfterTestTrafficStarts"
+          - BeforeAllowTraffic: "LambdaFunctionToValidateBeforeAllowingProductionTraffic"
+          - AfterAllowTraffic: "LambdaFunctionToValidateAfterAllowingProductionTraffic"
+        EOF
+
+reports:
+  test_reports:
+    files:
+      - 'test-results.xml'
+    base-directory: 'test-results'
+    file-format: 'JUNITXML'
+  
+  coverage_reports:
+    files:
+      - 'coverage/clover.xml'
+    base-directory: 'coverage'
+    file-format: 'CLOVERXML'
+
+artifacts:
+  files:
+    - taskdef-webapp.json
+    - taskdef-websocket.json
+    - appspec-webapp.yaml
+    - appspec-websocket.yaml
+    - '**/*'
+  name: BuildArtifact

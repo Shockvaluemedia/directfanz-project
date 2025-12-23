@@ -1,0 +1,304 @@
+{
+  "checkpoint": "Pre-Migration Testing",
+  "timestamp": "2025-12-23T11:34:40.838Z",
+  "duration": "16.50 seconds",
+  "project": "direct-fan-platform",
+  "environment": "prod",
+  "region": "us-east-1",
+  "testResults": {
+    "infrastructureValidation": false,
+    "networkConnectivity": false,
+    "servicesFunctionality": false,
+    "propertyBasedTests": false,
+    "integrationVerification": false,
+    "stagingEnvironmentVerification": false
+  },
+  "propertyTestDetails": [],
+  "summary": {
+    "totalTestSuites": 6,
+    "passedTestSuites": 0,
+    "failedTestSuites": 6,
+    "overallResult": false,
+    "readyForMigration": false
+  },
+  "recommendations": [
+    "Fix infrastructure component issues before proceeding with migration",
+    "Resolve network connectivity issues - check security groups and routing",
+    "Address AWS services functionality issues",
+    "Fix failing property-based tests - these ensure correctness properties",
+    "Resolve integration issues between services",
+    "Fix staging environment configuration issues"
+  ],
+  "testDetails": [
+    {
+      "timestamp": "2025-12-23T11:34:24.347Z",
+      "type": "info",
+      "message": "🚀 Starting Pre-Migration Testing Checkpoint"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:24.355Z",
+      "type": "info",
+      "message": "This checkpoint validates that all AWS infrastructure is ready for migration"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:24.355Z",
+      "type": "info",
+      "message": "Timestamp: 2025-12-23T11:34:24.342Z"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:24.356Z",
+      "type": "info",
+      "message": ""
+    },
+    {
+      "timestamp": "2025-12-23T11:34:24.356Z",
+      "type": "info",
+      "message": "Checking prerequisites for pre-migration testing..."
+    },
+    {
+      "timestamp": "2025-12-23T11:34:26.069Z",
+      "type": "info",
+      "message": "AWS credentials are configured"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:26.404Z",
+      "type": "info",
+      "message": "AWS SDK is available"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:27.509Z",
+      "type": "info",
+      "message": "Jest testing framework is available"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:27.512Z",
+      "type": "info",
+      "message": "Found 25 property-based test files"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:27.512Z",
+      "type": "info",
+      "message": "Prerequisites check passed"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:27.512Z",
+      "type": "info",
+      "message": ""
+    },
+    {
+      "timestamp": "2025-12-23T11:34:27.512Z",
+      "type": "info",
+      "message": "\n============================================================"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:27.512Z",
+      "type": "info",
+      "message": "RUNNING: INFRASTRUCTURE COMPONENT VALIDATION"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:27.512Z",
+      "type": "info",
+      "message": "Description: Validates all AWS infrastructure components are deployed and configured correctly"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:27.512Z",
+      "type": "info",
+      "message": "============================================================"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:27.513Z",
+      "type": "info",
+      "message": "Starting Infrastructure Component Validation..."
+    },
+    {
+      "timestamp": "2025-12-23T11:34:29.902Z",
+      "type": "error",
+      "message": "Infrastructure Component Validation failed with exit code 1"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:29.903Z",
+      "type": "info",
+      "message": "============================================================"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:29.903Z",
+      "type": "info",
+      "message": "\n============================================================"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:29.903Z",
+      "type": "info",
+      "message": "RUNNING: NETWORK CONNECTIVITY TESTING"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:29.903Z",
+      "type": "info",
+      "message": "Description: Tests network connectivity between all infrastructure components"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:29.903Z",
+      "type": "info",
+      "message": "============================================================"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:29.903Z",
+      "type": "info",
+      "message": "Starting Network Connectivity Testing..."
+    },
+    {
+      "timestamp": "2025-12-23T11:34:31.198Z",
+      "type": "error",
+      "message": "Network Connectivity Testing failed with exit code 1"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:31.198Z",
+      "type": "info",
+      "message": "============================================================"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:31.198Z",
+      "type": "info",
+      "message": "\n============================================================"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:31.198Z",
+      "type": "info",
+      "message": "RUNNING: AWS SERVICES FUNCTIONALITY TESTING"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:31.198Z",
+      "type": "info",
+      "message": "Description: Verifies all AWS services are functioning correctly with basic operations"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:31.198Z",
+      "type": "info",
+      "message": "============================================================"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:31.199Z",
+      "type": "info",
+      "message": "Starting AWS Services Functionality Testing..."
+    },
+    {
+      "timestamp": "2025-12-23T11:34:32.253Z",
+      "type": "error",
+      "message": "AWS Services Functionality Testing failed with exit code 1"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:32.253Z",
+      "type": "info",
+      "message": "============================================================"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:32.253Z",
+      "type": "info",
+      "message": "\n============================================================"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:32.253Z",
+      "type": "info",
+      "message": "RUNNING: PROPERTY-BASED INFRASTRUCTURE TESTS"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:32.253Z",
+      "type": "info",
+      "message": "Description: Runs comprehensive property-based tests to verify correctness properties"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:32.253Z",
+      "type": "info",
+      "message": "============================================================"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:32.253Z",
+      "type": "info",
+      "message": "Running property-based infrastructure tests..."
+    },
+    {
+      "timestamp": "2025-12-23T11:34:32.254Z",
+      "type": "info",
+      "message": "Starting Property-Based Infrastructure Tests..."
+    },
+    {
+      "timestamp": "2025-12-23T11:34:35.535Z",
+      "type": "error",
+      "message": "Property-Based Infrastructure Tests failed with exit code 1"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:35.535Z",
+      "type": "info",
+      "message": "============================================================"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:35.535Z",
+      "type": "info",
+      "message": "\n============================================================"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:35.535Z",
+      "type": "info",
+      "message": "RUNNING: INTEGRATION VERIFICATION"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:35.535Z",
+      "type": "info",
+      "message": "Description: Verifies all services can communicate and integrate properly"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:35.535Z",
+      "type": "info",
+      "message": "============================================================"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:35.535Z",
+      "type": "info",
+      "message": "Starting Integration Verification Testing..."
+    },
+    {
+      "timestamp": "2025-12-23T11:34:38.926Z",
+      "type": "error",
+      "message": "Integration Verification Testing failed with exit code 1"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:38.926Z",
+      "type": "info",
+      "message": "============================================================"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:38.926Z",
+      "type": "info",
+      "message": "\n============================================================"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:38.926Z",
+      "type": "info",
+      "message": "RUNNING: STAGING ENVIRONMENT VERIFICATION"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:38.926Z",
+      "type": "info",
+      "message": "Description: Verifies staging environment is properly configured for migration testing"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:38.926Z",
+      "type": "info",
+      "message": "============================================================"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:38.929Z",
+      "type": "info",
+      "message": "Starting Staging Environment Verification..."
+    },
+    {
+      "timestamp": "2025-12-23T11:34:40.835Z",
+      "type": "error",
+      "message": "Staging Environment Verification failed with exit code 1"
+    },
+    {
+      "timestamp": "2025-12-23T11:34:40.835Z",
+      "type": "info",
+      "message": "============================================================"
+    }
+  ]
+}

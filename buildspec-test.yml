@@ -1,0 +1,66 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo Test build started on `date`
+      - echo Installing dependencies...
+      - npm ci --production=false
+      
+  build:
+    commands:
+      - echo Running linting...
+      - npm run lint
+      
+      - echo Running type checking...
+      - npm run type-check
+      
+      - echo Running unit tests...
+      - npm run test:unit
+      
+      - echo Running integration tests...
+      - npm run test:integration
+      
+      - echo Running property-based tests...
+      - npm run test:pbt
+      
+      - echo Running end-to-end tests...
+      - npm run test:e2e
+      
+      - echo Generating test coverage report...
+      - npm run test:coverage
+      
+      - echo Running security audit...
+      - npm audit --audit-level moderate
+      
+      - echo Running dependency vulnerability check...
+      - npm run security:check || true
+      
+  post_build:
+    commands:
+      - echo Test build completed on `date`
+      - echo Uploading test results and coverage reports...
+
+reports:
+  test_reports:
+    files:
+      - 'test-results.xml'
+      - 'junit.xml'
+      - 'test-results/**/*.xml'
+    base-directory: 'test-results'
+    file-format: 'JUNITXML'
+  
+  coverage_reports:
+    files:
+      - 'coverage/clover.xml'
+      - 'coverage/cobertura-coverage.xml'
+      - 'coverage/lcov.info'
+    base-directory: 'coverage'
+    file-format: 'CLOVERXML'
+
+artifacts:
+  files:
+    - 'coverage/**/*'
+    - 'test-results/**/*'
+    - 'security-report.json'
+  name: TestArtifact
