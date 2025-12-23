@@ -1,20 +1,26 @@
 import { NextResponse } from 'next/server';
 import { checkDatabaseHealth, checkRedisHealth } from '@/lib/health-utils';
+import { getContainerHealth, isRunningInECS } from '@/lib/aws-config';
 import { logger } from '@/lib/logger';
 
 // Force this route to be dynamic
 export const dynamic = 'force-dynamic';
 
-// Serverless function timeout (25 seconds for Vercel)
-const FUNCTION_TIMEOUT = 25000;
-const CONNECTION_TIMEOUT = 5000; // 5 seconds max per connection check
+// Timeout configuration based on environment
+const FUNCTION_TIMEOUT = isRunningInECS() ? 10000 : 25000; // 10s for ECS, 25s for serverless
+const CONNECTION_TIMEOUT = isRunningInECS() ? 3000 : 5000; // 3s for ECS, 5s for serverless
 
 /**
- * Health check endpoint optimized for serverless environment
+ * Health check endpoint optimized for both serverless and ECS environments
  * This endpoint checks database and Redis connectivity with timeouts
+ * Supports ALB health checks when running in ECS
  */
-export async function GET() {
+export async function GET(request: Request) {
   const startTime = Date.now();
+  const url = new URL(request.url);
+  const isALBHealthCheck = url.searchParams.get('source') === 'alb' || 
+                          request.headers.get('user-agent')?.includes('ELB-HealthChecker');
+
   const checks: Record<string, { status: 'ok' | 'error'; message?: string; latency?: number }> = {
     api: { status: 'ok' },
   };
@@ -26,6 +32,24 @@ export async function GET() {
     );
     return Promise.race([promise, timeout]);
   };
+
+  // For ALB health checks, include container health
+  if (isALBHealthCheck || isRunningInECS()) {
+    try {
+      const containerHealth = await withTimeout(getContainerHealth(), CONNECTION_TIMEOUT);
+      checks.container = {
+        status: containerHealth.status === 'healthy' ? 'ok' : 'error',
+        message: containerHealth.status === 'healthy' ? undefined : 'Container health check failed',
+        ...containerHealth.checks,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      checks.container = {
+        status: 'error',
+        message: message.includes('timed out') ? 'Container health check timeout' : 'Container health check failed',
+      };
+    }
+  }
 
   // Run database and Redis checks in parallel with timeout
   const [databaseResult, redisResult] = await Promise.allSettled([
@@ -64,23 +88,42 @@ export async function GET() {
   // Overall status - consider degraded if Redis fails but DB is ok
   const dbHealthy = checks.database.status === 'ok';
   const redisHealthy = checks.redis.status === 'ok';
-  const isHealthy = dbHealthy && redisHealthy;
-  const isDegraded = dbHealthy && !redisHealthy; // Can still function without Redis
+  const containerHealthy = !checks.container || checks.container.status === 'ok';
+  
+  const isHealthy = dbHealthy && redisHealthy && containerHealthy;
+  const isDegraded = dbHealthy && !redisHealthy && containerHealthy; // Can still function without Redis
   
   const totalLatency = Date.now() - startTime;
 
   // Log health check results
   if (isHealthy) {
-    logger.info('Health check passed', { latency: totalLatency });
+    logger.info('Health check passed', { latency: totalLatency, isALBHealthCheck });
   } else if (isDegraded) {
-    logger.warn('Health check degraded - Redis unavailable', { checks, latency: totalLatency });
+    logger.warn('Health check degraded - Redis unavailable', { checks, latency: totalLatency, isALBHealthCheck });
   } else {
-    logger.error('Health check failed', { checks, latency: totalLatency });
+    logger.error('Health check failed', { checks, latency: totalLatency, isALBHealthCheck });
   }
 
   // Return appropriate status
   const status = isHealthy ? 'healthy' : isDegraded ? 'degraded' : 'unhealthy';
   const httpStatus = isHealthy ? 200 : isDegraded ? 200 : 503; // 200 for degraded (still functional)
+
+  // For ALB health checks, return simpler response
+  if (isALBHealthCheck) {
+    return NextResponse.json(
+      {
+        status: isHealthy ? 'UP' : 'DOWN',
+        timestamp: new Date().toISOString(),
+      },
+      {
+        status: httpStatus,
+        headers: {
+          'Cache-Control': 'no-store, max-age=0',
+          'X-Health-Check': 'ALB',
+        },
+      }
+    );
+  }
 
   return NextResponse.json(
     {

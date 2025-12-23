@@ -1,0 +1,77 @@
+# ECS-optimized Dockerfile for DirectFanz WebSocket Server
+# Optimized for AWS ECS Fargate deployment with ALB sticky sessions
+
+# Base image with Node.js 18 LTS
+FROM node:18-alpine AS base
+WORKDIR /app
+
+# Install security updates and required packages
+RUN apk update && apk upgrade && \
+    apk add --no-cache \
+    libc6-compat \
+    dumb-init \
+    curl \
+    && rm -rf /var/cache/apk/*
+
+# Set up non-root user for security
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 websocket
+
+# Dependencies stage
+FROM base AS deps
+COPY package.json package-lock.json* ./
+
+# Install only production dependencies for WebSocket server
+RUN npm ci --only=production && \
+    npm cache clean --force
+
+# Build stage
+FROM base AS builder
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+# Set production environment variables
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Build TypeScript files
+RUN npx tsc --build
+
+# Production runtime stage
+FROM base AS runner
+
+# Set production environment
+ENV NODE_ENV=production
+ENV WEBSOCKET_PORT=3001
+ENV PORT=3001
+ENV HOSTNAME="0.0.0.0"
+
+# Create necessary directories with proper permissions
+RUN mkdir -p /app/logs && \
+    chown -R websocket:nodejs /app
+
+# Copy built application and dependencies
+COPY --from=deps --chown=websocket:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=websocket:nodejs /app/src/lib/websocket-ecs-server.js ./src/lib/
+COPY --from=builder --chown=websocket:nodejs /app/src/lib/aws-config.js ./src/lib/
+COPY --from=builder --chown=websocket:nodejs /app/src/lib/logger.js ./src/lib/
+
+# Copy demo data and configuration files
+COPY --chown=websocket:nodejs init-demo-conversations.js ./
+COPY --chown=websocket:nodejs package.json ./
+
+# Switch to non-root user
+USER websocket
+
+# Expose WebSocket port
+EXPOSE 3001
+
+# Health check optimized for ALB
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD curl -f http://localhost:3001/health?source=alb || exit 1
+
+# Use dumb-init to handle signals properly
+ENTRYPOINT ["dumb-init", "--"]
+
+# Start the WebSocket server
+CMD ["node", "src/lib/websocket-ecs-server.js"]

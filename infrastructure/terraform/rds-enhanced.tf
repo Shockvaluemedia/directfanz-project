@@ -15,7 +15,7 @@ resource "aws_db_instance" "postgres_enhanced" {
   max_allocated_storage = var.db_max_allocated_storage_enhanced
   storage_type          = "gp3"
   storage_encrypted     = true
-  kms_key_id           = aws_kms_key.rds_encryption.arn
+  kms_key_id           = aws_kms_key.rds_key.arn
 
   # Database Configuration
   db_name  = var.db_name
@@ -45,7 +45,7 @@ resource "aws_db_instance" "postgres_enhanced" {
   # Performance Insights Configuration
   performance_insights_enabled          = true
   performance_insights_retention_period = var.performance_insights_retention_days
-  performance_insights_kms_key_id      = aws_kms_key.rds_encryption.arn
+  performance_insights_kms_key_id      = aws_kms_key.rds_key.arn
 
   # Enhanced Monitoring
   monitoring_interval = 60

@@ -1,4 +1,19 @@
 import * as Sentry from '@sentry/nextjs';
+import { initializeSentryAWS } from '../src/lib/sentry-aws-integration';
+
+// Initialize AWS-integrated Sentry service
+const sentryAWSService = initializeSentryAWS({
+  dsn: process.env.NEXT_PUBLIC_SENTRY_DSN || '',
+  environment: process.env.NODE_ENV || 'development',
+  release: process.env.VERCEL_GIT_COMMIT_SHA || 'development',
+  cloudWatchRegion: process.env.AWS_REGION || 'us-east-1',
+  enableCloudWatchIntegration: process.env.NODE_ENV === 'production',
+  enableXRayIntegration: process.env.NODE_ENV === 'production',
+  customTags: {
+    platform: 'client',
+    version: process.env.npm_package_version || '1.0.0',
+  },
+});
 
 Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
@@ -27,7 +42,8 @@ Sentry.init({
       tracePropagationTargets: [
         'localhost',
         /^https:\/\/[^/]*\.vercel\.app/,
-        /^https:\/\/your-domain\.com/,
+        /^https:\/\/directfanz\.com/,
+        /^https:\/\/[^/]*\.directfanz\.com/,
       ],
     }),
   ],
@@ -57,6 +73,15 @@ Sentry.init({
       }
     }
 
+    // Add AWS context to client-side errors
+    if (event.contexts) {
+      event.contexts.aws = {
+        region: process.env.AWS_REGION || 'us-east-1',
+        environment: process.env.NODE_ENV,
+        platform: 'client',
+      };
+    }
+
     // In development, also log to console
     if (process.env.NODE_ENV === 'development') {
       console.error('Sentry Error:', event);
@@ -70,6 +95,7 @@ Sentry.init({
     tags: {
       platform: 'client',
       version: process.env.npm_package_version || '1.0.0',
+      infrastructure: 'aws',
     },
   },
 });

@@ -76,7 +76,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "content_storage" 
 
   rule {
     apply_server_side_encryption_by_default {
-      kms_master_key_id = aws_kms_key.app_key.arn
+      kms_master_key_id = aws_kms_key.s3_content_key.arn
       sse_algorithm     = "aws:kms"
     }
     bucket_key_enabled = true
@@ -89,7 +89,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "static_assets" {
 
   rule {
     apply_server_side_encryption_by_default {
-      kms_master_key_id = aws_kms_key.app_key.arn
+      kms_master_key_id = aws_kms_key.s3_content_key.arn
       sse_algorithm     = "aws:kms"
     }
     bucket_key_enabled = true
@@ -103,7 +103,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "content_backup" {
 
   rule {
     apply_server_side_encryption_by_default {
-      kms_master_key_id = aws_kms_key.app_key.arn
+      kms_master_key_id = aws_kms_key.s3_content_key.arn
       sse_algorithm     = "aws:kms"
     }
     bucket_key_enabled = true

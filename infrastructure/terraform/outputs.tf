@@ -568,3 +568,89 @@ output "streaming_urls" {
   }
   sensitive = true
 }
+# KMS Key outputs
+output "app_kms_key_id" {
+  description = "ID of the application KMS key"
+  value       = aws_kms_key.app_key.key_id
+}
+
+output "app_kms_key_arn" {
+  description = "ARN of the application KMS key"
+  value       = aws_kms_key.app_key.arn
+}
+
+output "rds_kms_key_id" {
+  description = "ID of the RDS KMS key"
+  value       = aws_kms_key.rds_key.key_id
+}
+
+output "rds_kms_key_arn" {
+  description = "ARN of the RDS KMS key"
+  value       = aws_kms_key.rds_key.arn
+}
+
+output "elasticache_kms_key_id" {
+  description = "ID of the ElastiCache KMS key"
+  value       = aws_kms_key.elasticache_key.key_id
+}
+
+output "elasticache_kms_key_arn" {
+  description = "ARN of the ElastiCache KMS key"
+  value       = aws_kms_key.elasticache_key.arn
+}
+
+output "s3_content_kms_key_id" {
+  description = "ID of the S3 content KMS key"
+  value       = aws_kms_key.s3_content_key.key_id
+}
+
+output "s3_content_kms_key_arn" {
+  description = "ARN of the S3 content KMS key"
+  value       = aws_kms_key.s3_content_key.arn
+}
+
+output "secrets_kms_key_id" {
+  description = "ID of the secrets KMS key"
+  value       = aws_kms_key.secrets_key.key_id
+}
+
+output "secrets_kms_key_arn" {
+  description = "ARN of the secrets KMS key"
+  value       = aws_kms_key.secrets_key.arn
+}
+
+output "cloudtrail_kms_key_id" {
+  description = "ID of the CloudTrail KMS key"
+  value       = aws_kms_key.cloudtrail_key.key_id
+}
+
+output "cloudtrail_kms_key_arn" {
+  description = "ARN of the CloudTrail KMS key"
+  value       = aws_kms_key.cloudtrail_key.arn
+}
+
+output "sns_kms_key_id" {
+  description = "ID of the SNS KMS key"
+  value       = aws_kms_key.sns_key.key_id
+}
+
+output "sns_kms_key_arn" {
+  description = "ARN of the SNS KMS key"
+  value       = aws_kms_key.sns_key.arn
+}
+
+# Security outputs
+output "security_alerts_topic_arn" {
+  description = "ARN of the security alerts SNS topic"
+  value       = aws_sns_topic.security_alerts.arn
+}
+
+output "cloudtrail_log_group_name" {
+  description = "Name of the CloudTrail log group"
+  value       = aws_cloudwatch_log_group.cloudtrail.name
+}
+
+output "cloudtrail_s3_bucket" {
+  description = "Name of the CloudTrail S3 bucket"
+  value       = aws_s3_bucket.cloudtrail_logs.bucket
+}

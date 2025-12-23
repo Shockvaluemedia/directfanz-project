@@ -257,6 +257,9 @@ resource "aws_cloudfront_distribution" "main" {
     minimum_protocol_version = "TLSv1.2_2021"
   }
 
+  # WAF Web ACL association
+  web_acl_id = aws_wafv2_web_acl.directfanz_waf.arn
+
   # Custom error pages
   custom_error_response {
     error_code         = 403

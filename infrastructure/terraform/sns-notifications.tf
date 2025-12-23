@@ -3,7 +3,7 @@
 # SNS topic for critical alerts
 resource "aws_sns_topic" "alerts" {
   name              = "${var.project_name}-alerts"
-  kms_master_key_id = aws_kms_key.app_key.arn
+  kms_master_key_id = aws_kms_key.sns_key.arn
 
   tags = {
     Name        = "${var.project_name}-alerts"
@@ -14,7 +14,7 @@ resource "aws_sns_topic" "alerts" {
 # SNS topic for general notifications
 resource "aws_sns_topic" "notifications" {
   name              = "${var.project_name}-notifications"
-  kms_master_key_id = aws_kms_key.app_key.arn
+  kms_master_key_id = aws_kms_key.sns_key.arn
 
   tags = {
     Name        = "${var.project_name}-notifications"
@@ -25,11 +25,23 @@ resource "aws_sns_topic" "notifications" {
 # SNS topic for deployment notifications
 resource "aws_sns_topic" "deployments" {
   name              = "${var.project_name}-deployments"
-  kms_master_key_id = aws_kms_key.app_key.arn
+  kms_master_key_id = aws_kms_key.sns_key.arn
 
   tags = {
     Name        = "${var.project_name}-deployments"
     Environment = var.environment
+  }
+}
+
+# SNS topic for security alerts
+resource "aws_sns_topic" "security_alerts" {
+  name              = "${var.project_name}-security-alerts"
+  kms_master_key_id = aws_kms_key.sns_key.arn
+
+  tags = {
+    Name        = "${var.project_name}-security-alerts"
+    Environment = var.environment
+    Purpose     = "Security incident notifications"
   }
 }
 

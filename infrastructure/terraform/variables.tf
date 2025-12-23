@@ -580,3 +580,40 @@ variable "signed_url_expiration_hours" {
   type        = number
   default     = 24
 }
+
+# WAF Security Configuration
+variable "blocked_countries" {
+  description = "List of country codes to block via WAF"
+  type        = list(string)
+  default     = []
+}
+
+variable "admin_whitelist_ips" {
+  description = "List of IP addresses allowed to access admin endpoints"
+  type        = list(string)
+  default     = []
+}
+
+variable "waf_rate_limit_per_ip" {
+  description = "Rate limit per IP address (requests per 5 minutes)"
+  type        = number
+  default     = 2000
+}
+
+variable "waf_api_rate_limit_per_ip" {
+  description = "API rate limit per IP address (requests per 5 minutes)"
+  type        = number
+  default     = 500
+}
+
+variable "enable_waf_logging" {
+  description = "Enable WAF request logging"
+  type        = bool
+  default     = true
+}
+
+variable "waf_log_retention_days" {
+  description = "Number of days to retain WAF logs"
+  type        = number
+  default     = 30
+}

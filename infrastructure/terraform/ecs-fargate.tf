@@ -351,6 +351,14 @@ resource "aws_ecs_task_definition" "web_app" {
         {
           name  = "PORT"
           value = "3000"
+        },
+        {
+          name  = "AWS_XRAY_TRACING_NAME"
+          value = "${var.project_name}-web-app"
+        },
+        {
+          name  = "AWS_XRAY_DAEMON_ADDRESS"
+          value = "xray-daemon:2000"
         }
       ]
 
@@ -390,6 +398,44 @@ resource "aws_ecs_task_definition" "web_app" {
       }
 
       essential = true
+      
+      dependsOn = [
+        {
+          containerName = "xray-daemon"
+          condition     = "START"
+        }
+      ]
+    },
+    {
+      name  = "xray-daemon"
+      image = "amazon/aws-xray-daemon:latest"
+      
+      portMappings = [
+        {
+          containerPort = 2000
+          protocol      = "udp"
+        }
+      ]
+
+      environment = [
+        {
+          name  = "AWS_REGION"
+          value = var.aws_region
+        }
+      ]
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.web_app.name
+          "awslogs-region"        = var.aws_region
+          "awslogs-stream-prefix" = "xray-daemon"
+        }
+      }
+
+      essential = false
+      cpu       = 32
+      memory    = 256
     }
   ])
 
@@ -429,6 +475,14 @@ resource "aws_ecs_task_definition" "websocket" {
         {
           name  = "PORT"
           value = "3001"
+        },
+        {
+          name  = "AWS_XRAY_TRACING_NAME"
+          value = "${var.project_name}-websocket"
+        },
+        {
+          name  = "AWS_XRAY_DAEMON_ADDRESS"
+          value = "xray-daemon:2000"
         }
       ]
 
@@ -460,6 +514,44 @@ resource "aws_ecs_task_definition" "websocket" {
       }
 
       essential = true
+      
+      dependsOn = [
+        {
+          containerName = "xray-daemon"
+          condition     = "START"
+        }
+      ]
+    },
+    {
+      name  = "xray-daemon"
+      image = "amazon/aws-xray-daemon:latest"
+      
+      portMappings = [
+        {
+          containerPort = 2000
+          protocol      = "udp"
+        }
+      ]
+
+      environment = [
+        {
+          name  = "AWS_REGION"
+          value = var.aws_region
+        }
+      ]
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.websocket.name
+          "awslogs-region"        = var.aws_region
+          "awslogs-stream-prefix" = "xray-daemon"
+        }
+      }
+
+      essential = false
+      cpu       = 32
+      memory    = 256
     }
   ])
 
@@ -499,6 +591,14 @@ resource "aws_ecs_task_definition" "streaming" {
         {
           name  = "PORT"
           value = "3002"
+        },
+        {
+          name  = "AWS_XRAY_TRACING_NAME"
+          value = "${var.project_name}-streaming"
+        },
+        {
+          name  = "AWS_XRAY_DAEMON_ADDRESS"
+          value = "xray-daemon:2000"
         }
       ]
 
@@ -534,6 +634,44 @@ resource "aws_ecs_task_definition" "streaming" {
       }
 
       essential = true
+      
+      dependsOn = [
+        {
+          containerName = "xray-daemon"
+          condition     = "START"
+        }
+      ]
+    },
+    {
+      name  = "xray-daemon"
+      image = "amazon/aws-xray-daemon:latest"
+      
+      portMappings = [
+        {
+          containerPort = 2000
+          protocol      = "udp"
+        }
+      ]
+
+      environment = [
+        {
+          name  = "AWS_REGION"
+          value = var.aws_region
+        }
+      ]
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.streaming.name
+          "awslogs-region"        = var.aws_region
+          "awslogs-stream-prefix" = "xray-daemon"
+        }
+      }
+
+      essential = false
+      cpu       = 32
+      memory    = 256
     }
   ])
 

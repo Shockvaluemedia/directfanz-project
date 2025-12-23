@@ -256,7 +256,7 @@ resource "aws_cloudtrail" "main" {
 resource "aws_cloudwatch_log_metric_filter" "failed_logins" {
   name           = "${var.project_name}-failed-logins"
   log_group_name = aws_cloudwatch_log_group.cloudtrail.name
-  pattern        = "[version, account, time, region, source, user, ...]"
+  pattern        = "{ ($.errorCode = \"*UnauthorizedOperation\") || ($.errorCode = \"AccessDenied*\") }"
 
   metric_transformation {
     name      = "FailedLoginAttempts"
@@ -276,10 +276,170 @@ resource "aws_cloudwatch_metric_alarm" "failed_logins" {
   statistic           = "Sum"
   threshold           = "5"
   alarm_description   = "This metric monitors failed login attempts"
-  alarm_actions       = [aws_sns_topic.alerts.arn]
+  alarm_actions       = [aws_sns_topic.security_alerts.arn]
 
   tags = {
     Name        = "${var.project_name}-failed-logins-alarm"
+    Environment = var.environment
+  }
+}
+
+# CloudWatch metric filter for root account usage
+resource "aws_cloudwatch_log_metric_filter" "root_usage" {
+  name           = "${var.project_name}-root-usage"
+  log_group_name = aws_cloudwatch_log_group.cloudtrail.name
+  pattern        = "{ $.userIdentity.type = \"Root\" && $.userIdentity.invokedBy NOT EXISTS && $.eventType != \"AwsServiceEvent\" }"
+
+  metric_transformation {
+    name      = "RootAccountUsage"
+    namespace = "${var.project_name}/Security"
+    value     = "1"
+  }
+}
+
+# CloudWatch alarm for root account usage
+resource "aws_cloudwatch_metric_alarm" "root_usage" {
+  alarm_name          = "${var.project_name}-root-usage"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = "1"
+  metric_name         = "RootAccountUsage"
+  namespace           = "${var.project_name}/Security"
+  period              = "300"
+  statistic           = "Sum"
+  threshold           = "1"
+  alarm_description   = "This metric monitors root account usage"
+  alarm_actions       = [aws_sns_topic.security_alerts.arn]
+
+  tags = {
+    Name        = "${var.project_name}-root-usage-alarm"
+    Environment = var.environment
+  }
+}
+
+# CloudWatch metric filter for IAM policy changes
+resource "aws_cloudwatch_log_metric_filter" "iam_policy_changes" {
+  name           = "${var.project_name}-iam-policy-changes"
+  log_group_name = aws_cloudwatch_log_group.cloudtrail.name
+  pattern        = "{ ($.eventName = DeleteGroupPolicy) || ($.eventName = DeleteRolePolicy) || ($.eventName = DeleteUserPolicy) || ($.eventName = PutGroupPolicy) || ($.eventName = PutRolePolicy) || ($.eventName = PutUserPolicy) || ($.eventName = CreatePolicy) || ($.eventName = DeletePolicy) || ($.eventName = CreatePolicyVersion) || ($.eventName = DeletePolicyVersion) || ($.eventName = AttachRolePolicy) || ($.eventName = DetachRolePolicy) || ($.eventName = AttachUserPolicy) || ($.eventName = DetachUserPolicy) || ($.eventName = AttachGroupPolicy) || ($.eventName = DetachGroupPolicy) }"
+
+  metric_transformation {
+    name      = "IAMPolicyChanges"
+    namespace = "${var.project_name}/Security"
+    value     = "1"
+  }
+}
+
+# CloudWatch alarm for IAM policy changes
+resource "aws_cloudwatch_metric_alarm" "iam_policy_changes" {
+  alarm_name          = "${var.project_name}-iam-policy-changes"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = "1"
+  metric_name         = "IAMPolicyChanges"
+  namespace           = "${var.project_name}/Security"
+  period              = "300"
+  statistic           = "Sum"
+  threshold           = "1"
+  alarm_description   = "This metric monitors IAM policy changes"
+  alarm_actions       = [aws_sns_topic.security_alerts.arn]
+
+  tags = {
+    Name        = "${var.project_name}-iam-policy-changes-alarm"
+    Environment = var.environment
+  }
+}
+
+# CloudWatch metric filter for security group changes
+resource "aws_cloudwatch_log_metric_filter" "security_group_changes" {
+  name           = "${var.project_name}-security-group-changes"
+  log_group_name = aws_cloudwatch_log_group.cloudtrail.name
+  pattern        = "{ ($.eventName = AuthorizeSecurityGroupIngress) || ($.eventName = AuthorizeSecurityGroupEgress) || ($.eventName = RevokeSecurityGroupIngress) || ($.eventName = RevokeSecurityGroupEgress) || ($.eventName = CreateSecurityGroup) || ($.eventName = DeleteSecurityGroup) }"
+
+  metric_transformation {
+    name      = "SecurityGroupChanges"
+    namespace = "${var.project_name}/Security"
+    value     = "1"
+  }
+}
+
+# CloudWatch alarm for security group changes
+resource "aws_cloudwatch_metric_alarm" "security_group_changes" {
+  alarm_name          = "${var.project_name}-security-group-changes"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = "1"
+  metric_name         = "SecurityGroupChanges"
+  namespace           = "${var.project_name}/Security"
+  period              = "300"
+  statistic           = "Sum"
+  threshold           = "1"
+  alarm_description   = "This metric monitors security group changes"
+  alarm_actions       = [aws_sns_topic.security_alerts.arn]
+
+  tags = {
+    Name        = "${var.project_name}-security-group-changes-alarm"
+    Environment = var.environment
+  }
+}
+
+# CloudWatch metric filter for console sign-in without MFA
+resource "aws_cloudwatch_log_metric_filter" "console_signin_without_mfa" {
+  name           = "${var.project_name}-console-signin-without-mfa"
+  log_group_name = aws_cloudwatch_log_group.cloudtrail.name
+  pattern        = "{ ($.eventName = \"ConsoleLogin\") && ($.additionalEventData.MFAUsed != \"Yes\") }"
+
+  metric_transformation {
+    name      = "ConsoleSigninWithoutMFA"
+    namespace = "${var.project_name}/Security"
+    value     = "1"
+  }
+}
+
+# CloudWatch alarm for console sign-in without MFA
+resource "aws_cloudwatch_metric_alarm" "console_signin_without_mfa" {
+  alarm_name          = "${var.project_name}-console-signin-without-mfa"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = "1"
+  metric_name         = "ConsoleSigninWithoutMFA"
+  namespace           = "${var.project_name}/Security"
+  period              = "300"
+  statistic           = "Sum"
+  threshold           = "1"
+  alarm_description   = "This metric monitors console sign-ins without MFA"
+  alarm_actions       = [aws_sns_topic.security_alerts.arn]
+
+  tags = {
+    Name        = "${var.project_name}-console-signin-without-mfa-alarm"
+    Environment = var.environment
+  }
+}
+
+# CloudWatch metric filter for CloudTrail configuration changes
+resource "aws_cloudwatch_log_metric_filter" "cloudtrail_config_changes" {
+  name           = "${var.project_name}-cloudtrail-config-changes"
+  log_group_name = aws_cloudwatch_log_group.cloudtrail.name
+  pattern        = "{ ($.eventName = CreateTrail) || ($.eventName = UpdateTrail) || ($.eventName = DeleteTrail) || ($.eventName = StartLogging) || ($.eventName = StopLogging) }"
+
+  metric_transformation {
+    name      = "CloudTrailConfigChanges"
+    namespace = "${var.project_name}/Security"
+    value     = "1"
+  }
+}
+
+# CloudWatch alarm for CloudTrail configuration changes
+resource "aws_cloudwatch_metric_alarm" "cloudtrail_config_changes" {
+  alarm_name          = "${var.project_name}-cloudtrail-config-changes"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = "1"
+  metric_name         = "CloudTrailConfigChanges"
+  namespace           = "${var.project_name}/Security"
+  period              = "300"
+  statistic           = "Sum"
+  threshold           = "1"
+  alarm_description   = "This metric monitors CloudTrail configuration changes"
+  alarm_actions       = [aws_sns_topic.security_alerts.arn]
+
+  tags = {
+    Name        = "${var.project_name}-cloudtrail-config-changes-alarm"
     Environment = var.environment
   }
 }

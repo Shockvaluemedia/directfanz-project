@@ -183,8 +183,29 @@ const nextConfig = {
     ];
   },
 
-  // Enable standalone output for Docker
+  // Enable standalone output for Docker and ECS
   output: 'standalone',
+
+  // Configure for AWS deployment
+  ...(process.env.NODE_ENV === 'production' && {
+    // Optimize for ECS deployment
+    poweredByHeader: false,
+    generateEtags: false,
+    
+    // Configure for ALB health checks
+    async rewrites() {
+      return [
+        {
+          source: '/health',
+          destination: '/api/health?source=alb',
+        },
+        {
+          source: '/healthz',
+          destination: '/api/health?source=alb',
+        },
+      ];
+    },
+  }),
 };
 
 // Injected content via Sentry wizard below

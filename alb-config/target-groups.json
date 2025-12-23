@@ -1,0 +1,117 @@
+{
+  "webAppTargetGroup": {
+    "Name": "directfanz-web-tg",
+    "Protocol": "HTTP",
+    "Port": 3000,
+    "VpcId": "VPC_ID",
+    "TargetType": "ip",
+    "HealthCheckProtocol": "HTTP",
+    "HealthCheckPath": "/api/health?source=alb",
+    "HealthCheckIntervalSeconds": 30,
+    "HealthCheckTimeoutSeconds": 5,
+    "HealthyThresholdCount": 2,
+    "UnhealthyThresholdCount": 3,
+    "Matcher": {
+      "HttpCode": "200"
+    },
+    "TargetGroupAttributes": [
+      {
+        "Key": "deregistration_delay.timeout_seconds",
+        "Value": "30"
+      },
+      {
+        "Key": "stickiness.enabled",
+        "Value": "false"
+      },
+      {
+        "Key": "load_balancing.algorithm.type",
+        "Value": "round_robin"
+      }
+    ]
+  },
+  "websocketTargetGroup": {
+    "Name": "directfanz-websocket-tg",
+    "Protocol": "HTTP",
+    "Port": 3001,
+    "VpcId": "VPC_ID",
+    "TargetType": "ip",
+    "HealthCheckProtocol": "HTTP",
+    "HealthCheckPath": "/health?source=alb",
+    "HealthCheckIntervalSeconds": 30,
+    "HealthCheckTimeoutSeconds": 5,
+    "HealthyThresholdCount": 2,
+    "UnhealthyThresholdCount": 3,
+    "Matcher": {
+      "HttpCode": "200"
+    },
+    "TargetGroupAttributes": [
+      {
+        "Key": "deregistration_delay.timeout_seconds",
+        "Value": "30"
+      },
+      {
+        "Key": "stickiness.enabled",
+        "Value": "true"
+      },
+      {
+        "Key": "stickiness.type",
+        "Value": "lb_cookie"
+      },
+      {
+        "Key": "stickiness.lb_cookie.duration_seconds",
+        "Value": "86400"
+      },
+      {
+        "Key": "load_balancing.algorithm.type",
+        "Value": "round_robin"
+      }
+    ]
+  },
+  "listenerRules": [
+    {
+      "Priority": 100,
+      "Conditions": [
+        {
+          "Field": "path-pattern",
+          "Values": ["/socket.io/*"]
+        }
+      ],
+      "Actions": [
+        {
+          "Type": "forward",
+          "TargetGroupArn": "WEBSOCKET_TARGET_GROUP_ARN"
+        }
+      ]
+    },
+    {
+      "Priority": 200,
+      "Conditions": [
+        {
+          "Field": "path-pattern",
+          "Values": ["/streaming/*"]
+        }
+      ],
+      "Actions": [
+        {
+          "Type": "forward",
+          "TargetGroupArn": "WEBSOCKET_TARGET_GROUP_ARN"
+        }
+      ]
+    },
+    {
+      "Priority": 300,
+      "Conditions": [
+        {
+          "Field": "path-pattern",
+          "Values": ["/*"]
+        }
+      ],
+      "Actions": [
+        {
+          "Type": "forward",
+          "TargetGroupArn": "WEB_APP_TARGET_GROUP_ARN"
+        }
+      ]
+    }
+  ]
+}

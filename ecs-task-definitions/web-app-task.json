@@ -1,0 +1,112 @@
+{
+  "family": "directfanz-web-app",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "1024",
+  "memory": "2048",
+  "executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::ACCOUNT_ID:role/directfanz-task-role",
+  "containerDefinitions": [
+    {
+      "name": "directfanz-web",
+      "image": "ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/directfanz-web:latest",
+      "portMappings": [
+        {
+          "containerPort": 3000,
+          "protocol": "tcp"
+        }
+      ],
+      "essential": true,
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/directfanz-web",
+          "awslogs-region": "REGION",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "environment": [
+        {
+          "name": "NODE_ENV",
+          "value": "production"
+        },
+        {
+          "name": "PORT",
+          "value": "3000"
+        },
+        {
+          "name": "HOSTNAME",
+          "value": "0.0.0.0"
+        },
+        {
+          "name": "AWS_REGION",
+          "value": "REGION"
+        },
+        {
+          "name": "ECS_CLUSTER_NAME",
+          "value": "directfanz-cluster"
+        },
+        {
+          "name": "ECS_SERVICE_NAME",
+          "value": "directfanz-web"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "DATABASE_URL",
+          "valueFrom": "/directfanz/database/url"
+        },
+        {
+          "name": "REDIS_URL",
+          "valueFrom": "/directfanz/redis/url"
+        },
+        {
+          "name": "NEXTAUTH_SECRET",
+          "valueFrom": "/directfanz/auth/nextauth-secret"
+        },
+        {
+          "name": "STRIPE_SECRET_KEY",
+          "valueFrom": "/directfanz/stripe/secret-key"
+        },
+        {
+          "name": "OPENAI_API_KEY",
+          "valueFrom": "/directfanz/openai/api-key"
+        },
+        {
+          "name": "SENDGRID_API_KEY",
+          "valueFrom": "/directfanz/sendgrid/api-key"
+        },
+        {
+          "name": "SENTRY_DSN",
+          "valueFrom": "/directfanz/sentry/dsn"
+        },
+        {
+          "name": "ENCRYPTION_KEY",
+          "valueFrom": "/directfanz/security/encryption-key"
+        },
+        {
+          "name": "JWT_SECRET",
+          "valueFrom": "/directfanz/security/jwt-secret"
+        }
+      ],
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "curl -f http://localhost:3000/api/health?source=alb || exit 1"
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      },
+      "stopTimeout": 30,
+      "ulimits": [
+        {
+          "name": "nofile",
+          "softLimit": 65536,
+          "hardLimit": 65536
+        }
+      ]
+    }
+  ]
+}

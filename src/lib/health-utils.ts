@@ -1,8 +1,10 @@
 /**
- * Optimized health check utilities for serverless environment
+ * Optimized health check utilities for serverless and ECS environments
  */
 import { PrismaClient } from '@prisma/client';
 import { createClient } from 'redis';
+import { checkDatabaseConnection } from './prisma';
+import { checkPgBouncerHealth, shouldUsePgBouncer } from './pgbouncer-config';
 import { logger } from './logger';
 
 // Lightweight Prisma client for health checks only
@@ -27,20 +29,29 @@ export const getHealthCheckPrisma = () => {
 };
 
 /**
- * Perform a fast database health check
- * Uses a simple query with minimal overhead
+ * Perform a comprehensive database health check for RDS
+ * Uses the enhanced database connection from prisma.ts
  */
-export const checkDatabaseHealth = async (): Promise<{ status: 'ok' | 'error'; latency: number; message?: string }> => {
+export const checkDatabaseHealth = async (): Promise<{ 
+  status: 'ok' | 'error'; 
+  latency: number; 
+  message?: string;
+  details?: any;
+}> => {
   const startTime = Date.now();
   
   try {
-    const prisma = getHealthCheckPrisma();
-    // Use the simplest possible query
-    await prisma.$executeRaw`SELECT 1`;
+    // Use the enhanced database health check
+    const healthResult = await checkDatabaseConnection();
     
     return {
-      status: 'ok',
-      latency: Date.now() - startTime,
+      status: healthResult.status === 'healthy' ? 'ok' : 'error',
+      latency: healthResult.latency,
+      message: healthResult.status === 'healthy' ? undefined : 'Database health check failed',
+      details: {
+        ...healthResult.details,
+        pgbouncer: shouldUsePgBouncer() ? await checkPgBouncerHealth() : { status: 'not_used' },
+      },
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown database error';
@@ -52,42 +63,36 @@ export const checkDatabaseHealth = async (): Promise<{ status: 'ok' | 'error'; l
       message: message.includes('timeout') || message.includes('timed out') 
         ? 'Database connection timeout' 
         : 'Database connection failed',
+      details: {
+        error: message,
+        pgbouncer: shouldUsePgBouncer() ? { status: 'unknown' } : { status: 'not_used' },
+      },
     };
   }
 };
 
 /**
- * Perform a fast Redis health check
- * Creates a new connection with minimal configuration
+ * Perform a comprehensive Redis health check for ElastiCache
+ * Uses the enhanced ElastiCache client from redis.ts
  */
-export const checkRedisHealth = async (): Promise<{ status: 'ok' | 'error'; latency: number; message?: string }> => {
+export const checkRedisHealth = async (): Promise<{ 
+  status: 'ok' | 'error'; 
+  latency: number; 
+  message?: string;
+  details?: any;
+}> => {
   const startTime = Date.now();
-  let client: ReturnType<typeof createClient> | null = null;
   
   try {
-    if (!process.env.REDIS_URL || process.env.REDIS_URL.trim() === '') {
-      return {
-        status: 'ok', // Changed to 'ok' since Redis is intentionally disabled
-        latency: Date.now() - startTime,
-        message: 'Redis disabled (caching unavailable)',
-      };
-    }
-
-    // Create a minimal Redis client for health check
-    client = createClient({
-      url: process.env.REDIS_URL,
-      socket: {
-        connectTimeout: 3000, // 3 second timeout
-        commandTimeout: 2000, // 2 second command timeout
-      },
-    });
-
-    await client.connect();
-    await client.ping();
+    // Use the enhanced ElastiCache health check
+    const { checkElastiCacheHealth } = await import('./redis');
+    const healthResult = await checkElastiCacheHealth();
     
     return {
-      status: 'ok',
-      latency: Date.now() - startTime,
+      status: healthResult.status === 'healthy' ? 'ok' : 'error',
+      latency: healthResult.latency,
+      message: healthResult.status === 'healthy' ? undefined : 'ElastiCache health check failed',
+      details: healthResult.details,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown Redis error';
@@ -99,17 +104,11 @@ export const checkRedisHealth = async (): Promise<{ status: 'ok' | 'error'; late
       message: message.includes('timeout') || message.includes('timed out')
         ? 'Redis connection timeout'
         : 'Redis connection failed',
+      details: {
+        error: message,
+        isElastiCache: process.env.REDIS_URL?.includes('cache.amazonaws.com') || false,
+      },
     };
-  } finally {
-    // Always cleanup the connection
-    if (client) {
-      try {
-        await client.quit();
-      } catch (error) {
-        // Ignore cleanup errors
-        logger.warn('Failed to cleanup Redis health check connection', { error });
-      }
-    }
   }
 };
 

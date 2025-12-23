@@ -64,6 +64,7 @@ resource "aws_elasticache_replication_group" "redis_enhanced" {
 
   # Encryption - Requirements 3.3
   at_rest_encryption_enabled   = true
+  kms_key_id                  = aws_kms_key.elasticache_key.arn
   transit_encryption_enabled   = true
   auth_token                   = random_password.redis_enhanced_auth_token.result
   auth_token_update_strategy   = "ROTATE"
