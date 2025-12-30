@@ -1,0 +1,43 @@
+{
+  "family": "directfanz-app",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::545582548240:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "directfanz-app",
+      "image": "nginx:alpine",
+      "portMappings": [
+        {
+          "containerPort": 3000,
+          "protocol": "tcp"
+        }
+      ],
+      "essential": true,
+      "command": [
+        "sh", "-c",
+        "echo 'server { listen 3000; server_name _; location / { return 200 \"<html><head><title>DirectFanz - Live Platform</title><style>body{font-family:Arial,sans-serif;text-align:center;padding:50px;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;margin:0}h1{font-size:3em;margin-bottom:20px}p{font-size:1.2em;margin:10px 0}.status{background:rgba(255,255,255,0.1);padding:20px;border-radius:10px;margin:20px 0}.feature{background:rgba(255,255,255,0.05);padding:15px;margin:10px;border-radius:8px;display:inline-block;width:200px}</style></head><body><h1>🎉 DirectFanz</h1><p>The Ultimate Creator Platform</p><div class=\\\"status\\\"><h2>✅ Platform Status: LIVE</h2><p>🚀 AWS Infrastructure: Active</p><p>🔗 Domain: directfanz.io</p><p>⚡ Load Balancer: Connected</p><p>🛡️ Security: Enabled</p></div><div><div class=\\\"feature\\\"><h3>🎨 For Creators</h3><p>Monetize your content with subscription tiers</p></div><div class=\\\"feature\\\"><h3>💎 For Fans</h3><p>Access exclusive content from your favorite creators</p></div><div class=\\\"feature\\\"><h3>💳 Secure Payments</h3><p>Stripe integration with instant payouts</p></div></div><p style=\\\"margin-top:40px;opacity:0.8\\\">Full application deployment in progress...</p></body></html>\"; add_header Content-Type text/html; } }' > /etc/nginx/conf.d/default.conf && rm /etc/nginx/conf.d/default.conf.default 2>/dev/null || true && nginx -g 'daemon off;'"
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/directfanz-app",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1"
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 30
+      }
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "family": "directfanz-app",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::545582548240:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "directfanz-app",
+      "image": "nginx:alpine",
+      "portMappings": [
+        {
+          "containerPort": 3000,
+          "protocol": "tcp"
+        }
+      ],
+      "essential": true,
+      "command": [
+        "sh", "-c", 
+        "echo 'server { listen 3000; location / { return 200 \"<html><head><title>DirectFanz - Coming Soon</title></head><body><h1>DirectFanz Platform</h1><p>The DirectFanz application is being deployed. Please check back in a few minutes.</p><p>Status: Infrastructure Ready ✅</p></body></html>\"; add_header Content-Type text/html; } }' > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/directfanz-app",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1"
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      }
+    }
+  ]
+}
