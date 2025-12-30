@@ -1,17 +1,15 @@
 'use client';
 
 /**
- * Live Streaming Studio - Client Component
+ * Live Streaming Studio - AWS MediaLive Integration
  *
- * This component provides a comprehensive live streaming interface with:
- * - WebRTC streaming setup and management
- * - Stream creation and configuration
- * - Real-time chat overlay with moderation
- * - Donation/tip interface during streams
- * - Viewer count and engagement metrics
- * - Stream quality controls and analytics
- * - Mobile streaming support
- * - Stream scheduling and notifications
+ * Professional streaming studio with:
+ * - AWS MediaLive RTMP streaming
+ * - OBS/XSplit integration support
+ * - Multi-bitrate transcoding (480p/720p/1080p)
+ * - Real-time chat and donations
+ * - Stream analytics and viewer metrics
+ * - CloudFront CDN delivery
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -130,9 +128,9 @@ export default function LiveStreamStudio() {
   // Stream state
   const [isStreaming, setIsStreaming] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
-  const [streamQuality, setStreamQuality] = useState('720p');
-  const [isAudioEnabled, setIsAudioEnabled] = useState(true);
-  const [isVideoEnabled, setIsVideoEnabled] = useState(true);
+  const [streamHealth, setStreamHealth] = useState<'good' | 'warning' | 'error'>('good');
+  const [bitrate, setBitrate] = useState(0);
+  const [fps, setFps] = useState(0);
 
   // Chat state
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -148,10 +146,8 @@ export default function LiveStreamStudio() {
   const [isLoading, setIsLoading] = useState(false);
 
   // Refs
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const peerConnections = useRef<Map<string, RTCPeerConnection>>(new Map());
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const streamStatsInterval = useRef<NodeJS.Timeout | null>(null);
 
   // Initialize socket connection
   useEffect(() => {
@@ -329,56 +325,76 @@ export default function LiveStreamStudio() {
 
   // Stream management functions
   const createStream = useCallback(async () => {
-    if (!socket || !streamConfig.title.trim()) return;
+    if (!streamConfig.title.trim()) return;
 
     setIsLoading(true);
     try {
-      socket.emit('create_stream', streamConfig);
+      const response = await fetch('/api/streaming', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(streamConfig)
+      });
+
+      if (!response.ok) throw new Error('Failed to create stream');
+      
+      const data = await response.json();
+      setActiveStream({
+        id: data.streamId,
+        title: data.title,
+        status: 'scheduled',
+        metadata: {
+          currentViewers: 0,
+          totalViews: 0,
+          duration: 0,
+          totalDonations: 0,
+          likes: 0,
+          shares: 0,
+          chatMessages: 0
+        },
+        rtmpUrl: data.rtmpUrl,
+        rtmpKey: data.streamKey
+      });
+      
+      toast.success('Stream created! Use RTMP details in OBS.');
     } catch (error) {
       toast.error('Failed to create stream');
       console.error(error);
     } finally {
       setIsLoading(false);
     }
-  }, [socket, streamConfig]);
+  }, [streamConfig]);
 
   const startStream = useCallback(async () => {
-    if (!socket || !activeStream) return;
+    if (!activeStream) return;
 
     setIsLoading(true);
     try {
-      // Get user media
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          frameRate: { ideal: 30 },
-        },
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
+      const response = await fetch(`/api/streaming/${activeStream.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'start' })
       });
 
-      streamRef.current = stream;
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-
-      // Start WebRTC streaming
-      await setupWebRTCStreaming(stream);
-
-      // Start the stream
-      socket.emit('start_stream', { streamId: activeStream.id });
+      if (!response.ok) throw new Error('Failed to start stream');
+      
+      const data = await response.json();
+      setActiveStream(prev => prev ? { ...prev, status: 'live' } : null);
+      setIsStreaming(true);
+      
+      // Start monitoring stream health
+      streamStatsInterval.current = setInterval(() => {
+        // Monitor stream metrics
+        fetchStreamStats();
+      }, 5000);
+      
+      toast.success('Stream is now live!');
     } catch (error) {
       toast.error('Failed to start stream');
       console.error(error);
     } finally {
       setIsLoading(false);
     }
-  }, [socket, activeStream]);
+  }, [activeStream]);
 
   const setupWebRTCStreaming = async (stream: MediaStream) => {
     if (!socket || !activeStream) return;
@@ -414,28 +430,35 @@ export default function LiveStreamStudio() {
   };
 
   const endStream = useCallback(async () => {
-    if (!socket || !activeStream) return;
+    if (!activeStream) return;
 
     setIsLoading(true);
     try {
-      // Stop local stream
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-        streamRef.current = null;
+      const response = await fetch(`/api/streaming/${activeStream.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'stop' })
+      });
+
+      if (!response.ok) throw new Error('Failed to stop stream');
+      
+      setActiveStream(prev => prev ? { ...prev, status: 'ended' } : null);
+      setIsStreaming(false);
+      
+      // Clear monitoring
+      if (streamStatsInterval.current) {
+        clearInterval(streamStatsInterval.current);
+        streamStatsInterval.current = null;
       }
-
-      // Clean up peer connections
-      peerConnections.current.forEach(pc => pc.close());
-      peerConnections.current.clear();
-
-      socket.emit('end_stream', { streamId: activeStream.id });
+      
+      toast.success('Stream ended successfully');
     } catch (error) {
       toast.error('Failed to end stream');
       console.error(error);
     } finally {
       setIsLoading(false);
     }
-  }, [socket, activeStream]);
+  }, [activeStream]);
 
   const toggleAudio = useCallback(() => {
     if (streamRef.current) {
@@ -550,8 +573,49 @@ export default function LiveStreamStudio() {
           <div className='lg:col-span-3'>
             {/* Stream Preview */}
             <div className='bg-gray-800 rounded-lg overflow-hidden mb-6'>
-              <div className='aspect-video bg-black relative'>
-                <video ref={videoRef} autoPlay muted className='w-full h-full object-cover' />
+              <div className='aspect-video bg-black relative flex items-center justify-center'>
+                {activeStream && isStreaming ? (
+                  <div className='text-center'>
+                    <div className='w-24 h-24 bg-red-600 rounded-full flex items-center justify-center mx-auto mb-4'>
+                      <div className='w-8 h-8 bg-white rounded-full animate-pulse' />
+                    </div>
+                    <h3 className='text-xl font-bold text-white mb-2'>Stream is Live!</h3>
+                    <p className='text-gray-300'>Broadcasting via RTMP to AWS MediaLive</p>
+                    <div className='mt-4 flex items-center justify-center gap-4 text-sm'>
+                      <div className={`px-2 py-1 rounded ${
+                        streamHealth === 'good' ? 'bg-green-600' :
+                        streamHealth === 'warning' ? 'bg-yellow-600' : 'bg-red-600'
+                      }`}>
+                        {streamHealth === 'good' ? '● Excellent' :
+                         streamHealth === 'warning' ? '● Warning' : '● Error'}
+                      </div>
+                      <div className='text-gray-400'>{bitrate} kbps</div>
+                      <div className='text-gray-400'>{fps} fps</div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className='text-center'>
+                    <div className='w-16 h-16 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4'>
+                      <VideoCameraIcon className='w-8 h-8 text-gray-400' />
+                    </div>
+                    <p className='text-gray-400'>Stream preview will appear here</p>
+                    {activeStream && (
+                      <div className='mt-4 p-4 bg-gray-700 rounded-lg text-left max-w-md'>
+                        <h4 className='font-semibold mb-2'>RTMP Settings for OBS:</h4>
+                        <div className='space-y-2 text-sm'>
+                          <div>
+                            <span className='text-gray-400'>Server:</span>
+                            <code className='ml-2 bg-gray-800 px-2 py-1 rounded'>{activeStream.rtmpUrl}</code>
+                          </div>
+                          <div>
+                            <span className='text-gray-400'>Stream Key:</span>
+                            <code className='ml-2 bg-gray-800 px-2 py-1 rounded'>{activeStream.rtmpKey}</code>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Stream Overlay */}
                 {activeStream && isStreaming && (

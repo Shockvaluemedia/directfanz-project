@@ -1,0 +1,13 @@
+{
+  "dependencies": {
+    "@aws-sdk/client-medialive": "^3.450.0",
+    "@aws-sdk/client-mediapackage": "^3.450.0",
+    "@aws-sdk/client-cloudfront": "^3.450.0",
+    "hls.js": "^1.4.12",
+    "socket.io": "^4.7.4",
+    "socket.io-client": "^4.7.4"
+  },
+  "devDependencies": {
+    "@types/hls.js": "^1.0.1"
+  }
+}

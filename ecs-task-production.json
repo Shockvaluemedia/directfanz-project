@@ -1,0 +1,79 @@
+{
+  "family": "directfanz-production",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "containerDefinitions": [
+    {
+      "name": "directfanz-app",
+      "image": "545582548240.dkr.ecr.us-east-1.amazonaws.com/directfanz-production:latest",
+      "portMappings": [
+        {
+          "containerPort": 3000,
+          "protocol": "tcp"
+        }
+      ],
+      "essential": true,
+      "environment": [
+        {
+          "name": "NODE_ENV",
+          "value": "production"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "NEXTAUTH_SECRET",
+          "valueFrom": "/directfanz/prod/NEXTAUTH_SECRET"
+        },
+        {
+          "name": "DATABASE_URL",
+          "valueFrom": "/directfanz/prod/DATABASE_URL"
+        },
+        {
+          "name": "REDIS_URL",
+          "valueFrom": "/directfanz/prod/REDIS_URL"
+        },
+        {
+          "name": "NEXTAUTH_URL",
+          "valueFrom": "/directfanz/prod/NEXTAUTH_URL"
+        },
+        {
+          "name": "AWS_S3_BUCKET_NAME",
+          "valueFrom": "/directfanz/prod/AWS_S3_BUCKET_NAME"
+        },
+        {
+          "name": "FROM_EMAIL",
+          "valueFrom": "/directfanz/prod/FROM_EMAIL"
+        },
+        {
+          "name": "AWS_REGION",
+          "valueFrom": "/directfanz/prod/AWS_REGION"
+        },
+        {
+          "name": "OPENSEARCH_ENDPOINT",
+          "valueFrom": "/directfanz/prod/OPENSEARCH_ENDPOINT"
+        },
+        {
+          "name": "REKOGNITION_COLLECTION_ID",
+          "valueFrom": "/directfanz/prod/REKOGNITION_COLLECTION_ID"
+        },
+        {
+          "name": "KINESIS_STREAM_NAME",
+          "valueFrom": "/directfanz/prod/KINESIS_STREAM_NAME"
+        },
+        {
+          "name": "ENCRYPTION_KEY",
+          "valueFrom": "/directfanz/prod/ENCRYPTION_KEY"
+        }
+      ],
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      }
+    }
+  ]
+}

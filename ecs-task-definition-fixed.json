@@ -1,0 +1,74 @@
+{
+  "family": "directfanz-app",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::545582548240:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "directfanz-app",
+      "image": "545582548240.dkr.ecr.us-east-1.amazonaws.com/directfanz-production:latest",
+      "cpu": 0,
+      "portMappings": [
+        {
+          "containerPort": 3000,
+          "protocol": "tcp"
+        }
+      ],
+      "essential": true,
+      "environment": [
+        {
+          "name": "NODE_ENV",
+          "value": "production"
+        },
+        {
+          "name": "PORT",
+          "value": "3000"
+        },
+        {
+          "name": "NEXTAUTH_URL",
+          "value": "https://directfanz.io"
+        },
+        {
+          "name": "DATABASE_URL",
+          "value": "postgresql://directfanz_user:directfanz_secure_password_2024@directfanz-db.c8qlvxvqzxvq.us-east-1.rds.amazonaws.com:5432/directfanz_production"
+        },
+        {
+          "name": "REDIS_URL",
+          "value": "redis://directfanz-redis.cache.amazonaws.com:6379"
+        },
+        {
+          "name": "NEXTAUTH_SECRET",
+          "value": "o5up8Woxtj0Iu0j3yBy+Wl5dynqiJtrmkKz8IlQJQBE="
+        },
+        {
+          "name": "ENCRYPTION_KEY",
+          "value": "126e7caccce86ff1af33a31b6413c1278b87d656101a3530fc17d605cd23a668"
+        },
+        {
+          "name": "JWT_SECRET",
+          "value": "DFbIHLqrPz9+7mTo3QUng2a6rSsHVLKKsHiF01RL9Uk="
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/directfanz-app",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "curl -f http://localhost:3000/api/health || exit 1"
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      }
+    }
+  ]
+}

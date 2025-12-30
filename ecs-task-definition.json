@@ -1,0 +1,30 @@
+{
+  "family": "directfanz-web",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "containerDefinitions": [
+    {
+      "name": "directfanz-web",
+      "image": "nginx:latest",
+      "portMappings": [
+        {
+          "containerPort": 80,
+          "protocol": "tcp"
+        }
+      ],
+      "essential": true,
+      "environment": [
+        {
+          "name": "NODE_ENV",
+          "value": "production"
+        },
+        {
+          "name": "NEXTAUTH_URL",
+          "value": "https://directfanz.io"
+        }
+      ]
+    }
+  ]
+}

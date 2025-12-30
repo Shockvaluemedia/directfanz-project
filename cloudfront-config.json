@@ -1,0 +1,125 @@
+{
+    "CallerReference": "3b224b68-d711-8a5b-28bf-002f5210cde7",
+    "Aliases": {
+        "Quantity": 1,
+        "Items": [
+            "www.shockvaluemedia.com"
+        ]
+    },
+    "DefaultRootObject": "index.html",
+    "Origins": {
+        "Quantity": 1,
+        "Items": [
+            {
+                "Id": "SvmFrontendStackSvmDistributionOrigin163D6CBFB",
+                "DomainName": "svm-frontend-545582548240-us-east-1.s3.us-east-1.amazonaws.com",
+                "OriginPath": "",
+                "CustomHeaders": {
+                    "Quantity": 0
+                },
+                "S3OriginConfig": {
+                    "OriginAccessIdentity": "origin-access-identity/cloudfront/E3JWLBENONOLKI",
+                    "OriginReadTimeout": 30
+                },
+                "ConnectionAttempts": 3,
+                "ConnectionTimeout": 10,
+                "OriginShield": {
+                    "Enabled": false
+                },
+                "OriginAccessControlId": ""
+            }
+        ]
+    },
+    "OriginGroups": {
+        "Quantity": 0
+    },
+    "DefaultCacheBehavior": {
+        "TargetOriginId": "SvmFrontendStackSvmDistributionOrigin163D6CBFB",
+        "TrustedSigners": {
+            "Enabled": false,
+            "Quantity": 0
+        },
+        "TrustedKeyGroups": {
+            "Enabled": false,
+            "Quantity": 0
+        },
+        "ViewerProtocolPolicy": "redirect-to-https",
+        "AllowedMethods": {
+            "Quantity": 3,
+            "Items": [
+                "HEAD",
+                "GET",
+                "OPTIONS"
+            ],
+            "CachedMethods": {
+                "Quantity": 3,
+                "Items": [
+                    "HEAD",
+                    "GET",
+                    "OPTIONS"
+                ]
+            }
+        },
+        "SmoothStreaming": false,
+        "Compress": true,
+        "LambdaFunctionAssociations": {
+            "Quantity": 0
+        },
+        "FunctionAssociations": {
+            "Quantity": 0
+        },
+        "FieldLevelEncryptionId": "",
+        "CachePolicyId": "658327ea-f89d-4fab-a63d-7e88639e58f6",
+        "GrpcConfig": {
+            "Enabled": false
+        }
+    },
+    "CacheBehaviors": {
+        "Quantity": 0
+    },
+    "CustomErrorResponses": {
+        "Quantity": 2,
+        "Items": [
+            {
+                "ErrorCode": 403,
+                "ResponsePagePath": "/index.html",
+                "ResponseCode": "200",
+                "ErrorCachingMinTTL": 1800
+            },
+            {
+                "ErrorCode": 404,
+                "ResponsePagePath": "/index.html",
+                "ResponseCode": "200",
+                "ErrorCachingMinTTL": 1800
+            }
+        ]
+    },
+    "Comment": "",
+    "Logging": {
+        "Enabled": false,
+        "IncludeCookies": false,
+        "Bucket": "",
+        "Prefix": ""
+    },
+    "PriceClass": "PriceClass_100",
+    "Enabled": true,
+    "ViewerCertificate": {
+        "CloudFrontDefaultCertificate": false,
+        "ACMCertificateArn": "arn:aws:acm:us-east-1:545582548240:certificate/deb9ac6e-18ac-47a0-b30b-9dfcfb1288eb",
+        "SSLSupportMethod": "sni-only",
+        "MinimumProtocolVersion": "TLSv1.2_2021",
+        "Certificate": "arn:aws:acm:us-east-1:545582548240:certificate/deb9ac6e-18ac-47a0-b30b-9dfcfb1288eb",
+        "CertificateSource": "acm"
+    },
+    "Restrictions": {
+        "GeoRestriction": {
+            "RestrictionType": "none",
+            "Quantity": 0
+        }
+    },
+    "WebACLId": "",
+    "HttpVersion": "http2",
+    "IsIPV6Enabled": true,
+    "ContinuousDeploymentPolicyId": "",
+    "Staging": false
+}

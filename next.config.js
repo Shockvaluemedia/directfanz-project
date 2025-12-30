@@ -1,4 +1,4 @@
-import withPWA from 'next-pwa';
+const withPWA = require('next-pwa');
 
 const pwa = withPWA({
   dest: 'public',
@@ -209,9 +209,9 @@ const nextConfig = {
 };
 
 // Injected content via Sentry wizard below
-import { withSentryConfig } from '@sentry/nextjs';
+const { withSentryConfig } = require('@sentry/nextjs');
 
-export default pwa(
+module.exports = pwa(
   withSentryConfig(
     nextConfig,
     {

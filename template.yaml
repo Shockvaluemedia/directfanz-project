@@ -1,0 +1,31 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Resources:
+  DirectFanzFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: lambda.handler
+      Runtime: nodejs18.x
+      Timeout: 30
+      MemorySize: 1024
+      Environment:
+        Variables:
+          NODE_ENV: production
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+        Root:
+          Type: Api
+          Properties:
+            Path: /
+            Method: ANY
+
+Outputs:
+  DirectFanzApi:
+    Description: "API Gateway endpoint URL"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"

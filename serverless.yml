@@ -1,0 +1,28 @@
+service: directfanz-lambda
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: us-east-1
+  timeout: 30
+  memorySize: 1024
+  environment:
+    NODE_ENV: production
+    DATABASE_URL: ${ssm:/directfanz/production/DATABASE_URL}
+    REDIS_URL: ${ssm:/directfanz/production/REDIS_URL}
+    NEXTAUTH_SECRET: ${ssm:/directfanz/production/NEXTAUTH_SECRET}
+    NEXTAUTH_URL: https://directfanz.io
+
+functions:
+  app:
+    handler: lambda.handler
+    events:
+      - http:
+          path: /{proxy+}
+          method: ANY
+      - http:
+          path: /
+          method: ANY
+
+plugins:
+  - serverless-offline

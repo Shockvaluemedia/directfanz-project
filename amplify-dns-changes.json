@@ -1,0 +1,29 @@
+{
+  "Changes": [
+    {
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "directfanz.io",
+        "Type": "A",
+        "AliasTarget": {
+          "DNSName": "d1cf194bqeymla.cloudfront.net",
+          "EvaluateTargetHealth": false,
+          "HostedZoneId": "Z2FDTNDATAQYW2"
+        }
+      }
+    },
+    {
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "_f403d188cd26a0b748becdc851ca3fa6.directfanz.io",
+        "Type": "CNAME",
+        "TTL": 300,
+        "ResourceRecords": [
+          {
+            "Value": "_92f5a52823c11452d0d1d8b0d83d312e.jkddzztszm.acm-validations.aws"
+          }
+        ]
+      }
+    }
+  ]
+}

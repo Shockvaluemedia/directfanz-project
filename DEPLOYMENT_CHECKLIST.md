@@ -1,187 +1,128 @@
-# 🚀 Production Deployment Checklist
+# DirectFanz Production Deployment Checklist
 
-## **Phase 1: Security Hardening (Critical)**
+## Pre-Deployment Requirements
 
-### **🔐 Authentication & Authorization**
+- [ ] AWS CLI installed and configured
+- [ ] Terraform installed (v1.0+)
+- [ ] Docker installed and running
+- [ ] Domain `directfanz.io` registered with Hostinger
+- [ ] Production Stripe account set up
+- [ ] SendGrid account for email notifications
+- [ ] AWS account with appropriate permissions
 
-- [ ] **Rate Limiting**: Implement API rate limiting (100 req/min per user)
-- [ ] **Session Security**: Configure secure session settings
-- [ ] **CORS Configuration**: Restrict CORS to production domains only
-- [ ] **Input Validation**: Ensure all user inputs are validated and sanitized
-- [ ] **SQL Injection Protection**: Verify Prisma queries are parameterized
-- [ ] **XSS Protection**: Implement Content Security Policy (CSP) headers
-- [ ] **CSRF Protection**: Enable CSRF tokens for state-changing operations
+## Quick Deployment (Automated)
 
-### **🔑 Environment Security**
-
-- [ ] **Environment Variables**: Move all secrets to secure environment
-      variables
-- [ ] **Database Security**: Enable SSL for database connections
-- [ ] **Redis Security**: Configure Redis authentication and encryption
-- [ ] **API Keys Rotation**: Set up automatic API key rotation for Stripe, AWS,
-      etc.
-- [ ] **Secret Management**: Use HashiCorp Vault or AWS Secrets Manager
-
-### **📊 Monitoring & Logging**
-
-- [ ] **Error Tracking**: Set up Sentry for error monitoring
-- [ ] **Performance Monitoring**: Configure APM (Application Performance
-      Monitoring)
-- [ ] **Security Logs**: Log all authentication attempts and security events
-- [ ] **Database Monitoring**: Monitor query performance and connection pooling
-- [ ] **Real-time Alerts**: Set up alerts for critical errors and performance
-      issues
-
-## **Phase 2: Business Readiness**
-
-### **💳 Payment System**
-
-- [ ] **Stripe Production Keys**: Switch to production Stripe keys
-- [ ] **Webhook Security**: Verify webhook signature validation
-- [ ] **Payment Testing**: Test full payment flows in staging
-- [ ] **Refund System**: Implement refund handling
-- [ ] **Tax Compliance**: Add tax calculation where required
-- [ ] **Payout Automation**: Configure automated artist payouts
-
-### **📧 Communication**
-
-- [ ] **Email Templates**: Create professional email templates
-- [ ] **Notification System**: Test all notification channels
-- [ ] **Support System**: Set up customer support infrastructure
-- [ ] **Terms of Service**: Legal terms and privacy policy
-- [ ] **GDPR Compliance**: Implement data protection measures
-
-### **🎯 Performance Optimization**
-
-- [ ] **CDN Setup**: Configure CloudFront or similar CDN
-- [ ] **Image Optimization**: Implement image compression and WebP format
-- [ ] **Caching Strategy**: Redis caching for expensive operations
-- [ ] **Database Optimization**: Review query performance and indexes
-- [ ] **Bundle Size**: Analyze and optimize JavaScript bundle sizes
-
-## **Phase 3: Launch Preparation**
-
-### **🌐 Domain & SSL**
-
-- [ ] **Domain Registration**: Secure primary domain and variations (.com, .net,
-      etc.)
-- [ ] **SSL Certificate**: Set up wildcard SSL certificate
-- [ ] **DNS Configuration**: Configure DNS with redundancy
-- [ ] **Subdomain Strategy**: Set up api.domain.com, cdn.domain.com, etc.
-
-### **📱 Mobile Preparation**
-
-- [ ] **Responsive Design**: Ensure mobile-first design
-- [ ] **PWA Setup**: Configure Progressive Web App features
-- [ ] **App Store Preparation**: Prepare for future mobile app submission
-- [ ] **Mobile Performance**: Optimize for mobile networks
-
-### **📈 Analytics Setup**
-
-- [ ] **Google Analytics 4**: Track user behavior and conversions
-- [ ] **Business Metrics**: Track MRR, churn, CAC, LTV
-- [ ] **A/B Testing**: Set up experimentation framework
-- [ ] **User Feedback**: Implement feedback collection system
-
-## **Phase 4: Deployment Strategy**
-
-### **🚀 Deployment Pipeline**
-
-- [ ] **CI/CD Setup**: GitHub Actions or similar for automated deployments
-- [ ] **Blue-Green Deployment**: Zero-downtime deployment strategy
-- [ ] **Database Migration**: Safe migration strategy for schema changes
-- [ ] **Rollback Plan**: Quick rollback procedure for failed deployments
-- [ ] **Health Checks**: Comprehensive health check endpoints
-
-### **🔄 Backup & Recovery**
-
-- [ ] **Database Backups**: Automated daily backups with retention policy
-- [ ] **File Storage Backups**: S3 cross-region replication
-- [ ] **Recovery Testing**: Test backup restoration procedures
-- [ ] **Disaster Recovery**: Document recovery procedures
-
-### **📊 Launch Metrics**
-
-- [ ] **KPI Dashboard**: Real-time business metrics dashboard
-- [ ] **Performance Baseline**: Establish performance benchmarks
-- [ ] **Error Budget**: Set acceptable error rates
-- [ ] **Capacity Planning**: Monitor resource usage and scaling triggers
-
-## **Immediate Next Steps (This Week)**
-
-### **Priority 1: Security Implementation**
+Run the automated deployment script:
 
 ```bash
-# 1. Set up rate limiting middleware
-npm install express-rate-limit
-
-# 2. Implement security headers
-npm install helmet
-
-# 3. Set up input validation
-npm install joi @hapi/joi
-
-# 4. Configure Sentry error tracking
-npm install @sentry/nextjs
+./deploy-production.sh
 ```
 
-### **Priority 2: Environment Configuration**
+This script will:
+1. ✅ Check prerequisites
+2. ✅ Set up Terraform configuration
+3. ✅ Deploy AWS infrastructure
+4. ✅ Show DNS configuration instructions
+5. ✅ Build and push Docker image
+6. ✅ Set up environment variables
+7. ✅ Deploy application to ECS
+8. ✅ Guide through database migrations
+9. ✅ Verify deployment
 
+## Manual Steps Required
+
+### 1. DNS Configuration (Critical)
+- [ ] Log into Hostinger control panel
+- [ ] Update name servers to Route 53 name servers (provided by script)
+- [ ] Wait 24-48 hours for DNS propagation
+
+### 2. Database Setup
+- [ ] Run database migrations: `npm run db:migrate`
+- [ ] Seed initial data: `npm run db:seed`
+
+### 3. SSL Certificate Verification
+- [ ] Check certificate status in AWS Certificate Manager
+- [ ] Verify HTTPS is working: `curl -I https://directfanz.io`
+
+## Post-Deployment Verification
+
+### Health Checks
+- [ ] Main site: https://directfanz.io
+- [ ] API endpoint: https://api.directfanz.io/api/health
+- [ ] WebSocket: https://ws.directfanz.io/health
+- [ ] CDN: https://cdn.directfanz.io
+
+### Functionality Tests
+- [ ] User registration and login
+- [ ] Payment processing (Stripe)
+- [ ] File uploads (S3)
+- [ ] Real-time features (WebSocket)
+- [ ] Email notifications
+
+### Monitoring Setup
+- [ ] CloudWatch dashboards active
+- [ ] SNS alerts configured
+- [ ] Cost monitoring enabled
+- [ ] Performance metrics tracking
+
+## Troubleshooting
+
+### Common Issues
+1. **DNS not resolving**: Wait for propagation, check Hostinger settings
+2. **SSL pending**: Ensure DNS propagated before certificate validation
+3. **ECS tasks failing**: Check CloudWatch logs and environment variables
+4. **Database connection**: Verify security groups and credentials
+
+### Quick Fixes
 ```bash
-# 1. Create production environment file
-cp .env.local .env.production
+# Check ECS service status
+aws ecs describe-services --cluster directfanz-cluster --services directfanz-web-app
 
-# 2. Generate secure secrets
-openssl rand -hex 32  # For NEXTAUTH_SECRET
+# View ECS logs
+aws logs tail /ecs/directfanz-web-app --follow
 
-# 3. Set up SSL certificate
-# Use Let's Encrypt or purchase wildcard certificate
-
-# 4. Configure production database
-# Set up managed PostgreSQL (AWS RDS, Supabase, PlanetScale)
+# Restart ECS service
+aws ecs update-service --cluster directfanz-cluster --service directfanz-web-app --force-new-deployment
 ```
 
-### **Priority 3: Performance Testing**
+## Rollback Plan
 
+If issues occur:
 ```bash
-# 1. Load testing
-npm install -g artillery
-artillery quick --count 100 --num 10 https://www.directfanz-project.io
+# Rollback ECS service
+aws ecs update-service --cluster directfanz-cluster --service directfanz-web-app --task-definition PREVIOUS_ARN
 
-# 2. Bundle analysis
-npm install @next/bundle-analyzer
-npm run analyze
-
-# 3. Lighthouse audit
-npm install -g lighthouse
-lighthouse https://www.directfanz-project.io --output html
+# Rollback infrastructure (if needed)
+cd infrastructure/terraform
+terraform apply -target=SPECIFIC_RESOURCE
 ```
 
-## **Success Metrics for Launch**
+## Success Criteria
 
-### **Technical Metrics**
+- [ ] All health checks passing
+- [ ] DNS resolving correctly
+- [ ] SSL certificates active
+- [ ] Payment processing working
+- [ ] File uploads working
+- [ ] Real-time features working
+- [ ] Monitoring and alerts active
+- [ ] Performance within targets
 
-- ✅ Page load time < 2 seconds
-- ✅ API response time < 200ms (95th percentile)
-- ✅ Uptime > 99.9%
-- ✅ Error rate < 0.1%
+## Estimated Timeline
 
-### **Business Metrics**
+- **Infrastructure deployment**: 30-45 minutes
+- **Application deployment**: 15-30 minutes
+- **DNS propagation**: 24-48 hours
+- **Total active time**: 1-2 hours
+- **Total time to live**: 24-48 hours
 
-- 🎯 First user signup within 24 hours
-- 🎯 First paying customer within 1 week
-- 🎯 10 artists onboarded within 1 month
-- 🎯 $1000 MRR within 3 months
+## Support Contacts
 
-## **Post-Launch Priorities**
-
-1. **User Feedback Loop**: Collect and act on user feedback
-2. **Feature Iteration**: Rapid iteration based on user behavior
-3. **Market Validation**: Validate product-market fit
-4. **Growth Strategy**: Implement growth hacking techniques
-5. **Team Scaling**: Hire key team members based on growth needs
+- AWS Support: For infrastructure issues
+- Stripe Support: For payment processing
+- SendGrid Support: For email delivery
+- Hostinger Support: For DNS issues
 
 ---
 
-**Ready to Launch?** 🚀 Once you complete the critical security items (Phase 1),
-you'll be ready for a soft launch with beta users!
+**Ready to deploy?** Run `./deploy-production.sh` to start!

@@ -1,17 +1,15 @@
 'use client';
 
 /**
- * Live Stream Viewer - Client Component
+ * Live Stream Viewer - AWS MediaPackage HLS Integration
  *
- * This component provides a comprehensive live streaming viewer interface with:
- * - WebRTC stream viewing with adaptive quality
- * - Real-time chat participation
- * - Donation/tip interface
- * - Stream interactions (likes, shares, follows)
- * - Stream information and analytics
- * - Mobile-optimized viewing experience
- * - Picture-in-picture support
- * - Quality selection and controls
+ * Professional stream viewer with:
+ * - HLS streaming from AWS MediaPackage
+ * - Adaptive bitrate playback
+ * - CloudFront CDN delivery
+ * - Real-time chat and donations
+ * - Stream interactions and analytics
+ * - Mobile-optimized experience
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -45,7 +43,7 @@ import { useSession } from 'next-auth/react';
 import { toast } from 'react-hot-toast';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
-import EmojiPicker from 'emoji-picker-react';
+import HLSPlayer from './HLSPlayer';
 
 // Types
 interface Stream {
@@ -154,16 +152,31 @@ export default function LiveStreamViewer({
   const [isLoading, setIsLoading] = useState(true);
 
   // Refs
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const peerConnection = useRef<RTCPeerConnection | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // Initialize socket connection and stream
+  // Initialize socket connection and fetch stream data
   useEffect(() => {
     if (!streamId) return;
 
-    const newSocket = io(process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3000', {
+    const fetchStream = async () => {
+      try {
+        const response = await fetch(`/api/streaming/${streamId}`);
+        if (!response.ok) throw new Error('Stream not found');
+        
+        const data = await response.json();
+        setStream(data);
+        setChatMessages(data.chatMessages || []);
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Failed to fetch stream:', error);
+        setIsLoading(false);
+      }
+    };
+
+    fetchStream();
+
+    // Initialize WebSocket for real-time features
+    const newSocket = io(process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3001', {
       auth: {
         token: session?.accessToken,
       },
@@ -174,41 +187,28 @@ export default function LiveStreamViewer({
       console.log('Connected to streaming server');
       setSocket(newSocket);
       setIsConnected(true);
-
-      // Join stream as viewer
       newSocket.emit('join_stream', { streamId });
     });
 
     newSocket.on('disconnect', () => {
-      console.log('Disconnected from streaming server');
       setIsConnected(false);
     });
 
-    newSocket.on('error', error => {
-      console.error('Streaming error:', error);
-      toast.error(error.message || 'Connection error');
+    // Real-time events
+    newSocket.on('viewer_count_updated', (data) => {
+      setStream(prev => prev ? {
+        ...prev,
+        metadata: { ...prev.metadata, currentViewers: data.count }
+      } : null);
     });
 
-    // Stream events
-    newSocket.on('stream_data', handleStreamData);
-    newSocket.on('stream_ended', handleStreamEnded);
-    newSocket.on('viewer_count_updated', handleViewerCountUpdated);
-
-    // Chat events
     newSocket.on('stream_chat_message', handleChatMessage);
     newSocket.on('stream_donation', handleDonation);
-
-    // WebRTC events
-    newSocket.on('webrtc_offer', handleWebRTCOffer);
-    newSocket.on('ice_candidate', handleICECandidate);
 
     setSocket(newSocket);
 
     return () => {
       newSocket.close();
-      if (peerConnection.current) {
-        peerConnection.current.close();
-      }
     };
   }, [streamId, session?.accessToken]);
 
@@ -584,145 +584,56 @@ export default function LiveStreamViewer({
       <div className='grid grid-cols-1 lg:grid-cols-4 gap-6'>
         {/* Main Video Player */}
         <div className='lg:col-span-3'>
-          <div ref={containerRef} className='relative bg-black rounded-lg overflow-hidden'>
-            {/* Video Element */}
-            <video
-              ref={videoRef}
-              autoPlay={autoPlay}
-              muted={isMuted}
-              className='w-full aspect-video object-contain'
-              onLoadStart={() => setIsBuffering(true)}
-              onCanPlay={() => setIsBuffering(false)}
-              onPlay={() => setIsPlaying(true)}
-              onPause={() => setIsPlaying(false)}
-            />
+          <div className='relative bg-black rounded-lg overflow-hidden'>
+            {/* HLS Video Player */}
+            {stream?.playbackUrl ? (
+              <HLSPlayer
+                src={stream.playbackUrl}
+                autoPlay={autoPlay}
+                controls={showControls}
+                className='aspect-video'
+                onPlay={() => setIsPlaying(true)}
+                onPause={() => setIsPlaying(false)}
+                onError={(error) => {
+                  console.error('HLS Player error:', error);
+                  toast.error('Video playback error');
+                }}
+              />
+            ) : (
+              <div className='aspect-video flex items-center justify-center'>
+                <div className='text-center'>
+                  <div className='w-16 h-16 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4'>
+                    <VideoCameraIcon className='w-8 h-8 text-gray-400' />
+                  </div>
+                  <p className='text-gray-400'>
+                    {stream?.status === 'SCHEDULED' ? 'Stream not started yet' : 'Stream not available'}
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Stream Status Overlay */}
-            {stream.status === 'live' && (
-              <div className='absolute top-4 left-4 flex items-center gap-4'>
+            {stream?.status === 'LIVE' && (
+              <div className='absolute top-4 left-4 flex items-center gap-4 z-10'>
                 <div className='flex items-center gap-2 bg-red-600 px-3 py-1 rounded-full'>
                   <div className='w-2 h-2 bg-white rounded-full animate-pulse' />
                   <span className='text-sm font-medium'>LIVE</span>
                 </div>
 
                 <div className='bg-black/50 px-3 py-1 rounded-full'>
-                  <span className='text-sm'>{formatDuration(stream.metadata.duration)}</span>
+                  <span className='text-sm'>{formatDuration(stream.metadata?.duration || 0)}</span>
                 </div>
               </div>
             )}
 
             {/* Stream Info Overlay */}
-            <div className='absolute top-4 right-4 flex items-center gap-4'>
+            <div className='absolute top-4 right-4 flex items-center gap-4 z-10'>
               <div className='flex items-center gap-2 bg-black/50 px-3 py-1 rounded-full'>
                 <EyeIcon className='w-4 h-4' />
-                <span className='text-sm'>{stream.metadata.currentViewers.toLocaleString()}</span>
+                <span className='text-sm'>{stream?.metadata?.currentViewers?.toLocaleString() || 0}</span>
               </div>
             </div>
 
-            {/* Buffering Spinner */}
-            {isBuffering && (
-              <div className='absolute inset-0 flex items-center justify-center'>
-                <div className='animate-spin w-12 h-12 border-4 border-white border-t-transparent rounded-full'></div>
-              </div>
-            )}
-
-            {/* Player Controls */}
-            {showControls && (
-              <div
-                className={cn(
-                  'absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 transition-opacity duration-300',
-                  showControlsState ? 'opacity-100' : 'opacity-0'
-                )}
-              >
-                <div className='flex items-center justify-between'>
-                  <div className='flex items-center gap-4'>
-                    <button
-                      onClick={togglePlay}
-                      className='p-2 hover:bg-white/20 rounded-full transition-colors'
-                    >
-                      {isPlaying ? (
-                        <PauseIcon className='w-6 h-6' />
-                      ) : (
-                        <PlayIcon className='w-6 h-6' />
-                      )}
-                    </button>
-
-                    <div className='flex items-center gap-2'>
-                      <button
-                        onClick={toggleMute}
-                        className='p-1 hover:bg-white/20 rounded transition-colors'
-                      >
-                        {isMuted ? (
-                          <SpeakerXMarkIcon className='w-5 h-5' />
-                        ) : (
-                          <SpeakerWaveIcon className='w-5 h-5' />
-                        )}
-                      </button>
-
-                      <input
-                        type='range'
-                        min='0'
-                        max='1'
-                        step='0.1'
-                        value={volume}
-                        onChange={e => handleVolumeChange(Number(e.target.value))}
-                        className='w-20'
-                      />
-                    </div>
-                  </div>
-
-                  <div className='flex items-center gap-2'>
-                    {/* Quality Selector */}
-                    <div className='relative'>
-                      <button
-                        onClick={() => setShowQualityMenu(!showQualityMenu)}
-                        className='px-3 py-1 bg-black/50 hover:bg-black/70 rounded text-sm transition-colors'
-                      >
-                        {currentQuality}
-                      </button>
-
-                      {showQualityMenu && (
-                        <div className='absolute bottom-full mb-2 right-0 bg-gray-800 rounded-lg overflow-hidden min-w-[100px]'>
-                          {['auto', ...stream.metadata.quality].map(quality => (
-                            <button
-                              key={quality}
-                              onClick={() => {
-                                setCurrentQuality(quality);
-                                setShowQualityMenu(false);
-                              }}
-                              className={cn(
-                                'block w-full px-3 py-2 text-left hover:bg-gray-700 transition-colors',
-                                currentQuality === quality && 'bg-blue-600'
-                              )}
-                            >
-                              {quality}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    <button
-                      onClick={togglePictureInPicture}
-                      className='p-1 hover:bg-white/20 rounded transition-colors'
-                    >
-                      <PresentationChartLineIcon className='w-5 h-5' />
-                    </button>
-
-                    <button
-                      onClick={toggleFullscreen}
-                      className='p-1 hover:bg-white/20 rounded transition-colors'
-                    >
-                      {isFullscreen ? (
-                        <ArrowsPointingInIcon className='w-5 h-5' />
-                      ) : (
-                        <ArrowsPointingOutIcon className='w-5 h-5' />
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Stream Info */}
@@ -776,34 +687,34 @@ export default function LiveStreamViewer({
             <div className='grid grid-cols-2 md:grid-cols-5 gap-4 p-4 bg-gray-700 rounded-lg'>
               <div className='text-center'>
                 <div className='text-xl font-bold'>
-                  {stream.metadata.currentViewers.toLocaleString()}
+                  {stream?.metadata?.currentViewers?.toLocaleString() || 0}
                 </div>
                 <div className='text-sm text-gray-400'>Watching</div>
               </div>
 
               <div className='text-center'>
                 <div className='text-xl font-bold'>
-                  {stream.metadata.totalViews.toLocaleString()}
+                  {stream?.metadata?.totalViews?.toLocaleString() || 0}
                 </div>
                 <div className='text-sm text-gray-400'>Total Views</div>
               </div>
 
               <div className='text-center'>
                 <div className='text-xl font-bold text-red-400'>
-                  {stream.metadata.likes.toLocaleString()}
+                  {stream?.metadata?.likes?.toLocaleString() || 0}
                 </div>
                 <div className='text-sm text-gray-400'>Likes</div>
               </div>
 
               <div className='text-center'>
                 <div className='text-xl font-bold text-green-400'>
-                  ${stream.metadata.totalDonations.toLocaleString()}
+                  ${stream?.metadata?.totalDonations?.toLocaleString() || 0}
                 </div>
                 <div className='text-sm text-gray-400'>Donations</div>
               </div>
 
               <div className='text-center'>
-                <div className='text-xl font-bold'>{formatDuration(stream.metadata.duration)}</div>
+                <div className='text-xl font-bold'>{formatDuration(stream?.metadata?.duration || 0)}</div>
                 <div className='text-sm text-gray-400'>Duration</div>
               </div>
             </div>

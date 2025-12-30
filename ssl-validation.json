@@ -1,0 +1,17 @@
+{
+  "Changes": [
+    {
+      "Action": "CREATE",
+      "ResourceRecordSet": {
+        "Name": "_9f7ddbedd0482a9bc9978efda2aad9f1.directfanz.io",
+        "Type": "CNAME",
+        "TTL": 300,
+        "ResourceRecords": [
+          {
+            "Value": "_6a22705bd31c258da024868d5b7a048c.jkddzztszm.acm-validations.aws"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,88 +1,51 @@
-# Production Dockerfile for Direct Fan Platform
-# Multi-stage build optimized for production deployment
-
-# Base image with Node.js 18 LTS
 FROM node:18-alpine AS base
+
+# Install dependencies only when needed
+FROM base AS deps
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Install security updates and required packages
-RUN apk update && apk upgrade && \
-    apk add --no-cache \
-    libc6-compat \
-    dumb-init \
-    curl \
-    && rm -rf /var/cache/apk/*
+# Install dependencies
+COPY package.json package-lock.json* ./
+RUN npm ci --only=production
 
-# Set up non-root user for security
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs
-
-# Dependencies stage
-FROM base AS deps
-COPY package.json package-lock.json* yarn.lock* pnpm-lock.yaml* ./
-
-# Install dependencies with optimizations for production
-RUN \
-  if [ -f yarn.lock ]; then \
-    yarn install --frozen-lockfile --production=false && \
-    yarn cache clean; \
-  elif [ -f package-lock.json ]; then \
-    npm ci --only=production && \
-    npm cache clean --force; \
-  elif [ -f pnpm-lock.yaml ]; then \
-    npm install -g pnpm && \
-    pnpm install --frozen-lockfile --prod=false && \
-    pnpm store prune; \
-  else \
-    echo "Lockfile not found." && exit 1; \
-  fi
-
-# Build stage
+# Rebuild the source code only when needed
 FROM base AS builder
+WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Set production environment variables
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
+# Build the application
+RUN npm run build
 
-# Generate Prisma client and build application
-RUN npx prisma generate && \
-    npm run build
-
-# Production runtime stage
+# Production image, copy all the files and run next
 FROM base AS runner
+WORKDIR /app
 
-# Set production environment
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
-ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
+ENV NODE_ENV production
 
-# Create necessary directories with proper permissions
-RUN mkdir -p /app/.next/cache && \
-    chown -R nextjs:nodejs /app
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
 
-# Copy built application
+COPY --from=builder /app/public ./public
+
+# Set the correct permission for prerender cache
+RUN mkdir .next
+RUN chown nextjs:nodejs .next
+
+# Automatically leverage output traces to reduce image size
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
-# Copy health check script
-COPY --chown=nextjs:nodejs scripts/health-check.js ./scripts/
-
-# Switch to non-root user
 USER nextjs
 
-# Expose port
 EXPOSE 3000
+
+ENV PORT 3000
+ENV HOSTNAME "0.0.0.0"
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node scripts/health-check.js || exit 1
+  CMD curl -f http://localhost:3000/api/health || exit 1
 
-# Use dumb-init to handle signals properly
-ENTRYPOINT ["dumb-init", "--"]
-
-# Start the application
 CMD ["node", "server.js"]

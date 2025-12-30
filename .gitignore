@@ -78,3 +78,21 @@ public/uploads/temp/
 !public/uploads/.gitkeep
 .env.local.backup
 ~/
+
+# Terraform
+infrastructure/terraform/.terraform/
+infrastructure/terraform/.terraform.lock.hcl
+infrastructure/terraform/terraform.tfstate
+infrastructure/terraform/terraform.tfstate.backup
+infrastructure/terraform/terraform.tfvars
+infrastructure/terraform-backup-*/
+
+# Large binary files
+*.zip
+*.tgz
+*.tar.gz
+
+# AWS and deployment artifacts
+.serverless/
+logs/
+*.log
