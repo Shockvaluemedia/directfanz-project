@@ -19,7 +19,7 @@ export default function Home() {
             Turn your passion into sustainable income. Join thousands of creators earning directly from their fans.
           </p>
           
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               href="/auth/signup"
               className="inline-flex items-center px-8 py-4 text-lg font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full hover:from-indigo-700 hover:to-purple-700 transition-all transform hover:scale-105 shadow-xl"
@@ -33,22 +33,6 @@ export default function Home() {
             >
               Explore Creators
             </Link>
-          </div>
-
-          {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
-              <div className="text-3xl font-bold text-white mb-2">25K+</div>
-              <div className="text-white/80">Active Creators</div>
-            </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
-              <div className="text-3xl font-bold text-white mb-2">$2.5M+</div>
-              <div className="text-white/80">Paid to Creators</div>
-            </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
-              <div className="text-3xl font-bold text-white mb-2">95%</div>
-              <div className="text-white/80">Revenue Share</div>
-            </div>
           </div>
         </div>
       </div>

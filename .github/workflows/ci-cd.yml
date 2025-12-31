@@ -54,11 +54,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run linting
-        run: npm run lint
-
       - name: Run type checking
         run: npm run typecheck
+
+      - name: Run linting with strict enforcement
+        run: npm run lint:check
+
+      - name: Run quality gate checks
+        run: npm run quality:check
 
       - name: Setup test database
         run: npx prisma migrate deploy
@@ -66,7 +69,7 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/direct_fan_platform_test
 
       - name: Run unit tests
-        run: npm test
+        run: npm test -- --coverage --coverageThreshold='{"global":{"branches":80,"functions":80,"lines":80,"statements":80}}'
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/direct_fan_platform_test
           REDIS_URL: redis://localhost:6379

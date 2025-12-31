@@ -80,7 +80,6 @@ echo "🔨 Starting CodeBuild..."
 # Start the build
 BUILD_ID=$(aws codebuild start-build \
   --project-name "directfanz-app-build" \
-  --source-version "main" \
   --region $REGION \
   --query 'build.id' \
   --output text)

@@ -1,144 +1,198 @@
-import { NextResponse } from 'next/server';
-import { checkDatabaseHealth, checkRedisHealth } from '@/lib/health-utils';
-import { getContainerHealth, isRunningInECS } from '@/lib/aws-config';
-import { logger } from '@/lib/logger';
+import { NextRequest, NextResponse } from 'next/server';
+import { EnvironmentHealthCheck } from '@/lib/parameter-store';
+import { checkRedisHealth } from '@/lib/redis-production';
+import { checkDatabaseHealth } from '@/lib/database-production';
+import { checkServicesHealth } from '@/lib/service-manager-production';
 
-// Force this route to be dynamic
-export const dynamic = 'force-dynamic';
+interface HealthCheckResult {
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  timestamp: string;
+  version: string;
+  environment: string;
+  checks: {
+    environment: {
+      healthy: boolean;
+      errors?: string[];
+    };
+    database: {
+      healthy: boolean;
+      latency?: number;
+      connectionPool?: any;
+      error?: string;
+    };
+    redis: {
+      healthy: boolean;
+      latency?: number;
+      error?: string;
+    };
+    services: {
+      healthy: boolean;
+      services: any;
+      summary: {
+        total: number;
+        healthy: number;
+        unhealthy: number;
+      };
+    };
+  };
+  summary: {
+    totalChecks: number;
+    healthyChecks: number;
+    unhealthyChecks: number;
+    overallHealth: number; // percentage
+  };
+}
 
-// Timeout configuration based on environment
-const FUNCTION_TIMEOUT = isRunningInECS() ? 10000 : 25000; // 10s for ECS, 25s for serverless
-const CONNECTION_TIMEOUT = isRunningInECS() ? 3000 : 5000; // 3s for ECS, 5s for serverless
-
-/**
- * Health check endpoint optimized for both serverless and ECS environments
- * This endpoint checks database and Redis connectivity with timeouts
- * Supports ALB health checks when running in ECS
- */
-export async function GET(request: Request) {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   const startTime = Date.now();
-  const url = new URL(request.url);
-  const isALBHealthCheck = url.searchParams.get('source') === 'alb' || 
-                          request.headers.get('user-agent')?.includes('ELB-HealthChecker');
+  
+  try {
+    // Run all health checks in parallel
+    const [envHealth, dbHealth, redisHealth, servicesHealth] = await Promise.allSettled([
+      new EnvironmentHealthCheck().checkHealth(),
+      checkDatabaseHealth(),
+      checkRedisHealth(),
+      checkServicesHealth(),
+    ]);
 
-  const checks: Record<string, { status: 'ok' | 'error'; message?: string; latency?: number }> = {
-    api: { status: 'ok' },
-  };
+    // Process results
+    const environmentCheck = envHealth.status === 'fulfilled' ? envHealth.value : { healthy: false, errors: ['Environment check failed'] };
+    const databaseCheck = dbHealth.status === 'fulfilled' ? dbHealth.value : { healthy: false, error: 'Database check failed' };
+    const redisCheck = redisHealth.status === 'fulfilled' ? redisHealth.value : { healthy: false, error: 'Redis check failed' };
+    const servicesCheck = servicesHealth.status === 'fulfilled' ? servicesHealth.value : { 
+      healthy: false, 
+      services: {}, 
+      summary: { total: 0, healthy: 0, unhealthy: 0 } 
+    };
 
-  // Helper function to run checks with timeout
-  const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
-    const timeout = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('Operation timed out')), timeoutMs)
-    );
-    return Promise.race([promise, timeout]);
-  };
+    // Calculate overall health
+    const checks = [
+      environmentCheck.healthy,
+      databaseCheck.healthy,
+      redisCheck.healthy,
+      servicesCheck.healthy,
+    ];
 
-  // For ALB health checks, include container health
-  if (isALBHealthCheck || isRunningInECS()) {
-    try {
-      const containerHealth = await withTimeout(getContainerHealth(), CONNECTION_TIMEOUT);
-      checks.container = {
-        status: containerHealth.status === 'healthy' ? 'ok' : 'error',
-        message: containerHealth.status === 'healthy' ? undefined : 'Container health check failed',
-        ...containerHealth.checks,
-      };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      checks.container = {
-        status: 'error',
-        message: message.includes('timed out') ? 'Container health check timeout' : 'Container health check failed',
-      };
+    const healthyCount = checks.filter(Boolean).length;
+    const totalChecks = checks.length;
+    const overallHealth = (healthyCount / totalChecks) * 100;
+
+    // Determine overall status
+    let status: 'healthy' | 'degraded' | 'unhealthy';
+    if (overallHealth === 100) {
+      status = 'healthy';
+    } else if (overallHealth >= 75) {
+      status = 'degraded';
+    } else {
+      status = 'unhealthy';
     }
-  }
 
-  // Run database and Redis checks in parallel with timeout
-  const [databaseResult, redisResult] = await Promise.allSettled([
-    withTimeout(checkDatabaseHealth(), CONNECTION_TIMEOUT),
-    withTimeout(checkRedisHealth(), CONNECTION_TIMEOUT),
-  ]);
-
-  // Process database check result
-  if (databaseResult.status === 'fulfilled') {
-    checks.database = databaseResult.value;
-  } else {
-    const error = databaseResult.reason;
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('Health check: Database check failed', { error: message });
-    checks.database = {
-      status: 'error',
-      latency: 0,
-      message: message.includes('timed out') ? 'Database connection timeout' : 'Database health check failed',
+    const result: HealthCheckResult = {
+      status,
+      timestamp: new Date().toISOString(),
+      version: process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0',
+      environment: process.env.NODE_ENV || 'unknown',
+      checks: {
+        environment: environmentCheck,
+        database: databaseCheck,
+        redis: redisCheck,
+        services: servicesCheck,
+      },
+      summary: {
+        totalChecks,
+        healthyChecks: healthyCount,
+        unhealthyChecks: totalChecks - healthyCount,
+        overallHealth: Math.round(overallHealth),
+      },
     };
-  }
 
-  // Process Redis check result
-  if (redisResult.status === 'fulfilled') {
-    checks.redis = redisResult.value;
-  } else {
-    const error = redisResult.reason;
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('Health check: Redis check failed', { error: message });
-    checks.redis = {
-      status: 'error',
-      latency: 0,
-      message: message.includes('timed out') ? 'Redis connection timeout' : 'Redis health check failed',
-    };
-  }
+    // Set appropriate HTTP status code
+    const httpStatus = status === 'healthy' ? 200 : status === 'degraded' ? 200 : 503;
 
-  // Overall status - consider degraded if Redis fails but DB is ok
-  const dbHealthy = checks.database.status === 'ok';
-  const redisHealthy = checks.redis.status === 'ok';
-  const containerHealthy = !checks.container || checks.container.status === 'ok';
-  
-  const isHealthy = dbHealthy && redisHealthy && containerHealthy;
-  const isDegraded = dbHealthy && !redisHealthy && containerHealthy; // Can still function without Redis
-  
-  const totalLatency = Date.now() - startTime;
-
-  // Log health check results
-  if (isHealthy) {
-    logger.info('Health check passed', { latency: totalLatency, isALBHealthCheck });
-  } else if (isDegraded) {
-    logger.warn('Health check degraded - Redis unavailable', { checks, latency: totalLatency, isALBHealthCheck });
-  } else {
-    logger.error('Health check failed', { checks, latency: totalLatency, isALBHealthCheck });
-  }
-
-  // Return appropriate status
-  const status = isHealthy ? 'healthy' : isDegraded ? 'degraded' : 'unhealthy';
-  const httpStatus = isHealthy ? 200 : isDegraded ? 200 : 503; // 200 for degraded (still functional)
-
-  // For ALB health checks, return simpler response
-  if (isALBHealthCheck) {
+    // Add performance metrics
+    const responseTime = Date.now() - startTime;
+    
     return NextResponse.json(
       {
-        status: isHealthy ? 'UP' : 'DOWN',
-        timestamp: new Date().toISOString(),
+        ...result,
+        meta: {
+          responseTime: `${responseTime}ms`,
+          requestId: crypto.randomUUID(),
+        },
       },
-      {
+      { 
         status: httpStatus,
         headers: {
-          'Cache-Control': 'no-store, max-age=0',
-          'X-Health-Check': 'ALB',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+  } catch (error) {
+    console.error('Health check failed:', error);
+    
+    const errorResult: HealthCheckResult = {
+      status: 'unhealthy',
+      timestamp: new Date().toISOString(),
+      version: process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0',
+      environment: process.env.NODE_ENV || 'unknown',
+      checks: {
+        environment: { healthy: false, errors: ['Health check system failure'] },
+        database: { healthy: false, error: 'Unable to check database' },
+        redis: { healthy: false, error: 'Unable to check Redis' },
+        services: { 
+          healthy: false, 
+          services: {}, 
+          summary: { total: 0, healthy: 0, unhealthy: 0 } 
+        },
+      },
+      summary: {
+        totalChecks: 4,
+        healthyChecks: 0,
+        unhealthyChecks: 4,
+        overallHealth: 0,
+      },
+    };
+
+    const responseTime = Date.now() - startTime;
+
+    return NextResponse.json(
+      {
+        ...errorResult,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        meta: {
+          responseTime: `${responseTime}ms`,
+          requestId: crypto.randomUUID(),
+        },
+      },
+      { 
+        status: 503,
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+          'Content-Type': 'application/json',
         },
       }
     );
   }
+}
 
-  return NextResponse.json(
-    {
-      status,
-      timestamp: new Date().toISOString(),
-      checks,
-      latency: totalLatency,
-      environment: process.env.NODE_ENV || 'unknown',
-    },
-    {
-      status: httpStatus,
-      headers: {
-        'Cache-Control': 'no-store, max-age=0',
-        'X-Health-Check': 'true',
-      },
+// Simple health check for load balancers
+export async function HEAD(request: NextRequest): Promise<NextResponse> {
+  try {
+    // Quick database ping
+    const dbHealth = await checkDatabaseHealth();
+    
+    if (dbHealth.healthy) {
+      return new NextResponse(null, { status: 200 });
+    } else {
+      return new NextResponse(null, { status: 503 });
     }
-  );
+  } catch (error) {
+    return new NextResponse(null, { status: 503 });
+  }
 }

@@ -52,13 +52,14 @@ const pwa = withPWA({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Temporarily skip TypeScript checking for development
+  // Enable TypeScript checking for production builds
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
-  // Temporarily skip ESLint during builds
+  // Enable ESLint during builds
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: false,
+    dirs: ['src', 'pages'],
   },
   // Optimize React Fast Refresh
   reactStrictMode: true,
