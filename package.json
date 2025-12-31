@@ -19,16 +19,19 @@
     "db:seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-cloudwatch": "^3.958.0",
     "@aws-sdk/client-kinesis": "^3.490.0",
     "@aws-sdk/client-medialive": "^3.959.0",
     "@aws-sdk/client-rekognition": "^3.490.0",
     "@aws-sdk/client-s3": "^3.490.0",
     "@aws-sdk/client-ses": "^3.490.0",
+    "@aws-sdk/client-sns": "^3.958.0",
     "@aws-sdk/client-ssm": "^3.958.0",
     "@aws-sdk/credential-provider-node": "^3.490.0",
     "@aws-sdk/lib-storage": "^3.958.0",
     "@aws-sdk/s3-request-presigner": "^3.958.0",
     "@heroicons/react": "^2.2.0",
+    "@next-auth/prisma-adapter": "^1.0.7",
     "@opensearch-project/opensearch": "^2.4.0",
     "@prisma/client": "^5.7.1",
     "@radix-ui/react-progress": "^1.1.8",
@@ -74,6 +77,7 @@
   },
   "devDependencies": {
     "@types/jest": "^29.5.12",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.10.6",
     "@types/react": "^18.2.46",
     "@types/react-dom": "^18.2.18",
@@ -83,7 +87,6 @@
     "jest": "^29.7.0",
     "jest-environment-node": "^29.7.0",
     "js-yaml": "^4.1.0",
-    "@types/js-yaml": "^4.0.9",
     "prisma": "^5.7.1",
     "tsx": "^4.7.0"
   }
