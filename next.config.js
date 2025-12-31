@@ -1,54 +1,6 @@
-const withPWA = require('next-pwa');
-
-const pwa = withPWA({
-  dest: 'public',
-  register: true,
-  skipWaiting: true,
-  runtimeCaching: [
-    {
-      urlPattern: /^https?.*/,
-      handler: 'NetworkFirst',
-      options: {
-        cacheName: 'offlineCache',
-        expiration: {
-          maxEntries: 200,
-        },
-      },
-    },
-    {
-      urlPattern: /.*\.(?:png|jpg|jpeg|svg|gif|webp)/,
-      handler: 'CacheFirst',
-      options: {
-        cacheName: 'images',
-        expiration: {
-          maxEntries: 100,
-          maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
-        },
-      },
-    },
-    {
-      urlPattern: /.*\.(?:js|css)/,
-      handler: 'StaleWhileRevalidate',
-      options: {
-        cacheName: 'static-resources',
-      },
-    },
-    {
-      urlPattern: /^\/api\/.*/,
-      handler: 'NetworkFirst',
-      options: {
-        cacheName: 'api-cache',
-        networkTimeoutSeconds: 10,
-        expiration: {
-          maxEntries: 50,
-          maxAgeSeconds: 5 * 60, // 5 minutes
-        },
-      },
-    },
-  ],
-  buildExcludes: [/middleware-manifest\.json$/],
-  disable: process.env.NODE_ENV === 'development',
-});
+// Temporarily disable PWA to fix 503 error
+// const withPWA = require('next-pwa');
+// const pwa = withPWA({ ... });
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -209,39 +161,7 @@ const nextConfig = {
   }),
 };
 
-// Injected content via Sentry wizard below
-const { withSentryConfig } = require('@sentry/nextjs');
+// Temporarily disable Sentry to fix 503 error
+// const { withSentryConfig } = require('@sentry/nextjs');
 
-module.exports = pwa(
-  withSentryConfig(
-    nextConfig,
-    {
-      // For all available options, see:
-      // https://github.com/getsentry/sentry-webpack-plugin#options
-
-      // Suppresses source map uploading logs during build
-      silent: true,
-      org: process.env.SENTRY_ORG,
-      project: process.env.SENTRY_PROJECT,
-    },
-    {
-      // For all available options, see:
-      // https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/
-
-      // Upload a larger set of source maps for prettier stack traces (increases build time)
-      widenClientFileUpload: true,
-
-      // Transpiles SDK to be compatible with IE11 (increases bundle size)
-      transpileClientSDK: false,
-
-      // Routes browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers (increases server load)
-      tunnelRoute: '/monitoring',
-
-      // Hides source maps from generated client bundles
-      hideSourceMaps: true,
-
-      // Automatically tree-shake Sentry logger statements to reduce bundle size
-      disableLogger: true,
-    }
-  )
-);
+module.exports = nextConfig;
