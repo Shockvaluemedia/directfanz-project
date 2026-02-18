@@ -2,6 +2,8 @@ import { Server as SocketIOServer } from 'socket.io';
 import { getToken } from 'next-auth/jwt';
 import { UserRole } from '@/types/database';
 import { checkStreamAccess, hasStreamingPermission } from '@/lib/streaming-auth';
+import { prisma } from '@/lib/prisma';
+import { aiModerator } from '@/lib/content-moderation';
 
 export interface StreamingSocketData {
   userId: string;
@@ -116,7 +118,42 @@ export function initializeStreamingWebSocket(io: SocketIOServer) {
           timestamp: new Date().toISOString(),
         });
 
-        // TODO: Update viewer count in database
+        // Create viewer record and increment total viewers
+        const sessionId = crypto.randomUUID();
+        socket.data.viewerSessionId = sessionId;
+
+        await prisma.stream_viewers.create({
+          data: {
+            streamId,
+            viewerId: userData.userId,
+            sessionId,
+            displayName: userData.userName,
+            isAnonymous: false,
+            joinedAt: new Date(),
+          },
+        });
+
+        await prisma.live_streams.update({
+          where: { id: streamId },
+          data: {
+            totalViewers: { increment: 1 },
+          },
+        });
+
+        // Update peak viewers if current active viewer count exceeds it
+        const currentViewerCount = await prisma.stream_viewers.count({
+          where: { streamId, leftAt: null },
+        });
+        const stream = await prisma.live_streams.findUnique({
+          where: { id: streamId },
+        });
+        if (stream && currentViewerCount > (stream.peakViewers || 0)) {
+          await prisma.live_streams.update({
+            where: { id: streamId },
+            data: { peakViewers: currentViewerCount },
+          });
+        }
+
         console.log(`User ${userData.userName} joined stream ${streamId}`);
       } catch (error) {
         console.error('Join stream error:', error);
@@ -151,7 +188,25 @@ export function initializeStreamingWebSocket(io: SocketIOServer) {
           timestamp: new Date().toISOString(),
         });
 
-        // TODO: Update viewer count in database
+        // Update viewer record with leave time and calculate watch time
+        const viewerSessionId = socket.data.viewerSessionId;
+        if (viewerSessionId) {
+          const viewerRecord = await prisma.stream_viewers.findUnique({
+            where: { sessionId: viewerSessionId },
+          });
+          if (viewerRecord) {
+            const now = new Date();
+            const watchTime = Math.floor((now.getTime() - viewerRecord.joinedAt.getTime()) / 1000);
+            await prisma.stream_viewers.update({
+              where: { sessionId: viewerSessionId },
+              data: {
+                leftAt: now,
+                watchTime,
+              },
+            });
+          }
+        }
+
         console.log(`User ${userData.userName} left stream ${streamId}`);
       } catch (error) {
         console.error('Leave stream error:', error);
@@ -199,8 +254,46 @@ export function initializeStreamingWebSocket(io: SocketIOServer) {
           type: 'message',
         };
 
-        // TODO: Save message to database
-        // TODO: Apply content moderation
+        // Apply content moderation before saving or broadcasting
+        const moderationResult = await aiModerator.moderateText(chatMessage.message);
+        if (moderationResult.flagged) {
+          // Save moderated message to database for audit trail
+          await prisma.stream_chat_messages.create({
+            data: {
+              id: chatMessage.id,
+              streamId: chatMessage.streamId,
+              senderId: chatMessage.userId,
+              senderName: chatMessage.userName,
+              message: chatMessage.message,
+              type: 'MESSAGE',
+              isModerated: true,
+              moderatedBy: 'ai_moderator',
+              moderationReason: moderationResult.reason || 'Content flagged by AI moderation',
+            },
+          });
+          socket.emit('error', {
+            message: 'Your message was flagged by content moderation and cannot be sent.',
+          });
+          return;
+        }
+
+        // Save message to database
+        await prisma.stream_chat_messages.create({
+          data: {
+            id: chatMessage.id,
+            streamId: chatMessage.streamId,
+            senderId: chatMessage.userId,
+            senderName: chatMessage.userName,
+            message: chatMessage.message,
+            type: 'MESSAGE',
+          },
+        });
+
+        // Update total messages count on the stream
+        await prisma.live_streams.update({
+          where: { id: streamId },
+          data: { totalMessages: { increment: 1 } },
+        });
 
         // Broadcast message to all users in the stream
         streamingNamespace.to(`stream:${streamId}`).emit('chat_message', {
@@ -237,7 +330,14 @@ export function initializeStreamingWebSocket(io: SocketIOServer) {
           return;
         }
 
-        // TODO: Verify stream ownership
+        // Verify stream ownership
+        const controlStream = await prisma.live_streams.findUnique({
+          where: { id: streamId },
+        });
+        if (!controlStream || controlStream.artistId !== userData.userId) {
+          socket.emit('error', { message: 'You do not own this stream' });
+          return;
+        }
 
         // Broadcast stream status change
         const streamEvent: StreamEvent = {
@@ -265,7 +365,7 @@ export function initializeStreamingWebSocket(io: SocketIOServer) {
     });
 
     // Handle disconnect
-    socket.on('disconnect', () => {
+    socket.on('disconnect', async () => {
       const streamId = socket.data.streamId;
       
       if (streamId) {
@@ -276,7 +376,24 @@ export function initializeStreamingWebSocket(io: SocketIOServer) {
           timestamp: new Date().toISOString(),
         });
 
-        // TODO: Update viewer count in database
+        // Update viewer record with leave time on disconnect
+        const disconnectSessionId = socket.data.viewerSessionId;
+        if (disconnectSessionId) {
+          const viewerRecord = await prisma.stream_viewers.findUnique({
+            where: { sessionId: disconnectSessionId },
+          });
+          if (viewerRecord && !viewerRecord.leftAt) {
+            const now = new Date();
+            const watchTime = Math.floor((now.getTime() - viewerRecord.joinedAt.getTime()) / 1000);
+            await prisma.stream_viewers.update({
+              where: { sessionId: disconnectSessionId },
+              data: {
+                leftAt: now,
+                watchTime,
+              },
+            });
+          }
+        }
       }
 
       console.log(`Streaming user disconnected: ${userData.userName} (${userData.userId})`);

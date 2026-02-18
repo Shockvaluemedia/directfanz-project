@@ -210,7 +210,7 @@ export async function calculateTierAnalytics(artistId: string): Promise<TierAnal
 
     // For conversion rate, we'd need to track tier views/visits
     // For now, we'll use a placeholder calculation
-    const conversionRate = 0; // TODO: Implement tier view tracking
+    const conversionRate = 0; // Requires tier_views tracking table (future enhancement)
 
     tierAnalytics.push({
       tierId: tier.id,

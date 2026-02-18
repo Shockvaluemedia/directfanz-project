@@ -22,13 +22,13 @@ export async function createPaymentFailure(
 ): Promise<any> {
   try {
     // Check if there's already a payment failure record for this invoice
-    const existingFailure = await prisma.paymentFailure.findUnique({
+    const existingFailure = await prisma.payment_failures.findUnique({
       where: { stripeInvoiceId },
     });
 
     if (existingFailure) {
       // Update existing record
-      const updatedFailure = await prisma.paymentFailure.update({
+      const updatedFailure = await prisma.payment_failures.update({
         where: { id: existingFailure.id },
         data: {
           attemptCount: { increment: 1 },
@@ -41,7 +41,7 @@ export async function createPaymentFailure(
       return updatedFailure;
     } else {
       // Create new record
-      const newFailure = await prisma.paymentFailure.create({
+      const newFailure = await prisma.payment_failures.create({
         data: {
           subscriptionId,
           stripeInvoiceId,
@@ -71,15 +71,15 @@ export async function createPaymentFailure(
 export async function retryPayment(paymentFailureId: string): Promise<RetryResult> {
   try {
     // Get payment failure record
-    const failure = await prisma.paymentFailure.findUnique({
+    const failure = await prisma.payment_failures.findUnique({
       where: { id: paymentFailureId },
       include: {
-        subscription: {
+        subscriptions: {
           include: {
-            fan: true,
-            tier: {
+            users: true,
+            tiers: {
               include: {
-                artist: true,
+                users: true,
               },
             },
           },
@@ -104,7 +104,7 @@ export async function retryPayment(paymentFailureId: string): Promise<RetryResul
 
     if (invoice.status === 'paid') {
       // Payment was already successful, mark as resolved
-      await prisma.paymentFailure.update({
+      await prisma.payment_failures.update({
         where: { id: paymentFailureId },
         data: {
           isResolved: true,
@@ -130,7 +130,7 @@ export async function retryPayment(paymentFailureId: string): Promise<RetryResul
       await stripe.invoices.pay(failure.stripeInvoiceId);
 
       // Payment successful, mark as resolved
-      await prisma.paymentFailure.update({
+      await prisma.payment_failures.update({
         where: { id: paymentFailureId },
         data: {
           isResolved: true,
@@ -145,19 +145,19 @@ export async function retryPayment(paymentFailureId: string): Promise<RetryResul
       });
 
       // Send success notification
-      if (failure.subscription.users.email) {
-        const prefs = failure.subscription.users.notificationPreferences as any;
+      if (failure.subscriptions.users.email) {
+        const prefs = failure.subscriptions.users.notificationPreferences as any;
         if (!prefs || prefs?.billing !== false) {
           await sendEmail({
-            to: failure.subscription.users.email,
-            subject: `Payment Successful - ${failure.subscription.tiers.artist?.displayName}`,
+            to: failure.subscriptions.users.email,
+            subject: `Payment Successful - ${failure.subscriptions.tiers.users?.displayName}`,
             html: `
               <h1>Payment Successful</h1>
-              <p>Your payment for ${failure.subscription.tiers.artist?.displayName}'s ${failure.subscription.tiers.name} tier has been processed successfully.</p>
+              <p>Your payment for ${failure.subscriptions.tiers.users?.displayName}'s ${failure.subscriptions.tiers.name} tier has been processed successfully.</p>
               <p>Amount: $${parseFloat(failure.amount.toString()).toFixed(2)}</p>
               <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions">Manage your subscriptions</a></p>
             `,
-            text: `Payment Successful\n\nYour payment for ${failure.subscription.tiers.artist?.displayName}'s ${failure.subscription.tiers.name} tier has been processed successfully.\n\nAmount: $${parseFloat(failure.amount.toString()).toFixed(2)}\n\nManage your subscriptions: ${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions`,
+            text: `Payment Successful\n\nYour payment for ${failure.subscriptions.tiers.users?.displayName}'s ${failure.subscriptions.tiers.name} tier has been processed successfully.\n\nAmount: $${parseFloat(failure.amount.toString()).toFixed(2)}\n\nManage your subscriptions: ${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions`,
           });
         }
       }
@@ -175,14 +175,14 @@ export async function retryPayment(paymentFailureId: string): Promise<RetryResul
       // Check if we've reached max attempts
       if (attemptCount >= 3) {
         // Cancel subscription
-        await stripe.subscriptions.cancel(failure.subscription.stripeSubscriptionId);
+        await stripe.subscriptions.cancel(failure.subscriptions.stripeSubscriptionId);
 
         await prisma.subscriptions.update({
           where: { id: failure.subscriptionId },
           data: { status: 'CANCELED' },
         });
 
-        await prisma.paymentFailure.update({
+        await prisma.payment_failures.update({
           where: { id: paymentFailureId },
           data: {
             attemptCount,
@@ -192,19 +192,19 @@ export async function retryPayment(paymentFailureId: string): Promise<RetryResul
         });
 
         // Send cancellation notification
-        if (failure.subscription.users.email) {
-          const prefs = failure.subscription.users.notificationPreferences as any;
+        if (failure.subscriptions.users.email) {
+          const prefs = failure.subscriptions.users.notificationPreferences as any;
           if (!prefs || prefs?.billing !== false) {
             await sendEmail({
-              to: failure.subscription.users.email,
+              to: failure.subscriptions.users.email,
               subject: `Subscription Canceled - Payment Failed`,
               html: `
                 <h1>Subscription Canceled</h1>
-                <p>Your subscription to ${failure.subscription.tiers.artist?.displayName}'s ${failure.subscription.tiers.name} tier has been canceled due to repeated payment failures.</p>
+                <p>Your subscription to ${failure.subscriptions.tiers.users?.displayName}'s ${failure.subscriptions.tiers.name} tier has been canceled due to repeated payment failures.</p>
                 <p>You can resubscribe at any time by visiting the artist's page.</p>
-                <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/artist/${failure.subscription.tiers.artistId}">Visit ${failure.subscription.tiers.artist?.displayName}'s page</a></p>
+                <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/artist/${failure.subscriptions.tiers.artistId}">Visit ${failure.subscriptions.tiers.users?.displayName}'s page</a></p>
               `,
-              text: `Subscription Canceled\n\nYour subscription to ${failure.subscription.tiers.artist?.displayName}'s ${failure.subscription.tiers.name} tier has been canceled due to repeated payment failures.\n\nYou can resubscribe at any time by visiting the artist's page.\n\nVisit ${failure.subscription.tiers.artist?.displayName}'s page: ${process.env.NEXT_PUBLIC_APP_URL}/artist/${failure.subscription.tiers.artistId}`,
+              text: `Subscription Canceled\n\nYour subscription to ${failure.subscriptions.tiers.users?.displayName}'s ${failure.subscriptions.tiers.name} tier has been canceled due to repeated payment failures.\n\nYou can resubscribe at any time by visiting the artist's page.\n\nVisit ${failure.subscriptions.tiers.users?.displayName}'s page: ${process.env.NEXT_PUBLIC_APP_URL}/artist/${failure.subscriptions.tiers.artistId}`,
             });
           }
         }
@@ -216,7 +216,7 @@ export async function retryPayment(paymentFailureId: string): Promise<RetryResul
         };
       } else {
         // Update retry information
-        await prisma.paymentFailure.update({
+        await prisma.payment_failures.update({
           where: { id: paymentFailureId },
           data: {
             attemptCount,
@@ -252,7 +252,7 @@ export async function retryPayment(paymentFailureId: string): Promise<RetryResul
  */
 export async function getPaymentFailures(subscriptionId: string): Promise<any[]> {
   try {
-    const failures = await prisma.paymentFailure.findMany({
+    const failures = await prisma.payment_failures.findMany({
       where: { subscriptionId },
       orderBy: { createdAt: 'desc' },
     });
@@ -273,24 +273,24 @@ export async function getPaymentFailures(subscriptionId: string): Promise<any[]>
  */
 export async function getArtistPaymentFailures(artistId: string): Promise<any[]> {
   try {
-    const failures = await prisma.paymentFailure.findMany({
+    const failures = await prisma.payment_failures.findMany({
       where: {
         isResolved: false,
-        subscription: {
+        subscriptions: {
           artistId,
         },
       },
       include: {
-        subscription: {
+        subscriptions: {
           include: {
-            fan: {
+            users: {
               select: {
                 id: true,
                 email: true,
                 displayName: true,
               },
             },
-            tier: true,
+            tiers: true,
           },
         },
       },

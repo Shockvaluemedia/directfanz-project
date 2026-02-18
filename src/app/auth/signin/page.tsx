@@ -17,40 +17,25 @@ function SignInContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('=== SIGNIN FORM SUBMITTED ===');
-    console.log('Email:', email);
-    console.log('Password length:', password.length);
-
     setIsLoading(true);
     setError('');
 
     try {
-      console.log('Calling signIn...');
       const result = await signIn('credentials', {
         email,
         password,
         redirect: false,
       });
 
-      console.log('SignIn result:', result);
-
       if (result?.error) {
-        console.log('SignIn error:', result.error);
         setError('Invalid email or password');
       } else {
-        console.log('SignIn successful, getting session...');
-        // Get the updated session to check user role
-        const session = await getSession();
-        console.log('Session after signin:', session);
-
-        // Redirect to dashboard entry which routes by role
+        await getSession();
         router.push('/dashboard');
       }
-    } catch (error) {
-      console.error('SignIn error:', error);
+    } catch {
       setError('An error occurred. Please try again.');
     } finally {
-      console.log('SignIn process completed');
       setIsLoading(false);
     }
   };

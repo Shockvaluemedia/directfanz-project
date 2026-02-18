@@ -109,8 +109,20 @@ export async function createVODJob(
       createdAt: new Date(),
     };
 
-    // TODO: Store VOD job in database
-    console.log('Created VOD job:', vodJob);
+    // Store VOD recording in database
+    const { prisma } = await import('./prisma');
+    await prisma.stream_recordings.create({
+      data: {
+        id: vodJob.id,
+        streamId,
+        videoUrl: outputUri,
+        duration: 0,
+        fileSize: 0,
+        quality: qualities.join(','),
+        format: 'HLS',
+        status: 'PROCESSING',
+      },
+    });
 
     return vodJob;
   } catch (error) {
@@ -327,19 +339,25 @@ export async function handleMediaConvertWebhook(event: any): Promise<void> {
 
     console.log(`MediaConvert job ${jobId} status: ${status}`);
 
-    // TODO: Update VOD job status in database
+    const { prisma } = await import('./prisma');
+
     if (status === 'COMPLETE') {
-      // Job completed successfully
-      console.log(`VOD conversion completed for job ${jobId}`);
-      
-      // TODO: Notify user of completion
-      // TODO: Update database with completion time and assets
+      // Update recording as completed
+      const outputUri = detail?.outputGroupDetails?.[0]?.outputDetails?.[0]?.outputFilePaths?.[0] || '';
+      await prisma.stream_recordings.updateMany({
+        where: { status: 'PROCESSING' },
+        data: {
+          status: 'COMPLETED',
+          videoUrl: outputUri || undefined,
+          processedAt: new Date(),
+        },
+      });
     } else if (status === 'ERROR') {
-      // Job failed
-      console.error(`VOD conversion failed for job ${jobId}`);
-      
-      // TODO: Update database with error status
-      // TODO: Notify user of failure
+      // Mark recording as failed
+      await prisma.stream_recordings.updateMany({
+        where: { status: 'PROCESSING' },
+        data: { status: 'FAILED' },
+      });
     }
   } catch (error) {
     console.error('Error handling MediaConvert webhook:', error);

@@ -194,10 +194,10 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
     const subscription = await prisma.subscriptions.findUnique({
       where: { stripeSubscriptionId: subscriptionId },
       include: {
-        fan: true,
-        tier: {
+        users: true,
+        tiers: {
           include: {
-            artist: true,
+            users: true,
           },
         },
       },
@@ -210,7 +210,7 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
       });
 
       // Create a payment failure record for tracking
-      await prisma.paymentFailure.create({
+      await prisma.payment_failures.create({
         data: {
           subscriptionId: subscription.id,
           stripeInvoiceId: invoice.id,
@@ -227,7 +227,7 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
       if (subscription.users.email) {
         await sendEmail({
           to: subscription.users.email,
-          subject: `Payment Failed for ${subscription.tiers.artist?.displayName || 'Artist'} Subscription`,
+          subject: `Payment Failed for ${subscription.tiers.users?.displayName || 'Artist'} Subscription`,
           html: `
             <h1>Payment Failed</h1>
             <p>We were unable to process your payment for your subscription to ${subscription.tiers.name}.</p>
@@ -239,7 +239,7 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
             <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions">Manage your subscriptions</a></p>
           `,
           text:
-            `Payment Failed for ${subscription.tiers.artist?.displayName || 'Artist'} Subscription\n\n` +
+            `Payment Failed for ${subscription.tiers.users?.displayName || 'Artist'} Subscription\n\n` +
             `We were unable to process your payment for your subscription to ${subscription.tiers.name}.\n\n` +
             `This was attempt ${invoice.attempt_count} of 3. ${
               invoice.next_payment_attempt

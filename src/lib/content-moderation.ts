@@ -1,8 +1,22 @@
+import { RekognitionClient, DetectModerationLabelsCommand } from '@aws-sdk/client-rekognition';
+import { prisma } from './prisma';
+
 interface ModerationResult {
   flagged: boolean;
   confidence: number;
   categories: string[];
   reason?: string;
+}
+
+let rekognitionClient: RekognitionClient | null = null;
+
+function getRekognitionClient(): RekognitionClient {
+  if (!rekognitionClient) {
+    rekognitionClient = new RekognitionClient({
+      region: process.env.AWS_REGION || 'us-east-1',
+    });
+  }
+  return rekognitionClient;
 }
 
 export class AIContentModerator {
@@ -42,17 +56,68 @@ export class AIContentModerator {
   }
 
   async moderateImage(imageUrl: string): Promise<ModerationResult> {
-    // In production, integrate with AWS Rekognition or similar
-    return {
-      flagged: false,
-      confidence: 0.1,
-      categories: [],
-    };
+    try {
+      const client = getRekognitionClient();
+
+      const response = await fetch(imageUrl);
+      const arrayBuffer = await response.arrayBuffer();
+      const imageBytes = new Uint8Array(arrayBuffer);
+
+      const command = new DetectModerationLabelsCommand({
+        Image: {
+          Bytes: imageBytes,
+        },
+        MinConfidence: 60,
+      });
+
+      const result = await client.send(command);
+      const labels = result.ModerationLabels || [];
+
+      if (labels.length === 0) {
+        return {
+          flagged: false,
+          confidence: 0,
+          categories: [],
+        };
+      }
+
+      const categories = [...new Set(labels.map((label) => label.Name || 'Unknown'))];
+      const confidence = Math.max(...labels.map((label) => (label.Confidence || 0) / 100));
+
+      return {
+        flagged: true,
+        confidence,
+        categories,
+        reason: `Detected: ${categories.join(', ')}`,
+      };
+    } catch (error) {
+      console.error('Rekognition moderation failed, falling back to unflagged:', error);
+      return {
+        flagged: false,
+        confidence: 0,
+        categories: [],
+      };
+    }
   }
 
   async queueForReview(contentId: string, moderationResult: ModerationResult): Promise<void> {
-    // Queue flagged content for human review
-    console.log(`Content ${contentId} queued for review:`, moderationResult);
+    await prisma.moderation_logs.create({
+      data: {
+        contentId,
+        result: JSON.stringify(moderationResult),
+        status: 'PENDING_REVIEW',
+        userId: 'system',
+      },
+    });
+
+    try {
+      await prisma.content.update({
+        where: { id: contentId },
+        data: { status: 'UNDER_REVIEW' },
+      });
+    } catch (error) {
+      console.error(`Failed to update content status for ${contentId}:`, error);
+    }
   }
 }
 

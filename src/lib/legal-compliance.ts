@@ -1,4 +1,6 @@
 import { logger } from './logger';
+import { prisma } from './prisma';
+import { sendEmail } from './email';
 
 // GDPR and privacy compliance types
 export interface GDPRRequest {
@@ -410,24 +412,51 @@ export class GDPRComplianceService {
     return age;
   }
 
-  // Placeholder methods for database operations (implement with your ORM/database)
+  // Database operations for GDPR requests
   private static async saveRequest(request: GDPRRequest): Promise<void> {
-    // TODO: Implement database save
-    logger.debug('Saving GDPR request', { requestId: request.id });
+    await prisma.gdpr_requests.create({
+      data: {
+        id: request.id,
+        userId: request.userId,
+        type: request.type,
+        status: request.status,
+        requestDate: request.requestDate,
+        reason: request.reason,
+        email: request.email,
+        verificationToken: request.verificationToken,
+      },
+    });
   }
 
   private static async getRequest(requestId: string): Promise<GDPRRequest | null> {
-    // TODO: Implement database retrieval
-    logger.debug('Getting GDPR request', { requestId });
-    return null;
+    const record = await prisma.gdpr_requests.findUnique({
+      where: { id: requestId },
+    });
+    if (!record) return null;
+    return {
+      id: record.id,
+      userId: record.userId,
+      type: record.type as GDPRRequest['type'],
+      status: record.status as GDPRRequest['status'],
+      requestDate: record.requestDate,
+      completionDate: record.completionDate ?? undefined,
+      reason: record.reason ?? undefined,
+      email: record.email,
+      verificationToken: record.verificationToken ?? undefined,
+    };
   }
 
   private static async updateRequestStatus(
     requestId: string,
     status: GDPRRequest['status']
   ): Promise<void> {
-    // TODO: Implement database update
-    logger.debug('Updating GDPR request status', { requestId, status });
+    await prisma.gdpr_requests.update({
+      where: { id: requestId },
+      data: {
+        status,
+        ...(status === 'COMPLETED' ? { completionDate: new Date() } : {}),
+      },
+    });
   }
 
   private static async sendVerificationEmail(
@@ -435,13 +464,33 @@ export class GDPRComplianceService {
     type: string,
     token: string
   ): Promise<void> {
-    // TODO: Integrate with email service
-    logger.debug('Sending verification email', { email: this.maskEmail(email), type });
+    const verifyUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/gdpr/verify?token=${token}`;
+    await sendEmail({
+      to: email,
+      subject: `Verify Your ${type.replace(/_/g, ' ')} Request - DirectFanz`,
+      html: `
+        <h2>GDPR ${type.replace(/_/g, ' ')} Request</h2>
+        <p>You submitted a ${type.replace(/_/g, ' ').toLowerCase()} request for your DirectFanz account.</p>
+        <p>Click the link below to verify and process your request:</p>
+        <a href="${verifyUrl}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">Verify Request</a>
+        <p>This link expires in 48 hours. If you did not make this request, please ignore this email.</p>
+      `,
+      text: `Verify your ${type} request: ${verifyUrl}`,
+    });
   }
 
   private static async processDataExport(request: GDPRRequest): Promise<void> {
     const userData = await this.exportUserData(request.userId);
-    // TODO: Send data export via secure email or download link
+    await sendEmail({
+      to: request.email,
+      subject: 'Your Data Export - DirectFanz',
+      html: `
+        <h2>Your Data Export</h2>
+        <p>Please find your exported data attached below as JSON.</p>
+        <pre style="background: #f3f4f6; padding: 16px; border-radius: 8px; overflow: auto; max-height: 500px;">${JSON.stringify(userData, null, 2)}</pre>
+      `,
+      text: `Your data export:\n\n${JSON.stringify(userData, null, 2)}`,
+    });
     logger.info('Data export processed', { requestId: request.id });
   }
 
@@ -451,94 +500,231 @@ export class GDPRComplianceService {
   }
 
   private static async processDataPortability(request: GDPRRequest): Promise<void> {
-    // TODO: Implement data portability (structured export)
+    const userData = await this.exportUserData(request.userId);
+    // Send as structured JSON for portability
+    await sendEmail({
+      to: request.email,
+      subject: 'Your Portable Data - DirectFanz',
+      html: `
+        <h2>Your Portable Data</h2>
+        <p>Your data is provided in machine-readable JSON format for portability to another service.</p>
+        <pre style="background: #f3f4f6; padding: 16px; border-radius: 8px; overflow: auto;">${JSON.stringify(userData, null, 2)}</pre>
+      `,
+      text: JSON.stringify(userData, null, 2),
+    });
     logger.info('Data portability processed', { requestId: request.id });
   }
 
   private static async processDataRectification(request: GDPRRequest): Promise<void> {
-    // TODO: Implement data correction process
+    // Notify support team to handle manual rectification
+    await sendEmail({
+      to: process.env.SUPPORT_EMAIL || 'support@directfan.com',
+      subject: `Data Rectification Request - User ${request.userId}`,
+      html: `
+        <h2>Data Rectification Request</h2>
+        <p>User: ${request.email}</p>
+        <p>Reason: ${request.reason || 'Not specified'}</p>
+        <p>Please review and process this request within 30 days per GDPR requirements.</p>
+      `,
+    });
     logger.info('Data rectification processed', { requestId: request.id });
   }
 
-  // Data retrieval methods (implement with your database)
+  // Data retrieval methods
   private static async getUserPersonalInfo(userId: string): Promise<UserData['personalInfo']> {
-    // TODO: Implement
+    const user = await prisma.users.findUnique({ where: { id: userId } });
+    if (!user) return { name: '', email: '' };
     return {
-      name: 'User Name',
-      email: 'user@example.com',
+      name: user.displayName,
+      email: user.email,
     };
   }
 
   private static async getUserAccountInfo(userId: string): Promise<UserData['accountInfo']> {
-    // TODO: Implement
+    const user = await prisma.users.findUnique({ where: { id: userId } });
+    if (!user) {
+      return { username: '', role: '', createdAt: new Date(), emailVerified: false, preferences: {} };
+    }
     return {
-      username: 'username',
-      role: 'USER',
-      createdAt: new Date(),
-      emailVerified: true,
-      preferences: {},
+      username: user.displayName,
+      role: user.role,
+      createdAt: user.createdAt,
+      lastLogin: user.lastSeenAt ?? undefined,
+      emailVerified: !!user.emailVerified,
+      preferences: (user.notificationPreferences as Record<string, unknown>) || {},
     };
   }
 
   private static async getUserSubscriptions(userId: string): Promise<UserData['subscriptions']> {
-    // TODO: Implement
-    return [];
+    const subs = await prisma.subscriptions.findMany({
+      where: { fanId: userId },
+      include: { tiers: true },
+    });
+    return subs.map(s => ({
+      artistId: s.artistId,
+      tierName: s.tiers.name,
+      startDate: s.currentPeriodStart,
+      endDate: s.currentPeriodEnd,
+      amount: Number(s.amount),
+    }));
   }
 
   private static async getUserContent(userId: string): Promise<UserData['content']> {
-    // TODO: Implement
-    return [];
+    const items = await prisma.content.findMany({
+      where: { artistId: userId },
+      select: { id: true, title: true, type: true, createdAt: true, totalViews: true },
+    });
+    return items.map(c => ({
+      id: c.id,
+      title: c.title,
+      type: c.type,
+      createdAt: c.createdAt,
+      viewCount: c.totalViews,
+    }));
   }
 
   private static async getUserPayments(userId: string): Promise<UserData['payments']> {
-    // TODO: Implement
-    return [];
+    const subs = await prisma.subscriptions.findMany({
+      where: { fanId: userId },
+      include: { invoices: true },
+    });
+    const payments: NonNullable<UserData['payments']> = [];
+    for (const sub of subs) {
+      for (const inv of sub.invoices) {
+        payments.push({
+          id: inv.id,
+          amount: Number(inv.amount),
+          date: inv.createdAt,
+          description: `Subscription invoice ${inv.stripeInvoiceId}`,
+          status: inv.status,
+        });
+      }
+    }
+    return payments;
   }
 
   private static async getUserInteractions(userId: string): Promise<UserData['interactions']> {
-    // TODO: Implement
-    return [];
+    const comments = await prisma.comments.findMany({
+      where: { fanId: userId },
+      select: { contentId: true, createdAt: true, text: true },
+    });
+    return comments.map(c => ({
+      type: 'comment',
+      targetId: c.contentId,
+      date: c.createdAt,
+      metadata: { text: c.text },
+    }));
   }
 
-  // Data deletion methods
+  // Data deletion/anonymization methods
   private static async anonymizePersonalInfo(userId: string): Promise<void> {
-    // TODO: Implement
-    logger.debug('Anonymizing personal info', { userId });
+    const hash = `deleted_${userId.substring(0, 8)}`;
+    await prisma.users.update({
+      where: { id: userId },
+      data: {
+        displayName: 'Deleted User',
+        email: `${hash}@deleted.directfanz.com`,
+        bio: null,
+        avatar: null,
+        socialLinks: null,
+        notificationPreferences: null,
+        password: null,
+      },
+    });
   }
 
   private static async deleteUserContent(userId: string): Promise<void> {
-    // TODO: Implement
-    logger.debug('Deleting user content', { userId });
+    await prisma.content.deleteMany({ where: { artistId: userId } });
   }
 
   private static async deleteUserInteractions(userId: string): Promise<void> {
-    // TODO: Implement
-    logger.debug('Deleting user interactions', { userId });
+    await prisma.comments.deleteMany({ where: { fanId: userId } });
   }
 
   private static async deleteFinancialRecords(userId: string): Promise<void> {
-    // TODO: Implement
-    logger.debug('Deleting financial records', { userId });
+    // Delete invoices through subscriptions
+    const subs = await prisma.subscriptions.findMany({
+      where: { fanId: userId },
+      select: { id: true },
+    });
+    const subIds = subs.map(s => s.id);
+    if (subIds.length > 0) {
+      await prisma.invoices.deleteMany({ where: { subscriptionId: { in: subIds } } });
+      await prisma.payment_failures.deleteMany({ where: { subscriptionId: { in: subIds } } });
+    }
   }
 
   private static async anonymizeAccount(userId: string): Promise<void> {
-    // TODO: Implement
-    logger.debug('Anonymizing account', { userId });
+    // Cancel active subscriptions
+    await prisma.subscriptions.updateMany({
+      where: { fanId: userId, status: 'ACTIVE' },
+      data: { status: 'CANCELED' },
+    });
+    // Mark account as deleted but preserve record for referential integrity
+    await prisma.users.update({
+      where: { id: userId },
+      data: {
+        role: 'DELETED',
+        image: null,
+      },
+    });
   }
 
   private static async saveAgeVerification(verification: AgeVerification): Promise<void> {
-    // TODO: Implement
-    logger.debug('Saving age verification', { userId: verification.userId });
+    await prisma.age_verifications.upsert({
+      where: { userId: verification.userId },
+      update: {
+        dateOfBirth: verification.dateOfBirth,
+        verificationMethod: verification.verificationMethod,
+        verifiedAt: verification.verifiedAt,
+        isMinor: verification.isMinor,
+        parentalConsentRequired: verification.parentalConsentRequired,
+        parentalConsentGiven: verification.parentalConsentGiven,
+      },
+      create: {
+        userId: verification.userId,
+        dateOfBirth: verification.dateOfBirth,
+        verificationMethod: verification.verificationMethod,
+        verifiedAt: verification.verifiedAt,
+        isMinor: verification.isMinor,
+        parentalConsentRequired: verification.parentalConsentRequired,
+        parentalConsentGiven: verification.parentalConsentGiven,
+      },
+    });
   }
 
   private static async saveConsentRecord(consent: ConsentRecord): Promise<void> {
-    // TODO: Implement
-    logger.debug('Saving consent record', { consentId: consent.id });
+    await prisma.consent_records.create({
+      data: {
+        id: consent.id,
+        userId: consent.userId,
+        consentType: consent.consentType,
+        granted: consent.granted,
+        timestamp: consent.timestamp,
+        ipAddress: consent.ipAddress,
+        userAgent: consent.userAgent,
+        source: consent.source,
+        version: consent.version,
+      },
+    });
   }
 
   private static async getConsentRecords(userId: string): Promise<ConsentRecord[]> {
-    // TODO: Implement
-    return [];
+    const records = await prisma.consent_records.findMany({
+      where: { userId },
+      orderBy: { timestamp: 'desc' },
+    });
+    return records.map(r => ({
+      id: r.id,
+      userId: r.userId,
+      consentType: r.consentType as ConsentRecord['consentType'],
+      granted: r.granted,
+      timestamp: r.timestamp,
+      ipAddress: r.ipAddress ?? undefined,
+      userAgent: r.userAgent ?? undefined,
+      source: r.source as ConsentRecord['source'],
+      version: r.version,
+    }));
   }
 }
 

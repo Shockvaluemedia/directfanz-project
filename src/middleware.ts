@@ -85,8 +85,6 @@ export async function middleware(request: NextRequest) {
       '/api/auth/', // All NextAuth routes need to be exempt
       '/api/webhooks/', // Stripe/external webhooks
       '/api/health', // Health check endpoint
-      '/api/debug-auth', // Debug endpoint
-      '/api/simple-upload', // Simple upload test endpoint
     ];
 
     const isCSRFExempt = CSRF_EXEMPT_ROUTES.some(exemptRoute => url.startsWith(exemptRoute));

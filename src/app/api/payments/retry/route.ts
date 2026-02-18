@@ -67,10 +67,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Get payment failure and verify ownership
-    const failure = await prisma.paymentFailure.findUnique({
+    const failure = await prisma.payment_failures.findUnique({
       where: { id: paymentFailureId },
       include: {
-        subscription: true,
+        subscriptions: true,
       },
     });
 
@@ -80,8 +80,8 @@ export async function POST(request: NextRequest) {
 
     // Verify ownership
     if (
-      failure.subscription.fanId !== session.user.id &&
-      failure.subscription.artistId !== session.user.id
+      failure.subscriptions.fanId !== session.user.id &&
+      failure.subscriptions.artistId !== session.user.id
     ) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
