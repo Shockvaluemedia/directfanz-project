@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
+import crypto from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { subscriptionCache, SubscriptionCacheUtils } from '@/lib/subscription-cache';
 import { invalidateAnalyticsCache } from '@/lib/analytics-cached';
@@ -28,12 +29,28 @@ interface SubscriptionWebhookPayload {
   timestamp: string;
 }
 
-// Simple webhook signature verification
+// Webhook signature verification using HMAC-SHA256 with timing-safe comparison
 function verifyWebhookSignature(signature: string, payload: string): boolean {
-  // In production, implement proper webhook signature verification
-  // For now, we'll use a simple token check
-  const expectedSignature = process.env.SUBSCRIPTION_WEBHOOK_SECRET;
-  return signature === expectedSignature;
+  const secret = process.env.SUBSCRIPTION_WEBHOOK_SECRET;
+  if (!secret) {
+    logger.error('SUBSCRIPTION_WEBHOOK_SECRET is not configured');
+    return false;
+  }
+
+  const expectedSignature = crypto
+    .createHmac('sha256', secret)
+    .update(payload)
+    .digest('hex');
+
+  try {
+    return crypto.timingSafeEqual(
+      Buffer.from(signature, 'utf-8'),
+      Buffer.from(expectedSignature, 'utf-8')
+    );
+  } catch {
+    // Lengths differ — signatures don't match
+    return false;
+  }
 }
 
 export async function POST(request: NextRequest) {

@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/lib/notifications';
 import Stripe from 'stripe';
 
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || 'whsec_placeholder_for_build';
+const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
 
 if (process.env.NODE_ENV === 'production' && !process.env.STRIPE_WEBHOOK_SECRET) {
   console.warn('STRIPE_WEBHOOK_SECRET is not set in production environment');
