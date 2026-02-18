@@ -31,50 +31,64 @@ export async function GET(request: NextRequest) {
         });
       }
 
-      // Get participant details and last message for each conversation
-      const conversationDetails = await Promise.all(
-        conversations.map(async conv => {
-          // Get participant info
-          const participant = await prisma.users.findUnique({
-            where: { id: conv.participantId },
-            select: {
-              id: true,
-              displayName: true,
-              avatar: true,
-              role: true,
-            },
-          });
+      const participantIds = conversations.map(c => c.participantId);
 
-          if (!participant) return null;
+      // Batch-fetch all participants in a single query
+      const participants = await prisma.users.findMany({
+        where: { id: { in: participantIds } },
+        select: {
+          id: true,
+          displayName: true,
+          avatar: true,
+          role: true,
+        },
+      });
+      const participantMap = new Map(participants.map(p => [p.id, p]));
 
-          // Get the last message in this conversation
-          const lastMessage = await prisma.messages.findFirst({
+      // Batch-fetch unread counts using groupBy
+      const unreadCounts = await prisma.messages.groupBy({
+        by: ['senderId'],
+        where: {
+          senderId: { in: participantIds },
+          recipientId: req.user.id,
+          readAt: null,
+        },
+        _count: { id: true },
+      });
+      const unreadMap = new Map(unreadCounts.map(u => [u.senderId, u._count.id]));
+
+      // Fetch last messages for all conversations in fewer queries
+      // We use the raw query result ordering (already sorted by lastMessageTime DESC)
+      const lastMessages = await Promise.all(
+        participantIds.map(pid =>
+          prisma.messages.findFirst({
             where: {
               OR: [
-                { senderId: req.user.id, recipientId: conv.participantId },
-                { senderId: conv.participantId, recipientId: req.user.id },
+                { senderId: req.user.id, recipientId: pid },
+                { senderId: pid, recipientId: req.user.id },
               ],
             },
             orderBy: { createdAt: 'desc' },
-            include: {
-              sender: {
-                select: {
-                  id: true,
-                  displayName: true,
-                  avatar: true,
-                },
-              },
+            select: {
+              id: true,
+              content: true,
+              senderId: true,
+              createdAt: true,
             },
-          });
+          })
+        )
+      );
+      const lastMessageMap = new Map(
+        participantIds.map((pid, i) => [pid, lastMessages[i]])
+      );
 
-          // Count unread messages from this participant
-          const unreadCount = await prisma.messages.count({
-            where: {
-              senderId: conv.participantId,
-              recipientId: req.user.id,
-              readAt: null,
-            },
-          });
+      // Assemble conversation details without additional queries
+      const conversationDetails = conversations
+        .map(conv => {
+          const participant = participantMap.get(conv.participantId);
+          if (!participant) return null;
+
+          const lastMessage = lastMessageMap.get(conv.participantId);
 
           return {
             id: `${req.user.id}_${conv.participantId}`,
@@ -95,19 +109,13 @@ export async function GET(request: NextRequest) {
                   createdAt: lastMessage.createdAt.toISOString(),
                 }
               : null,
-            unreadCount,
+            unreadCount: unreadMap.get(conv.participantId) || 0,
           };
-        })
-      );
-
-      // Filter out null conversations and sort by last message time
-      const validConversations = conversationDetails
-        .filter((conv): conv is NonNullable<typeof conv> => conv !== null)
-        .sort((a, b) => {
-          const aTime = a.lastMessage?.createdAt || '1970-01-01';
-          const bTime = b.lastMessage?.createdAt || '1970-01-01';
-          return new Date(bTime).getTime() - new Date(aTime).getTime();
         });
+
+      // Filter out null conversations (already sorted by lastMessageTime from raw query)
+      const validConversations = conversationDetails
+        .filter((conv): conv is NonNullable<typeof conv> => conv !== null);
 
       logger.info('Conversations fetched', {
         userId: req.user.id,

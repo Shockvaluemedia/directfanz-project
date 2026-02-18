@@ -6,9 +6,6 @@ import { logger } from '@/lib/logger';
 import { sendNotification } from '@/lib/notifications';
 import { webSocketInstance } from '@/lib/websocket-instance';
 
-// First, we need to add Message model to schema.prisma
-// This is a placeholder implementation that would require schema updates
-
 const sendMessageSchema = z.object({
   recipientId: z.string().cuid(),
   content: z.string().min(1).max(1000),
@@ -83,7 +80,7 @@ export async function POST(request: NextRequest) {
       // Emit WebSocket event for real-time delivery
       webSocketInstance.emitToConversation(req.user.id, recipientId, 'message:new', {
         ...message,
-        sender: message.sender,
+        sender: message.users_messages_senderIdTousers,
       });
 
       // Emit delivery confirmation if recipient is online
@@ -130,7 +127,6 @@ export async function POST(request: NextRequest) {
           createdAt: message.createdAt,
           readAt: message.readAt,
           sender: message.users_messages_senderIdTousers,
-ssages_senderIdTousers,
         },
       });
     } catch (error) {

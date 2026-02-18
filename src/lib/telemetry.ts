@@ -1,15 +1,15 @@
-// Telemetry dependencies are disabled due to missing packages
-// import { NodeSDK } from '@opentelemetry/auto-instrumentations-node';
-// import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
-// import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
-// import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
-// import { registerInstrumentations } from '@opentelemetry/instrumentation';
-// import { JaegerExporter } from '@opentelemetry/exporter-jaeger';
-// import { PrometheusExporter } from '@opentelemetry/exporter-prometheus';
-// import { Resource } from '@opentelemetry/resources';
-// import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
-// import { BatchSpanProcessor, SimpleSpanProcessor } from '@opentelemetry/sdk-trace-base';
-// import { trace, metrics, SpanStatusCode, SpanKind } from '@opentelemetry/api';
+/**
+ * Telemetry Module — Intentionally Stubbed
+ *
+ * OpenTelemetry packages are not installed in this project.
+ * Error tracking and performance monitoring are handled by Sentry
+ * (configured via NEXT_PUBLIC_SENTRY_DSN).
+ *
+ * The TracingService methods below log timing information through the
+ * centralized logger so that developers still get visibility into
+ * operation durations in development and production logs.
+ */
+
 import { logger } from './logger';
 
 // Service information
@@ -17,11 +17,9 @@ const serviceName = 'direct-fan-platform';
 const serviceVersion = process.env.npm_package_version || '1.0.0';
 const environment = process.env.NODE_ENV || 'development';
 
-// Telemetry is disabled - stub implementations below
-
 // Initialize telemetry (disabled)
 export function initTelemetry() {
-  logger.info('Telemetry is disabled - stub implementation');
+  logger.info('Telemetry is disabled - Sentry handles error tracking');
 }
 
 // Stub tracer instance
@@ -50,22 +48,31 @@ export const activeConnections = { add: () => {} };
 export const databaseOperationDuration = { record: () => {} };
 export const businessEvents = { add: () => {} };
 
-// Tracing utilities (stub implementations)
+// Tracing utilities (stub implementations with timing logged to logger)
 export class TracingService {
   /**
-   * Create a span for HTTP requests (stub)
+   * Create a span for HTTP requests (stub — logs timing to logger)
    */
   static async traceHttpRequest<T>(
     name: string,
     operation: () => Promise<T>,
     attributes: Record<string, string | number | boolean> = {}
   ): Promise<T> {
-    // Just execute the operation without tracing
-    return operation();
+    const start = Date.now();
+    try {
+      const result = await operation();
+      const duration = Date.now() - start;
+      logger.debug(`[trace:http] ${name} completed in ${duration}ms`, { duration, ...attributes });
+      return result;
+    } catch (error) {
+      const duration = Date.now() - start;
+      logger.error(`[trace:http] ${name} failed after ${duration}ms`, { duration, ...attributes }, error instanceof Error ? error : undefined);
+      throw error;
+    }
   }
 
   /**
-   * Create a span for database operations (stub)
+   * Create a span for database operations (stub — logs timing to logger)
    */
   static async traceDatabaseOperation<T>(
     operation: string,
@@ -73,12 +80,21 @@ export class TracingService {
     dbOperation: () => Promise<T>,
     attributes: Record<string, string | number | boolean> = {}
   ): Promise<T> {
-    // Just execute the operation without tracing
-    return dbOperation();
+    const start = Date.now();
+    try {
+      const result = await dbOperation();
+      const duration = Date.now() - start;
+      logger.debug(`[trace:db] ${operation} on ${table} completed in ${duration}ms`, { duration, operation, table, ...attributes });
+      return result;
+    } catch (error) {
+      const duration = Date.now() - start;
+      logger.error(`[trace:db] ${operation} on ${table} failed after ${duration}ms`, { duration, operation, table, ...attributes }, error instanceof Error ? error : undefined);
+      throw error;
+    }
   }
 
   /**
-   * Create a span for business events (stub)
+   * Create a span for business events (stub — logs timing to logger)
    */
   static async traceBusinessEvent<T>(
     eventName: string,
@@ -86,26 +102,46 @@ export class TracingService {
     operation: () => Promise<T>,
     attributes: Record<string, string | number | boolean> = {}
   ): Promise<T> {
-    // Just execute the operation without tracing
-    return operation();
+    const start = Date.now();
+    try {
+      const result = await operation();
+      const duration = Date.now() - start;
+      logger.debug(`[trace:business] ${eventName} (${eventType}) completed in ${duration}ms`, { duration, eventName, eventType, ...attributes });
+      return result;
+    } catch (error) {
+      const duration = Date.now() - start;
+      logger.error(`[trace:business] ${eventName} (${eventType}) failed after ${duration}ms`, { duration, eventName, eventType, ...attributes }, error instanceof Error ? error : undefined);
+      throw error;
+    }
   }
 
   /**
-   * Record a business metric (stub)
+   * Record a business metric (stub — logs to logger)
    */
   static recordBusinessMetric(
     metricName: string,
     value: number,
     attributes: Record<string, string | number | boolean> = {}
   ): void {
-    // Stub - no actual recording
+    logger.debug(`[metric:business] ${metricName} = ${value}`, { metricName, value, ...attributes });
   }
 }
 
-// Get telemetry health (stub)
+// Get telemetry health
 export function getTelemetryHealth() {
+  const sentryAvailable = !!process.env.NEXT_PUBLIC_SENTRY_DSN;
+
   return {
-    status: 'disabled',
-    message: 'Telemetry is disabled due to missing dependencies',
+    status: 'disabled' as const,
+    message: 'OpenTelemetry is disabled. Sentry handles error tracking.',
+    sentry: {
+      available: sentryAvailable,
+      dsn: sentryAvailable ? '***configured***' : 'not configured',
+    },
+    service: {
+      name: serviceName,
+      version: serviceVersion,
+      environment,
+    },
   };
 }
