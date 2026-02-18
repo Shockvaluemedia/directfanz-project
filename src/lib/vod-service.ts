@@ -88,7 +88,7 @@ export async function createVODJob(
     );
 
     // Submit MediaConvert job
-    const result = await mediaConvert.createJob(jobSettings).promise();
+    const result = await mediaConvert.createJob(jobSettings as MediaConvert.Types.CreateJobRequest).promise();
 
     if (!result.Job?.Id) {
       throw new Error('Failed to create MediaConvert job');
@@ -121,6 +121,7 @@ export async function createVODJob(
         quality: qualities.join(','),
         format: 'HLS',
         status: 'PROCESSING',
+        updatedAt: new Date(),
       },
     });
 
@@ -275,7 +276,7 @@ export async function generateThumbnail(
       }
     };
 
-    const result = await mediaConvert.createJob(jobSettings).promise();
+    const result = await mediaConvert.createJob(jobSettings as MediaConvert.Types.CreateJobRequest).promise();
     return result.Job?.Id || null;
   } catch (error) {
     console.error('Error generating thumbnail:', error);

@@ -3,7 +3,6 @@ import { getToken } from 'next-auth/jwt';
 import crypto from 'crypto';
 import { UserRole } from '@/types/database';
 import { AuthenticatedRequest, withApiAuth } from '@/lib/api-auth';
-import { hasPermission, Permission } from '@/lib/rbac';
 import { prisma } from '@/lib/prisma';
 
 // Streaming-specific permissions
@@ -327,12 +326,15 @@ export async function createStreamSession(
     // Create the stream record in the database
     const dbStream = await prisma.live_streams.create({
       data: {
+        id: crypto.randomUUID(),
         artistId: userId,
         title: streamTitle,
         description: streamDescription || null,
         streamKey,
         status: 'SCHEDULED',
+        tierIds: '',
         isPublic: false,
+        updatedAt: new Date(),
       },
     });
 

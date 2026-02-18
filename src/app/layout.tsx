@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
 import './globals.css';
 import AuthSessionProvider from '@/components/providers/session-provider';
 import { WebSocketClientProvider } from '@/components/providers/WebSocketClientProvider';
@@ -10,8 +9,6 @@ import GDPRConsent from '@/components/ui/gdpr-consent';
 import StaticHeader from '@/components/navigation/StaticHeader';
 import StaticBreadcrumbs from '@/components/navigation/StaticBreadcrumbs';
 import ErrorBoundary from '@/components/ErrorBoundary';
-
-const inter = Inter({ subsets: ['latin'] });
 
 // Generate CSP directives - DISABLED FOR DEBUGGING
 // const csp = generateCSP();
@@ -40,7 +37,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang='en'>
-      <body className={inter.className}>
+      <body className="font-sans">
         <AuthSessionProvider>
           <ToastProvider>
             <WebSocketClientProvider>

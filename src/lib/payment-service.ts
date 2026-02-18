@@ -139,7 +139,7 @@ class PaymentService {
         // Update customer if needed
         if (name || metadata) {
           const updatedCustomer = await this.stripe.customers.update(customer.id, {
-            name: name || customer.name,
+            name: name || (customer.name ?? undefined),
             metadata: { ...customer.metadata, ...metadata },
           });
           return updatedCustomer;

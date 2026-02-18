@@ -1,4 +1,5 @@
 import { logger } from './logger';
+import { Prisma } from '@prisma/client';
 import { prisma } from './prisma';
 import { sendEmail } from './email';
 
@@ -626,8 +627,8 @@ export class GDPRComplianceService {
         email: `${hash}@deleted.directfanz.com`,
         bio: null,
         avatar: null,
-        socialLinks: null,
-        notificationPreferences: null,
+        socialLinks: Prisma.JsonNull,
+        notificationPreferences: Prisma.JsonNull,
         password: null,
       },
     });

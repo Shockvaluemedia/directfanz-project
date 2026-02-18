@@ -1,9 +1,11 @@
+// @ts-ignore - socket.io types may not be installed
 import { Server as SocketIOServer } from 'socket.io';
 import { getToken } from 'next-auth/jwt';
 import { UserRole } from '@/types/database';
 import { checkStreamAccess, hasStreamingPermission } from '@/lib/streaming-auth';
 import { prisma } from '@/lib/prisma';
 import { aiModerator } from '@/lib/content-moderation';
+import crypto from 'crypto';
 
 export interface StreamingSocketData {
   userId: string;
@@ -36,7 +38,7 @@ export function initializeStreamingWebSocket(io: SocketIOServer) {
   const streamingNamespace = io.of('/streaming');
 
   // Authentication middleware for streaming namespace
-  streamingNamespace.use(async (socket, next) => {
+  streamingNamespace.use(async (socket: any, next: (err?: Error) => void) => {
     try {
       const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace('Bearer ', '');
       
@@ -73,7 +75,7 @@ export function initializeStreamingWebSocket(io: SocketIOServer) {
   });
 
   // Handle streaming connections
-  streamingNamespace.on('connection', (socket) => {
+  streamingNamespace.on('connection', (socket: any) => {
     const userData = socket.data as StreamingSocketData;
     console.log(`Streaming user connected: ${userData.userName} (${userData.userId})`);
 
@@ -124,11 +126,14 @@ export function initializeStreamingWebSocket(io: SocketIOServer) {
 
         await prisma.stream_viewers.create({
           data: {
+            id: crypto.randomUUID(),
             streamId,
             viewerId: userData.userId,
             sessionId,
             displayName: userData.userName,
             isAnonymous: false,
+            ipAddress: socket.handshake.address || 'unknown',
+            userAgent: socket.handshake.headers?.['user-agent'] || 'unknown',
             joinedAt: new Date(),
           },
         });

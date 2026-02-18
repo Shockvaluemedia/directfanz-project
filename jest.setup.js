@@ -1,4 +1,4 @@
-import '@testing-library/jest-dom';
+require('@testing-library/jest-dom');
 
 // Override jsdom HTMLMediaElement prototype methods BEFORE creating mock class
 if (typeof window !== 'undefined' && window.HTMLMediaElement) {

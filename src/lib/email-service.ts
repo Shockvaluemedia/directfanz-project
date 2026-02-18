@@ -16,7 +16,7 @@ export interface EmailTemplate {
 
 export interface EmailOptions {
   to: string | string[];
-  subject: string;
+  subject?: string;
   html?: string;
   text?: string;
   template?: keyof typeof emailTemplates;
@@ -510,7 +510,7 @@ class EmailService {
 
       // Use template if specified
       if (options.template && options.variables) {
-        const template = emailTemplates[options.template](options.variables);
+        const template = emailTemplates[options.template](options.variables as any);
         html = template.html;
         text = template.text;
         subject = template.subject;

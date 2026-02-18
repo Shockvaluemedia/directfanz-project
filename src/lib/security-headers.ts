@@ -102,3 +102,14 @@ export function securityMiddleware(request: NextRequest) {
   const response = NextResponse.next();
   return SecurityHeadersManager.applySecurityHeaders(response);
 }
+
+// Standalone exports for middleware compatibility
+export function applySecurityHeaders(response: NextResponse): NextResponse {
+  return SecurityHeadersManager.applySecurityHeaders(response);
+}
+
+export function getSecurityConfig() {
+  return {
+    headers: SecurityHeadersManager.applySecurityHeaders,
+  };
+}
