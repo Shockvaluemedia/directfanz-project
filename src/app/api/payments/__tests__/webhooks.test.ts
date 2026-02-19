@@ -1,19 +1,24 @@
 // Mock dependencies first
 jest.mock('@/lib/prisma', () => ({
   prisma: {
-    subscription: {
+    subscriptions: {
       create: jest.fn(),
       findUnique: jest.fn(),
       update: jest.fn(),
       updateMany: jest.fn(),
     },
-    tier: {
+    tiers: {
+      update: jest.fn(),
+      findUnique: jest.fn(),
+    },
+    artists: {
       update: jest.fn(),
     },
-    artist: {
+    users: {
+      findUnique: jest.fn(),
       update: jest.fn(),
     },
-    paymentFailure: {
+    payment_failures: {
       create: jest.fn(),
     },
   },
@@ -31,6 +36,10 @@ jest.mock('next/headers', () => ({
   headers: jest.fn(() => ({
     get: jest.fn(() => 'test-signature'),
   })),
+}));
+
+jest.mock('@/lib/notifications', () => ({
+  sendEmail: jest.fn().mockResolvedValue(undefined),
 }));
 
 import { POST } from '../webhooks/route';
@@ -73,9 +82,11 @@ describe('/api/payments/webhooks', () => {
       };
 
       mockStripe.webhooks.constructEvent.mockReturnValue(mockEvent as any);
-      mockPrisma.subscription.create.mockResolvedValue({} as any);
+      mockPrisma.subscriptions.create.mockResolvedValue({} as any);
       mockPrisma.tiers.update.mockResolvedValue({} as any);
-      mockPrisma.users.update.mockResolvedValue({} as any);
+      mockPrisma.tiers.findUnique.mockResolvedValue({ id: 'tier123', name: 'Gold' } as any);
+      mockPrisma.artists.update.mockResolvedValue({} as any);
+      mockPrisma.users.findUnique.mockResolvedValue({ id: 'fan123', email: 'fan@test.com', displayName: 'Test Artist' } as any);
 
       const request = createMockRequest('http://localhost:3000/api/payments/webhooks', {
         method: 'POST',
@@ -87,7 +98,7 @@ describe('/api/payments/webhooks', () => {
 
       expect(response.status).toBe(200);
       expect(data.received).toBe(true);
-      expect(mockPrisma.subscription.create).toHaveBeenCalledWith({
+      expect(mockPrisma.subscriptions.create).toHaveBeenCalledWith({
         data: {
           fanId: 'fan123',
           artistId: 'artist123',
@@ -120,9 +131,9 @@ describe('/api/payments/webhooks', () => {
       };
 
       mockStripe.webhooks.constructEvent.mockReturnValue(mockEvent as any);
-      mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
-      mockPrisma.subscription.update.mockResolvedValue({} as any);
-      mockPrisma.users.update.mockResolvedValue({} as any);
+      mockPrisma.subscriptions.findUnique.mockResolvedValue(mockSubscription as any);
+      mockPrisma.subscriptions.update.mockResolvedValue({} as any);
+      mockPrisma.artists.update.mockResolvedValue({} as any);
 
       const request = createMockRequest('http://localhost:3000/api/payments/webhooks', {
         method: 'POST',
@@ -134,7 +145,7 @@ describe('/api/payments/webhooks', () => {
 
       expect(response.status).toBe(200);
       expect(data.received).toBe(true);
-      expect(mockPrisma.subscription.update).toHaveBeenCalledWith({
+      expect(mockPrisma.subscriptions.update).toHaveBeenCalledWith({
         where: { id: 'subscription123' },
         data: {
           status: 'ACTIVE',
@@ -142,7 +153,7 @@ describe('/api/payments/webhooks', () => {
           currentPeriodEnd: new Date(1643673600 * 1000),
         },
       });
-      expect(mockPrisma.users.update).toHaveBeenCalledWith({
+      expect(mockPrisma.artists.update).toHaveBeenCalledWith({
         where: { userId: 'artist123' },
         data: {
           totalEarnings: {
@@ -171,16 +182,17 @@ describe('/api/payments/webhooks', () => {
 
       const mockSubscription = {
         id: 'subscription123',
-        fan: { id: 'fan123' },
-        tier: {
-          artist: { id: 'artist123' },
+        users: { id: 'fan123', email: 'fan@test.com' },
+        tiers: {
+          name: 'Gold Tier',
+          users: { id: 'artist123', displayName: 'Test Artist' },
         },
       };
 
       mockStripe.webhooks.constructEvent.mockReturnValue(mockEvent as any);
-      mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
-      mockPrisma.subscription.update.mockResolvedValue({} as any);
-      mockPrisma.paymentFailure.create.mockResolvedValue({} as any);
+      mockPrisma.subscriptions.findUnique.mockResolvedValue(mockSubscription as any);
+      mockPrisma.subscriptions.update.mockResolvedValue({} as any);
+      mockPrisma.payment_failures.create.mockResolvedValue({} as any);
 
       const request = createMockRequest('http://localhost:3000/api/payments/webhooks', {
         method: 'POST',
@@ -192,11 +204,11 @@ describe('/api/payments/webhooks', () => {
 
       expect(response.status).toBe(200);
       expect(data.received).toBe(true);
-      expect(mockPrisma.subscription.update).toHaveBeenCalledWith({
+      expect(mockPrisma.subscriptions.update).toHaveBeenCalledWith({
         where: { id: 'subscription123' },
         data: { status: 'PAST_DUE' },
       });
-      expect(mockPrisma.paymentFailure.create).toHaveBeenCalledWith({
+      expect(mockPrisma.payment_failures.create).toHaveBeenCalledWith({
         data: {
           subscriptionId: 'subscription123',
           stripeInvoiceId: 'in_test123',
@@ -225,10 +237,10 @@ describe('/api/payments/webhooks', () => {
       };
 
       mockStripe.webhooks.constructEvent.mockReturnValue(mockEvent as any);
-      mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
-      mockPrisma.subscription.update.mockResolvedValue({} as any);
+      mockPrisma.subscriptions.findUnique.mockResolvedValue(mockSubscription as any);
+      mockPrisma.subscriptions.update.mockResolvedValue({} as any);
       mockPrisma.tiers.update.mockResolvedValue({} as any);
-      mockPrisma.users.update.mockResolvedValue({} as any);
+      mockPrisma.artists.update.mockResolvedValue({} as any);
 
       const request = createMockRequest('http://localhost:3000/api/payments/webhooks', {
         method: 'POST',
@@ -240,7 +252,7 @@ describe('/api/payments/webhooks', () => {
 
       expect(response.status).toBe(200);
       expect(data.received).toBe(true);
-      expect(mockPrisma.subscription.update).toHaveBeenCalledWith({
+      expect(mockPrisma.subscriptions.update).toHaveBeenCalledWith({
         where: { id: 'subscription123' },
         data: { status: 'CANCELED' },
       });

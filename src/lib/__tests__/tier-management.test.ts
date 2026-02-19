@@ -12,7 +12,7 @@ import { UserRole, SubscriptionStatus } from '@/lib/types/enums';
 // Mock Prisma
 jest.mock('../prisma', () => ({
   prisma: {
-    tier: {
+    tiers: {
       findMany: jest.fn(),
       findFirst: jest.fn(),
       findUnique: jest.fn(),
@@ -21,7 +21,7 @@ jest.mock('../prisma', () => ({
       delete: jest.fn(),
       count: jest.fn(),
     },
-    subscription: {
+    subscriptions: {
       count: jest.fn(),
     },
     content: {
@@ -277,7 +277,7 @@ describe('Tier Management', () => {
 
   describe('deleteTier', () => {
     it('should delete tier successfully when no active subscriptions or content', async () => {
-      mockPrisma.subscription.count.mockResolvedValue(0);
+      mockPrisma.subscriptions.count.mockResolvedValue(0);
       mockPrisma.content.count.mockResolvedValue(0);
       mockPrisma.tiers.delete.mockResolvedValue(mockTier);
 
@@ -289,7 +289,7 @@ describe('Tier Management', () => {
     });
 
     it('should throw error when tier has active subscriptions', async () => {
-      mockPrisma.subscription.count.mockResolvedValue(5);
+      mockPrisma.subscriptions.count.mockResolvedValue(5);
 
       await expect(deleteTier(mockTierId)).rejects.toThrow(
         'Cannot delete tier with active subscriptions'
@@ -297,7 +297,7 @@ describe('Tier Management', () => {
     });
 
     it('should throw error when tier has associated content', async () => {
-      mockPrisma.subscription.count.mockResolvedValue(0);
+      mockPrisma.subscriptions.count.mockResolvedValue(0);
       mockPrisma.content.count.mockResolvedValue(3);
 
       await expect(deleteTier(mockTierId)).rejects.toThrow(
@@ -309,12 +309,12 @@ describe('Tier Management', () => {
   describe('updateTierSubscriberCount', () => {
     it('should update subscriber count correctly', async () => {
       const newCount = 8;
-      mockPrisma.subscription.count.mockResolvedValue(newCount);
+      mockPrisma.subscriptions.count.mockResolvedValue(newCount);
       mockPrisma.tiers.update.mockResolvedValue({ ...mockTier, subscriberCount: newCount });
 
       const result = await updateTierSubscriberCount(mockTierId);
 
-      expect(mockPrisma.subscription.count).toHaveBeenCalledWith({
+      expect(mockPrisma.subscriptions.count).toHaveBeenCalledWith({
         where: {
           tierId: mockTierId,
           status: SubscriptionStatus.ACTIVE,

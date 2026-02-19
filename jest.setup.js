@@ -1,4 +1,4 @@
-import '@testing-library/jest-dom';
+require('@testing-library/jest-dom');
 
 // Override jsdom HTMLMediaElement prototype methods BEFORE creating mock class
 if (typeof window !== 'undefined' && window.HTMLMediaElement) {
@@ -785,190 +785,77 @@ jest.mock('next/server', () => ({
   },
 }));
 
-// Mock Prisma Client
-jest.mock('@/lib/prisma', () => ({
-  prisma: {
-    // User model (singular and plural for compatibility)
-    user: {
-      findUnique: jest.fn(),
-      findMany: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-      count: jest.fn(),
-    },
-    users: {
-      findUnique: jest.fn(),
-      findMany: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-      count: jest.fn(),
-    },
-    // Subscription model (singular and plural for compatibility)
-    subscription: {
-      findUnique: jest.fn(),
-      findFirst: jest.fn(),
-      findMany: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      count: jest.fn(),
-    },
-    subscriptions: {
-      findUnique: jest.fn(),
-      findFirst: jest.fn(),
-      findMany: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      count: jest.fn(),
-    },
-    // Content model (singular and plural for compatibility)
-    content: {
-      findUnique: jest.fn(),
-      findMany: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      count: jest.fn(),
-    },
-    // Tier model (singular and plural for compatibility)
-    tier: {
-      findUnique: jest.fn(),
-      findMany: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-    },
-    tiers: {
-      findUnique: jest.fn(),
-      findMany: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-    },
-    artist: {
-      findUnique: jest.fn(),
-      findMany: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      aggregate: jest.fn(),
-    },
-    invoice: {
-      findMany: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      aggregate: jest.fn(),
-    },
-    comment: {
-      findMany: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-    },
-    message: {
-      findMany: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-    },
-    report: {
-      findMany: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-    },
-    paymentFailure: {
-      findMany: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-    },
+// Mock Prisma Client - helper to create a complete mock model
+function createMockModel() {
+  return {
+    findUnique: jest.fn(),
+    findFirst: jest.fn(),
+    findMany: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    updateMany: jest.fn(),
+    delete: jest.fn(),
+    deleteMany: jest.fn(),
+    count: jest.fn(),
+    aggregate: jest.fn(),
+    groupBy: jest.fn(),
+    upsert: jest.fn(),
+  };
+}
+
+function createPrismaMock() {
+  return {
+    // Plural names (match Prisma schema model names)
+    users: createMockModel(),
+    artists: createMockModel(),
+    subscriptions: createMockModel(),
+    tiers: createMockModel(),
+    content: createMockModel(),
+    invoices: createMockModel(),
+    comments: createMockModel(),
+    messages: createMockModel(),
+    reports: createMockModel(),
+    payment_failures: createMockModel(),
+    live_streams: createMockModel(),
+    stream_recordings: createMockModel(),
+    stream_chat_messages: createMockModel(),
+    stream_viewers: createMockModel(),
+    stream_polls: createMockModel(),
+    stream_poll_votes: createMockModel(),
+    stream_tips: createMockModel(),
+    moderation_logs: createMockModel(),
+    accounts: createMockModel(),
+    sessions: createMockModel(),
+    gdpr_requests: createMockModel(),
+    consent_records: createMockModel(),
+    content_views: createMockModel(),
+    content_likes: createMockModel(),
+    campaigns: createMockModel(),
+    playlists: createMockModel(),
+    playlist_items: createMockModel(),
+    age_verifications: createMockModel(),
+    price_optimizations: createMockModel(),
+    // Singular aliases (for tests that use singular names)
+    user: createMockModel(),
+    artist: createMockModel(),
+    subscription: createMockModel(),
+    tier: createMockModel(),
+    invoice: createMockModel(),
+    comment: createMockModel(),
+    message: createMockModel(),
+    report: createMockModel(),
+    paymentFailure: createMockModel(),
+    // Prisma utilities
     $queryRaw: jest.fn().mockResolvedValue([]),
     $executeRaw: jest.fn().mockResolvedValue(1),
-    $transaction: jest.fn(callback =>
-      callback({
-        user: {
-          findUnique: jest.fn(),
-          findMany: jest.fn(),
-          create: jest.fn(),
-          update: jest.fn(),
-          delete: jest.fn(),
-          count: jest.fn(),
-        },
-        users: {
-          findUnique: jest.fn(),
-          findMany: jest.fn(),
-          create: jest.fn(),
-          update: jest.fn(),
-          delete: jest.fn(),
-          count: jest.fn(),
-        },
-        subscription: {
-          findUnique: jest.fn(),
-          findFirst: jest.fn(),
-          findMany: jest.fn(),
-          create: jest.fn(),
-          update: jest.fn(),
-          count: jest.fn(),
-        },
-        subscriptions: {
-          findUnique: jest.fn(),
-          findFirst: jest.fn(),
-          findMany: jest.fn(),
-          create: jest.fn(),
-          update: jest.fn(),
-          count: jest.fn(),
-        },
-        content: {
-          findUnique: jest.fn(),
-          findMany: jest.fn(),
-          create: jest.fn(),
-          update: jest.fn(),
-          count: jest.fn(),
-        },
-        tier: {
-          findUnique: jest.fn(),
-          findMany: jest.fn(),
-          create: jest.fn(),
-          update: jest.fn(),
-        },
-        tiers: {
-          findUnique: jest.fn(),
-          findMany: jest.fn(),
-          create: jest.fn(),
-          update: jest.fn(),
-        },
-        artist: {
-          findUnique: jest.fn(),
-          findMany: jest.fn(),
-          create: jest.fn(),
-          update: jest.fn(),
-          aggregate: jest.fn(),
-        },
-        invoice: {
-          findMany: jest.fn(),
-          create: jest.fn(),
-          update: jest.fn(),
-          aggregate: jest.fn(),
-        },
-        comment: {
-          findMany: jest.fn(),
-          create: jest.fn(),
-          update: jest.fn(),
-        },
-        message: {
-          findMany: jest.fn(),
-          create: jest.fn(),
-          update: jest.fn(),
-        },
-        report: {
-          findMany: jest.fn(),
-          create: jest.fn(),
-          update: jest.fn(),
-        },
-        paymentFailure: {
-          findMany: jest.fn(),
-          create: jest.fn(),
-          update: jest.fn(),
-        },
-        $queryRaw: jest.fn().mockResolvedValue([]),
-        $executeRaw: jest.fn().mockResolvedValue(1),
-      })
-    ),
-  },
+  };
+}
+
+const mockPrismaInstance = createPrismaMock();
+mockPrismaInstance.$transaction = jest.fn(callback => callback(createPrismaMock()));
+
+jest.mock('@/lib/prisma', () => ({
+  prisma: mockPrismaInstance,
 }));
 
 // Notification functions will be tested with individual mocks

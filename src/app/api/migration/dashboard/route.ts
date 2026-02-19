@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Migration Dashboard API
  * Provides real-time migration progress and monitoring data

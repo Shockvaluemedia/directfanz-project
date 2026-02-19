@@ -1,4 +1,6 @@
 import { getServiceManager } from './service-manager-production';
+import { emailService } from './email-service';
+import { logger } from './logger';
 
 interface PaymentRetryConfig {
   maxRetries: number;
@@ -89,11 +91,29 @@ export class PaymentReliabilityManager {
     customerId: string,
     error: string
   ): Promise<void> {
-    // Log payment failure
-    console.error(`Payment failed: ${paymentIntentId}`, { customerId, error });
-    
-    // Send notification to customer
-    // In production, integrate with email service
+    logger.error('Payment failed', { paymentIntentId, customerId, error });
+
+    try {
+      const customer = await this.serviceManager.stripeClient.customers.retrieve(customerId);
+
+      if (customer && !customer.deleted && customer.email) {
+        await emailService.sendEmail({
+          to: customer.email,
+          template: 'paymentFailed',
+          variables: {
+            name: customer.name || 'Customer',
+            amount: 0,
+            artistName: 'Artist',
+            retryUrl: `${process.env.NEXTAUTH_URL || ''}/billing/retry?payment_intent=${paymentIntentId}`,
+          },
+        });
+      }
+    } catch (emailError) {
+      logger.error('Failed to send payment failure notification', {
+        paymentIntentId,
+        customerId,
+      }, emailError as Error);
+    }
   }
 }
 

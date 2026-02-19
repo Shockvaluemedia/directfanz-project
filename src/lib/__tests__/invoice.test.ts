@@ -7,7 +7,7 @@ jest.mock('@/lib/prisma', () => ({
       findMany: jest.fn(),
       findUnique: jest.fn(),
     },
-    subscription: {
+    subscriptions: {
       findUnique: jest.fn(),
     },
   },
@@ -305,7 +305,7 @@ describe('Invoice Functions', () => {
       };
 
       mockGenerateInvoiceData.mockResolvedValue(mockInvoiceData as any);
-      mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
+      mockPrisma.subscriptions.findUnique.mockResolvedValue(mockSubscription as any);
       mockPrisma.invoice.findUnique.mockResolvedValue(null);
       mockPrisma.invoice.create.mockResolvedValue({ id: 'inv_123' } as any);
 
@@ -337,7 +337,7 @@ describe('Invoice Functions', () => {
       };
 
       mockGenerateInvoiceData.mockResolvedValue(mockInvoiceData as any);
-      mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
+      mockPrisma.subscriptions.findUnique.mockResolvedValue(mockSubscription as any);
       mockPrisma.invoice.findUnique.mockResolvedValue(existingInvoice as any);
       mockPrisma.invoice.update.mockResolvedValue({ id: 'inv_123', updated: true } as any);
 
@@ -382,7 +382,7 @@ describe('Invoice Functions', () => {
       };
 
       mockGenerateInvoiceData.mockResolvedValue(mockInvoiceData as any);
-      mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
+      mockPrisma.subscriptions.findUnique.mockResolvedValue(mockSubscription as any);
       mockPrisma.invoice.findUnique.mockResolvedValue(null);
       mockPrisma.invoice.create.mockResolvedValue({ id: 'inv_123' } as any);
 
@@ -400,7 +400,7 @@ describe('Invoice Functions', () => {
         id: 'in_stripe_123',
         subscriptionId: 'stripe_sub_123',
       } as any);
-      mockPrisma.subscription.findUnique.mockResolvedValue(null);
+      mockPrisma.subscriptions.findUnique.mockResolvedValue(null);
 
       await expect(generateAndStoreInvoice('in_stripe_123')).rejects.toThrow(
         'Failed to generate and store invoice'
@@ -416,12 +416,12 @@ describe('Invoice Functions', () => {
         status: 'PAID',
         dueDate: new Date('2022-01-01'),
         subscription: {
-          fan: {
+          users: {
             id: 'fan_123',
             email: 'fan@example.com',
             notificationPreferences: { billing: true },
           },
-          tier: {
+          tiers: {
             name: 'Premium',
           },
         },
@@ -444,11 +444,11 @@ describe('Invoice Functions', () => {
       const mockInvoice = {
         id: 'inv_123',
         subscription: {
-          fan: {
+          users: {
             id: 'fan_123',
             email: null,
           },
-          tier: {
+          tiers: {
             name: 'Premium',
           },
         },
@@ -466,12 +466,12 @@ describe('Invoice Functions', () => {
       const mockInvoice = {
         id: 'inv_123',
         subscription: {
-          fan: {
+          users: {
             id: 'fan_123',
             email: 'fan@example.com',
             notificationPreferences: { billing: false },
           },
-          tier: {
+          tiers: {
             name: 'Premium',
           },
         },
@@ -495,13 +495,13 @@ describe('Invoice Functions', () => {
         status: 'OPEN',
         dueDate: new Date('2022-01-01'),
         subscription: {
-          fan: {
+          users: {
             id: 'fan_123',
             email: 'fan@example.com',
             displayName: 'Fan User',
             notificationPreferences: { billing: true },
           },
-          tier: {
+          tiers: {
             id: 'tier_123',
             name: 'Premium',
           },
@@ -577,7 +577,7 @@ describe('Invoice Functions', () => {
         },
       };
 
-      mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
+      mockPrisma.subscriptions.findUnique.mockResolvedValue(mockSubscription as any);
       mockStripe.invoices.retrieveUpcoming.mockResolvedValue(mockStripeInvoice as any);
 
       const result = await getUpcomingInvoice('sub_123');
@@ -593,7 +593,7 @@ describe('Invoice Functions', () => {
     });
 
     it('should throw error if subscription not found', async () => {
-      mockPrisma.subscription.findUnique.mockResolvedValue(null);
+      mockPrisma.subscriptions.findUnique.mockResolvedValue(null);
 
       await expect(getUpcomingInvoice('nonexistent')).rejects.toThrow(
         'Failed to get upcoming invoice'

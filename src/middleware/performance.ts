@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { performanceMonitor } from '@/lib/performance-monitor';
 

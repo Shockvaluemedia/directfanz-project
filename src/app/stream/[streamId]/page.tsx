@@ -11,10 +11,10 @@ interface StreamPageProps {
 
 async function getStreamData(streamId: string) {
   try {
-    const stream = await prisma.liveStream.findUnique({
+    const stream = await prisma.live_streams.findUnique({
       where: { id: streamId },
       include: {
-        artist: {
+        users: {
           select: {
             id: true,
             displayName: true,
@@ -41,18 +41,18 @@ export async function generateMetadata({ params }: StreamPageProps): Promise<Met
   }
 
   return {
-    title: `${stream.title} | ${stream.artist.displayName} - Live Stream`,
-    description: stream.description || `Watch ${stream.artist.displayName}'s live stream`,
+    title: `${stream.title} | ${stream.users.displayName} - Live Stream`,
+    description: stream.description || `Watch ${stream.users.displayName}'s live stream`,
     openGraph: {
       title: stream.title,
-      description: stream.description || `Watch ${stream.artist.displayName}'s live stream`,
+      description: stream.description || `Watch ${stream.users.displayName}'s live stream`,
       type: 'video.other',
       images: stream.thumbnailUrl ? [{ url: stream.thumbnailUrl }] : undefined,
     },
     twitter: {
       card: 'player',
       title: stream.title,
-      description: stream.description || `Watch ${stream.artist.displayName}'s live stream`,
+      description: stream.description || `Watch ${stream.users.displayName}'s live stream`,
       images: stream.thumbnailUrl ? [stream.thumbnailUrl] : undefined,
     },
   };

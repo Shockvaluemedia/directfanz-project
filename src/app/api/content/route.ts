@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { FileUploader } from '@/lib/upload';
+import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3';
 
 const listQuerySchema = z.object({
   page: z.string().optional().default('1'),
@@ -402,15 +403,40 @@ export async function DELETE(request: NextRequest) {
         where: { id: contentId },
       });
 
-      // TODO: Delete actual files from storage
-      // This should be implemented based on your file storage solution
-      // For now, we'll just log what files should be deleted
+      // Delete actual files from S3 storage
       if (existingContent.fileUrl) {
-        logger.info('File deletion needed', {
-          contentId,
-          fileUrl: existingContent.fileUrl,
-          thumbnailUrl: existingContent.thumbnailUrl,
-        });
+        const bucketName = process.env.AWS_S3_BUCKET_NAME;
+        if (bucketName) {
+          const s3 = new S3Client({
+            region: process.env.AWS_REGION || 'us-east-1',
+            credentials: {
+              accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+              secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+            },
+          });
+
+          const extractKey = (url: string): string | null => {
+            try {
+              const parsed = new URL(url);
+              // Handle CloudFront or S3 URLs - key is the path without leading slash
+              return parsed.pathname.replace(/^\//, '');
+            } catch {
+              return null;
+            }
+          };
+
+          const filesToDelete = [existingContent.fileUrl, existingContent.thumbnailUrl].filter(Boolean) as string[];
+
+          await Promise.allSettled(
+            filesToDelete.map(async (url) => {
+              const key = extractKey(url);
+              if (key) {
+                await s3.send(new DeleteObjectCommand({ Bucket: bucketName, Key: key }));
+                logger.info('S3 file deleted', { contentId, key });
+              }
+            })
+          );
+        }
       }
 
       logger.info('Content deleted', {

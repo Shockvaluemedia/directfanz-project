@@ -441,8 +441,7 @@ export default function ArtistDiscovery({ initialArtists = [] }: ArtistDiscovery
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    // TODO: Implement subscribe functionality
-                    alert('Subscribe feature coming soon!');
+                    router.push(`/artist/${artist.id}#subscribe`);
                   }}
                   className='px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-50 transition-colors'
                 >

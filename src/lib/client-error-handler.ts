@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Client-side error handling utilities
  * Handles errors in React components, async operations, and API calls

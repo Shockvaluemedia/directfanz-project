@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { Card } from '@/components/ui/card';

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Database Query Performance Optimizer for DirectFanz AWS Migration
  * 

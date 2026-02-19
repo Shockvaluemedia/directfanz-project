@@ -37,9 +37,9 @@ export async function GET(request: NextRequest) {
             status: 'ACTIVE',
           },
           include: {
-            tier: {
+            tiers: {
               include: {
-                artist: {
+                users: {
                   select: {
                     id: true,
                     socialLinks: true, // This might contain genre info

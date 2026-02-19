@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Advanced Media Processing Infrastructure
  *

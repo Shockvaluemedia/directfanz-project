@@ -1,373 +1,371 @@
-import React from 'react';
-import { getServerSession } from 'next-auth/next';
-import { redirect } from 'next/navigation';
-import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
-import { getRedisClient } from '@/lib/redis';
-import { logger } from '@/lib/logger';
+'use client';
 
-/**
- * Admin monitoring dashboard for production health and performance metrics
- */
-export default async function MonitoringDashboard() {
-  // Check if user is authenticated and has admin role
-  const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== 'admin') {
-    redirect('/auth/signin');
-  }
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState, useCallback } from 'react';
 
-  // Fetch system metrics
-  const metrics = await getSystemMetrics();
-
-  return (
-    <div className='container mx-auto px-4 py-8'>
-      <h1 className='text-3xl font-bold mb-8'>System Monitoring Dashboard</h1>
-
-      <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8'>
-        <MetricCard
-          title='System Status'
-          value={metrics.status}
-          status={metrics.status === 'Healthy' ? 'success' : 'error'}
-        />
-        <MetricCard
-          title='Active Users (24h)'
-          value={metrics.activeUsers.toString()}
-          status='info'
-        />
-        <MetricCard
-          title='API Response Time'
-          value={`${metrics.apiResponseTime.toFixed(2)}ms`}
-          status={metrics.apiResponseTime < 300 ? 'success' : 'warning'}
-        />
-        <MetricCard
-          title='Error Rate (24h)'
-          value={`${metrics.errorRate.toFixed(2)}%`}
-          status={metrics.errorRate < 1 ? 'success' : metrics.errorRate < 5 ? 'warning' : 'error'}
-        />
-      </div>
-
-      <div className='grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8'>
-        <div className='bg-white dark:bg-gray-800 rounded-lg shadow p-6'>
-          <h2 className='text-xl font-semibold mb-4'>Database Health</h2>
-          <div className='space-y-4'>
-            <MetricRow label='Connection Status' value={metrics.database.status} />
-            <MetricRow
-              label='Connection Latency'
-              value={`${metrics.database.latency.toFixed(2)}ms`}
-            />
-            <MetricRow label='Active Connections' value={metrics.database.connections.toString()} />
-            <MetricRow
-              label='Query Performance'
-              value={`${metrics.database.queryPerformance.toFixed(2)}ms avg`}
-            />
-          </div>
-        </div>
-
-        <div className='bg-white dark:bg-gray-800 rounded-lg shadow p-6'>
-          <h2 className='text-xl font-semibold mb-4'>Redis Cache</h2>
-          <div className='space-y-4'>
-            <MetricRow label='Connection Status' value={metrics.redis.status} />
-            <MetricRow label='Memory Usage' value={metrics.redis.memoryUsage} />
-            <MetricRow label='Hit Rate' value={`${metrics.redis.hitRate.toFixed(2)}%`} />
-            <MetricRow label='Cache Size' value={metrics.redis.cacheSize} />
-          </div>
-        </div>
-      </div>
-
-      <div className='grid grid-cols-1 gap-6 mb-8'>
-        <div className='bg-white dark:bg-gray-800 rounded-lg shadow p-6'>
-          <h2 className='text-xl font-semibold mb-4'>API Endpoint Performance</h2>
-          <div className='overflow-x-auto'>
-            <table className='min-w-full divide-y divide-gray-200 dark:divide-gray-700'>
-              <thead>
-                <tr>
-                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
-                    Endpoint
-                  </th>
-                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
-                    Response Time
-                  </th>
-                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
-                    Cache Hit Rate
-                  </th>
-                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
-                    Status
-                  </th>
-                </tr>
-              </thead>
-              <tbody className='divide-y divide-gray-200 dark:divide-gray-700'>
-                {metrics.endpoints.map(endpoint => (
-                  <tr key={endpoint.path}>
-                    <td className='px-6 py-4 whitespace-nowrap text-sm font-medium'>
-                      {endpoint.path}
-                    </td>
-                    <td className='px-6 py-4 whitespace-nowrap text-sm'>
-                      {endpoint.responseTime.toFixed(2)}ms
-                    </td>
-                    <td className='px-6 py-4 whitespace-nowrap text-sm'>
-                      {endpoint.cacheHitRate.toFixed(2)}%
-                    </td>
-                    <td className='px-6 py-4 whitespace-nowrap text-sm'>
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          endpoint.status === 'Healthy'
-                            ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'
-                            : 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'
-                        }`}
-                      >
-                        {endpoint.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <div className='grid grid-cols-1 lg:grid-cols-2 gap-6'>
-        <div className='bg-white dark:bg-gray-800 rounded-lg shadow p-6'>
-          <h2 className='text-xl font-semibold mb-4'>Recent Errors</h2>
-          {metrics.recentErrors.length > 0 ? (
-            <ul className='space-y-3'>
-              {metrics.recentErrors.map((error, index) => (
-                <li key={index} className='bg-red-50 dark:bg-red-900/20 p-3 rounded-md'>
-                  <p className='text-sm font-medium text-red-800 dark:text-red-200'>
-                    {error.message}
-                  </p>
-                  <p className='text-xs text-red-700 dark:text-red-300 mt-1'>
-                    {error.timestamp} • {error.path}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className='text-gray-500 dark:text-gray-400'>No recent errors</p>
-          )}
-        </div>
-
-        <div className='bg-white dark:bg-gray-800 rounded-lg shadow p-6'>
-          <h2 className='text-xl font-semibold mb-4'>System Events</h2>
-          {metrics.systemEvents.length > 0 ? (
-            <ul className='space-y-3'>
-              {metrics.systemEvents.map((event, index) => (
-                <li
-                  key={index}
-                  className='border-l-4 pl-3 py-1'
-                  style={{ borderColor: getEventColor(event.type) }}
-                >
-                  <p className='text-sm font-medium'>{event.message}</p>
-                  <p className='text-xs text-gray-500 dark:text-gray-400 mt-1'>{event.timestamp}</p>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className='text-gray-500 dark:text-gray-400'>No system events</p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+interface SystemMetrics {
+  status: string;
+  activeUsers: number;
+  apiLatency: number;
+  errorRate: number;
+  uptime: string;
+  database: {
+    status: string;
+    latency: number;
+    connections: number;
+  };
+  redis: {
+    status: string;
+    memoryUsage: string;
+    hitRate: number;
+  };
+  endpoints: EndpointMetric[];
+  recentErrors: ErrorEntry[];
 }
 
-// Helper component for metric cards
-function MetricCard({
-  title,
-  value,
-  status,
-}: {
-  title: string;
-  value: string;
-  status: 'success' | 'warning' | 'error' | 'info';
-}) {
-  const getStatusColor = () => {
-    switch (status) {
-      case 'success':
-        return 'bg-green-100 text-green-800 dark:bg-green-800/20 dark:text-green-300';
-      case 'warning':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-800/20 dark:text-yellow-300';
-      case 'error':
-        return 'bg-red-100 text-red-800 dark:bg-red-800/20 dark:text-red-300';
-      case 'info':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-800/20 dark:text-blue-300';
+interface EndpointMetric {
+  path: string;
+  responseTime: number;
+  requestCount: number;
+  errorCount: number;
+  status: string;
+}
+
+interface ErrorEntry {
+  message: string;
+  timestamp: string;
+  path: string;
+  count: number;
+}
+
+const defaultMetrics: SystemMetrics = {
+  status: 'Unknown',
+  activeUsers: 0,
+  apiLatency: 0,
+  errorRate: 0,
+  uptime: '--',
+  database: { status: 'Unknown', latency: 0, connections: 0 },
+  redis: { status: 'Unknown', memoryUsage: '0 MB', hitRate: 0 },
+  endpoints: [],
+  recentErrors: [],
+};
+
+export default function MonitoringDashboard() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
+  const isAdmin =
+    session?.user?.role === 'ADMIN' ||
+    session?.user?.role === 'admin' ||
+    session?.user?.email === 'admin@directfan.com';
+
+  const [metrics, setMetrics] = useState<SystemMetrics>(defaultMetrics);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
+
+  const fetchMetrics = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await fetch('/api/admin/monitoring');
+      if (!res.ok) {
+        throw new Error(`Failed to fetch metrics: ${res.statusText}`);
+      }
+      const data = await res.json();
+      setMetrics(data);
+      setLastRefreshed(new Date());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load system metrics');
+    } finally {
+      setLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    if (status === 'loading') return;
+    if (!session) {
+      router.push('/auth/signin');
+      return;
+    }
+    if (!isAdmin) {
+      router.push('/dashboard');
+      return;
+    }
+    fetchMetrics();
+  }, [session, status, isAdmin, router, fetchMetrics]);
+
+  // Auto-refresh every 30 seconds
+  useEffect(() => {
+    if (!isAdmin) return;
+    const interval = setInterval(fetchMetrics, 30000);
+    return () => clearInterval(interval);
+  }, [isAdmin, fetchMetrics]);
+
+  const getHealthColor = (s: string): string => {
+    const normalized = s.toLowerCase();
+    if (normalized === 'healthy' || normalized === 'connected') return 'text-green-600';
+    if (normalized === 'degraded' || normalized === 'warning') return 'text-yellow-600';
+    return 'text-red-600';
   };
 
+  const getHealthBg = (s: string): string => {
+    const normalized = s.toLowerCase();
+    if (normalized === 'healthy' || normalized === 'connected')
+      return 'bg-green-100 text-green-800';
+    if (normalized === 'degraded' || normalized === 'warning')
+      return 'bg-yellow-100 text-yellow-800';
+    return 'bg-red-100 text-red-800';
+  };
+
+  if (status === 'loading' || (loading && !error && metrics.status === 'Unknown')) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading system metrics...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!session || !isAdmin) {
+    return null;
+  }
+
   return (
-    <div className={`rounded-lg shadow p-6 ${getStatusColor()}`}>
-      <h3 className='text-sm font-medium opacity-80'>{title}</h3>
-      <p className='text-2xl font-bold mt-2'>{value}</p>
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">System Monitoring</h1>
+            <p className="mt-2 text-gray-600">
+              Real-time system health and performance metrics
+              {lastRefreshed && (
+                <span className="ml-2 text-xs text-gray-400">
+                  Last updated: {lastRefreshed.toLocaleTimeString()}
+                </span>
+              )}
+            </p>
+          </div>
+          <button
+            onClick={fetchMetrics}
+            disabled={loading}
+            className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white px-4 py-2 rounded-md font-medium transition-colors"
+          >
+            {loading ? 'Refreshing...' : 'Refresh'}
+          </button>
+        </div>
+
+        {/* Error banner */}
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md flex items-center justify-between">
+            <span>{error}</span>
+            <button
+              onClick={fetchMetrics}
+              className="text-red-600 hover:text-red-800 font-medium underline ml-4"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {/* Top-level metric cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className={`rounded-lg border p-6 ${metrics.status.toLowerCase() === 'healthy' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+            <p className="text-sm font-medium text-gray-600">System Status</p>
+            <p className={`text-2xl font-bold mt-2 ${getHealthColor(metrics.status)}`}>
+              {metrics.status}
+            </p>
+            {metrics.uptime && (
+              <p className="text-xs text-gray-500 mt-1">Uptime: {metrics.uptime}</p>
+            )}
+          </div>
+
+          <div className="rounded-lg border p-6 bg-blue-50 border-blue-200">
+            <p className="text-sm font-medium text-gray-600">Active Users (24h)</p>
+            <p className="text-2xl font-bold mt-2 text-blue-600">
+              {metrics.activeUsers.toLocaleString()}
+            </p>
+          </div>
+
+          <div className={`rounded-lg border p-6 ${metrics.apiLatency < 300 ? 'bg-green-50 border-green-200' : metrics.apiLatency < 500 ? 'bg-yellow-50 border-yellow-200' : 'bg-red-50 border-red-200'}`}>
+            <p className="text-sm font-medium text-gray-600">API Latency (avg)</p>
+            <p className={`text-2xl font-bold mt-2 ${metrics.apiLatency < 300 ? 'text-green-600' : metrics.apiLatency < 500 ? 'text-yellow-600' : 'text-red-600'}`}>
+              {metrics.apiLatency.toFixed(0)}ms
+            </p>
+          </div>
+
+          <div className={`rounded-lg border p-6 ${metrics.errorRate < 1 ? 'bg-green-50 border-green-200' : metrics.errorRate < 5 ? 'bg-yellow-50 border-yellow-200' : 'bg-red-50 border-red-200'}`}>
+            <p className="text-sm font-medium text-gray-600">Error Rate (24h)</p>
+            <p className={`text-2xl font-bold mt-2 ${metrics.errorRate < 1 ? 'text-green-600' : metrics.errorRate < 5 ? 'text-yellow-600' : 'text-red-600'}`}>
+              {metrics.errorRate.toFixed(2)}%
+            </p>
+          </div>
+        </div>
+
+        {/* Database & Redis */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Database Health</h2>
+            <div className="space-y-3">
+              <MetricRow
+                label="Connection Status"
+                value={metrics.database.status}
+                valueClass={getHealthBg(metrics.database.status)}
+                isBadge
+              />
+              <MetricRow
+                label="Connection Latency"
+                value={`${metrics.database.latency.toFixed(1)}ms`}
+              />
+              <MetricRow
+                label="Active Connections"
+                value={metrics.database.connections.toString()}
+              />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Redis Cache</h2>
+            <div className="space-y-3">
+              <MetricRow
+                label="Connection Status"
+                value={metrics.redis.status}
+                valueClass={getHealthBg(metrics.redis.status)}
+                isBadge
+              />
+              <MetricRow label="Memory Usage" value={metrics.redis.memoryUsage} />
+              <MetricRow
+                label="Hit Rate"
+                value={`${metrics.redis.hitRate.toFixed(1)}%`}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* API Endpoint Performance */}
+        {metrics.endpoints.length > 0 && (
+          <div className="bg-white rounded-lg shadow mb-8 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">
+                API Endpoint Performance
+              </h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Endpoint
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Response Time
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Requests
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Errors
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {metrics.endpoints.map((ep) => (
+                    <tr key={ep.path} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
+                        {ep.path}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {ep.responseTime.toFixed(1)}ms
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {ep.requestCount.toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {ep.errorCount}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getHealthBg(ep.status)}`}
+                        >
+                          {ep.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Recent Errors */}
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900">Recent Errors</h2>
+          </div>
+          {metrics.recentErrors.length === 0 ? (
+            <div className="px-6 py-8 text-center text-gray-500">
+              No recent errors. All systems operating normally.
+            </div>
+          ) : (
+            <ul className="divide-y divide-gray-200">
+              {metrics.recentErrors.map((err, i) => (
+                <li key={i} className="px-6 py-4 hover:bg-gray-50">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-red-700">{err.message}</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {err.path} -- {err.timestamp}
+                      </p>
+                    </div>
+                    {err.count > 1 && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700">
+                        x{err.count}
+                      </span>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
 
-// Helper component for metric rows
-function MetricRow({ label, value }: { label: string; value: string }) {
+function MetricRow({
+  label,
+  value,
+  valueClass,
+  isBadge,
+}: {
+  label: string;
+  value: string;
+  valueClass?: string;
+  isBadge?: boolean;
+}) {
   return (
-    <div className='flex justify-between items-center'>
-      <span className='text-sm text-gray-500 dark:text-gray-400'>{label}</span>
-      <span className='text-sm font-medium'>{value}</span>
+    <div className="flex items-center justify-between">
+      <span className="text-sm text-gray-500">{label}</span>
+      {isBadge ? (
+        <span
+          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${valueClass}`}
+        >
+          {value}
+        </span>
+      ) : (
+        <span className={`text-sm font-medium text-gray-900 ${valueClass ?? ''}`}>
+          {value}
+        </span>
+      )}
     </div>
   );
-}
-
-// Helper function to get event color
-function getEventColor(type: string) {
-  switch (type) {
-    case 'info':
-      return '#3b82f6';
-    case 'warning':
-      return '#f59e0b';
-    case 'error':
-      return '#ef4444';
-    case 'success':
-      return '#10b981';
-    default:
-      return '#6b7280';
-  }
-}
-
-// Function to fetch system metrics
-async function getSystemMetrics() {
-  try {
-    // In a real implementation, these would be fetched from actual monitoring systems
-    // For now, we'll return mock data
-
-    // Check database connection
-    let databaseStatus = 'Connected';
-    let databaseLatency = 15;
-    try {
-      const dbStartTime = Date.now();
-      await prisma.$queryRaw`SELECT 1`;
-      databaseLatency = Date.now() - dbStartTime;
-    } catch (error) {
-      logger.error('Monitoring dashboard: Database connection failed', {}, error as Error);
-      databaseStatus = 'Disconnected';
-      databaseLatency = 0;
-    }
-
-    // Check Redis connection
-    let redisStatus = 'Connected';
-    let redisMemoryUsage = '0 MB';
-    try {
-      const redisClient = await getRedisClient();
-      if (redisClient) {
-        await redisClient.ping();
-        const info = (await redisClient.sendCommand(['INFO', 'memory'])) as string;
-        const memoryMatch = info?.match(/used_memory_human:(.+)/);
-        redisMemoryUsage = memoryMatch ? memoryMatch[1].trim() : 'Unknown';
-      } else {
-        redisStatus = 'Not configured';
-      }
-    } catch (error) {
-      logger.error('Monitoring dashboard: Redis connection failed', {}, error as Error);
-      redisStatus = 'Disconnected';
-    }
-
-    // Get total users (placeholder for active users since lastLoginAt field doesn't exist)
-    let activeUsers = 0;
-    try {
-      activeUsers = await prisma.users.count();
-      // In a real implementation, this would track user activity
-      activeUsers = Math.round(activeUsers * 0.3); // Simulate 30% daily activity
-    } catch (error) {
-      logger.error('Monitoring dashboard: Failed to get user count', {}, error as Error);
-    }
-
-    return {
-      status:
-        databaseStatus === 'Connected' && redisStatus === 'Connected' ? 'Healthy' : 'Unhealthy',
-      activeUsers,
-      apiResponseTime: 120.5,
-      errorRate: 0.42,
-      database: {
-        status: databaseStatus,
-        latency: databaseLatency,
-        connections: 5,
-        queryPerformance: 45.2,
-      },
-      redis: {
-        status: redisStatus,
-        memoryUsage: redisMemoryUsage,
-        hitRate: 87.3,
-        cacheSize: '24 MB',
-      },
-      endpoints: [
-        {
-          path: '/api/artist/analytics',
-          responseTime: 145.2,
-          cacheHitRate: 92.5,
-          status: 'Healthy',
-        },
-        { path: '/api/fan/artists', responseTime: 78.4, cacheHitRate: 95.1, status: 'Healthy' },
-        { path: '/api/fan/content/1', responseTime: 210.7, cacheHitRate: 82.3, status: 'Healthy' },
-        { path: '/api/artist/tiers', responseTime: 65.1, cacheHitRate: 89.7, status: 'Healthy' },
-        { path: '/api/health', responseTime: 12.3, cacheHitRate: 0, status: 'Healthy' },
-        {
-          path: '/api/billing/invoices',
-          responseTime: 187.9,
-          cacheHitRate: 76.4,
-          status: 'Healthy',
-        },
-      ],
-      recentErrors: [
-        {
-          message: 'Failed to process payment for subscription',
-          timestamp: '2025-07-16 14:32:45',
-          path: '/api/payments/webhooks',
-        },
-        {
-          message: 'S3 upload timeout',
-          timestamp: '2025-07-16 12:18:22',
-          path: '/api/artist/content/upload',
-        },
-      ],
-      systemEvents: [
-        {
-          type: 'info',
-          message: 'System backup completed successfully',
-          timestamp: '2025-07-16 03:00:00',
-        },
-        { type: 'warning', message: 'High CPU usage detected', timestamp: '2025-07-16 10:45:12' },
-        {
-          type: 'success',
-          message: 'Database migration completed',
-          timestamp: '2025-07-16 02:15:30',
-        },
-        { type: 'info', message: 'Cache purged automatically', timestamp: '2025-07-16 06:00:00' },
-      ],
-    };
-  } catch (error) {
-    logger.error('Failed to fetch system metrics', {}, error as Error);
-
-    // Return fallback metrics
-    return {
-      status: 'Unknown',
-      activeUsers: 0,
-      apiResponseTime: 0,
-      errorRate: 0,
-      database: {
-        status: 'Unknown',
-        latency: 0,
-        connections: 0,
-        queryPerformance: 0,
-      },
-      redis: {
-        status: 'Unknown',
-        memoryUsage: 'Unknown',
-        hitRate: 0,
-        cacheSize: 'Unknown',
-      },
-      endpoints: [],
-      recentErrors: [],
-      systemEvents: [
-        {
-          type: 'error',
-          message: 'Failed to fetch system metrics',
-          timestamp: new Date().toISOString(),
-        },
-      ],
-    };
-  }
 }

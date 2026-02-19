@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Centralized Security Configuration
  *

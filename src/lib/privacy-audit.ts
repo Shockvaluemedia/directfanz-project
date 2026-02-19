@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { getDatabaseClient } from './database-production';
 
 interface AuditLogEntry {

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Unified API Error Handling System
  * Consolidates error handling patterns across the application

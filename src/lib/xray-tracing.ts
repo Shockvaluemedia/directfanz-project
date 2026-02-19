@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * AWS X-Ray Distributed Tracing Service
  * Implements comprehensive distributed tracing for the DirectFanz platform

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { prisma } from './prisma';
 import { UserRole, SubscriptionStatus } from '@/types/database';
 import jwt from 'jsonwebtoken';

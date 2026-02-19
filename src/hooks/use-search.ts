@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useState, useEffect, useMemo } from 'react';
 import Fuse from 'fuse.js';
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';

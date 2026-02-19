@@ -120,7 +120,7 @@ export default function PlayerPage() {
           {/* Main Player */}
           <div className='lg:col-span-3'>
             <InteractiveMediaPlayer
-              initialTrack={currentTrack}
+              initialTrack={currentTrack ?? undefined}
               playlist={currentPlaylist}
               showComments={true}
               showLyrics={true}

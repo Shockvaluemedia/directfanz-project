@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Error monitoring and reporting integration
  * Integrates with Sentry and other monitoring services

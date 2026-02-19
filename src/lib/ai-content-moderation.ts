@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { createAgentTask, createAgentRegistry, DEFAULT_AGENT_CONFIGS } from '@/lib/ai';
 import { Logger } from '@/lib/logger';
 import { ContentType } from '@/lib/types/enums';

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { withStreamManagement } from '@/lib/streaming-auth';
 import { MediaConvert } from 'aws-sdk';

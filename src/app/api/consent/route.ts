@@ -1,0 +1,121 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { GDPRComplianceService } from '@/lib/legal-compliance';
+import { z } from 'zod';
+
+const consentPostSchema = z.object({
+  categories: z
+    .array(z.string().min(1))
+    .min(1, 'At least one consent category is required'),
+  source: z
+    .enum(['BANNER', 'SETTINGS', 'REGISTRATION', 'API'])
+    .optional()
+    .default('BANNER'),
+});
+
+const VALID_CONSENT_TYPES = ['COOKIES', 'MARKETING', 'ANALYTICS', 'FUNCTIONAL', 'NECESSARY'] as const;
+
+// POST /api/consent - Record user consent preferences
+export async function POST(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized. You must be logged in to manage consent.' },
+        { status: 401 }
+      );
+    }
+
+    const body = await request.json();
+    const parsed = consentPostSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Validation failed',
+          details: parsed.error.errors.map(e => ({
+            field: e.path.join('.'),
+            message: e.message,
+          })),
+        },
+        { status: 400 }
+      );
+    }
+
+    const { categories, source } = parsed.data;
+
+    const ip = request.ip || request.headers.get('x-forwarded-for') || undefined;
+    const userAgent = request.headers.get('user-agent') || undefined;
+
+    const consentIds: string[] = [];
+
+    for (const category of VALID_CONSENT_TYPES) {
+      const granted = categories.includes(category.toLowerCase()) || category === 'NECESSARY';
+      const consentId = await GDPRComplianceService.recordConsent(
+        session.user.id,
+        category,
+        granted,
+        source,
+        ip,
+        userAgent
+      );
+      consentIds.push(consentId);
+    }
+
+    return NextResponse.json({
+      success: true,
+      consentIds,
+      message: 'Consent preferences have been recorded successfully.',
+    });
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid JSON in request body' },
+        { status: 400 }
+      );
+    }
+    console.error('Consent recording error:', error);
+    return NextResponse.json(
+      { success: false, error: 'An internal error occurred while recording consent' },
+      { status: 500 }
+    );
+  }
+}
+
+// GET /api/consent - Retrieve current consent records for the authenticated user
+export async function GET() {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized. You must be logged in to view consent records.' },
+        { status: 401 }
+      );
+    }
+
+    const consents = await GDPRComplianceService.getUserConsents(session.user.id);
+
+    // Build a summary of current consent status per category
+    const consentSummary: Record<string, boolean> = {};
+    for (const category of VALID_CONSENT_TYPES) {
+      const hasConsent = await GDPRComplianceService.hasConsent(session.user.id, category);
+      consentSummary[category] = hasConsent;
+    }
+
+    return NextResponse.json({
+      success: true,
+      consents,
+      summary: consentSummary,
+    });
+  } catch (error) {
+    console.error('Get consents error:', error);
+    return NextResponse.json(
+      { success: false, error: 'An internal error occurred while retrieving consent records' },
+      { status: 500 }
+    );
+  }
+}

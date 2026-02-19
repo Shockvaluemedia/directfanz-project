@@ -15,7 +15,7 @@ import {
   Heart,
   Megaphone,
 } from 'lucide-react';
-import { NotificationPreferences, DEFAULT_NOTIFICATION_PREFERENCES } from '@/lib/notifications';
+import { NotificationPreferences, DEFAULT_NOTIFICATION_PREFERENCES } from '@/lib/notification-types';
 
 interface ToggleSwitchProps {
   enabled: boolean;

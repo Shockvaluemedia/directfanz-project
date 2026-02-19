@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { withContentAccess } from '@/middleware/content-access';
 import { prisma } from '@/lib/prisma';

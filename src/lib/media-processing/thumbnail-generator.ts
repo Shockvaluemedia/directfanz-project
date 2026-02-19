@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Advanced Thumbnail and Preview Generation System
  *

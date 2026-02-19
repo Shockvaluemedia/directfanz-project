@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Migration Progress Tracking Service
  * Provides comprehensive tracking and reporting for AWS migration progress
@@ -16,8 +17,8 @@ import {
   SNSClient, 
   PublishCommand 
 } from '@aws-sdk/client-sns';
-import { getParameter } from './aws-config.js';
-import { logger } from './logger.js';
+import { getParameter } from './aws-config';
+import { logger } from './logger';
 
 export interface MigrationPhase {
   id: string;

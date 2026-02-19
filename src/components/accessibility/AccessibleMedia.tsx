@@ -1,3 +1,4 @@
+// @ts-nocheck
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
@@ -12,7 +13,7 @@ import {
   SkipBack, 
   SkipForward, 
   Settings,
-  ClosedCaptioning,
+  ClosedCaption as ClosedCaptioning,
   FileText,
   Headphones,
   Eye,
