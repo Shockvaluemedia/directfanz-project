@@ -39,7 +39,9 @@ export async function GET(request: NextRequest) {
     const [
       userStats,
       contentStats,
-      recentActivity
+      recentActivity,
+      revenueStats,
+      reportStats,
     ] = await Promise.all([
       // Combined user statistics in single query
       prisma.users.groupBy({
@@ -90,6 +92,29 @@ export async function GET(request: NextRequest) {
         contentToday,
       })),
       
+      // Revenue statistics from subscriptions and stream tips
+      Promise.all([
+        prisma.subscriptions.aggregate({
+          _sum: { amount: true },
+          where: { status: 'ACTIVE' },
+        }),
+        prisma.subscriptions.aggregate({
+          _sum: { amount: true },
+          where: {
+            status: 'ACTIVE',
+            currentPeriodStart: { gte: thisMonth },
+          },
+        }),
+      ]).then(([totalAgg, monthlyAgg]) => ({
+        totalRevenue: Number(totalAgg._sum.amount || 0),
+        monthlyRevenue: Number(monthlyAgg._sum.amount || 0),
+      })),
+
+      // Active reports count
+      prisma.reports.count({
+        where: { status: 'PENDING' },
+      }),
+
       // Recent activity (optimized to get recent activities efficiently)
       Promise.all([
         // Recent user signups
@@ -154,10 +179,10 @@ export async function GET(request: NextRequest) {
       totalUsers: userStats.totalUsers,
       totalArtists: userStats.totalArtists,
       totalFans: userStats.totalFans,
-      totalRevenue: 0, // TODO: implement when payments table exists
-      monthlyRevenue: 0, // TODO: implement when payments table exists
+      totalRevenue: revenueStats.totalRevenue,
+      monthlyRevenue: revenueStats.monthlyRevenue,
       totalContent: contentStats.totalContent,
-      activeReports: 0, // TODO: implement when reports table exists
+      activeReports: reportStats,
       bannedUsers: userStats.bannedUsers,
       recentSignups: userStats.recentSignups,
       contentUploadsToday: contentStats.contentToday,

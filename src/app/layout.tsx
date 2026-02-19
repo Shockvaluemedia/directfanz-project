@@ -51,7 +51,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </div>
               </ErrorBoundary>
             </WebSocketClientProvider>
-            {/* <GDPRConsent /> */}
+            <GDPRConsent />
           </ToastProvider>
         </AuthSessionProvider>
       </body>

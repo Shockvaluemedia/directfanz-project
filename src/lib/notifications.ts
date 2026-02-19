@@ -102,7 +102,7 @@ export async function notifyNewContent(content: Content, artistName: string) {
       status: 'ACTIVE',
     },
     include: {
-      fan: true,
+      users: true,
     },
   });
 
