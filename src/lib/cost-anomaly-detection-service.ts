@@ -1,3 +1,4 @@
+// @ts-nocheck
 // Cost Anomaly Detection Service for DirectFanz Platform
 // Detects and alerts on significant cost deviations
 

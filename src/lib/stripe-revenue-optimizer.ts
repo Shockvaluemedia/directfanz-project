@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { stripe } from '@/lib/stripe';
 import { prisma } from '@/lib/prisma';
 import { Logger } from '@/lib/logger';

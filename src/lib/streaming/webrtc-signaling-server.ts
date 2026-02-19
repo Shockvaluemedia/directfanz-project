@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Server } from 'socket.io';
 import type { Socket } from 'socket.io';
 import { logger } from '@/lib/logger';

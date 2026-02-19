@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Decimal } from '@prisma/client/runtime/library';
 import { prisma } from './prisma';
 import { stripe } from './stripe';

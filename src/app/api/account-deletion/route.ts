@@ -1,42 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth-production';
-import { getDatabaseClient } from '@/lib/database-production';
+import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const db = getDatabaseClient();
-  
   try {
-    await db.transaction(async (prisma) => {
+    await prisma.$transaction(async (tx) => {
+      const hash = `deleted_${session.user.id.substring(0, 8)}`;
+
       // Anonymize user data
-      await prisma.user.update({
+      await tx.users.update({
         where: { id: session.user.id },
         data: {
-          email: `deleted-${Date.now()}@deleted.local`,
-          name: 'Deleted User',
+          email: `${hash}@deleted.directfanz.com`,
+          displayName: 'Deleted User',
           password: null,
-          isActive: false,
+          bio: null,
+          avatar: null,
+          socialLinks: Prisma.JsonNull,
+          notificationPreferences: Prisma.JsonNull,
         },
       });
 
-      // Delete personal data but preserve anonymized analytics
-      await prisma.userProfile.deleteMany({
-        where: { userId: session.user.id },
-      });
-
-      // Log deletion
-      await prisma.auditLog.create({
-        data: {
-          event: 'account_deletion',
-          userId: session.user.id,
-          timestamp: new Date(),
-          data: JSON.stringify({ deletedAt: new Date() }),
-        },
+      // Cancel active subscriptions
+      await tx.subscriptions.updateMany({
+        where: { fanId: session.user.id, status: 'ACTIVE' },
+        data: { status: 'CANCELED' },
       });
     });
 

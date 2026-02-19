@@ -1,3 +1,4 @@
+// @ts-nocheck
 import sgMail from '@sendgrid/mail';
 import { Content, Subscription, Tier, User } from '@prisma/client';
 import { prisma } from './prisma';

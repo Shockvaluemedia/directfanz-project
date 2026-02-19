@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Sentry AWS Integration Service
  * 

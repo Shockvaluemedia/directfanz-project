@@ -59,7 +59,28 @@ const createPrismaClient = async (): Promise<PrismaClient> => {
   });
 };
 
-// Initialize Prisma client
+// Synchronous Prisma client creation for Next.js compatibility
+// Uses DATABASE_URL directly; RDS-optimized async init available via ensureConnection()
+const createSyncPrismaClient = (): PrismaClient => {
+  const databaseUrl = process.env.DATABASE_URL;
+
+  if (!databaseUrl) {
+    // During build time, DATABASE_URL may not be available.
+    // Return a client that will fail at query time, not at import time.
+    return new PrismaClient();
+  }
+
+  return new PrismaClient({
+    log: process.env.NODE_ENV === 'development'
+      ? ['query', 'error', 'warn']
+      : ['error'],
+    datasources: {
+      db: { url: databaseUrl },
+    },
+  });
+};
+
+// Initialize Prisma client (async version for RDS-optimized connections)
 let prismaPromise: Promise<PrismaClient> | null = null;
 
 const getPrismaClient = async (): Promise<PrismaClient> => {
@@ -69,8 +90,8 @@ const getPrismaClient = async (): Promise<PrismaClient> => {
   return prismaPromise;
 };
 
-// Export the client (lazy initialization)
-export const prisma = globalForPrisma.prisma ?? await getPrismaClient();
+// Export the client using synchronous init (standard Next.js pattern)
+export const prisma = globalForPrisma.prisma ?? createSyncPrismaClient();
 
 // Connection management
 let isConnected = false;

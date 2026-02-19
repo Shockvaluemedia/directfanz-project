@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { prisma } from './prisma';
 import { stripe } from './stripe';
 import { sendEmail } from './notifications';

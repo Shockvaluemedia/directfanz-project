@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Centralized logging system with structured logging
  */

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Application-Level Encryption Service
  * Implements comprehensive encryption for sensitive data

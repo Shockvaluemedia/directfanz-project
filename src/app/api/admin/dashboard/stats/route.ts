@@ -9,7 +9,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
@@ -39,9 +39,9 @@ export async function GET(request: NextRequest) {
     const [
       userStats,
       contentStats,
-      recentActivity,
       revenueStats,
       reportStats,
+      recentActivity,
     ] = await Promise.all([
       // Combined user statistics in single query
       prisma.users.groupBy({
@@ -202,7 +202,7 @@ export async function GET(request: NextRequest) {
     });
     
   } catch (error) {
-    logger.error('Admin dashboard stats error', { userId: session?.user?.id }, error as Error);
+    logger.error('Admin dashboard stats error', {}, error as Error);
     return NextResponse.json({ error: 'Failed to fetch admin dashboard stats' }, { status: 500 });
   }
 }

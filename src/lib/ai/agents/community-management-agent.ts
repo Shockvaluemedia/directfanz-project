@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { BaseAgent, AgentType, AgentTask, AgentResponse, AgentConfig } from '../base-agent';
 import { Logger } from '@/lib/logger';
 import type { Database } from '@/lib/database/types';

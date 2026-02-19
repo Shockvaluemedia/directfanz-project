@@ -92,7 +92,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         amount: true,
         status: true,
         currentPeriodEnd: true,
-        tier: {
+        tiers: {
           select: {
             name: true,
           },

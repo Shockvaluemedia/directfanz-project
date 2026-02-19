@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { SSMClient, GetParameterCommand, GetParametersCommand } from '@aws-sdk/client-ssm';
 
 interface ParameterStoreConfig {

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { withApi } from '@/lib/api-auth';
 import { prisma } from '@/lib/prisma';

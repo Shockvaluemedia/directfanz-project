@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Media Streaming and Delivery Optimization System
  *

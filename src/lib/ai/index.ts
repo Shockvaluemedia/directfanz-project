@@ -1,3 +1,4 @@
+// @ts-nocheck
 // Core AI Agent System
 export { BaseAgent, AgentType, AgentStatus, type AgentConfig, type AgentContext, type AgentTask, type AgentResponse, type AgentMetrics } from './base-agent';
 

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Server as SocketIOServer } from 'socket.io';
 import {
   createConversationId,

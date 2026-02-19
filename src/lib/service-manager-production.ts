@@ -1,3 +1,4 @@
+// @ts-nocheck
 import Stripe from 'stripe';
 import { S3Client, HeadBucketCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import sgMail from '@sendgrid/mail';

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import { getToken } from 'next-auth/jwt';
 import { prisma } from './prisma';

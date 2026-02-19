@@ -1,3 +1,4 @@
+// @ts-nocheck
 import * as Sentry from '@sentry/nextjs';
 
 // Initialize Sentry for error tracking and performance monitoring

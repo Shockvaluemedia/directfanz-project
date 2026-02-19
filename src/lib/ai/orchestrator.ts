@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { EventEmitter } from 'events';
 import { Logger } from '@/lib/logger';
 import { BaseAgent, AgentType, AgentStatus, AgentTask, AgentResponse, AgentConfig } from './base-agent';

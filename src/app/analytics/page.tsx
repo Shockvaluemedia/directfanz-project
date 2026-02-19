@@ -182,9 +182,7 @@ export default function AnalyticsPage() {
               timeRange={selectedTimeRange}
             />
             
-            <SearchAnalytics
-              analyticsData={analyticsData}
-            />
+            <SearchAnalytics />
           </div>
         )}
       </div>

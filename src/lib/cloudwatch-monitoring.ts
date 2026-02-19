@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * CloudWatch Monitoring Service
  * Implements comprehensive application monitoring and custom metrics

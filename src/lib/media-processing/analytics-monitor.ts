@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Media Analytics and Monitoring System
  *

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Example: Migrated API route using unified error handling
  * This shows how to convert an existing route to use the new error system

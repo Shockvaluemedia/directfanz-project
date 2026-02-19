@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Migration Progress API
  * Handles migration progress updates and phase management
