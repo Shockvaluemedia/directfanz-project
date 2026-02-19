@@ -1,7 +1,7 @@
 // Mock dependencies first
 jest.mock('@/lib/prisma', () => ({
   prisma: {
-    subscription: {
+    subscriptions: {
       findUnique: jest.fn(),
     },
   },
@@ -58,7 +58,7 @@ describe('/api/billing/invoices/sync', () => {
       };
 
       mockGetServerSession.mockResolvedValue(mockSession as any);
-      mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
+      mockPrisma.subscriptions.findUnique.mockResolvedValue(mockSubscription as any);
       mockSyncInvoices.mockResolvedValue(mockSyncResult);
 
       const request = createMockRequest({ subscriptionId: 'sub123' });
@@ -103,7 +103,7 @@ describe('/api/billing/invoices/sync', () => {
       };
 
       mockGetServerSession.mockResolvedValue(mockSession as any);
-      mockPrisma.subscription.findUnique.mockResolvedValue(null);
+      mockPrisma.subscriptions.findUnique.mockResolvedValue(null);
 
       const request = createMockRequest({ subscriptionId: 'sub123' });
       const response = await POST(request);
@@ -124,7 +124,7 @@ describe('/api/billing/invoices/sync', () => {
       };
 
       mockGetServerSession.mockResolvedValue(mockSession as any);
-      mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
+      mockPrisma.subscriptions.findUnique.mockResolvedValue(mockSubscription as any);
       mockSyncInvoices.mockRejectedValue(new Error('Sync failed'));
 
       const request = createMockRequest({ subscriptionId: 'sub123' });

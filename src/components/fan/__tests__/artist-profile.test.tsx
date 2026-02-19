@@ -1,3 +1,6 @@
+/**
+ * @jest-environment jsdom
+ */
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { useRouter } from 'next/navigation';
@@ -40,7 +43,7 @@ const mockArtist = {
     instagram: 'https://instagram.com/testartist',
   },
   createdAt: '2024-01-01T00:00:00Z',
-  artistProfile: {
+  artists: {
     totalSubscribers: 100,
     isStripeOnboarded: true,
   },
@@ -108,7 +111,8 @@ describe('ArtistProfile', () => {
     expect(screen.getByText('This is a test artist bio')).toBeInTheDocument();
     expect(screen.getByText('100 subscribers')).toBeInTheDocument();
     // Date formatting may vary based on timezone, check for the actual formatted date
-    expect(screen.getByText('Joined December 31, 2023')).toBeInTheDocument();
+    // Date may be Dec 31, 2023 or Jan 1, 2024 depending on timezone
+    expect(screen.getByText(/Joined (December 31, 2023|January 1, 2024)/)).toBeInTheDocument();
     expect(screen.getByText('1 public releases')).toBeInTheDocument();
   });
 
@@ -298,7 +302,7 @@ describe('ArtistProfile', () => {
     expect(screen.getByText('Latest Song')).toBeInTheDocument();
     expect(screen.getByText('My latest track')).toBeInTheDocument();
     expect(screen.getByText('audio')).toBeInTheDocument();
-    expect(screen.getByText(/January .*, 2024/)).toBeInTheDocument();
+    expect(screen.getAllByText(/January .*, 2024/).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('rock')).toBeInTheDocument();
     expect(screen.getByText('indie')).toBeInTheDocument();
   });

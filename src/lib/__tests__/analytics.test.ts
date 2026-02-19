@@ -15,15 +15,15 @@ import { prisma } from '../prisma';
 // Mock Prisma
 jest.mock('../prisma', () => ({
   prisma: {
-    artist: {
+    artists: {
       findUnique: jest.fn(),
     },
-    subscription: {
+    subscriptions: {
       findMany: jest.fn(),
       count: jest.fn(),
       aggregate: jest.fn(),
     },
-    tier: {
+    tiers: {
       findMany: jest.fn(),
     },
     content: {
@@ -51,7 +51,7 @@ describe('Analytics Library', () => {
   describe('calculateEarningsData', () => {
     it('should calculate earnings data correctly', async () => {
       // Mock artist data
-      mockPrisma.users.findUnique.mockResolvedValue({
+      mockPrisma.artists.findUnique.mockResolvedValue({
         id: 'artist-profile-123',
         userId: artistId,
         totalEarnings: 1000.5,
@@ -71,7 +71,7 @@ describe('Analytics Library', () => {
         { amount: 25.0, createdAt: new Date('2024-01-15T09:00:00Z') }, // Today
       ];
 
-      mockPrisma.subscription.findMany
+      mockPrisma.subscriptions.findMany
         .mockResolvedValueOnce(mockSubscriptions) // Active subscriptions
         .mockResolvedValueOnce([
           // Previous month subscriptions
@@ -90,14 +90,14 @@ describe('Analytics Library', () => {
         earningsGrowth: 40.0, // (70 - 50) / 50 * 100
       });
 
-      expect(mockPrisma.users.findUnique).toHaveBeenCalledWith({
+      expect(mockPrisma.artists.findUnique).toHaveBeenCalledWith({
         where: { userId: artistId },
         select: { totalEarnings: true },
       });
     });
 
     it('should handle zero earnings correctly', async () => {
-      mockPrisma.users.findUnique.mockResolvedValue({
+      mockPrisma.artists.findUnique.mockResolvedValue({
         id: 'artist-profile-123',
         userId: artistId,
         totalEarnings: 0,
@@ -108,7 +108,7 @@ describe('Analytics Library', () => {
         updatedAt: new Date(),
       });
 
-      mockPrisma.subscription.findMany
+      mockPrisma.subscriptions.findMany
         .mockResolvedValueOnce([]) // Active subscriptions
         .mockResolvedValueOnce([]); // Previous month subscriptions
 
@@ -127,7 +127,7 @@ describe('Analytics Library', () => {
 
   describe('calculateSubscriberMetrics', () => {
     it('should calculate subscriber metrics correctly', async () => {
-      mockPrisma.subscription.count
+      mockPrisma.subscriptions.count
         .mockResolvedValueOnce(25) // Total subscribers
         .mockResolvedValueOnce(20) // Active subscribers
         .mockResolvedValueOnce(5) // New subscribers this month
@@ -151,7 +151,7 @@ describe('Analytics Library', () => {
     });
 
     it('should handle zero subscribers correctly', async () => {
-      mockPrisma.subscription.count
+      mockPrisma.subscriptions.count
         .mockResolvedValueOnce(0) // Total subscribers
         .mockResolvedValueOnce(0) // Active subscribers
         .mockResolvedValueOnce(0) // New subscribers this month
@@ -256,7 +256,7 @@ describe('Analytics Library', () => {
         },
       ];
 
-      mockPrisma.subscription.findMany.mockResolvedValue(mockSubscriptions);
+      mockPrisma.subscriptions.findMany.mockResolvedValue(mockSubscriptions);
       mockPrisma.content.findMany.mockResolvedValue(mockContent);
 
       const result = await getRecentActivity(artistId, 5);
@@ -288,7 +288,7 @@ describe('Analytics Library', () => {
   describe('getArtistAnalytics', () => {
     it('should get comprehensive analytics', async () => {
       // Mock all the individual functions
-      mockPrisma.users.findUnique.mockResolvedValue({
+      mockPrisma.artists.findUnique.mockResolvedValue({
         id: 'artist-profile-123',
         userId: artistId,
         totalEarnings: 1000,
@@ -300,7 +300,7 @@ describe('Analytics Library', () => {
       });
 
       // Mock for calculateEarningsData calls
-      mockPrisma.subscription.findMany
+      mockPrisma.subscriptions.findMany
         .mockResolvedValueOnce([{ amount: 100, createdAt: new Date() }]) // Active subscriptions for earnings
         .mockResolvedValueOnce([]) // Previous month subscriptions for earnings
         // Mock for getRecentActivity calls
@@ -316,7 +316,7 @@ describe('Analytics Library', () => {
           },
         ]);
 
-      mockPrisma.subscription.count
+      mockPrisma.subscriptions.count
         .mockResolvedValueOnce(10) // Total subscribers
         .mockResolvedValueOnce(8) // Active subscribers
         .mockResolvedValueOnce(3) // New subscribers
@@ -347,7 +347,7 @@ describe('Analytics Library', () => {
         { amount: 20.0, createdAt: new Date('2024-01-10') },
       ];
 
-      mockPrisma.subscription.findMany.mockResolvedValue(mockSubscriptions);
+      mockPrisma.subscriptions.findMany.mockResolvedValue(mockSubscriptions);
 
       const result = await getEarningsForPeriod(artistId, startDate, endDate);
 
@@ -386,7 +386,7 @@ describe('Analytics Library', () => {
         },
       ];
 
-      mockPrisma.subscription.findMany.mockResolvedValue(mockSubscriptions);
+      mockPrisma.subscriptions.findMany.mockResolvedValue(mockSubscriptions);
 
       const result = await getSubscriberGrowthForPeriod(artistId, startDate, endDate);
 
@@ -421,7 +421,7 @@ describe('Analytics Library', () => {
         { amount: 25.0 },
       ];
 
-      mockPrisma.subscription.findMany
+      mockPrisma.subscriptions.findMany
         .mockResolvedValueOnce(mockTodaysSubs)
         .mockResolvedValueOnce(mockYesterdaysSubs)
         .mockResolvedValueOnce(mockWeekSubs)
@@ -447,7 +447,7 @@ describe('Analytics Library', () => {
       const mockMonthSubs = [{ amount: 35.0 }];
       const mockLast30DaysSubs = [{ amount: 600.0 }]; // High average
 
-      mockPrisma.subscription.findMany
+      mockPrisma.subscriptions.findMany
         .mockResolvedValueOnce(mockTodaysSubs)
         .mockResolvedValueOnce(mockYesterdaysSubs)
         .mockResolvedValueOnce(mockWeekSubs)
@@ -467,7 +467,7 @@ describe('Analytics Library', () => {
       const mockMonthSubs = [{ amount: 40.0 }];
       const mockLast30DaysSubs = [{ amount: 600.0 }];
 
-      mockPrisma.subscription.findMany
+      mockPrisma.subscriptions.findMany
         .mockResolvedValueOnce(mockTodaysSubs)
         .mockResolvedValueOnce(mockYesterdaysSubs)
         .mockResolvedValueOnce(mockWeekSubs)
@@ -611,7 +611,7 @@ describe('Analytics Library', () => {
         { id: 'tier-2', name: 'Premium' },
       ];
 
-      mockPrisma.subscription.findMany.mockResolvedValue(mockAllSubs);
+      mockPrisma.subscriptions.findMany.mockResolvedValue(mockAllSubs);
       mockPrisma.tiers.findMany.mockResolvedValue(mockTiers);
 
       const result = await getChurnAnalysis(artistId);
@@ -652,7 +652,7 @@ describe('Analytics Library', () => {
 
       const mockTiers = [{ id: 'tier-1', name: 'Basic' }];
 
-      mockPrisma.subscription.findMany.mockResolvedValue(mockAllSubs);
+      mockPrisma.subscriptions.findMany.mockResolvedValue(mockAllSubs);
       mockPrisma.tiers.findMany.mockResolvedValue(mockTiers);
 
       const result = await getChurnAnalysis(artistId);

@@ -1,7 +1,7 @@
 // Mock dependencies first
 jest.mock('@/lib/prisma', () => ({
   prisma: {
-    subscription: {
+    subscriptions: {
       findUnique: jest.fn(),
     },
   },
@@ -86,7 +86,7 @@ describe('/api/billing/invoices', () => {
       };
 
       mockGetServerSession.mockResolvedValue(mockSession as any);
-      mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
+      mockPrisma.subscriptions.findUnique.mockResolvedValue(mockSubscription as any);
       mockStripe.invoices.list.mockResolvedValue(mockStripeInvoices as any);
       mockGenerateInvoiceData
         .mockResolvedValueOnce(mockInvoiceData1 as any)
@@ -144,7 +144,7 @@ describe('/api/billing/invoices', () => {
       };
 
       mockGetServerSession.mockResolvedValue(mockSession as any);
-      mockPrisma.subscription.findUnique.mockResolvedValue(null);
+      mockPrisma.subscriptions.findUnique.mockResolvedValue(null);
 
       const request = createMockRequest(
         'http://localhost:3000/api/billing/invoices?subscriptionId=sub123'
@@ -182,7 +182,7 @@ describe('/api/billing/invoices', () => {
       };
 
       mockGetServerSession.mockResolvedValue(mockSession as any);
-      mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
+      mockPrisma.subscriptions.findUnique.mockResolvedValue(mockSubscription as any);
       mockStripe.invoices.list.mockResolvedValue(mockStripeInvoices as any);
       mockGenerateInvoiceData
         .mockResolvedValueOnce(mockInvoiceData1 as any)
@@ -205,7 +205,7 @@ describe('/api/billing/invoices', () => {
       };
 
       mockGetServerSession.mockResolvedValue(mockSession as any);
-      mockPrisma.subscription.findUnique.mockRejectedValue(new Error('Database error'));
+      mockPrisma.subscriptions.findUnique.mockRejectedValue(new Error('Database error'));
 
       const request = createMockRequest(
         'http://localhost:3000/api/billing/invoices?subscriptionId=sub123'

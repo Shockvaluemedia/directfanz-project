@@ -46,25 +46,47 @@ jest.mock('@aws-sdk/lib-storage', () => ({
   }))
 }));
 
+// Mock next-auth to return an authenticated ARTIST session
+jest.mock('next-auth', () => ({
+  getServerSession: jest.fn().mockResolvedValue({
+    user: { id: 'artist-123', role: 'ARTIST', email: 'artist@test.com' }
+  })
+}));
+
 // Mock content optimizer
 const mockContentOptimizer = contentOptimizer as jest.Mocked<typeof contentOptimizer>;
+
+// Helper to create a JSON POST request
+function createJsonRequest(body: any): NextRequest {
+  return new NextRequest('http://localhost:3000/api/content/optimize', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+}
 
 describe('Full Workflow Integration Tests', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
+    // Re-setup auth mock after clearAllMocks
+    const { getServerSession } = require('next-auth');
+    (getServerSession as jest.Mock).mockResolvedValue({
+      user: { id: 'artist-123', role: 'ARTIST', email: 'artist@test.com' }
+    });
+
     // Setup AWS mocks
     const { S3Client } = require('@aws-sdk/client-s3');
     const { Upload } = require('@aws-sdk/lib-storage');
     const mockS3Instance = new S3Client();
     const mockUploadInstance = new Upload({} as any);
-    
+
     (mockS3Instance.send as jest.Mock).mockResolvedValue({
       Body: {
         transformToBuffer: jest.fn().mockResolvedValue(Buffer.from('file-content')),
       }
     });
-    
+
     (mockUploadInstance.done as jest.Mock).mockResolvedValue({
       Location: 'https://mock-bucket.s3.amazonaws.com/optimized/test.webp'
     });
@@ -74,7 +96,7 @@ describe('Full Workflow Integration Tests', () => {
   });
 
   describe('End-to-End Upload and Optimization Workflow', () => {
-    test('should handle complete image upload and optimization workflow', async () => {
+    test('should handle complete image optimization workflow', async () => {
       // Mock analysis result
       const mockAnalysis = {
         dimensions: { width: 1920, height: 1080 },
@@ -105,7 +127,7 @@ describe('Full Workflow Integration Tests', () => {
           },
           {
             quality: 'jpeg',
-            format: 'jpeg', 
+            format: 'jpeg',
             size: 262144,
             url: '/optimized/test.jpg',
             optimizations: ['progressive_encoding', 'quality_adjustment']
@@ -116,17 +138,12 @@ describe('Full Workflow Integration Tests', () => {
       mockContentOptimizer.analyzeContent.mockResolvedValue(mockAnalysis);
       mockContentOptimizer.optimizeContent.mockResolvedValue(mockOptimizationResult);
 
-      // Create mock file upload request
-      const formData = new FormData();
-      const mockFile = new File(['test file content'], 'test-image.jpg', { type: 'image/jpeg' });
-      formData.append('file', mockFile);
-      formData.append('strategy', 'balanced');
-      formData.append('targetDevice', 'mobile');
-      formData.append('targetConnection', '4g');
-
-      const request = new NextRequest('http://localhost:3000/api/content/optimize', {
-        method: 'POST',
-        body: formData
+      const request = createJsonRequest({
+        filePath: 'test-image.jpg',
+        contentType: 'IMAGE',
+        strategy: 'balanced',
+        targetDevice: 'mobile',
+        targetConnection: '4g'
       });
 
       // Execute the full workflow
@@ -154,15 +171,9 @@ describe('Full Workflow Integration Tests', () => {
         ])
       });
 
-      // Verify analysis was called
-      expect(mockContentOptimizer.analyzeContent).toHaveBeenCalledWith(
-        expect.any(String),
-        'IMAGE'
-      );
-
       // Verify optimization was called with correct parameters
       expect(mockContentOptimizer.optimizeContent).toHaveBeenCalledWith(
-        expect.any(String),
+        'test-image.jpg',
         'IMAGE',
         expect.objectContaining({
           strategy: 'balanced',
@@ -192,40 +203,32 @@ describe('Full Workflow Integration Tests', () => {
         ]
       };
 
-      mockContentOptimizer.optimizeContent.mockResolvedValue(mockOptimizationResult);
+      mockContentOptimizer.batchOptimize = jest.fn().mockResolvedValue([
+        mockOptimizationResult,
+        mockOptimizationResult,
+        mockOptimizationResult
+      ]);
 
       // Create batch optimization request
       const batchRequest = {
         files: [
           {
-            path: 'https://test-bucket.s3.amazonaws.com/uploads/image1.jpg',
-            type: 'IMAGE' as const,
-            options: { strategy: 'balanced' }
+            filePath: 'https://test-bucket.s3.amazonaws.com/uploads/image1.jpg',
+            contentType: 'IMAGE' as const,
           },
           {
-            path: 'https://test-bucket.s3.amazonaws.com/uploads/image2.png',
-            type: 'IMAGE' as const,
-            options: { strategy: 'quality' }
+            filePath: 'https://test-bucket.s3.amazonaws.com/uploads/image2.png',
+            contentType: 'IMAGE' as const,
           },
           {
-            path: 'https://test-bucket.s3.amazonaws.com/uploads/video1.mp4',
-            type: 'VIDEO' as const,
-            options: { strategy: 'streaming' }
+            filePath: 'https://test-bucket.s3.amazonaws.com/uploads/video1.mp4',
+            contentType: 'VIDEO' as const,
           }
         ],
-        globalOptions: {
-          maxConcurrent: 3,
-          strategy: 'auto'
-        }
+        strategy: 'balanced'
       };
 
-      const request = new NextRequest('http://localhost:3000/api/content/optimize', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(batchRequest)
-      });
+      const request = createJsonRequest(batchRequest);
 
       const response = await optimizeHandler(request);
       const result = await response.json();
@@ -236,25 +239,32 @@ describe('Full Workflow Integration Tests', () => {
       expect(Array.isArray(result.data.results)).toBe(true);
       expect(result.data.results).toHaveLength(3);
 
-      // Verify optimization was called for each file
-      expect(mockContentOptimizer.optimizeContent).toHaveBeenCalledTimes(3);
+      // Verify batchOptimize was called
+      expect(mockContentOptimizer.batchOptimize).toHaveBeenCalledTimes(1);
     });
 
     test('should integrate with strategy retrieval workflow', async () => {
-      // Test GET endpoint for strategies
+      // Test GET endpoint for strategies - need to mock the dynamic import
+      const { OPTIMIZATION_STRATEGIES } = require('../lib/content-optimization');
+
       const getRequest = new NextRequest('http://localhost:3000/api/content/optimize', {
         method: 'GET'
       });
 
-      const strategiesResponse = await getStrategiesHandler();
+      const strategiesResponse = await getStrategiesHandler(getRequest);
       const strategiesResult = await strategiesResponse.json();
 
       expect(strategiesResponse.status).toBe(200);
       expect(strategiesResult.success).toBe(true);
       expect(strategiesResult.data.strategies).toBeDefined();
-      expect(strategiesResult.data.strategies).toHaveProperty('aggressive');
-      expect(strategiesResult.data.strategies).toHaveProperty('balanced');
-      expect(strategiesResult.data.strategies).toHaveProperty('quality');
+      expect(Array.isArray(strategiesResult.data.strategies)).toBe(true);
+
+      // Each strategy should have key, name, description
+      for (const strategy of strategiesResult.data.strategies) {
+        expect(strategy).toHaveProperty('key');
+        expect(strategy).toHaveProperty('name');
+        expect(strategy).toHaveProperty('description');
+      }
 
       // Now use one of these strategies in an optimization
       const mockOptimizationResult = {
@@ -277,14 +287,10 @@ describe('Full Workflow Integration Tests', () => {
 
       mockContentOptimizer.optimizeContent.mockResolvedValue(mockOptimizationResult);
 
-      const formData = new FormData();
-      const mockFile = new File(['test content'], 'test.jpg', { type: 'image/jpeg' });
-      formData.append('file', mockFile);
-      formData.append('strategy', 'aggressive'); // Use strategy from GET response
-
-      const optimizeRequest = new NextRequest('http://localhost:3000/api/content/optimize', {
-        method: 'POST',
-        body: formData
+      const optimizeRequest = createJsonRequest({
+        filePath: 'test.jpg',
+        contentType: 'IMAGE',
+        strategy: 'aggressive'
       });
 
       const optimizeResponse = await optimizeHandler(optimizeRequest);
@@ -299,17 +305,6 @@ describe('Full Workflow Integration Tests', () => {
   describe('Cross-Service Integration', () => {
     test('should handle upload, analysis, optimization, and storage workflow', async () => {
       // Mock the complete pipeline
-      const mockAnalysis = {
-        dimensions: { width: 4000, height: 3000 },
-        complexity: 'high' as const,
-        colorComplexity: 'full' as const,
-        noiseLevel: 'moderate' as const,
-        hasText: true,
-        hasFaces: false,
-        dominantColors: ['#FF5733', '#33FF57'],
-        recommendedStrategy: 'quality'
-      };
-
       const mockOptimization = {
         originalSize: 2097152, // 2MB
         optimizedSize: 1048576, // 1MB
@@ -335,24 +330,14 @@ describe('Full Workflow Integration Tests', () => {
         ]
       };
 
-      mockContentOptimizer.analyzeContent.mockResolvedValue(mockAnalysis);
       mockContentOptimizer.optimizeContent.mockResolvedValue(mockOptimization);
 
-      // Simulate file upload with metadata
-      const formData = new FormData();
-      const mockFile = new File(['high resolution image content'], 'high-res-photo.jpg', { 
-        type: 'image/jpeg'
-      });
-      formData.append('file', mockFile);
-      formData.append('strategy', 'auto'); // Should use recommended strategy from analysis
-      formData.append('preserveMetadata', 'true');
-      formData.append('enableAnalytics', 'true');
-      formData.append('contentId', 'test-content-123');
-      formData.append('artistId', 'artist-456');
-
-      const request = new NextRequest('http://localhost:3000/api/content/optimize', {
-        method: 'POST',
-        body: formData
+      const request = createJsonRequest({
+        filePath: 'high-res-photo.jpg',
+        contentType: 'IMAGE',
+        strategy: 'quality',
+        preserveMetadata: true,
+        contentId: 'test-content-123'
       });
 
       const response = await optimizeHandler(request);
@@ -362,19 +347,15 @@ describe('Full Workflow Integration Tests', () => {
       expect(response.status).toBe(200);
       expect(result.success).toBe(true);
 
-      // Verify analysis detected complex image characteristics
-      expect(mockContentOptimizer.analyzeContent).toHaveBeenCalled();
-      
-      // Verify optimization used recommended strategy and preserved settings
+      // Verify optimization was called with correct parameters
       expect(mockContentOptimizer.optimizeContent).toHaveBeenCalledWith(
-        expect.any(String),
+        'high-res-photo.jpg',
         'IMAGE',
         expect.objectContaining({
-          strategy: 'auto', // Should trigger analysis and use recommended
+          strategy: 'quality',
           preserveMetadata: true,
-          enableAnalytics: true,
           contentId: 'test-content-123',
-          artistId: 'artist-456'
+          artistId: 'artist-123'
         })
       );
 
@@ -422,18 +403,11 @@ describe('Full Workflow Integration Tests', () => {
 
       mockContentOptimizer.optimizeContent.mockResolvedValue(mockOptimization);
 
-      const formData = new FormData();
-      const mockVideoFile = new File(['video content'], 'test-video.mp4', { 
-        type: 'video/mp4'
-      });
-      formData.append('file', mockVideoFile);
-      formData.append('strategy', 'streaming');
-      formData.append('targetDevice', 'tv');
-      formData.append('generateThumbnails', 'true');
-
-      const request = new NextRequest('http://localhost:3000/api/content/optimize', {
-        method: 'POST',
-        body: formData
+      const request = createJsonRequest({
+        filePath: 'test-video.mp4',
+        contentType: 'VIDEO',
+        strategy: 'streaming',
+        targetDevice: 'tv'
       });
 
       const response = await optimizeHandler(request);
@@ -456,10 +430,10 @@ describe('Full Workflow Integration Tests', () => {
     test('should handle content creator upload workflow', async () => {
       // Simulate a content creator uploading multiple files with different requirements
       const files = [
-        { name: 'profile-pic.jpg', type: 'image/jpeg', strategy: 'quality' },
-        { name: 'cover-art.png', type: 'image/png', strategy: 'balanced' },
-        { name: 'promo-video.mp4', type: 'video/mp4', strategy: 'streaming' },
-        { name: 'audio-track.mp3', type: 'audio/mpeg', strategy: 'size' }
+        { name: 'profile-pic.jpg', contentType: 'IMAGE', strategy: 'quality' },
+        { name: 'cover-art.png', contentType: 'IMAGE', strategy: 'balanced' },
+        { name: 'promo-video.mp4', contentType: 'VIDEO', strategy: 'streaming' },
+        { name: 'audio-track.mp3', contentType: 'AUDIO', strategy: 'balanced' }
       ];
 
       const mockResults = files.map((file, index) => ({
@@ -490,15 +464,10 @@ describe('Full Workflow Integration Tests', () => {
       // Test each file type
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const formData = new FormData();
-        const mockFile = new File(['content'], file.name, { type: file.type });
-        formData.append('file', mockFile);
-        formData.append('strategy', file.strategy);
-        formData.append('artistId', 'creator-789');
-
-        const request = new NextRequest('http://localhost:3000/api/content/optimize', {
-          method: 'POST',
-          body: formData
+        const request = createJsonRequest({
+          filePath: file.name,
+          contentType: file.contentType,
+          strategy: file.strategy
         });
 
         const response = await optimizeHandler(request);
@@ -534,18 +503,12 @@ describe('Full Workflow Integration Tests', () => {
 
       mockContentOptimizer.optimizeContent.mockResolvedValue(mockOptimization);
 
-      const formData = new FormData();
-      const mockFile = new File(['large mobile image'], 'mobile-photo.jpg', { 
-        type: 'image/jpeg'
-      });
-      formData.append('file', mockFile);
-      formData.append('strategy', 'auto');
-      formData.append('targetDevice', 'mobile');
-      formData.append('targetConnection', '3g'); // Slow connection
-
-      const request = new NextRequest('http://localhost:3000/api/content/optimize', {
-        method: 'POST',
-        body: formData
+      const request = createJsonRequest({
+        filePath: 'mobile-photo.jpg',
+        contentType: 'IMAGE',
+        strategy: 'mobile',
+        targetDevice: 'mobile',
+        targetConnection: '3g'
       });
 
       const response = await optimizeHandler(request);

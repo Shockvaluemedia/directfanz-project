@@ -381,8 +381,13 @@ describe('PaymentService Integration', () => {
 });
 
 describe('SubscriptionManager Integration', () => {
+  // The subscriptionManager has its own internal PaymentService instance,
+  // so we need to spy on that instead of the exported paymentService singleton
+  let internalPaymentService: any;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    internalPaymentService = (subscriptionManager as any).paymentService;
   });
 
   describe('Subscription Status Checking', () => {
@@ -394,7 +399,7 @@ describe('SubscriptionManager Integration', () => {
         cancel_at_period_end: false,
       };
 
-      jest.spyOn(paymentService, 'getSubscription').mockResolvedValue(mockSubscription as any);
+      jest.spyOn(internalPaymentService, 'getSubscription').mockResolvedValue(mockSubscription as any);
 
       const status = await subscriptionManager.checkSubscriptionStatus('sub_test');
 
@@ -412,7 +417,7 @@ describe('SubscriptionManager Integration', () => {
         cancel_at_period_end: true,
       };
 
-      jest.spyOn(paymentService, 'getSubscription').mockResolvedValue(mockSubscription as any);
+      jest.spyOn(internalPaymentService, 'getSubscription').mockResolvedValue(mockSubscription as any);
 
       const status = await subscriptionManager.checkSubscriptionStatus('sub_test');
 
@@ -422,7 +427,7 @@ describe('SubscriptionManager Integration', () => {
     });
 
     it('should handle subscription not found', async () => {
-      jest.spyOn(paymentService, 'getSubscription').mockResolvedValue(null);
+      jest.spyOn(internalPaymentService, 'getSubscription').mockResolvedValue(null);
 
       const status = await subscriptionManager.checkSubscriptionStatus('sub_nonexistent');
 
@@ -439,7 +444,7 @@ describe('SubscriptionManager Integration', () => {
         current_period_end: Math.floor(Date.now() / 1000) - 86400, // 1 day ago
       };
 
-      jest.spyOn(paymentService, 'getSubscription').mockResolvedValue(mockSubscription as any);
+      jest.spyOn(internalPaymentService, 'getSubscription').mockResolvedValue(mockSubscription as any);
 
       const result = await subscriptionManager.handleGracePeriod('sub_test', 3);
 
@@ -453,13 +458,13 @@ describe('SubscriptionManager Integration', () => {
         current_period_end: Math.floor(Date.now() / 1000) - 5 * 86400, // 5 days ago
       };
 
-      jest.spyOn(paymentService, 'getSubscription').mockResolvedValue(mockSubscription as any);
-      jest.spyOn(paymentService, 'cancelSubscription').mockResolvedValue({} as any);
+      jest.spyOn(internalPaymentService, 'getSubscription').mockResolvedValue(mockSubscription as any);
+      jest.spyOn(internalPaymentService, 'cancelSubscription').mockResolvedValue({} as any);
 
       const result = await subscriptionManager.handleGracePeriod('sub_test', 3);
 
       expect(result).toBe(false); // Grace period expired
-      expect(paymentService.cancelSubscription).toHaveBeenCalledWith('sub_test', true);
+      expect(internalPaymentService.cancelSubscription).toHaveBeenCalledWith('sub_test', true);
     });
 
     it('should not handle non-past-due subscriptions', async () => {
@@ -469,7 +474,7 @@ describe('SubscriptionManager Integration', () => {
         current_period_end: Math.floor(Date.now() / 1000) + 86400,
       };
 
-      jest.spyOn(paymentService, 'getSubscription').mockResolvedValue(mockSubscription as any);
+      jest.spyOn(internalPaymentService, 'getSubscription').mockResolvedValue(mockSubscription as any);
 
       const result = await subscriptionManager.handleGracePeriod('sub_test', 3);
 
@@ -485,7 +490,7 @@ describe('SubscriptionManager Integration', () => {
         current_period_end: Math.floor(Date.now() / 1000) - 100, // Just expired
       };
 
-      jest.spyOn(paymentService, 'getSubscription').mockResolvedValue(mockSubscription as any);
+      jest.spyOn(internalPaymentService, 'getSubscription').mockResolvedValue(mockSubscription as any);
 
       const result = await subscriptionManager.processRenewal('sub_test');
 
@@ -499,7 +504,7 @@ describe('SubscriptionManager Integration', () => {
         current_period_end: Math.floor(Date.now() / 1000) + 86400, // Future date
       };
 
-      jest.spyOn(paymentService, 'getSubscription').mockResolvedValue(mockSubscription as any);
+      jest.spyOn(internalPaymentService, 'getSubscription').mockResolvedValue(mockSubscription as any);
 
       const result = await subscriptionManager.processRenewal('sub_test');
 
@@ -507,7 +512,7 @@ describe('SubscriptionManager Integration', () => {
     });
 
     it('should handle renewal for nonexistent subscription', async () => {
-      jest.spyOn(paymentService, 'getSubscription').mockResolvedValue(null);
+      jest.spyOn(internalPaymentService, 'getSubscription').mockResolvedValue(null);
 
       const result = await subscriptionManager.processRenewal('sub_nonexistent');
 

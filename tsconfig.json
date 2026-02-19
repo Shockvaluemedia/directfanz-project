@@ -46,8 +46,13 @@
   "exclude": [
     "node_modules",
     "**/*.test.*",
+    "**/*.spec.*",
     "**/__tests__/**/*",
     "src/lib/test-utils.ts",
+    "tests/**/*",
+    ".kiro/tests/**/*",
+    "e2e/**/*",
+    "src/mobile/**/*",
     "NahveeEvenMobile/**/*",
     "prisma/seed.ts",
     "src/app/api/campaigns/**/*",

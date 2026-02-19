@@ -33,29 +33,9 @@ jest.mock('next/headers', () => ({
   })),
 }));
 
-// Mock Prisma
-jest.mock('@/lib/prisma', () => ({
-  prisma: {
-    user: {
-      findUnique: jest.fn(),
-    },
-    tier: {
-      findUnique: jest.fn(),
-      update: jest.fn(),
-    },
-    artist: {
-      update: jest.fn(),
-    },
-    subscription: {
-      findUnique: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-    },
-    paymentFailure: {
-      create: jest.fn(),
-    },
-  },
-}));
+// The global jest.setup.js already mocks @/lib/prisma with plural model names
+// (prisma.users, prisma.tiers, prisma.artists, prisma.subscriptions, etc.)
+// matching the actual Prisma schema.
 
 // Mock NextAuth
 jest.mock('next-auth', () => ({
@@ -191,7 +171,7 @@ describe('Payment Flow Integration Tests', () => {
     prisma.users.findUnique.mockResolvedValue(mockUser);
     prisma.tiers.findUnique.mockResolvedValue({
       ...mockTier,
-      artist: {
+      users: {
         ...mockArtist,
         artists: {
           stripeAccountId: 'acct_test_123',
@@ -498,9 +478,7 @@ describe('Payment Flow Integration Tests', () => {
         },
       };
       prisma.subscriptions.findUnique.mockResolvedValueOnce(mockSubscription);
-      prisma.paymentFailure = {
-        create: jest.fn().mockResolvedValue({ id: 'pf_123' }),
-      } as any;
+      prisma.payment_failures.create.mockResolvedValue({ id: 'pf_123' });
 
       const mockEvent = {
         id: 'evt_test_123',

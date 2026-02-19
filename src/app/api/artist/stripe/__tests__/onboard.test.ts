@@ -2,10 +2,10 @@
 jest.mock('next-auth');
 jest.mock('@/lib/prisma', () => ({
   prisma: {
-    user: {
+    users: {
       findUnique: jest.fn(),
     },
-    artist: {
+    artists: {
       upsert: jest.fn(),
     },
   },
@@ -54,9 +54,9 @@ describe('/api/artist/stripe/onboard', () => {
       };
 
       mockGetServerSession.mockResolvedValue(mockSession as any);
-      mockPrisma.user.findUnique.mockResolvedValue(mockUser as any);
+      mockPrisma.users.findUnique.mockResolvedValue(mockUser as any);
       mockCreateStripeConnectAccount.mockResolvedValue('acct_test123');
-      mockPrisma.users.upsert.mockResolvedValue({} as any);
+      mockPrisma.artists.upsert.mockResolvedValue({} as any);
       mockCreateAccountLink.mockResolvedValue('https://connect.stripe.com/setup/test');
 
       const request = createMockRequest('http://localhost:3000/api/artist/stripe/onboard', {
@@ -76,7 +76,7 @@ describe('/api/artist/stripe/onboard', () => {
         'Test Artist'
       );
 
-      expect(mockPrisma.users.upsert).toHaveBeenCalledWith({
+      expect(mockPrisma.artists.upsert).toHaveBeenCalledWith({
         where: { userId: 'user123' },
         create: {
           userId: 'user123',
@@ -122,7 +122,7 @@ describe('/api/artist/stripe/onboard', () => {
       };
 
       mockGetServerSession.mockResolvedValue(mockSession as any);
-      mockPrisma.user.findUnique.mockResolvedValue(mockUser as any);
+      mockPrisma.users.findUnique.mockResolvedValue(mockUser as any);
 
       const request = createMockRequest('http://localhost:3000/api/artist/stripe/onboard', {
         method: 'POST',
@@ -150,7 +150,7 @@ describe('/api/artist/stripe/onboard', () => {
       };
 
       mockGetServerSession.mockResolvedValue(mockSession as any);
-      mockPrisma.user.findUnique.mockResolvedValue(mockUser as any);
+      mockPrisma.users.findUnique.mockResolvedValue(mockUser as any);
 
       const request = createMockRequest('http://localhost:3000/api/artist/stripe/onboard', {
         method: 'POST',
@@ -178,7 +178,7 @@ describe('/api/artist/stripe/onboard', () => {
       };
 
       mockGetServerSession.mockResolvedValue(mockSession as any);
-      mockPrisma.user.findUnique.mockResolvedValue(mockUser as any);
+      mockPrisma.users.findUnique.mockResolvedValue(mockUser as any);
       mockCreateStripeConnectAccount.mockRejectedValue(new Error('Stripe error'));
 
       const request = createMockRequest('http://localhost:3000/api/artist/stripe/onboard', {

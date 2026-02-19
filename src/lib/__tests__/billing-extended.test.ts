@@ -1,11 +1,14 @@
+// Unmock billing so we test the real implementation
+jest.unmock('@/lib/billing');
+
 // Mock dependencies first
 jest.mock('@/lib/prisma', () => ({
   prisma: {
-    subscription: {
+    subscriptions: {
       findUnique: jest.fn(),
       update: jest.fn(),
     },
-    tier: {
+    tiers: {
       findUnique: jest.fn(),
       update: jest.fn(),
     },
@@ -74,12 +77,12 @@ describe('Extended Billing Functions', () => {
         status: 'ACTIVE',
         stripeSubscriptionId: 'stripe_sub123',
         currentPeriodEnd: new Date('2022-02-01'),
-        fan: {
+        users: {
           email: 'fan@example.com',
         },
-        tier: {
+        tiers: {
           name: 'Basic Tier',
-          artist: { displayName: 'Test Artist' },
+          users: { displayName: 'Test Artist' },
         },
       };
 
@@ -87,7 +90,7 @@ describe('Extended Billing Functions', () => {
         id: 'tier2',
         name: 'Premium Tier',
         minimumPrice: new Decimal(15.0),
-        artist: { displayName: 'Test Artist' },
+        users: { displayName: 'Test Artist' },
       };
 
       const mockStripeSubscription = {
@@ -105,7 +108,7 @@ describe('Extended Billing Functions', () => {
         id: 'invoice123',
       };
 
-      mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
+      mockPrisma.subscriptions.findUnique.mockResolvedValue(mockSubscription as any);
       mockPrisma.tiers.findUnique.mockResolvedValue(mockNewTier as any);
       mockStripe.subscriptions.retrieve.mockResolvedValue(mockStripeSubscription as any);
       mockStripe.subscriptions.update.mockResolvedValue({} as any);
@@ -150,7 +153,7 @@ describe('Extended Billing Functions', () => {
         status: 'CANCELED',
       };
 
-      mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
+      mockPrisma.subscriptions.findUnique.mockResolvedValue(mockSubscription as any);
 
       await expect(scheduleTierChange('sub123', 'tier2', 20.0)).rejects.toThrow(
         'Can only schedule tier changes for active subscriptions'
@@ -161,7 +164,7 @@ describe('Extended Billing Functions', () => {
       const mockSubscription = {
         id: 'sub123',
         status: 'ACTIVE',
-        tier: { users: { id: 'artist123' } },
+        tiers: { users: { id: 'artist123' } },
       };
 
       const mockNewTier = {
@@ -169,7 +172,7 @@ describe('Extended Billing Functions', () => {
         minimumPrice: new Decimal(15.0),
       };
 
-      mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
+      mockPrisma.subscriptions.findUnique.mockResolvedValue(mockSubscription as any);
       mockPrisma.tiers.findUnique.mockResolvedValue(mockNewTier as any);
 
       await expect(
@@ -230,7 +233,7 @@ describe('Extended Billing Functions', () => {
       };
 
       // Mock dependencies
-      mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
+      mockPrisma.subscriptions.findUnique.mockResolvedValue(mockSubscription as any);
       mockStripe.invoices.list.mockResolvedValue(mockStripeInvoices as any);
 
       // Mock invoice retrieval
@@ -316,7 +319,7 @@ describe('Extended Billing Functions', () => {
       };
 
       // Mock dependencies
-      mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
+      mockPrisma.subscriptions.findUnique.mockResolvedValue(mockSubscription as any);
       mockStripe.invoices.list
         .mockResolvedValueOnce(mockStripeInvoices1 as any)
         .mockResolvedValueOnce(mockStripeInvoices2 as any);
@@ -363,7 +366,7 @@ describe('Extended Billing Functions', () => {
     });
 
     it('should throw error if subscription not found', async () => {
-      mockPrisma.subscription.findUnique.mockResolvedValue(null);
+      mockPrisma.subscriptions.findUnique.mockResolvedValue(null);
 
       await expect(syncInvoices('nonexistent')).rejects.toThrow('Failed to sync invoices');
     });
@@ -399,7 +402,7 @@ describe('Extended Billing Functions', () => {
         items: [],
       };
 
-      mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
+      mockPrisma.subscriptions.findUnique.mockResolvedValue(mockSubscription as any);
       mockStripe.invoices.list.mockResolvedValue(mockStripeInvoices as any);
       mockStripe.invoices.retrieve
         .mockResolvedValueOnce({
@@ -442,7 +445,7 @@ describe('Extended Billing Functions', () => {
         has_more: true,
       };
 
-      mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
+      mockPrisma.subscriptions.findUnique.mockResolvedValue(mockSubscription as any);
       mockStripe.invoices.list.mockResolvedValue(mockStripeInvoices as any);
       mockStripe.invoices.retrieve.mockResolvedValue({
         id: 'in_test1',
@@ -468,7 +471,7 @@ describe('Extended Billing Functions', () => {
     });
 
     it('should throw error if subscription not found', async () => {
-      mockPrisma.subscription.findUnique.mockResolvedValue(null);
+      mockPrisma.subscriptions.findUnique.mockResolvedValue(null);
 
       await expect(getSubscriptionInvoices('nonexistent')).rejects.toThrow(
         'Failed to get subscription invoices'
@@ -486,7 +489,7 @@ describe('Extended Billing Functions', () => {
         has_more: false,
       };
 
-      mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
+      mockPrisma.subscriptions.findUnique.mockResolvedValue(mockSubscription as any);
       mockStripe.invoices.list.mockResolvedValue(mockStripeInvoices as any);
 
       // First invoice succeeds, second fails

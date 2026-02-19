@@ -168,25 +168,23 @@ describe('Access Control Security Tests', () => {
     });
 
     it('should deny access when user has expired subscription', async () => {
-      const gatedContent = createMockContent({
+      // The actual implementation uses a single query with nested includes.
+      // Expired subscription won't be returned by the nested where clause.
+      (prisma.content.findUnique as jest.Mock).mockResolvedValue({
         id: 'gated-content-123',
         artistId: artistUser.id,
         visibility: 'TIER_LOCKED',
-        tiers: [basicTier],
+        artist: { id: artistUser.id, displayName: 'Artist' },
+        tiers: [
+          {
+            id: basicTier.id,
+            name: basicTier.name,
+            minimumPrice: basicTier.minimumPrice,
+            isActive: true,
+            subscriptions: [], // Empty because subscription is expired (filtered by where clause)
+          },
+        ],
       });
-
-      const expiredSubscription = createMockSubscription({
-        id: 'expired-sub-123',
-        fanId: fanUser.id,
-        artistId: artistUser.id,
-        tierId: basicTier.id,
-        status: 'ACTIVE',
-        currentPeriodEnd: new Date(Date.now() - 86400000), // Expired yesterday
-      });
-
-      (prisma.content.findUnique as jest.Mock).mockResolvedValue(gatedContent);
-      // The subscription is expired, so findMany with currentPeriodEnd >= now() should return empty array
-      (prisma.subscriptions.findMany as jest.Mock).mockResolvedValue([]);
 
       const result = await checkContentAccess(fanUser.id, 'gated-content-123');
 
@@ -223,27 +221,37 @@ describe('Access Control Security Tests', () => {
     });
 
     it('should allow access with valid subscription to multiple tiers', async () => {
-      const multiTierContent = createMockContent({
+      // The actual implementation uses a single query with nested includes.
+      // Subscription data comes nested inside the tiers array.
+      (prisma.content.findUnique as jest.Mock).mockResolvedValue({
         id: 'multi-tier-content-123',
         artistId: artistUser.id,
         visibility: 'TIER_LOCKED',
-        tiers: [basicTier, premiumTier],
+        artist: { id: artistUser.id, displayName: 'Artist' },
+        tiers: [
+          {
+            id: basicTier.id,
+            name: basicTier.name,
+            minimumPrice: basicTier.minimumPrice,
+            isActive: true,
+            subscriptions: [
+              {
+                id: 'basic-sub-123',
+                tierId: basicTier.id,
+                amount: 15.0,
+                status: 'ACTIVE',
+              },
+            ],
+          },
+          {
+            id: premiumTier.id,
+            name: premiumTier.name,
+            minimumPrice: premiumTier.minimumPrice,
+            isActive: true,
+            subscriptions: [], // No subscription for premium tier
+          },
+        ],
       });
-
-      const basicSubscription = createMockSubscription({
-        id: 'basic-sub-123',
-        fanId: fanUser.id,
-        artistId: artistUser.id,
-        tierId: basicTier.id,
-        status: 'ACTIVE',
-        currentPeriodEnd: new Date(Date.now() + 86400000),
-        amount: 15.0,
-      });
-
-      (prisma.content.findUnique as jest.Mock).mockResolvedValue(multiTierContent);
-      (prisma.subscriptions.findMany as jest.Mock).mockResolvedValue([
-        { ...basicSubscription, tier: basicTier },
-      ]);
 
       const result = await checkContentAccess(fanUser.id, 'multi-tier-content-123');
 
@@ -480,29 +488,27 @@ describe('Access Control Security Tests', () => {
 
   describe('Content Access Summary Security', () => {
     it('should provide accurate access summary without exposing unauthorized data', async () => {
-      const mockCounts = {
-        totalContent: 10,
-        publicContent: 3,
-        accessibleGatedContent: 4,
-      };
+      // The actual implementation calls:
+      // 1. Promise.all([content.count(total), content.count(public)]) - two simultaneous calls
+      // 2. subscriptions.findMany(...)
+      // 3. content.count(accessible gated)
+      // 4. content.count(per tier) - for each subscription
+      // Note: the code accesses sub.tiers.name (with 's'), so mock must match
 
       const userSubscriptions = [
         {
           tierId: basicTier.id,
-          tier: { id: basicTier.id, name: basicTier.name },
+          tiers: { id: basicTier.id, name: basicTier.name },
         },
       ];
 
-      // Mock the database calls
       (prisma.content.count as jest.Mock)
-        .mockResolvedValueOnce(mockCounts.totalContent) // Total content
-        .mockResolvedValueOnce(mockCounts.publicContent) // Public content
-        .mockResolvedValueOnce(mockCounts.accessibleGatedContent); // Accessible gated content
+        .mockResolvedValueOnce(10) // Total content (first in Promise.all)
+        .mockResolvedValueOnce(3)  // Public content (second in Promise.all)
+        .mockResolvedValueOnce(4)  // Accessible gated content
+        .mockResolvedValueOnce(5); // Content for basic tier
 
       (prisma.subscriptions.findMany as jest.Mock).mockResolvedValue(userSubscriptions);
-
-      // Mock content count per tier
-      (prisma.content.count as jest.Mock).mockResolvedValueOnce(5); // Content for basic tier
 
       const result = await getContentAccessSummary(fanUser.id, artistUser.id);
 
@@ -529,19 +535,20 @@ describe('Access Control Security Tests', () => {
 
     it('should not leak subscription information between users', async () => {
       // Set up fan with basic subscription
+      // Note: the code accesses sub.tiers.name (with 's'), so mock must match
       const fanSubscriptions = [
         {
           tierId: basicTier.id,
-          tier: { id: basicTier.id, name: basicTier.name },
+          tiers: { id: basicTier.id, name: basicTier.name },
         },
       ];
 
       // Mock for fan user
       (prisma.subscriptions.findMany as jest.Mock).mockResolvedValue(fanSubscriptions);
       (prisma.content.count as jest.Mock)
-        .mockResolvedValueOnce(10) // Total
-        .mockResolvedValueOnce(3) // Public
-        .mockResolvedValueOnce(2) // Accessible gated
+        .mockResolvedValueOnce(10) // Total (first in Promise.all)
+        .mockResolvedValueOnce(3)  // Public (second in Promise.all)
+        .mockResolvedValueOnce(2)  // Accessible gated
         .mockResolvedValueOnce(4); // Basic tier content
 
       const fanResult = await getContentAccessSummary(fanUser.id, artistUser.id);
@@ -552,8 +559,8 @@ describe('Access Control Security Tests', () => {
       // Set up other fan with no subscriptions
       (prisma.subscriptions.findMany as jest.Mock).mockResolvedValue([]);
       (prisma.content.count as jest.Mock)
-        .mockResolvedValueOnce(10) // Total content count
-        .mockResolvedValueOnce(3) // Public content count
+        .mockResolvedValueOnce(10) // Total content count (first in Promise.all)
+        .mockResolvedValueOnce(3)  // Public content count (second in Promise.all)
         .mockResolvedValueOnce(0); // Accessible gated content (0 since no subscriptions)
 
       const otherFanResult = await getContentAccessSummary(otherFanUser.id, artistUser.id);
@@ -627,24 +634,29 @@ describe('Access Control Security Tests', () => {
     });
 
     it('should handle concurrent access checks safely', async () => {
-      const gatedContent = createMockContent({
+      // The actual implementation uses a single query with nested includes.
+      (prisma.content.findUnique as jest.Mock).mockResolvedValue({
         id: 'concurrent-content-123',
         artistId: artistUser.id,
         visibility: 'TIER_LOCKED',
-        tiers: [basicTier],
+        artist: { id: artistUser.id, displayName: 'Artist' },
+        tiers: [
+          {
+            id: basicTier.id,
+            name: basicTier.name,
+            minimumPrice: basicTier.minimumPrice,
+            isActive: true,
+            subscriptions: [
+              {
+                id: 'active-sub-123',
+                tierId: basicTier.id,
+                amount: 10.0,
+                status: 'ACTIVE',
+              },
+            ],
+          },
+        ],
       });
-
-      const activeSubscription = createMockSubscription({
-        id: 'active-sub-123',
-        fanId: fanUser.id,
-        artistId: artistUser.id,
-        tierId: basicTier.id,
-      });
-
-      (prisma.content.findUnique as jest.Mock).mockResolvedValue(gatedContent);
-      (prisma.subscriptions.findMany as jest.Mock).mockResolvedValue([
-        { ...activeSubscription, tier: basicTier },
-      ]);
 
       // Simulate concurrent access checks
       const accessPromises = Array.from({ length: 5 }, () =>
@@ -666,24 +678,24 @@ describe('Access Control Security Tests', () => {
         role: 'ARTIST',
       });
 
-      const otherArtistContent = createMockContent({
+      // The actual implementation uses a single query with nested includes.
+      // The nested subscription where clause filters by fanId and status,
+      // so the subscription for a different artist won't match.
+      (prisma.content.findUnique as jest.Mock).mockResolvedValue({
         id: 'other-artist-content-123',
         artistId: otherArtistUser.id,
         visibility: 'TIER_LOCKED',
-        tiers: [basicTier], // This tier belongs to the original artist
+        artist: { id: otherArtistUser.id, displayName: 'Other Artist' },
+        tiers: [
+          {
+            id: basicTier.id,
+            name: basicTier.name,
+            minimumPrice: basicTier.minimumPrice,
+            isActive: true,
+            subscriptions: [], // Empty because fan's subscription is for a different artist
+          },
+        ],
       });
-
-      // Fan has subscription to original artist's tier
-      const subscription = createMockSubscription({
-        id: 'cross-artist-sub-123',
-        fanId: fanUser.id,
-        artistId: artistUser.id, // Original artist
-        tierId: basicTier.id,
-      });
-
-      (prisma.content.findUnique as jest.Mock).mockResolvedValue(otherArtistContent);
-      // The subscription query filters by artistId, so it should return empty for different artist
-      (prisma.subscriptions.findMany as jest.Mock).mockResolvedValue([]);
 
       const result = await checkContentAccess(fanUser.id, 'other-artist-content-123');
 

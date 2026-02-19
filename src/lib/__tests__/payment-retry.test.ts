@@ -1,13 +1,13 @@
 // Mock dependencies first
 jest.mock('@/lib/prisma', () => ({
   prisma: {
-    paymentFailure: {
+    payment_failures: {
       findUnique: jest.fn(),
       findMany: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
     },
-    subscription: {
+    subscriptions: {
       update: jest.fn(),
     },
   },
@@ -75,14 +75,14 @@ describe('Payment Retry Functions', () => {
         nextRetryAt: expect.any(Date),
       };
 
-      mockPrisma.paymentFailure.findUnique.mockResolvedValue(null);
-      mockPrisma.paymentFailure.create.mockResolvedValue(mockFailure as any);
-      mockPrisma.subscription.update.mockResolvedValue({} as any);
+      mockPrisma.payment_failures.findUnique.mockResolvedValue(null);
+      mockPrisma.payment_failures.create.mockResolvedValue(mockFailure as any);
+      mockPrisma.subscriptions.update.mockResolvedValue({} as any);
 
       const result = await createPaymentFailure('sub_123', 'in_123', 10.0, 'Card declined');
 
       expect(result).toEqual(mockFailure);
-      expect(mockPrisma.paymentFailure.create).toHaveBeenCalledWith({
+      expect(mockPrisma.payment_failures.create).toHaveBeenCalledWith({
         data: {
           subscriptionId: 'sub_123',
           stripeInvoiceId: 'in_123',
@@ -91,7 +91,7 @@ describe('Payment Retry Functions', () => {
           nextRetryAt: expect.any(Date),
         },
       });
-      expect(mockPrisma.subscription.update).toHaveBeenCalledWith({
+      expect(mockPrisma.subscriptions.update).toHaveBeenCalledWith({
         where: { id: 'sub_123' },
         data: { status: 'PAST_DUE' },
       });
@@ -110,13 +110,13 @@ describe('Payment Retry Functions', () => {
         nextRetryAt: expect.any(Date),
       };
 
-      mockPrisma.paymentFailure.findUnique.mockResolvedValue(existingFailure as any);
-      mockPrisma.paymentFailure.update.mockResolvedValue(updatedFailure as any);
+      mockPrisma.payment_failures.findUnique.mockResolvedValue(existingFailure as any);
+      mockPrisma.payment_failures.update.mockResolvedValue(updatedFailure as any);
 
       const result = await createPaymentFailure('sub_123', 'in_123', 10.0, 'Card declined');
 
       expect(result).toEqual(updatedFailure);
-      expect(mockPrisma.paymentFailure.update).toHaveBeenCalledWith({
+      expect(mockPrisma.payment_failures.update).toHaveBeenCalledWith({
         where: { id: 'pf_123' },
         data: {
           attemptCount: { increment: 1 },
@@ -128,7 +128,7 @@ describe('Payment Retry Functions', () => {
     });
 
     it('should handle errors', async () => {
-      mockPrisma.paymentFailure.findUnique.mockRejectedValue(new Error('Database error'));
+      mockPrisma.payment_failures.findUnique.mockRejectedValue(new Error('Database error'));
 
       await expect(
         createPaymentFailure('sub_123', 'in_123', 10.0, 'Card declined')
@@ -146,7 +146,7 @@ describe('Payment Retry Functions', () => {
         attemptCount: 1,
       };
 
-      mockPrisma.paymentFailure.findUnique.mockResolvedValue(mockFailure as any);
+      mockPrisma.payment_failures.findUnique.mockResolvedValue(mockFailure as any);
 
       const result = await retryPayment('pf_123');
 
@@ -163,7 +163,7 @@ describe('Payment Retry Functions', () => {
         attemptCount: 1,
         stripeInvoiceId: 'in_123',
         subscriptionId: 'sub_123',
-        subscription: {
+        subscriptions: {
           id: 'sub_123',
         },
       };
@@ -173,23 +173,23 @@ describe('Payment Retry Functions', () => {
         status: 'paid',
       };
 
-      mockPrisma.paymentFailure.findUnique.mockResolvedValue(mockFailure as any);
+      mockPrisma.payment_failures.findUnique.mockResolvedValue(mockFailure as any);
       mockStripe.invoices.retrieve.mockResolvedValue(mockInvoice as any);
-      mockPrisma.paymentFailure.update.mockResolvedValue({} as any);
-      mockPrisma.subscription.update.mockResolvedValue({} as any);
+      mockPrisma.payment_failures.update.mockResolvedValue({} as any);
+      mockPrisma.subscriptions.update.mockResolvedValue({} as any);
 
       const result = await retryPayment('pf_123');
 
       expect(result.success).toBe(true);
       expect(result.resolved).toBe(true);
-      expect(mockPrisma.paymentFailure.update).toHaveBeenCalledWith({
+      expect(mockPrisma.payment_failures.update).toHaveBeenCalledWith({
         where: { id: 'pf_123' },
         data: {
           isResolved: true,
           updatedAt: expect.any(Date),
         },
       });
-      expect(mockPrisma.subscription.update).toHaveBeenCalledWith({
+      expect(mockPrisma.subscriptions.update).toHaveBeenCalledWith({
         where: { id: 'sub_123' },
         data: { status: 'ACTIVE' },
       });
@@ -203,15 +203,15 @@ describe('Payment Retry Functions', () => {
         stripeInvoiceId: 'in_123',
         subscriptionId: 'sub_123',
         amount: new Decimal(10.0),
-        subscription: {
+        subscriptions: {
           id: 'sub_123',
-          fan: {
+          users: {
             email: 'fan@example.com',
             notificationPreferences: { billing: true },
           },
-          tier: {
+          tiers: {
             name: 'Premium',
-            artist: { displayName: 'Test Artist' },
+            users: { displayName: 'Test Artist' },
           },
         },
       };
@@ -221,11 +221,11 @@ describe('Payment Retry Functions', () => {
         status: 'open',
       };
 
-      mockPrisma.paymentFailure.findUnique.mockResolvedValue(mockFailure as any);
+      mockPrisma.payment_failures.findUnique.mockResolvedValue(mockFailure as any);
       mockStripe.invoices.retrieve.mockResolvedValue(mockInvoice as any);
       mockStripe.invoices.pay.mockResolvedValue({} as any);
-      mockPrisma.paymentFailure.update.mockResolvedValue({} as any);
-      mockPrisma.subscription.update.mockResolvedValue({} as any);
+      mockPrisma.payment_failures.update.mockResolvedValue({} as any);
+      mockPrisma.subscriptions.update.mockResolvedValue({} as any);
       mockSendEmail.mockResolvedValue(undefined);
 
       const result = await retryPayment('pf_123');
@@ -234,7 +234,7 @@ describe('Payment Retry Functions', () => {
       expect(result.resolved).toBe(true);
       expect(result.attemptCount).toBe(2);
       expect(mockStripe.invoices.pay).toHaveBeenCalledWith('in_123');
-      expect(mockPrisma.paymentFailure.update).toHaveBeenCalledWith({
+      expect(mockPrisma.payment_failures.update).toHaveBeenCalledWith({
         where: { id: 'pf_123' },
         data: {
           isResolved: true,
@@ -251,17 +251,17 @@ describe('Payment Retry Functions', () => {
         attemptCount: 2, // Already tried twice
         stripeInvoiceId: 'in_123',
         subscriptionId: 'sub_123',
-        subscription: {
+        subscriptions: {
           id: 'sub_123',
           stripeSubscriptionId: 'stripe_sub_123',
-          fan: {
+          users: {
             email: 'fan@example.com',
             notificationPreferences: { billing: true },
           },
-          tier: {
+          tiers: {
             name: 'Premium',
             artistId: 'artist_123',
-            artist: { displayName: 'Test Artist' },
+            users: { displayName: 'Test Artist' },
           },
         },
       };
@@ -271,12 +271,12 @@ describe('Payment Retry Functions', () => {
         status: 'open',
       };
 
-      mockPrisma.paymentFailure.findUnique.mockResolvedValue(mockFailure as any);
+      mockPrisma.payment_failures.findUnique.mockResolvedValue(mockFailure as any);
       mockStripe.invoices.retrieve.mockResolvedValue(mockInvoice as any);
       mockStripe.invoices.pay.mockRejectedValue(new Error('Payment failed'));
       mockStripe.subscriptions.cancel.mockResolvedValue({} as any);
-      mockPrisma.subscription.update.mockResolvedValue({} as any);
-      mockPrisma.paymentFailure.update.mockResolvedValue({} as any);
+      mockPrisma.subscriptions.update.mockResolvedValue({} as any);
+      mockPrisma.payment_failures.update.mockResolvedValue({} as any);
       mockSendEmail.mockResolvedValue(undefined);
 
       const result = await retryPayment('pf_123');
@@ -285,7 +285,7 @@ describe('Payment Retry Functions', () => {
       expect(result.resolved).toBe(true);
       expect(result.attemptCount).toBe(3);
       expect(mockStripe.subscriptions.cancel).toHaveBeenCalledWith('stripe_sub_123');
-      expect(mockPrisma.subscription.update).toHaveBeenCalledWith({
+      expect(mockPrisma.subscriptions.update).toHaveBeenCalledWith({
         where: { id: 'sub_123' },
         data: { status: 'CANCELED' },
       });
@@ -299,7 +299,7 @@ describe('Payment Retry Functions', () => {
         attemptCount: 1, // First attempt
         stripeInvoiceId: 'in_123',
         subscriptionId: 'sub_123',
-        subscription: {
+        subscriptions: {
           id: 'sub_123',
         },
       };
@@ -309,10 +309,10 @@ describe('Payment Retry Functions', () => {
         status: 'open',
       };
 
-      mockPrisma.paymentFailure.findUnique.mockResolvedValue(mockFailure as any);
+      mockPrisma.payment_failures.findUnique.mockResolvedValue(mockFailure as any);
       mockStripe.invoices.retrieve.mockResolvedValue(mockInvoice as any);
       mockStripe.invoices.pay.mockRejectedValue(new Error('Payment failed'));
-      mockPrisma.paymentFailure.update.mockResolvedValue({} as any);
+      mockPrisma.payment_failures.update.mockResolvedValue({} as any);
 
       const result = await retryPayment('pf_123');
 
@@ -320,7 +320,7 @@ describe('Payment Retry Functions', () => {
       expect(result.resolved).toBe(false);
       expect(result.attemptCount).toBe(2);
       expect(result.nextRetryAt).toBeInstanceOf(Date);
-      expect(mockPrisma.paymentFailure.update).toHaveBeenCalledWith({
+      expect(mockPrisma.payment_failures.update).toHaveBeenCalledWith({
         where: { id: 'pf_123' },
         data: {
           attemptCount: 2,
@@ -331,7 +331,7 @@ describe('Payment Retry Functions', () => {
     });
 
     it('should throw error if payment failure not found', async () => {
-      mockPrisma.paymentFailure.findUnique.mockResolvedValue(null);
+      mockPrisma.payment_failures.findUnique.mockResolvedValue(null);
 
       await expect(retryPayment('nonexistent')).rejects.toThrow('Payment failure record not found');
     });
@@ -344,19 +344,19 @@ describe('Payment Retry Functions', () => {
         { id: 'pf_2', subscriptionId: 'sub_123' },
       ];
 
-      mockPrisma.paymentFailure.findMany.mockResolvedValue(mockFailures as any);
+      mockPrisma.payment_failures.findMany.mockResolvedValue(mockFailures as any);
 
       const result = await getPaymentFailures('sub_123');
 
       expect(result).toEqual(mockFailures);
-      expect(mockPrisma.paymentFailure.findMany).toHaveBeenCalledWith({
+      expect(mockPrisma.payment_failures.findMany).toHaveBeenCalledWith({
         where: { subscriptionId: 'sub_123' },
         orderBy: { createdAt: 'desc' },
       });
     });
 
     it('should handle errors', async () => {
-      mockPrisma.paymentFailure.findMany.mockRejectedValue(new Error('Database error'));
+      mockPrisma.payment_failures.findMany.mockRejectedValue(new Error('Database error'));
 
       await expect(getPaymentFailures('sub_123')).rejects.toThrow('Failed to get payment failures');
 
@@ -369,22 +369,22 @@ describe('Payment Retry Functions', () => {
       const mockFailures = [
         {
           id: 'pf_1',
-          subscription: {
-            fan: { id: 'fan_1' },
-            tier: { name: 'Premium' },
+          subscriptions: {
+            users: { id: 'fan_1' },
+            tiers: { name: 'Premium' },
           },
         },
       ];
 
-      mockPrisma.paymentFailure.findMany.mockResolvedValue(mockFailures as any);
+      mockPrisma.payment_failures.findMany.mockResolvedValue(mockFailures as any);
 
       const result = await getArtistPaymentFailures('artist_123');
 
       expect(result).toEqual(mockFailures);
-      expect(mockPrisma.paymentFailure.findMany).toHaveBeenCalledWith({
+      expect(mockPrisma.payment_failures.findMany).toHaveBeenCalledWith({
         where: {
           isResolved: false,
-          subscription: {
+          subscriptions: {
             artistId: 'artist_123',
           },
         },
@@ -394,7 +394,7 @@ describe('Payment Retry Functions', () => {
     });
 
     it('should handle errors', async () => {
-      mockPrisma.paymentFailure.findMany.mockRejectedValue(new Error('Database error'));
+      mockPrisma.payment_failures.findMany.mockRejectedValue(new Error('Database error'));
 
       await expect(getArtistPaymentFailures('artist_123')).rejects.toThrow(
         'Failed to get artist payment failures'

@@ -162,7 +162,7 @@ describe('/api/payments/create-checkout', () => {
         subscriberCount: 0,
         createdAt: new Date(),
         updatedAt: new Date(),
-        artist: {
+        users: {
           id: 'artist-1',
           email: 'artist@example.com',
           role: 'ARTIST',
@@ -224,7 +224,7 @@ describe('/api/payments/create-checkout', () => {
         subscriberCount: 0,
         createdAt: new Date(),
         updatedAt: new Date(),
-        artist: {
+        users: {
           id: 'artist-1',
           email: 'artist@example.com',
           role: 'ARTIST',
@@ -286,7 +286,7 @@ describe('/api/payments/create-checkout', () => {
         subscriberCount: 0,
         createdAt: new Date(),
         updatedAt: new Date(),
-        artist: {
+        users: {
           id: 'artist-1',
           email: 'artist@example.com',
           role: 'ARTIST',
@@ -348,7 +348,7 @@ describe('/api/payments/create-checkout', () => {
         subscriberCount: 0,
         createdAt: new Date(),
         updatedAt: new Date(),
-        artist: {
+        users: {
           id: 'artist-1',
           email: 'artist@example.com',
           role: 'ARTIST',
@@ -424,7 +424,7 @@ describe('/api/payments/create-checkout', () => {
         subscriberCount: 0,
         createdAt: new Date(),
         updatedAt: new Date(),
-        artist: {
+        users: {
           id: 'artist-1',
           email: 'artist@example.com',
           role: 'ARTIST',

@@ -1,10 +1,10 @@
 // Mock dependencies first
 jest.mock('@/lib/prisma', () => ({
   prisma: {
-    subscription: {
+    subscriptions: {
       findUnique: jest.fn(),
     },
-    paymentFailure: {
+    payment_failures: {
       findUnique: jest.fn(),
     },
   },
@@ -72,7 +72,7 @@ describe('/api/payments/retry', () => {
       ];
 
       mockGetServerSession.mockResolvedValue(mockSession as any);
-      mockPrisma.subscription.findUnique.mockResolvedValue(mockSubscription as any);
+      mockPrisma.subscriptions.findUnique.mockResolvedValue(mockSubscription as any);
       mockGetPaymentFailures.mockResolvedValue(mockFailures as any);
 
       const request = createMockGetRequest(
@@ -144,7 +144,7 @@ describe('/api/payments/retry', () => {
       };
 
       mockGetServerSession.mockResolvedValue(mockSession as any);
-      mockPrisma.subscription.findUnique.mockResolvedValue(null);
+      mockPrisma.subscriptions.findUnique.mockResolvedValue(null);
 
       const request = createMockGetRequest(
         'http://localhost:3000/api/payments/retry?subscriptionId=sub123'
@@ -182,7 +182,7 @@ describe('/api/payments/retry', () => {
 
       const mockFailure = {
         id: 'pf_123',
-        subscription: {
+        subscriptions: {
           fanId: 'user123',
           artistId: 'artist123',
         },
@@ -195,7 +195,7 @@ describe('/api/payments/retry', () => {
       };
 
       mockGetServerSession.mockResolvedValue(mockSession as any);
-      mockPrisma.paymentFailure.findUnique.mockResolvedValue(mockFailure as any);
+      mockPrisma.payment_failures.findUnique.mockResolvedValue(mockFailure as any);
       mockRetryPayment.mockResolvedValue(mockRetryResult as any);
 
       const request = createMockPostRequest('http://localhost:3000/api/payments/retry', {
@@ -219,7 +219,7 @@ describe('/api/payments/retry', () => {
 
       const mockFailure = {
         id: 'pf_123',
-        subscription: {
+        subscriptions: {
           fanId: 'user123',
           artistId: 'artist123',
         },
@@ -233,7 +233,7 @@ describe('/api/payments/retry', () => {
       };
 
       mockGetServerSession.mockResolvedValue(mockSession as any);
-      mockPrisma.paymentFailure.findUnique.mockResolvedValue(mockFailure as any);
+      mockPrisma.payment_failures.findUnique.mockResolvedValue(mockFailure as any);
       mockRetryPayment.mockResolvedValue(mockRetryResult as any);
 
       const request = createMockPostRequest('http://localhost:3000/api/payments/retry', {
@@ -256,7 +256,7 @@ describe('/api/payments/retry', () => {
 
       const mockFailure = {
         id: 'pf_123',
-        subscription: {
+        subscriptions: {
           fanId: 'user123',
           artistId: 'artist123',
         },
@@ -269,7 +269,7 @@ describe('/api/payments/retry', () => {
       };
 
       mockGetServerSession.mockResolvedValue(mockSession as any);
-      mockPrisma.paymentFailure.findUnique.mockResolvedValue(mockFailure as any);
+      mockPrisma.payment_failures.findUnique.mockResolvedValue(mockFailure as any);
       mockRetryPayment.mockResolvedValue(mockRetryResult as any);
 
       const request = createMockPostRequest('http://localhost:3000/api/payments/retry', {
@@ -318,7 +318,7 @@ describe('/api/payments/retry', () => {
       };
 
       mockGetServerSession.mockResolvedValue(mockSession as any);
-      mockPrisma.paymentFailure.findUnique.mockResolvedValue(null);
+      mockPrisma.payment_failures.findUnique.mockResolvedValue(null);
 
       const request = createMockPostRequest('http://localhost:3000/api/payments/retry', {
         paymentFailureId: 'pf_123',
@@ -337,14 +337,14 @@ describe('/api/payments/retry', () => {
 
       const mockFailure = {
         id: 'pf_123',
-        subscription: {
+        subscriptions: {
           fanId: 'other_user',
           artistId: 'other_artist',
         },
       };
 
       mockGetServerSession.mockResolvedValue(mockSession as any);
-      mockPrisma.paymentFailure.findUnique.mockResolvedValue(mockFailure as any);
+      mockPrisma.payment_failures.findUnique.mockResolvedValue(mockFailure as any);
 
       const request = createMockPostRequest('http://localhost:3000/api/payments/retry', {
         paymentFailureId: 'pf_123',
