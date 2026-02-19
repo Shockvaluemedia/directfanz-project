@@ -6,15 +6,11 @@ import { prisma } from './prisma';
 
 // Environment variable validation
 if (!process.env.NEXTAUTH_SECRET) {
-  console.error('❌ NEXTAUTH_SECRET is not set!');
+  throw new Error('NEXTAUTH_SECRET is not set');
 }
 if (!process.env.DATABASE_URL) {
-  console.error('❌ DATABASE_URL is not set!');
+  throw new Error('DATABASE_URL is not set');
 }
-
-console.log('🔧 NextAuth Configuration Loading...');
-console.log('🔧 NEXTAUTH_SECRET:', process.env.NEXTAUTH_SECRET ? 'SET' : 'NOT SET');
-console.log('🔧 DATABASE_URL:', process.env.DATABASE_URL ? 'SET' : 'NOT SET');
 
 export const authOptions: NextAuthOptions = {
   debug: process.env.NODE_ENV === 'development',
@@ -26,58 +22,36 @@ export const authOptions: NextAuthOptions = {
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
-        console.log('🔐 AUTHORIZE FUNCTION CALLED');
-        console.log('📧 Email:', credentials?.email);
-        console.log('🔑 Password length:', credentials?.password?.length);
-        
         if (!credentials?.email || !credentials?.password) {
-          console.log('❌ Missing credentials');
           return null;
         }
 
         try {
-          console.log('🔍 Looking up user in database...');
-          console.log('🗃️ DATABASE_URL:', process.env.DATABASE_URL?.substring(0, 30) + '...');
           const user = await prisma.users.findUnique({
             where: {
               email: credentials.email,
             },
           });
 
-          console.log('👤 User found:', !!user, 'Has password:', !!user?.password);
-
           if (!user || !user.password) {
-            console.log('❌ User not found or no password');
             return null;
           }
 
-          console.log('🔐 Comparing passwords...');
           const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
 
-          console.log(
-            '🔐 NextAuth: Password validation for',
-            credentials.email,
-            ':',
-            isPasswordValid
-          );
-
           if (!isPasswordValid) {
-            console.log('❌ Password validation failed');
             return null;
           }
 
-          const result = {
+          return {
             id: user.id,
             email: user.email,
             name: user.displayName,
             image: user.avatar,
             role: user.role,
           };
-          
-          console.log('✅ Authorization successful, returning user:', result);
-          return result;
         } catch (error) {
-          console.error('🔐 NextAuth: Error during authorization:', error);
+          console.error('Authorization error:', error instanceof Error ? error.message : 'Unknown error');
           return null;
         }
       },
@@ -149,8 +123,7 @@ export const authOptions: NextAuthOptions = {
           issuer: process.env.NEXTAUTH_URL || 'directfanz',
           audience: 'directfanz-platform',
         }) as any;
-      } catch (error) {
-        console.error('JWT verification failed:', error);
+      } catch {
         return null;
       }
     },
@@ -173,8 +146,7 @@ export const authOptions: NextAuthOptions = {
         target.host = normalizedBase.host;
         target.protocol = normalizedBase.protocol;
         return target.toString();
-      } catch (error) {
-        console.warn('URL construction failed during static generation:', { url, appUrl, error });
+      } catch {
         // Return safe fallback
         return url.startsWith('/') ? url : appUrl || '/';
       }
@@ -196,18 +168,6 @@ export const authOptions: NextAuthOptions = {
       // Update last activity on token refresh
       if (trigger === 'update') {
         token.lastActivity = Date.now();
-      }
-
-      // Check for suspicious activity (optional - can be enhanced later)
-      if (token.lastActivity) {
-        const timeSinceLastActivity = Date.now() - (token.lastActivity as number);
-        if (timeSinceLastActivity > 4 * 60 * 60 * 1000) {
-          // 4 hours
-          console.warn('Suspicious: Long inactive session detected', {
-            userId: token.id,
-            timeSinceLastActivity: Math.round(timeSinceLastActivity / 1000 / 60),
-          });
-        }
       }
 
       return token;
@@ -282,8 +242,8 @@ async function storeOAuthTokens(userId: string, account: any) {
         expiresAt: account.expires_at ? new Date(account.expires_at * 1000) : null,
       },
     });
-  } catch (error) {
-    console.error('Error storing OAuth tokens:', error);
+  } catch {
+    // Token storage failed — non-critical, user can still authenticate
   }
 }
 
@@ -341,8 +301,6 @@ async function decryptToken(encryptedToken: string): Promise<string> {
 
     return decrypted;
   } catch (error) {
-    // Log security event but don't expose details
-    console.error('Token decryption failed - possible tampering detected');
     throw new Error('Invalid or tampered token');
   }
 }

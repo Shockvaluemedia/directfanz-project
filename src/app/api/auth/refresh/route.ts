@@ -65,8 +65,7 @@ export async function POST(request: NextRequest) {
       success: true,
       expiresIn: refreshedTokens.expires_in,
     });
-  } catch (error) {
-    console.error('OAuth refresh error:', error);
+  } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -114,35 +113,54 @@ async function refreshOAuthToken(provider: string, refreshToken: string) {
     }
 
     return await response.json();
-  } catch (error) {
-    console.error('Token refresh error:', error);
+  } catch {
     return null;
   }
 }
 
-// Token encryption utility (same as in auth.ts)
+// Token encryption utility using AES-256-GCM (authenticated encryption)
 async function encryptToken(token: string): Promise<string> {
-  const algorithm = 'aes-256-cbc';
-  const secretKey = crypto.createHash('sha256').update(process.env.TOKEN_ENCRYPTION_KEY!).digest();
+  const algorithm = 'aes-256-gcm';
 
+  if (!process.env.TOKEN_ENCRYPTION_KEY) {
+    throw new Error('TOKEN_ENCRYPTION_KEY environment variable is required');
+  }
+
+  const secretKey = crypto.createHash('sha256').update(process.env.TOKEN_ENCRYPTION_KEY).digest();
   const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipher(algorithm, secretKey);
+
+  const cipher = crypto.createCipheriv(algorithm, secretKey, iv);
 
   let encrypted = cipher.update(token, 'utf8', 'hex');
   encrypted += cipher.final('hex');
 
-  return `${iv.toString('hex')}:${encrypted}`;
+  const authTag = cipher.getAuthTag();
+
+  // Return format: iv:authTag:encrypted
+  return `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted}`;
 }
 
-// Token decryption utility (same as in auth.ts)
+// Token decryption utility using AES-256-GCM (authenticated encryption)
 async function decryptToken(encryptedToken: string): Promise<string> {
-  const algorithm = 'aes-256-cbc';
-  const secretKey = crypto.createHash('sha256').update(process.env.TOKEN_ENCRYPTION_KEY!).digest();
+  const algorithm = 'aes-256-gcm';
 
-  const [ivHex, encrypted] = encryptedToken.split(':');
+  if (!process.env.TOKEN_ENCRYPTION_KEY) {
+    throw new Error('TOKEN_ENCRYPTION_KEY environment variable is required');
+  }
+
+  const secretKey = crypto.createHash('sha256').update(process.env.TOKEN_ENCRYPTION_KEY).digest();
+
+  const [ivHex, authTagHex, encrypted] = encryptedToken.split(':');
+
+  if (!ivHex || !authTagHex || !encrypted) {
+    throw new Error('Invalid encrypted token format');
+  }
+
   const iv = Buffer.from(ivHex, 'hex');
+  const authTag = Buffer.from(authTagHex, 'hex');
 
-  const decipher = crypto.createDecipher(algorithm, secretKey);
+  const decipher = crypto.createDecipheriv(algorithm, secretKey, iv);
+  decipher.setAuthTag(authTag);
 
   let decrypted = decipher.update(encrypted, 'hex', 'utf8');
   decrypted += decipher.final('utf8');

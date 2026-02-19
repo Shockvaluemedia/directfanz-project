@@ -7,9 +7,6 @@ import Stripe from 'stripe';
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
 
-if (process.env.NODE_ENV === 'production' && !process.env.STRIPE_WEBHOOK_SECRET) {
-  console.warn('STRIPE_WEBHOOK_SECRET is not set in production environment');
-}
 
 export async function POST(request: NextRequest) {
   if (!process.env.STRIPE_WEBHOOK_SECRET) {
@@ -29,8 +26,7 @@ export async function POST(request: NextRequest) {
 
     try {
       event = stripe.webhooks.constructEvent(body, signature, webhookSecret!);
-    } catch (err) {
-      console.error('Webhook signature verification failed:', err);
+    } catch {
       return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
     }
 
@@ -57,12 +53,11 @@ export async function POST(request: NextRequest) {
         break;
 
       default:
-        console.log(`Unhandled event type: ${event.type}`);
+        break;
     }
 
     return NextResponse.json({ received: true });
-  } catch (error) {
-    console.error('Webhook error:', error);
+  } catch {
     return NextResponse.json({ error: 'Webhook handler failed' }, { status: 500 });
   }
 }
@@ -70,7 +65,6 @@ export async function POST(request: NextRequest) {
 async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
   try {
     if (!session.metadata) {
-      console.error('No metadata in checkout session');
       return;
     }
 
@@ -132,9 +126,8 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
       });
     }
 
-    console.log(`Subscription created for fan ${fanId} to tier ${tierId}`);
-  } catch (error) {
-    console.error('Error handling checkout session completed:', error);
+  } catch {
+    // Checkout session handling failed — Stripe will retry
   }
 }
 
@@ -175,10 +168,9 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
         },
       });
 
-      console.log(`Payment succeeded for subscription ${subscriptionId}`);
     }
-  } catch (error) {
-    console.error('Error handling invoice payment succeeded:', error);
+  } catch {
+    // Invoice payment handling failed — Stripe will retry
   }
 }
 
@@ -250,12 +242,9 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
         });
       }
 
-      console.log(
-        `Payment failed for subscription ${subscriptionId}, attempt ${invoice.attempt_count}`
-      );
     }
-  } catch (error) {
-    console.error('Error handling invoice payment failed:', error);
+  } catch {
+    // Payment failure handling failed — Stripe will retry
   }
 }
 
@@ -275,10 +264,9 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
         },
       });
 
-      console.log(`Subscription updated: ${subscription.id}`);
     }
-  } catch (error) {
-    console.error('Error handling subscription updated:', error);
+  } catch {
+    // Subscription update handling failed — Stripe will retry
   }
 }
 
@@ -315,9 +303,8 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
         },
       });
 
-      console.log(`Subscription canceled: ${subscription.id}`);
     }
-  } catch (error) {
-    console.error('Error handling subscription deleted:', error);
+  } catch {
+    // Subscription deletion handling failed — Stripe will retry
   }
 }

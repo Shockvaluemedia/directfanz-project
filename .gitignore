@@ -83,6 +83,9 @@ public/uploads/temp/
 .env.production.secrets
 .env.production.backup
 .env.production.vercel
+.env.amplify
+.env.vercel
+security-backup-*/
 ~/
 
 # Terraform

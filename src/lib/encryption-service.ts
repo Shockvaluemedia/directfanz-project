@@ -5,7 +5,7 @@
  */
 
 import { KMSClient, EncryptCommand, DecryptCommand, GenerateDataKeyCommand } from '@aws-sdk/client-kms';
-import { createCipher, createDecipher, randomBytes, pbkdf2Sync } from 'crypto';
+import { createCipheriv, createDecipheriv, randomBytes, pbkdf2Sync } from 'crypto';
 
 interface EncryptionConfig {
   kmsKeyId: string;
@@ -66,15 +66,18 @@ export class EncryptionService {
       // Generate random IV
       const iv = randomBytes(16);
 
-      // Encrypt the data using the plaintext data key
-      const cipher = createCipher(this.config.algorithm, dataKeyResponse.Plaintext);
-      cipher.setAutoPadding(true);
-      
+      // Derive a 32-byte key from the KMS data key
+      const keyBuffer = Buffer.from(dataKeyResponse.Plaintext);
+      const derivedKey = keyBuffer.length === 32 ? keyBuffer : pbkdf2Sync(keyBuffer, 'directfanz', 1, 32, 'sha256');
+
+      // Encrypt the data using the plaintext data key with IV
+      const cipher = createCipheriv(this.config.algorithm, derivedKey, iv);
+
       let encryptedData = cipher.update(plaintextBuffer);
       encryptedData = Buffer.concat([encryptedData, cipher.final()]);
 
       // Get the authentication tag for GCM mode
-      const authTag = (cipher as any).getAuthTag ? (cipher as any).getAuthTag() : Buffer.alloc(0);
+      const authTag = cipher.getAuthTag();
       const finalEncryptedData = Buffer.concat([encryptedData, authTag]);
 
       return {
@@ -85,7 +88,6 @@ export class EncryptionService {
         keyId: this.config.kmsKeyId
       };
     } catch (error) {
-      console.error('Encryption failed:', error);
       throw new Error(`Encryption failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -116,18 +118,18 @@ export class EncryptionService {
       const ciphertext = encryptedBuffer.slice(0, -authTagLength);
       const authTag = encryptedBuffer.slice(-authTagLength);
 
-      const decipher = createDecipher(encryptedData.algorithm, keyResponse.Plaintext);
-      
-      if ((decipher as any).setAuthTag) {
-        (decipher as any).setAuthTag(authTag);
-      }
+      // Derive a 32-byte key from the KMS data key
+      const keyBuffer = Buffer.from(keyResponse.Plaintext);
+      const derivedKey = keyBuffer.length === 32 ? keyBuffer : pbkdf2Sync(keyBuffer, 'directfanz', 1, 32, 'sha256');
+
+      const decipher = createDecipheriv(encryptedData.algorithm, derivedKey, iv);
+      decipher.setAuthTag(authTag);
 
       let decrypted = decipher.update(ciphertext);
       decrypted = Buffer.concat([decrypted, decipher.final()]);
 
       return decrypted;
     } catch (error) {
-      console.error('Decryption failed:', error);
       throw new Error(`Decryption failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -185,8 +187,7 @@ export class EncryptionService {
       const [salt, hash] = hashedData.split(':');
       const computedHash = pbkdf2Sync(data, salt, this.config.keyDerivationIterations, 64, 'sha512');
       return computedHash.toString('hex') === hash;
-    } catch (error) {
-      console.error('Hash verification failed:', error);
+    } catch {
       return false;
     }
   }
