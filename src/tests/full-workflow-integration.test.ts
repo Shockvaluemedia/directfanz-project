@@ -193,15 +193,15 @@ describe('Full Workflow Integration Tests', () => {
       const batchRequest = {
         files: [
           {
-            filePath: 'https://test-bucket.s3.amazonaws.com/uploads/image1.jpg',
+            filePath: 'https://mock-blob.vercel-storage.com/uploads/image1.jpg',
             contentType: 'IMAGE' as const,
           },
           {
-            filePath: 'https://test-bucket.s3.amazonaws.com/uploads/image2.png',
+            filePath: 'https://mock-blob.vercel-storage.com/uploads/image2.png',
             contentType: 'IMAGE' as const,
           },
           {
-            filePath: 'https://test-bucket.s3.amazonaws.com/uploads/video1.mp4',
+            filePath: 'https://mock-blob.vercel-storage.com/uploads/video1.mp4',
             contentType: 'VIDEO' as const,
           }
         ],

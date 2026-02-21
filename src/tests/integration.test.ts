@@ -155,11 +155,11 @@ describe('Content Optimization Integration Tests', () => {
       user: { id: 'artist-123', role: 'ARTIST', email: 'artist@example.com' },
     } as any);
 
-    // Setup S3 mock
+    // Setup storage mock
     const { generatePresignedUrl, validateFileUpload, SUPPORTED_FILE_TYPES } = require('../lib/s3');
     (generatePresignedUrl as jest.Mock).mockResolvedValue({
-      uploadUrl: 'https://mock-s3-bucket.s3.amazonaws.com/presigned-upload-url',
-      fileUrl: 'https://mock-s3-bucket.s3.amazonaws.com/uploads/mock-file.jpg',
+      uploadUrl: 'https://mock-blob.vercel-storage.com/presigned-upload-url',
+      fileUrl: 'https://mock-blob.vercel-storage.com/uploads/mock-file.jpg',
       key: 'content/artist-123/mock-file.jpg',
     });
     (validateFileUpload as jest.Mock).mockReturnValue([]);

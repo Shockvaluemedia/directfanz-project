@@ -510,7 +510,7 @@ describe('Performance & Load Testing', () => {
 
         const batchRequest = {
           files: Array.from({ length: batchSize }, (_, i) => ({
-            filePath: `https://test-bucket.s3.amazonaws.com/uploads/batch-${i}.jpg`,
+            filePath: `https://mock-blob.vercel-storage.com/uploads/batch-${i}.jpg`,
             contentType: 'IMAGE' as const,
           })),
           strategy: 'balanced'

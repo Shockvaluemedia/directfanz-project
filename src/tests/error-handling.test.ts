@@ -454,15 +454,15 @@ describe('Error Handling & Edge Cases', () => {
       const batchRequest = {
         files: [
           {
-            filePath: 'https://test-bucket.s3.amazonaws.com/uploads/image1.jpg',
+            filePath: 'https://mock-blob.vercel-storage.com/uploads/image1.jpg',
             contentType: 'IMAGE' as const,
           },
           {
-            filePath: 'https://test-bucket.s3.amazonaws.com/uploads/image2.jpg',
+            filePath: 'https://mock-blob.vercel-storage.com/uploads/image2.jpg',
             contentType: 'IMAGE' as const,
           },
           {
-            filePath: 'https://test-bucket.s3.amazonaws.com/uploads/image3.jpg',
+            filePath: 'https://mock-blob.vercel-storage.com/uploads/image3.jpg',
             contentType: 'IMAGE' as const,
           }
         ],
