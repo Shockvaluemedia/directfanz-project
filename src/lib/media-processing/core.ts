@@ -13,8 +13,7 @@
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegStatic from 'ffmpeg-static';
 import ffprobeStatic from 'ffprobe-static';
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
-import { Upload } from '@aws-sdk/lib-storage';
+import { put } from '@vercel/blob';
 import sharp from 'sharp';
 import path from 'path';
 import fs from 'fs/promises';
@@ -30,17 +29,7 @@ if (ffprobeStatic) {
   ffmpeg.setFfprobePath(ffprobeStatic.path);
 }
 
-// AWS S3 Configuration
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION || 'us-east-1',
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-  },
-});
-
-const BUCKET_NAME = process.env.AWS_S3_BUCKET_NAME!;
-const CDN_DOMAIN = process.env.AWS_CLOUDFRONT_DOMAIN || process.env.AWS_S3_BUCKET_NAME;
+// Vercel Blob is configured via BLOB_READ_WRITE_TOKEN env var
 
 // Processing Configuration
 export const PROCESSING_CONFIG = {
@@ -376,7 +365,7 @@ export class MediaProcessor {
 
             await Promise.all(uploadPromises);
 
-            const playlistUrl = `https://${CDN_DOMAIN}/${outputPrefix}-hls/playlist.m3u8`;
+            const playlistUrl = `${outputPrefix}-hls/playlist.m3u8`;
 
             // Get total size of HLS files
             const stats = await Promise.all(files.map(file => fs.stat(path.join(hlsDir, file))));
@@ -632,26 +621,19 @@ export class MediaProcessor {
   }
 
   /**
-   * Upload buffer to S3
+   * Upload buffer to Vercel Blob
    */
   private async uploadToS3(buffer: Buffer, key: string, contentType: string): Promise<string> {
-    const upload = new Upload({
-      client: s3Client,
-      params: {
-        Bucket: BUCKET_NAME,
-        Key: key,
-        Body: buffer,
-        ContentType: contentType,
-        CacheControl: 'max-age=31536000', // 1 year cache
-      },
-    });
-
     try {
-      await upload.done();
-      return `https://${CDN_DOMAIN}/${key}`;
+      const blob = await put(key, buffer, {
+        access: 'public',
+        contentType,
+        addRandomSuffix: false,
+      });
+      return blob.url;
     } catch (error) {
-      logger.error('S3 upload failed', { key }, error as Error);
-      throw new Error(`Failed to upload ${key} to S3`);
+      logger.error('Blob upload failed', { key }, error as Error);
+      throw new Error(`Failed to upload ${key} to storage`);
     }
   }
 

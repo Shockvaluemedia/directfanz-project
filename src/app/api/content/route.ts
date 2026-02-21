@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { FileUploader } from '@/lib/upload';
-import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { del } from '@vercel/blob';
 
 const listQuerySchema = z.object({
   page: z.string().optional().default('1'),
@@ -403,40 +403,16 @@ export async function DELETE(request: NextRequest) {
         where: { id: contentId },
       });
 
-      // Delete actual files from S3 storage
+      // Delete actual files from Vercel Blob storage
       if (existingContent.fileUrl) {
-        const bucketName = process.env.AWS_S3_BUCKET_NAME;
-        if (bucketName) {
-          const s3 = new S3Client({
-            region: process.env.AWS_REGION || 'us-east-1',
-            credentials: {
-              accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-              secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-            },
-          });
+        const filesToDelete = [existingContent.fileUrl, existingContent.thumbnailUrl].filter(Boolean) as string[];
 
-          const extractKey = (url: string): string | null => {
-            try {
-              const parsed = new URL(url);
-              // Handle CloudFront or S3 URLs - key is the path without leading slash
-              return parsed.pathname.replace(/^\//, '');
-            } catch {
-              return null;
-            }
-          };
-
-          const filesToDelete = [existingContent.fileUrl, existingContent.thumbnailUrl].filter(Boolean) as string[];
-
-          await Promise.allSettled(
-            filesToDelete.map(async (url) => {
-              const key = extractKey(url);
-              if (key) {
-                await s3.send(new DeleteObjectCommand({ Bucket: bucketName, Key: key }));
-                logger.info('S3 file deleted', { contentId, key });
-              }
-            })
-          );
-        }
+        await Promise.allSettled(
+          filesToDelete.map(async (url) => {
+            await del(url);
+            logger.info('Blob file deleted', { contentId, url });
+          })
+        );
       }
 
       logger.info('Content deleted', {

@@ -52,13 +52,11 @@ jest.mock('fluent-ffmpeg', () => {
   return mockConstructor;
 });
 jest.mock('ffprobe-static', () => ({ path: '/fake/ffprobe/path' }));
-jest.mock('@aws-sdk/client-s3', () => ({
-  S3Client: jest.fn(() => ({ send: jest.fn() })),
-  GetObjectCommand: jest.fn(),
-  PutObjectCommand: jest.fn(),
-}));
-jest.mock('@aws-sdk/lib-storage', () => ({
-  Upload: jest.fn(() => ({ done: jest.fn() })),
+jest.mock('@vercel/blob', () => ({
+  put: jest.fn().mockResolvedValue({ url: 'https://mock-blob.vercel-storage.com/test-file', pathname: 'test-file' }),
+  del: jest.fn().mockResolvedValue(undefined),
+  head: jest.fn().mockResolvedValue({ url: 'https://mock-blob.vercel-storage.com/test-file', size: 12345, uploadedAt: new Date() }),
+  list: jest.fn().mockResolvedValue({ blobs: [], cursor: undefined, hasMore: false }),
 }));
 
 // Mock prisma

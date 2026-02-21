@@ -3,17 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { 
-  MediaLiveClient, 
-  StartChannelCommand, 
-  StopChannelCommand,
-  CreateChannelCommand,
-  DeleteChannelCommand 
-} from '@aws-sdk/client-medialive';
-
-const mediaLive = new MediaLiveClient({ 
-  region: process.env.AWS_REGION || 'us-east-1' 
-});
+import { v4 as uuidv4 } from 'uuid';
 
 export async function POST(request: NextRequest) {
   try {
@@ -53,19 +43,15 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    // Generate RTMP credentials
-    const streamKey = `${stream.id}_${Date.now()}`;
-    const rtmpUrl = `rtmp://medialive-input.${process.env.AWS_REGION}.amazonaws.com/live`;
+    // Generate stream key for WebRTC signaling
+    const streamKey = `${stream.id}_${uuidv4()}`;
 
-    // Update stream with RTMP details
     await prisma.liveStream.update({
       where: { id: stream.id },
       data: {
-        rtmpUrl,
         streamKey,
         settings: {
           ...stream.settings,
-          rtmpUrl,
           streamKey
         }
       }
@@ -74,10 +60,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       streamId: stream.id,
       title: stream.title,
-      rtmpUrl,
       streamKey,
       status: 'SCHEDULED',
-      playbackUrl: `https://${process.env.CLOUDFRONT_STREAMING_DOMAIN}/${stream.id}/playlist.m3u8`
+      signalingUrl: process.env.NEXT_PUBLIC_WEBSOCKET_URL || '/api/socket',
     });
 
   } catch (error) {

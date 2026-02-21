@@ -3,9 +3,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { MediaLiveClient, StartChannelCommand, StopChannelCommand } from '@aws-sdk/client-medialive';
-
-const mediaLive = new MediaLiveClient({ region: process.env.AWS_REGION || 'us-east-1' });
 
 export async function POST(
   request: NextRequest,
@@ -39,12 +36,6 @@ export async function POST(
           return NextResponse.json({ error: 'Stream already started' }, { status: 400 });
         }
 
-        // Start MediaLive channel
-        await mediaLive.send(new StartChannelCommand({
-          ChannelId: `directfanz-${streamId}`
-        }));
-
-        // Update stream status
         await prisma.liveStream.update({
           where: { id: streamId },
           data: {
@@ -53,10 +44,10 @@ export async function POST(
           }
         });
 
-        return NextResponse.json({ 
+        return NextResponse.json({
           status: 'LIVE',
           message: 'Stream started successfully',
-          playbackUrl: `https://${process.env.CLOUDFRONT_STREAMING_DOMAIN}/${streamId}/playlist.m3u8`
+          signalingUrl: process.env.NEXT_PUBLIC_WEBSOCKET_URL || '/api/socket',
         });
 
       case 'stop':
@@ -64,12 +55,6 @@ export async function POST(
           return NextResponse.json({ error: 'Stream not live' }, { status: 400 });
         }
 
-        // Stop MediaLive channel
-        await mediaLive.send(new StopChannelCommand({
-          ChannelId: `directfanz-${streamId}`
-        }));
-
-        // Update stream status
         const endedStream = await prisma.liveStream.update({
           where: { id: streamId },
           data: {
@@ -78,12 +63,11 @@ export async function POST(
           }
         });
 
-        // Calculate duration
-        const duration = endedStream.endedAt && endedStream.startedAt 
+        const duration = endedStream.endedAt && endedStream.startedAt
           ? endedStream.endedAt.getTime() - endedStream.startedAt.getTime()
           : 0;
 
-        return NextResponse.json({ 
+        return NextResponse.json({
           status: 'ENDED',
           message: 'Stream ended successfully',
           duration
@@ -158,20 +142,18 @@ export async function GET(
       return NextResponse.json({ error: 'Stream not found' }, { status: 404 });
     }
 
-    const playbackUrl = stream.status === 'LIVE' 
-      ? `https://${process.env.CLOUDFRONT_STREAMING_DOMAIN}/${streamId}/playlist.m3u8`
-      : null;
-
     return NextResponse.json({
       ...stream,
-      playbackUrl,
+      signalingUrl: stream.status === 'LIVE'
+        ? (process.env.NEXT_PUBLIC_WEBSOCKET_URL || '/api/socket')
+        : null,
       metrics: {
         currentViewers: stream._count.viewers,
         totalMessages: stream._count.chatMessages,
         totalLikes: stream._count.likes,
-        duration: stream.startedAt && stream.endedAt 
+        duration: stream.startedAt && stream.endedAt
           ? stream.endedAt.getTime() - stream.startedAt.getTime()
-          : stream.startedAt 
+          : stream.startedAt
           ? Date.now() - stream.startedAt.getTime()
           : 0
       }

@@ -1094,57 +1094,27 @@ jest.mock('prom-client', () => ({
   },
 }));
 
-// Mock AWS S3 services
-jest.mock('@aws-sdk/client-s3', () => {
+// Mock Vercel Blob storage
+jest.mock('@vercel/blob', () => {
   return {
-    S3Client: jest.fn().mockImplementation(() => ({
-      send: jest.fn().mockImplementation((command) => {
-        // Mock different responses based on command type
-        if (command.constructor.name === 'PutObjectCommand') {
-          return Promise.resolve({ 
-            ETag: '"mockedETag"', 
-            ServerSideEncryption: 'AES256' 
-          });
-        }
-        
-        if (command.constructor.name === 'GetObjectCommand') {
-          return Promise.resolve({ 
-            Body: { 
-              transformToByteArray: () => new Uint8Array([1, 2, 3, 4]),
-              transformToString: () => 'mocked-content'
-            },
-            ContentType: 'image/jpeg',
-            ContentLength: 12345
-          });
-        }
-        
-        return Promise.resolve({ success: true });
-      })
-    })),
-    PutObjectCommand: jest.fn(),
-    GetObjectCommand: jest.fn(),
-    HeadObjectCommand: jest.fn(),
-    ListObjectsV2Command: jest.fn(),
-    DeleteObjectCommand: jest.fn()
-  };
-});
-
-jest.mock('@aws-sdk/s3-request-presigner', () => {
-  return {
-    getSignedUrl: jest.fn().mockResolvedValue('https://mock-presigned-url.com/test-file')
-  };
-});
-
-jest.mock('@aws-sdk/lib-storage', () => {
-  return {
-    Upload: jest.fn().mockImplementation(() => ({
-      done: jest.fn().mockResolvedValue({
-        Location: 'https://mock-s3-url.com/test-file',
-        Bucket: 'test-bucket',
-        Key: 'test-key',
-        ETag: '"mockedETag"'
-      })
-    }))
+    put: jest.fn().mockResolvedValue({
+      url: 'https://mock-blob.vercel-storage.com/test-file',
+      pathname: 'test-file',
+      contentType: 'image/jpeg',
+      contentDisposition: 'inline',
+    }),
+    del: jest.fn().mockResolvedValue(undefined),
+    head: jest.fn().mockResolvedValue({
+      url: 'https://mock-blob.vercel-storage.com/test-file',
+      size: 12345,
+      uploadedAt: new Date(),
+      contentType: 'image/jpeg',
+    }),
+    list: jest.fn().mockResolvedValue({
+      blobs: [],
+      cursor: undefined,
+      hasMore: false,
+    }),
   };
 });
 

@@ -1,4 +1,3 @@
-import { RekognitionClient, DetectModerationLabelsCommand } from '@aws-sdk/client-rekognition';
 import { prisma } from './prisma';
 
 interface ModerationResult {
@@ -8,23 +7,44 @@ interface ModerationResult {
   reason?: string;
 }
 
-let rekognitionClient: RekognitionClient | null = null;
-
-function getRekognitionClient(): RekognitionClient {
-  if (!rekognitionClient) {
-    rekognitionClient = new RekognitionClient({
-      region: process.env.AWS_REGION || 'us-east-1',
-    });
-  }
-  return rekognitionClient;
-}
-
 export class AIContentModerator {
   async moderateText(content: string): Promise<ModerationResult> {
-    // In production, integrate with OpenAI Moderation API or similar
+    // Use OpenAI Moderation API if available
+    if (process.env.OPENAI_API_KEY) {
+      try {
+        const response = await fetch('https://api.openai.com/v1/moderations', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ input: content }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const result = data.results?.[0];
+          if (result) {
+            const flaggedCategories = Object.entries(result.categories)
+              .filter(([, flagged]) => flagged)
+              .map(([category]) => category);
+
+            return {
+              flagged: result.flagged,
+              confidence: Math.max(...Object.values(result.category_scores) as number[]),
+              categories: flaggedCategories,
+              reason: result.flagged ? `Detected: ${flaggedCategories.join(', ')}` : undefined,
+            };
+          }
+        }
+      } catch (error) {
+        console.error('OpenAI moderation failed, using pattern fallback:', error);
+      }
+    }
+
+    // Fallback: pattern-based moderation
     const flaggedPatterns = [
       /\b(hate|violence|harassment)\b/i,
-      /\b(explicit|adult|nsfw)\b/i,
       /\b(spam|scam|fraud)\b/i,
     ];
 
@@ -36,11 +56,9 @@ export class AIContentModerator {
       if (pattern.test(content)) {
         flagged = true;
         confidence = Math.max(confidence, 0.8);
-        
+
         if (pattern.source.includes('hate|violence')) {
           categories.push('hate_speech');
-        } else if (pattern.source.includes('explicit|adult')) {
-          categories.push('adult_content');
         } else if (pattern.source.includes('spam|scam')) {
           categories.push('spam');
         }
@@ -51,53 +69,53 @@ export class AIContentModerator {
       flagged,
       confidence,
       categories,
-      reason: flagged ? 'Content flagged by AI moderation' : undefined,
+      reason: flagged ? 'Content flagged by moderation' : undefined,
     };
   }
 
   async moderateImage(imageUrl: string): Promise<ModerationResult> {
-    try {
-      const client = getRekognitionClient();
+    // Use OpenAI Vision moderation if available
+    if (process.env.OPENAI_API_KEY) {
+      try {
+        const response = await fetch('https://api.openai.com/v1/moderations', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            input: [{ type: 'image_url', image_url: { url: imageUrl } }],
+            model: 'omni-moderation-latest',
+          }),
+        });
 
-      const response = await fetch(imageUrl);
-      const arrayBuffer = await response.arrayBuffer();
-      const imageBytes = new Uint8Array(arrayBuffer);
+        if (response.ok) {
+          const data = await response.json();
+          const result = data.results?.[0];
+          if (result) {
+            const flaggedCategories = Object.entries(result.categories)
+              .filter(([, flagged]) => flagged)
+              .map(([category]) => category);
 
-      const command = new DetectModerationLabelsCommand({
-        Image: {
-          Bytes: imageBytes,
-        },
-        MinConfidence: 60,
-      });
-
-      const result = await client.send(command);
-      const labels = result.ModerationLabels || [];
-
-      if (labels.length === 0) {
-        return {
-          flagged: false,
-          confidence: 0,
-          categories: [],
-        };
+            return {
+              flagged: result.flagged,
+              confidence: Math.max(...Object.values(result.category_scores) as number[]),
+              categories: flaggedCategories,
+              reason: result.flagged ? `Detected: ${flaggedCategories.join(', ')}` : undefined,
+            };
+          }
+        }
+      } catch (error) {
+        console.error('OpenAI image moderation failed:', error);
       }
-
-      const categories = [...new Set(labels.map((label) => label.Name || 'Unknown'))];
-      const confidence = Math.max(...labels.map((label) => (label.Confidence || 0) / 100));
-
-      return {
-        flagged: true,
-        confidence,
-        categories,
-        reason: `Detected: ${categories.join(', ')}`,
-      };
-    } catch (error) {
-      console.error('Rekognition moderation failed, falling back to unflagged:', error);
-      return {
-        flagged: false,
-        confidence: 0,
-        categories: [],
-      };
     }
+
+    // No image moderation available without OpenAI
+    return {
+      flagged: false,
+      confidence: 0,
+      categories: [],
+    };
   }
 
   async queueForReview(contentId: string, moderationResult: ModerationResult): Promise<void> {

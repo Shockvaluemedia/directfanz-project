@@ -10,8 +10,7 @@ import {
 } from '@/lib/api-error-handler';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
-import { s3Client } from '@/lib/s3';
-import { HeadObjectCommand } from '@aws-sdk/client-s3';
+import { head } from '@vercel/blob';
 
 const confirmUploadSchema = z.object({
   key: z.string().min(1, 'File key is required'),
@@ -30,33 +29,16 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = confirmUploadSchema.parse(body);
 
-    // Verify the file exists in S3 and belongs to the artist
-    const bucketName = process.env.AWS_S3_BUCKET_NAME!;
-
     try {
-      const headCommand = new HeadObjectCommand({
-        Bucket: bucketName,
-        Key: validatedData.key,
-      });
-
-      const headResponse = await s3Client.send(headCommand);
-
-      // Check if the file belongs to the current artist
-      const artistId = headResponse.Metadata?.artistid;
-      if (artistId !== session.user.id) {
-        throw UnauthorizedError('File does not belong to current user');
-      }
-
-      // Get file info
-      const fileSize = headResponse.ContentLength || 0;
-      const lastModified = headResponse.LastModified || new Date();
+      // Verify the file exists in Vercel Blob
+      const blobInfo = await head(validatedData.key);
 
       logger.info('Upload confirmed', {
         artistId: session.user.id,
         key: validatedData.key,
         fileName: validatedData.fileName,
         fileType: validatedData.fileType,
-        fileSize,
+        fileSize: blobInfo.size,
       });
 
       return NextResponse.json({
@@ -65,23 +47,23 @@ export async function POST(request: NextRequest) {
           key: validatedData.key,
           fileName: validatedData.fileName,
           fileType: validatedData.fileType,
-          fileSize,
-          uploadedAt: lastModified.toISOString(),
-          fileUrl: `https://${bucketName}.s3.${process.env.AWS_REGION}.amazonaws.com/${validatedData.key}`,
+          fileSize: blobInfo.size,
+          uploadedAt: blobInfo.uploadedAt.toISOString(),
+          fileUrl: blobInfo.url,
         },
       });
-    } catch (s3Error: any) {
-      if (s3Error.name === 'NotFound') {
+    } catch (blobError: any) {
+      if (blobError?.name === 'BlobNotFoundError') {
         throw NotFoundError('File not found in storage');
       }
 
       logger.error(
-        'S3 error during upload confirmation',
+        'Blob error during upload confirmation',
         {
           artistId: session.user.id,
           key: validatedData.key,
         },
-        s3Error
+        blobError
       );
 
       throw new Error('Failed to verify file upload');

@@ -7,10 +7,6 @@ import { NextRequest } from 'next/server';
 import { POST as optimizeHandler } from '../app/api/content/optimize/route';
 import { contentOptimizer } from '../lib/content-optimization';
 
-// Define mock variables before jest.mock calls to avoid hoisting issues
-const mockS3Send = jest.fn();
-const mockUploadDone = jest.fn();
-
 const mockSharp = {
   metadata: jest.fn(),
   resize: jest.fn().mockReturnThis(),
@@ -26,18 +22,11 @@ jest.mock('../lib/content-optimization');
 jest.mock('../lib/media-processing');
 jest.mock('sharp', () => jest.fn(() => mockSharp));
 
-jest.mock('@aws-sdk/client-s3', () => ({
-  S3Client: jest.fn(() => ({
-    send: jest.fn()
-  })),
-  GetObjectCommand: jest.fn(),
-  PutObjectCommand: jest.fn(),
-}));
-
-jest.mock('@aws-sdk/lib-storage', () => ({
-  Upload: jest.fn(() => ({
-    done: jest.fn()
-  }))
+jest.mock('@vercel/blob', () => ({
+  put: jest.fn().mockResolvedValue({ url: 'https://mock-blob.vercel-storage.com/test-file', pathname: 'test-file' }),
+  del: jest.fn().mockResolvedValue(undefined),
+  head: jest.fn().mockResolvedValue({ url: 'https://mock-blob.vercel-storage.com/test-file', size: 12345, uploadedAt: new Date() }),
+  list: jest.fn().mockResolvedValue({ blobs: [], cursor: undefined, hasMore: false }),
 }));
 
 // Mock next-auth to return an authenticated ARTIST session
@@ -75,21 +64,12 @@ describe('Error Handling & Edge Cases', () => {
     mockSharp.toFile.mockResolvedValue({ size: 50000 });
     mockSharp.stats.mockResolvedValue({ channels: 3, density: 72, hasProfile: false, hasAlpha: false, size: 1048576 });
 
-    // Setup AWS mocks
-    const { S3Client } = require('@aws-sdk/client-s3');
-    const { Upload } = require('@aws-sdk/lib-storage');
-    const mockS3Instance = new S3Client();
-    const mockUploadInstance = new Upload({} as any);
-
-    (mockS3Instance.send as jest.Mock).mockResolvedValue({
-      Body: {
-        transformToBuffer: jest.fn().mockResolvedValue(Buffer.from('file-content')),
-      }
-    });
-
-    (mockUploadInstance.done as jest.Mock).mockResolvedValue({
-      Location: 'https://mock-bucket.s3.amazonaws.com/optimized/test.webp'
-    });
+    // Setup Vercel Blob mocks
+    const blob = require('@vercel/blob');
+    (blob.put as jest.Mock).mockResolvedValue({ url: 'https://mock-blob.vercel-storage.com/test-file', pathname: 'test-file' });
+    (blob.del as jest.Mock).mockResolvedValue(undefined);
+    (blob.head as jest.Mock).mockResolvedValue({ url: 'https://mock-blob.vercel-storage.com/test-file', size: 12345, uploadedAt: new Date() });
+    (blob.list as jest.Mock).mockResolvedValue({ blobs: [], cursor: undefined, hasMore: false });
   });
 
   describe('Invalid Input Handling', () => {
