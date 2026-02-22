@@ -1,5 +1,5 @@
 /**
- * Session management optimized for AWS ElastiCache
+ * Session management optimized for Redis
  * Handles user sessions, WebSocket connections, and streaming state
  */
 
@@ -73,7 +73,7 @@ export interface ChatMessage {
 }
 
 /**
- * Session Manager class for ElastiCache operations
+ * Session Manager class for Redis operations
  */
 export class SessionManager {
   private readonly SESSION_TTL = CACHE_TTL.VERY_LONG; // 24 hours

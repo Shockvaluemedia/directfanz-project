@@ -17,8 +17,8 @@ export async function POST(
         );
       }
 
-      // TODO: Stop MediaLive channel
-      // This would involve calling AWS MediaLive API to stop the channel
+      // TODO: Stop stream via WebSocket server
+      // This would involve signaling the WebSocket server to stop the stream
       
       // Update stream status to stopping
       const updated = await updateStreamStatus(streamId, 'stopping');
@@ -30,7 +30,7 @@ export async function POST(
         );
       }
 
-      // Simulate MediaLive channel stop (in real implementation, this would be async)
+      // Simulate channel stop (in real implementation, this would be async)
       setTimeout(async () => {
         await updateStreamStatus(streamId, 'stopped');
       }, 3000);

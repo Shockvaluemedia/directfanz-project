@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { handleMediaConvertWebhook } from '@/lib/vod-service';
 import { logger } from '@/lib/logger';
 
+/**
+ * @deprecated This webhook handler is legacy and will be replaced
+ * with a platform-agnostic transcoding service webhook.
+ */
 export async function POST(request: NextRequest) {
   try {
     // Verify webhook authenticity via shared secret header

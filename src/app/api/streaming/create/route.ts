@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
         description,
         status: streamSession.status,
         createdAt: new Date().toISOString(),
-        rtmpUrl: `rtmp://medialive-input.${process.env.AWS_REGION}.amazonaws.com/live`,
+        wsUrl: `${process.env.WEBSOCKET_URL || 'wss://ws.directfanz.io'}/streaming`,
         streamKey: streamSession.streamKey, // Only return to stream owner
       });
     } catch (error) {

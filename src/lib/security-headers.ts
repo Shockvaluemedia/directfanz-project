@@ -8,7 +8,7 @@ export class SecurityHeadersManager {
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: https: blob:",
-      "connect-src 'self' https://api.stripe.com https://*.amazonaws.com wss:",
+      "connect-src 'self' https://api.stripe.com wss:",
       "frame-src https://js.stripe.com",
       "object-src 'none'",
       "base-uri 'self'",

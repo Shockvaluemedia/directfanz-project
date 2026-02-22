@@ -1,12 +1,10 @@
 /**
  * Cache Rebuild Service for Redis Migration
- * Rebuilds cache data from primary sources after migration to ElastiCache
- * Implements Requirements 11.3
+ * Rebuilds cache data from primary sources
  */
 
 import { Redis } from 'ioredis';
 import { PrismaClient } from '@prisma/client';
-import { getParameter, isRunningInECS } from './aws-config';
 import { logger } from './logger';
 
 interface CacheRebuildConfig {
@@ -148,7 +146,7 @@ export class CacheRebuildService {
       // Connect to target Redis
       await this.targetRedis.connect();
       const targetInfo = await this.targetRedis.info('server');
-      logger.info('✅ Connected to target Redis (ElastiCache)');
+      logger.info('✅ Connected to target Redis');
 
       // Connect to source Redis if available
       if (this.sourceRedis) {
@@ -786,8 +784,8 @@ export class CacheRebuildService {
  */
 export async function createCacheRebuildConfig(): Promise<CacheRebuildConfig> {
   const sourceRedisUrl = process.env.SOURCE_REDIS_URL || process.env.REDIS_URL;
-  const targetRedisUrl = await getParameter('/directfanz/redis/url', 'TARGET_REDIS_URL');
-  const databaseUrl = await getParameter('/directfanz/database/url', 'DATABASE_URL');
+  const targetRedisUrl = process.env.TARGET_REDIS_URL || process.env.REDIS_URL;
+  const databaseUrl = process.env.DATABASE_URL;
 
   if (!targetRedisUrl || !databaseUrl) {
     throw new Error('Target Redis URL and Database URL are required');

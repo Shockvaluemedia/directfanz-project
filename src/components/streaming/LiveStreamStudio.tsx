@@ -2,15 +2,15 @@
 'use client';
 
 /**
- * Live Streaming Studio - AWS MediaLive Integration
+ * Live Streaming Studio - WebRTC Streaming
  *
  * Professional streaming studio with:
- * - AWS MediaLive RTMP streaming
+ * - WebRTC peer-to-peer streaming
  * - OBS/XSplit integration support
  * - Multi-bitrate transcoding (480p/720p/1080p)
  * - Real-time chat and donations
  * - Stream analytics and viewer metrics
- * - CloudFront CDN delivery
+ * - CDN delivery
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -581,7 +581,7 @@ export default function LiveStreamStudio() {
                       <div className='w-8 h-8 bg-white rounded-full animate-pulse' />
                     </div>
                     <h3 className='text-xl font-bold text-white mb-2'>Stream is Live!</h3>
-                    <p className='text-gray-300'>Broadcasting via RTMP to AWS MediaLive</p>
+                    <p className='text-gray-300'>Broadcasting via WebRTC</p>
                     <div className='mt-4 flex items-center justify-center gap-4 text-sm'>
                       <div className={`px-2 py-1 rounded ${
                         streamHealth === 'good' ? 'bg-green-600' :

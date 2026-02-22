@@ -17,8 +17,8 @@ export async function POST(
         );
       }
 
-      // TODO: Start MediaLive channel
-      // This would involve calling AWS MediaLive API to start the channel
+      // TODO: Start stream via WebSocket server
+      // This would involve signaling the WebSocket server to start the stream
       
       // Update stream status to starting
       const updated = await updateStreamStatus(streamId, 'starting');
@@ -30,7 +30,7 @@ export async function POST(
         );
       }
 
-      // Simulate MediaLive channel start (in real implementation, this would be async)
+      // Simulate channel start (in real implementation, this would be async)
       setTimeout(async () => {
         await updateStreamStatus(streamId, 'running');
       }, 5000);

@@ -120,8 +120,8 @@ describe('Content Management Integration Tests', () => {
       // Mock S3 upload validation and presigned URL generation
       validateFileUpload.mockReturnValue([]);
       generatePresignedUrl.mockResolvedValue({
-        uploadUrl: 'https://s3.amazonaws.com/test-bucket/upload-url',
-        fileUrl: 'https://s3.amazonaws.com/test-bucket/audio-123.mp3',
+        uploadUrl: 'https://test-storage.public.blob.vercel-storage.com/upload-url',
+        fileUrl: 'https://test-storage.public.blob.vercel-storage.com/audio-123.mp3',
         fileKey: 'content/artist-123/audio-123.mp3',
       });
 
@@ -133,7 +133,7 @@ describe('Content Management Integration Tests', () => {
         id: 'content-123',
         title: 'New Audio Track',
         type: 'AUDIO',
-        fileUrl: 'https://s3.amazonaws.com/test-bucket/audio-123.mp3',
+        fileUrl: 'https://test-storage.public.blob.vercel-storage.com/audio-123.mp3',
         artistId: artistUser.id,
         tiers: [{ id: basicTier.id, name: basicTier.name }],
       });
@@ -169,7 +169,7 @@ describe('Content Management Integration Tests', () => {
         {
           title: 'New Audio Track',
           description: 'A test audio track',
-          fileUrl: 'https://s3.amazonaws.com/test-bucket/audio-123.mp3',
+          fileUrl: 'https://test-storage.public.blob.vercel-storage.com/audio-123.mp3',
           fileSize: 5242880,
           format: 'mp3',
           duration: 180,
@@ -253,7 +253,7 @@ describe('Content Management Integration Tests', () => {
         'POST',
         {
           title: 'Test Content',
-          fileUrl: 'https://s3.amazonaws.com/test-bucket/test.mp3',
+          fileUrl: 'https://test-storage.public.blob.vercel-storage.com/test.mp3',
           fileSize: 1000,
           format: 'mp3',
           tierIds: ['other-artist-tier-123'],
@@ -285,7 +285,7 @@ describe('Content Management Integration Tests', () => {
         'POST',
         {
           title: 'Public Content',
-          fileUrl: 'https://s3.amazonaws.com/test-bucket/public.jpg',
+          fileUrl: 'https://test-storage.public.blob.vercel-storage.com/public.jpg',
           fileSize: 500000,
           format: 'jpg',
           tierIds: [],
@@ -730,7 +730,7 @@ describe('Content Management Integration Tests', () => {
         'POST',
         {
           title: 'Multi-Tier Content',
-          fileUrl: 'https://s3.amazonaws.com/test-bucket/multi.mp3',
+          fileUrl: 'https://test-storage.public.blob.vercel-storage.com/multi.mp3',
           fileSize: 1000,
           format: 'mp3',
           tierIds: [basicTier.id, premiumTier.id],

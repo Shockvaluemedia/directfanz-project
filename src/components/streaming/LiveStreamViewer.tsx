@@ -7,7 +7,7 @@
  * Professional stream viewer with:
  * - HLS streaming from AWS MediaPackage
  * - Adaptive bitrate playback
- * - CloudFront CDN delivery
+ * - CDN delivery
  * - Real-time chat and donations
  * - Stream interactions and analytics
  * - Mobile-optimized experience

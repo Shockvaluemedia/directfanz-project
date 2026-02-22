@@ -1,15 +1,12 @@
 // @ts-nocheck
 /**
- * Redis client implementation optimized for AWS ElastiCache
- * Supports cluster mode, authentication, and failover
+ * Redis client implementation optimized for Vercel serverless (Upstash-compatible)
  */
-import { createClient, createCluster } from 'redis';
-import { getParameter, isRunningInECS } from './aws-config';
+import { createClient } from 'redis';
 import { logger } from './logger';
 
 // Redis client singleton
-let redisClient: ReturnType<typeof createClient> | ReturnType<typeof createCluster> | null = null;
-let isClusterMode = false;
+let redisClient: ReturnType<typeof createClient> | null = null;
 
 // Cache TTL defaults (in seconds)
 export const CACHE_TTL = {
@@ -39,86 +36,26 @@ export const CACHE_KEYS = {
 };
 
 /**
- * Get Redis configuration from Parameter Store or environment
+ * Get Redis configuration from environment variables
  */
-const getRedisConfig = async () => {
-  const redisUrl = await getParameter('/directfanz/redis/url', 'REDIS_URL');
-  const authToken = await getParameter('/directfanz/redis/auth-token', 'REDIS_AUTH_TOKEN');
-  const clusterMode = process.env.REDIS_CLUSTER_MODE === 'true';
-  
+const getRedisConfig = () => {
+  const redisUrl = process.env.REDIS_URL;
+  const authToken = process.env.REDIS_AUTH_TOKEN;
+
   return {
     url: redisUrl,
     authToken,
-    clusterMode,
-    isElastiCache: isRunningInECS() && redisUrl?.includes('cache.amazonaws.com'),
+    useTls: redisUrl?.startsWith('rediss://') || false,
   };
 };
 
 /**
- * Create ElastiCache cluster client
- */
-const createElastiCacheCluster = async (config: any) => {
-  const url = new URL(config.url);
-  const nodes = [
-    {
-      host: url.hostname,
-      port: parseInt(url.port) || 6379,
-    },
-  ];
-
-  // Add additional cluster nodes if specified
-  const additionalNodes = process.env.REDIS_CLUSTER_NODES?.split(',') || [];
-  for (const nodeUrl of additionalNodes) {
-    const nodeUrlParsed = new URL(nodeUrl);
-    nodes.push({
-      host: nodeUrlParsed.hostname,
-      port: parseInt(nodeUrlParsed.port) || 6379,
-    });
-  }
-
-  const clusterClient = createCluster({
-    rootNodes: nodes,
-    defaults: {
-      socket: {
-        connectTimeout: 5000,
-        commandTimeout: 3000,
-        lazyConnect: true,
-        tls: config.isElastiCache, // Enable TLS for ElastiCache
-      },
-      ...(config.authToken && { password: config.authToken }),
-    },
-    useReplicas: true, // Use read replicas for read operations
-    enableAutoPipelining: true, // Optimize performance
-  });
-
-  return clusterClient;
-};
-
-/**
- * Create single Redis client
- */
-const createSingleRedisClient = async (config: any) => {
-  const client = createClient({
-    url: config.url,
-    socket: {
-      connectTimeout: 5000,
-      commandTimeout: 3000,
-      lazyConnect: true,
-      tls: config.isElastiCache, // Enable TLS for ElastiCache
-    },
-    ...(config.authToken && { password: config.authToken }),
-  });
-
-  return client;
-};
-
-/**
- * Initialize Redis client with ElastiCache support
+ * Initialize Redis client
  */
 export const getRedisClient = async () => {
   if (!redisClient) {
     try {
-      const config = await getRedisConfig();
+      const config = getRedisConfig();
 
       if (!config.url || config.url.trim() === '') {
         logger.warn('Redis URL not configured, caching disabled');
@@ -126,21 +63,19 @@ export const getRedisClient = async () => {
       }
 
       logger.info('Initializing Redis client', {
-        isElastiCache: config.isElastiCache,
-        clusterMode: config.clusterMode,
+        useTls: config.useTls,
         hasAuth: !!config.authToken,
       });
 
-      // Create appropriate client based on configuration
-      if (config.clusterMode) {
-        redisClient = await createElastiCacheCluster(config);
-        isClusterMode = true;
-        logger.info('Created ElastiCache cluster client');
-      } else {
-        redisClient = await createSingleRedisClient(config);
-        isClusterMode = false;
-        logger.info('Created single Redis client');
-      }
+      redisClient = createClient({
+        url: config.url,
+        socket: {
+          connectTimeout: 5000,
+          commandTimeout: 3000,
+          tls: config.useTls,
+        },
+        ...(config.authToken && { password: config.authToken }),
+      });
 
       // Set up error handling
       redisClient.on('error', err => {
@@ -167,7 +102,7 @@ export const getRedisClient = async () => {
 
       // Connect with timeout
       const connectPromise = redisClient.connect();
-      const timeoutPromise = new Promise((_, reject) => 
+      const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Redis connection timeout')), 10000)
       );
 
@@ -184,7 +119,7 @@ export const getRedisClient = async () => {
 };
 
 /**
- * Get cached data with cluster support
+ * Get cached data
  */
 export const getCachedData = async <T>(key: string): Promise<T | null> => {
   try {
@@ -200,7 +135,7 @@ export const getCachedData = async <T>(key: string): Promise<T | null> => {
 };
 
 /**
- * Set data in cache with cluster support
+ * Set data in cache
  */
 export const setCachedData = async <T>(
   key: string,
@@ -218,7 +153,7 @@ export const setCachedData = async <T>(
 };
 
 /**
- * Delete cached data with cluster support
+ * Delete cached data
  */
 export const deleteCachedData = async (key: string): Promise<void> => {
   try {
@@ -232,54 +167,32 @@ export const deleteCachedData = async (key: string): Promise<void> => {
 };
 
 /**
- * Delete multiple cached items by pattern with cluster support
+ * Delete multiple cached items by pattern
  */
 export const deleteCachedPattern = async (pattern: string): Promise<void> => {
   try {
     const client = await getRedisClient();
     if (!client) return;
 
-    if (isClusterMode) {
-      // For cluster mode, we need to scan all nodes
-      const clusterClient = client as ReturnType<typeof createCluster>;
-      const masters = clusterClient.getMasters();
-      
-      for (const master of masters) {
-        let cursor = 0;
-        do {
-          const { cursor: nextCursor, keys } = await master.scan(cursor, {
-            MATCH: pattern,
-            COUNT: 100,
-          });
-          cursor = nextCursor;
-          
-          if (keys.length > 0) {
-            await clusterClient.del(keys);
-          }
-        } while (cursor !== 0);
+    let cursor = 0;
+    do {
+      const { cursor: nextCursor, keys } = await client.scan(cursor, {
+        MATCH: pattern,
+        COUNT: 100,
+      });
+      cursor = nextCursor;
+
+      if (keys.length > 0) {
+        await client.del(keys);
       }
-    } else {
-      // Single node mode
-      let cursor = 0;
-      do {
-        const { cursor: nextCursor, keys } = await client.scan(cursor, {
-          MATCH: pattern,
-          COUNT: 100,
-        });
-        cursor = nextCursor;
-        
-        if (keys.length > 0) {
-          await client.del(keys);
-        }
-      } while (cursor !== 0);
-    }
+    } while (cursor !== 0);
   } catch (error) {
     logger.error('Error deleting cached pattern', { pattern, error: error instanceof Error ? error.message : 'Unknown error' });
   }
 };
 
 /**
- * Cache wrapper for async functions with cluster support
+ * Cache wrapper for async functions
  */
 export const withCache = async <T>(
   key: string,
@@ -303,7 +216,7 @@ export const withCache = async <T>(
 };
 
 /**
- * Session management for ElastiCache
+ * Session management
  */
 export const setSession = async (sessionId: string, sessionData: any, ttl: number = 3600): Promise<void> => {
   await setCachedData(`${CACHE_KEYS.SESSION}${sessionId}`, sessionData, ttl);
@@ -344,15 +257,15 @@ export const getChatMessages = async (streamId: string): Promise<any[] | null> =
 };
 
 /**
- * Health check for ElastiCache
+ * Health check for Redis
  */
-export const checkElastiCacheHealth = async (): Promise<{
+export const checkRedisHealth = async (): Promise<{
   status: 'healthy' | 'unhealthy';
   latency: number;
   details: any;
 }> => {
   const startTime = Date.now();
-  
+
   try {
     const client = await getRedisClient();
     if (!client) {
@@ -366,21 +279,19 @@ export const checkElastiCacheHealth = async (): Promise<{
     // Test basic operations
     const testKey = 'health_check_test';
     const testValue = { timestamp: Date.now(), test: true };
-    
+
     await client.set(testKey, JSON.stringify(testValue), { EX: 10 });
     const retrieved = await client.get(testKey);
     await client.del(testKey);
-    
+
     const parsedValue = JSON.parse(retrieved || '{}');
     const isValid = parsedValue.test === true;
-    
+
     return {
       status: isValid ? 'healthy' : 'unhealthy',
       latency: Date.now() - startTime,
       details: {
-        clusterMode: isClusterMode,
         testPassed: isValid,
-        isElastiCache: (await getRedisConfig()).isElastiCache,
       },
     };
   } catch (error) {
@@ -389,11 +300,13 @@ export const checkElastiCacheHealth = async (): Promise<{
       latency: Date.now() - startTime,
       details: {
         error: error instanceof Error ? error.message : 'Unknown error',
-        clusterMode: isClusterMode,
       },
     };
   }
 };
+
+// Keep old name as alias for backwards compatibility
+export const checkElastiCacheHealth = checkRedisHealth;
 
 /**
  * Gracefully close Redis connection

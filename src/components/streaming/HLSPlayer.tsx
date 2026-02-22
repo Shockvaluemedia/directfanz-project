@@ -7,7 +7,7 @@
  * Professional video player with:
  * - HLS streaming from AWS MediaPackage
  * - Adaptive bitrate streaming
- * - CloudFront CDN delivery
+ * - CDN delivery
  * - Quality selection and controls
  * - Mobile-optimized playback
  */
