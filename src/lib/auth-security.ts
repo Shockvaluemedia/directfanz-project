@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { getRedisClient } from './redis-production';
+import { getRedisClient } from './redis';
 
 interface RateLimitConfig {
   windowMs: number;

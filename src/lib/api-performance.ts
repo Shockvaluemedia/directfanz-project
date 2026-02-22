@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { getDatabaseClient } from './database-production';
-import { getRedisClient } from './redis-production';
+import { getRedisClient } from './redis';
 
 interface PerformanceMetrics {
   responseTime: number;

@@ -2,7 +2,6 @@
  * Optimized health check utilities for serverless environments
  */
 import { PrismaClient } from '@prisma/client';
-import { createClient } from 'redis';
 import { checkDatabaseConnection } from './prisma';
 import { checkPgBouncerHealth, shouldUsePgBouncer } from './pgbouncer-config';
 import { logger } from './logger';

@@ -1,12 +1,12 @@
-// @ts-nocheck
 /**
  * Redis client implementation optimized for Vercel serverless (Upstash-compatible)
+ * Consolidated implementation using ioredis
  */
-import { createClient } from 'redis';
+import Redis from 'ioredis';
 import { logger } from './logger';
 
 // Redis client singleton
-let redisClient: ReturnType<typeof createClient> | null = null;
+let redisClient: Redis | null = null;
 
 // Cache TTL defaults (in seconds)
 export const CACHE_TTL = {
@@ -36,83 +36,56 @@ export const CACHE_KEYS = {
 };
 
 /**
- * Get Redis configuration from environment variables
+ * Initialize and return the ioredis client singleton
  */
-const getRedisConfig = () => {
+export const getRedisClient = (): Redis | null => {
+  if (redisClient) return redisClient;
+
   const redisUrl = process.env.REDIS_URL;
-  const authToken = process.env.REDIS_AUTH_TOKEN;
+  if (!redisUrl || redisUrl.trim() === '') {
+    logger.warn('Redis URL not configured, caching disabled');
+    return null;
+  }
 
-  return {
-    url: redisUrl,
-    authToken,
-    useTls: redisUrl?.startsWith('rediss://') || false,
-  };
-};
+  try {
+    redisClient = new Redis(redisUrl, {
+      connectTimeout: 5000,
+      commandTimeout: 3000,
+      maxRetriesPerRequest: 3,
+      lazyConnect: false,
+      retryStrategy: (times: number) => {
+        if (times > 5) return null; // Stop retrying
+        return Math.min(times * 100, 2000);
+      },
+      reconnectOnError: (err: Error) => {
+        return err.message.includes('READONLY');
+      },
+    });
 
-/**
- * Initialize Redis client
- */
-export const getRedisClient = async () => {
-  if (!redisClient) {
-    try {
-      const config = getRedisConfig();
+    redisClient.on('error', (err) => {
+      logger.error('Redis client error', { error: err.message });
+    });
 
-      if (!config.url || config.url.trim() === '') {
-        logger.warn('Redis URL not configured, caching disabled');
-        return null;
-      }
+    redisClient.on('connect', () => {
+      logger.info('Redis client connected');
+    });
 
-      logger.info('Initializing Redis client', {
-        useTls: config.useTls,
-        hasAuth: !!config.authToken,
-      });
+    redisClient.on('ready', () => {
+      logger.info('Redis client ready');
+    });
 
-      redisClient = createClient({
-        url: config.url,
-        socket: {
-          connectTimeout: 5000,
-          commandTimeout: 3000,
-          tls: config.useTls,
-        },
-        ...(config.authToken && { password: config.authToken }),
-      });
+    redisClient.on('reconnecting', () => {
+      logger.info('Redis client reconnecting');
+    });
 
-      // Set up error handling
-      redisClient.on('error', err => {
-        logger.error('Redis client error', { error: err.message });
-        // Don't crash on Redis errors, just disable caching
-        redisClient = null;
-      });
-
-      redisClient.on('connect', () => {
-        logger.info('Redis client connected');
-      });
-
-      redisClient.on('ready', () => {
-        logger.info('Redis client ready');
-      });
-
-      redisClient.on('reconnecting', () => {
-        logger.info('Redis client reconnecting');
-      });
-
-      redisClient.on('end', () => {
-        logger.info('Redis client connection ended');
-      });
-
-      // Connect with timeout
-      const connectPromise = redisClient.connect();
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Redis connection timeout')), 10000)
-      );
-
-      await Promise.race([connectPromise, timeoutPromise]);
-      logger.info('Redis client connected successfully');
-
-    } catch (error) {
-      logger.error('Failed to initialize Redis client', { error: error instanceof Error ? error.message : 'Unknown error' });
-      redisClient = null;
-    }
+    redisClient.on('close', () => {
+      logger.info('Redis client connection closed');
+    });
+  } catch (error) {
+    logger.error('Failed to initialize Redis client', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+    redisClient = null;
   }
 
   return redisClient;
@@ -123,13 +96,16 @@ export const getRedisClient = async () => {
  */
 export const getCachedData = async <T>(key: string): Promise<T | null> => {
   try {
-    const client = await getRedisClient();
+    const client = getRedisClient();
     if (!client) return null;
 
     const data = await client.get(key);
     return data ? (JSON.parse(data) as T) : null;
   } catch (error) {
-    logger.error('Error getting cached data', { key, error: error instanceof Error ? error.message : 'Unknown error' });
+    logger.error('Error getting cached data', {
+      key,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
     return null;
   }
 };
@@ -143,12 +119,15 @@ export const setCachedData = async <T>(
   ttl: number = CACHE_TTL.MEDIUM
 ): Promise<void> => {
   try {
-    const client = await getRedisClient();
+    const client = getRedisClient();
     if (!client) return;
 
-    await client.set(key, JSON.stringify(data), { EX: ttl });
+    await client.setex(key, ttl, JSON.stringify(data));
   } catch (error) {
-    logger.error('Error setting cached data', { key, error: error instanceof Error ? error.message : 'Unknown error' });
+    logger.error('Error setting cached data', {
+      key,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
   }
 };
 
@@ -157,12 +136,15 @@ export const setCachedData = async <T>(
  */
 export const deleteCachedData = async (key: string): Promise<void> => {
   try {
-    const client = await getRedisClient();
+    const client = getRedisClient();
     if (!client) return;
 
     await client.del(key);
   } catch (error) {
-    logger.error('Error deleting cached data', { key, error: error instanceof Error ? error.message : 'Unknown error' });
+    logger.error('Error deleting cached data', {
+      key,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
   }
 };
 
@@ -171,23 +153,29 @@ export const deleteCachedData = async (key: string): Promise<void> => {
  */
 export const deleteCachedPattern = async (pattern: string): Promise<void> => {
   try {
-    const client = await getRedisClient();
+    const client = getRedisClient();
     if (!client) return;
 
-    let cursor = 0;
+    let cursor = '0';
     do {
-      const { cursor: nextCursor, keys } = await client.scan(cursor, {
-        MATCH: pattern,
-        COUNT: 100,
-      });
+      const [nextCursor, keys] = await client.scan(
+        cursor,
+        'MATCH',
+        pattern,
+        'COUNT',
+        100
+      );
       cursor = nextCursor;
 
       if (keys.length > 0) {
-        await client.del(keys);
+        await client.del(...keys);
       }
-    } while (cursor !== 0);
+    } while (cursor !== '0');
   } catch (error) {
-    logger.error('Error deleting cached pattern', { pattern, error: error instanceof Error ? error.message : 'Unknown error' });
+    logger.error('Error deleting cached pattern', {
+      pattern,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
   }
 };
 
@@ -199,26 +187,24 @@ export const withCache = async <T>(
   fn: () => Promise<T>,
   ttl: number = CACHE_TTL.MEDIUM
 ): Promise<T> => {
-  // Try to get from cache first
   const cachedData = await getCachedData<T>(key);
-
   if (cachedData !== null) {
     return cachedData;
   }
 
-  // Cache miss, execute function
   const result = await fn();
-
-  // Cache the result
   await setCachedData(key, result, ttl);
-
   return result;
 };
 
 /**
  * Session management
  */
-export const setSession = async (sessionId: string, sessionData: any, ttl: number = 3600): Promise<void> => {
+export const setSession = async (
+  sessionId: string,
+  sessionData: Record<string, unknown>,
+  ttl: number = 3600
+): Promise<void> => {
   await setCachedData(`${CACHE_KEYS.SESSION}${sessionId}`, sessionData, ttl);
 };
 
@@ -233,7 +219,11 @@ export const deleteSession = async (sessionId: string): Promise<void> => {
 /**
  * Stream data management for real-time features
  */
-export const setStreamData = async (streamId: string, streamData: any, ttl: number = 7200): Promise<void> => {
+export const setStreamData = async (
+  streamId: string,
+  streamData: Record<string, unknown>,
+  ttl: number = 7200
+): Promise<void> => {
   await setCachedData(`${CACHE_KEYS.STREAM}${streamId}`, streamData, ttl);
 };
 
@@ -248,12 +238,20 @@ export const deleteStreamData = async (streamId: string): Promise<void> => {
 /**
  * Chat message caching for streams
  */
-export const setChatMessages = async (streamId: string, messages: any[], ttl: number = 3600): Promise<void> => {
+export const setChatMessages = async (
+  streamId: string,
+  messages: Record<string, unknown>[],
+  ttl: number = 3600
+): Promise<void> => {
   await setCachedData(`${CACHE_KEYS.CHAT}${streamId}`, messages, ttl);
 };
 
-export const getChatMessages = async (streamId: string): Promise<any[] | null> => {
-  return await getCachedData<any[]>(`${CACHE_KEYS.CHAT}${streamId}`);
+export const getChatMessages = async (
+  streamId: string
+): Promise<Record<string, unknown>[] | null> => {
+  return await getCachedData<Record<string, unknown>[]>(
+    `${CACHE_KEYS.CHAT}${streamId}`
+  );
 };
 
 /**
@@ -262,12 +260,12 @@ export const getChatMessages = async (streamId: string): Promise<any[] | null> =
 export const checkRedisHealth = async (): Promise<{
   status: 'healthy' | 'unhealthy';
   latency: number;
-  details: any;
+  details: Record<string, unknown>;
 }> => {
   const startTime = Date.now();
 
   try {
-    const client = await getRedisClient();
+    const client = getRedisClient();
     if (!client) {
       return {
         status: 'unhealthy',
@@ -276,11 +274,10 @@ export const checkRedisHealth = async (): Promise<{
       };
     }
 
-    // Test basic operations
     const testKey = 'health_check_test';
-    const testValue = { timestamp: Date.now(), test: true };
+    const testValue = JSON.stringify({ timestamp: Date.now(), test: true });
 
-    await client.set(testKey, JSON.stringify(testValue), { EX: 10 });
+    await client.setex(testKey, 10, testValue);
     const retrieved = await client.get(testKey);
     await client.del(testKey);
 
@@ -290,9 +287,7 @@ export const checkRedisHealth = async (): Promise<{
     return {
       status: isValid ? 'healthy' : 'unhealthy',
       latency: Date.now() - startTime,
-      details: {
-        testPassed: isValid,
-      },
+      details: { testPassed: isValid },
     };
   } catch (error) {
     return {
@@ -318,45 +313,51 @@ export const closeRedisConnection = async (): Promise<void> => {
       redisClient = null;
       logger.info('Redis connection closed gracefully');
     } catch (error) {
-      logger.error('Error closing Redis connection', { error: error instanceof Error ? error.message : 'Unknown error' });
+      logger.error('Error closing Redis connection', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
     }
   }
 };
 
 /**
- * Export redis client for backwards compatibility
+ * Convenience object for backwards-compatible redis operations
  */
 export const redis = {
   ping: async () => {
-    const client = await getRedisClient();
+    const client = getRedisClient();
     return client ? await client.ping() : 'PONG';
   },
   get: async (key: string) => {
-    const client = await getRedisClient();
+    const client = getRedisClient();
     return client ? await client.get(key) : null;
   },
-  set: async (key: string, value: string, options?: any) => {
-    const client = await getRedisClient();
-    return client ? await client.set(key, value, options) : null;
+  set: async (key: string, value: string, options?: { EX?: number }) => {
+    const client = getRedisClient();
+    if (!client) return null;
+    if (options?.EX) {
+      return await client.setex(key, options.EX, value);
+    }
+    return await client.set(key, value);
   },
   del: async (key: string) => {
-    const client = await getRedisClient();
+    const client = getRedisClient();
     return client ? await client.del(key) : 0;
   },
   info: async () => {
-    const client = await getRedisClient();
+    const client = getRedisClient();
     return client ? await client.info() : 'redis_unavailable';
   },
   exists: async (key: string) => {
-    const client = await getRedisClient();
+    const client = getRedisClient();
     return client ? await client.exists(key) : 0;
   },
   expire: async (key: string, seconds: number) => {
-    const client = await getRedisClient();
+    const client = getRedisClient();
     return client ? await client.expire(key, seconds) : false;
   },
   ttl: async (key: string) => {
-    const client = await getRedisClient();
+    const client = getRedisClient();
     return client ? await client.ttl(key) : -1;
   },
 };

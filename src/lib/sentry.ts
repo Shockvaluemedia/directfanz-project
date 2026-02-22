@@ -8,9 +8,10 @@ import { logger } from './logger';
 
 // Initialize Sentry in this module
 export const initSentry = () => {
-  if (process.env.NEXT_PUBLIC_SENTRY_DSN && process.env.NODE_ENV === 'production') {
+  const dsn = process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN;
+  if (dsn && process.env.NODE_ENV === 'production') {
     Sentry.init({
-      dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
+      dsn,
       tracesSampleRate: 0.2, // Adjust sampling rate as needed
       environment: process.env.NODE_ENV,
       release: process.env.NEXT_PUBLIC_APP_VERSION || 'development',
@@ -36,7 +37,7 @@ export const captureError = (
   context?: Record<string, any>,
   level: Sentry.SeverityLevel = 'error'
 ) => {
-  if (process.env.NODE_ENV !== 'production' || !process.env.NEXT_PUBLIC_SENTRY_DSN) {
+  if (process.env.NODE_ENV !== 'production' || !(process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN)) {
     return;
   }
 
@@ -170,7 +171,7 @@ export const captureMessage = (
   context?: Record<string, any>,
   level: Sentry.SeverityLevel = 'info'
 ) => {
-  if (process.env.NODE_ENV !== 'production' || !process.env.NEXT_PUBLIC_SENTRY_DSN) {
+  if (process.env.NODE_ENV !== 'production' || !(process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN)) {
     return;
   }
 
@@ -263,7 +264,7 @@ export const captureMessage = (
 
 // Start performance monitoring
 export const startTransaction = (name: string, op: string, context?: Record<string, any>) => {
-  if (process.env.NODE_ENV !== 'production' || !process.env.NEXT_PUBLIC_SENTRY_DSN) {
+  if (process.env.NODE_ENV !== 'production' || !(process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN)) {
     return null;
   }
 
@@ -301,7 +302,7 @@ export const finishTransaction = (transaction: any | null) => {
 
 // Set user information for Sentry
 export const setUser = (id: string, email?: string, username?: string) => {
-  if (process.env.NODE_ENV !== 'production' || !process.env.NEXT_PUBLIC_SENTRY_DSN) {
+  if (process.env.NODE_ENV !== 'production' || !(process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN)) {
     return;
   }
 
@@ -318,7 +319,7 @@ export const setUser = (id: string, email?: string, username?: string) => {
 
 // Clear user information from Sentry
 export const clearUser = () => {
-  if (process.env.NODE_ENV !== 'production' || !process.env.NEXT_PUBLIC_SENTRY_DSN) {
+  if (process.env.NODE_ENV !== 'production' || !(process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN)) {
     return;
   }
 

@@ -1,4 +1,4 @@
-import { getRedisClient } from './redis-production';
+import { getRedisClient } from './redis';
 
 interface CacheConfig {
   ttl: number;

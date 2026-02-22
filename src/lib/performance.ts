@@ -3,6 +3,7 @@
  */
 import { logger } from './logger';
 import Redis from 'ioredis';
+import { getRedisClient } from './redis';
 // Performance metric types
 export type PerformanceMetric = {
   name: string;
@@ -198,37 +199,36 @@ const cacheConfig: CacheConfig = {
 
 // Redis cache service
 export class RedisCacheService {
-  private client: Redis;
+  private client: Redis | null;
   private isConnected: boolean = false;
 
   constructor() {
-    this.client = new Redis(cacheConfig.redis);
-    this.setupEventHandlers();
+    this.client = getRedisClient();
+    if (this.client) {
+      this.isConnected = true;
+      this.setupEventHandlers();
+    }
   }
 
   private setupEventHandlers(): void {
+    if (!this.client) return;
+
     this.client.on('connect', () => {
       this.isConnected = true;
-      logger.info('Redis connected');
     });
 
-    this.client.on('disconnect', () => {
+    this.client.on('close', () => {
       this.isConnected = false;
-      logger.warn('Redis disconnected');
     });
 
-    this.client.on('error', error => {
-      logger.error('Redis connection error', {}, error);
-    });
-
-    this.client.on('ready', () => {
-      logger.info('Redis ready for operations');
+    this.client.on('error', () => {
+      this.isConnected = false;
     });
   }
 
   async get<T>(key: string): Promise<T | null> {
     try {
-      if (!this.isConnected) {
+      if (!this.isConnected || !this.client) {
         return null;
       }
 
@@ -246,7 +246,7 @@ export class RedisCacheService {
 
   async set(key: string, value: any, ttlSeconds?: number): Promise<boolean> {
     try {
-      if (!this.isConnected) {
+      if (!this.isConnected || !this.client) {
         return false;
       }
 
@@ -267,7 +267,7 @@ export class RedisCacheService {
 
   async del(key: string | string[]): Promise<boolean> {
     try {
-      if (!this.isConnected) {
+      if (!this.isConnected || !this.client) {
         return false;
       }
 
@@ -281,7 +281,7 @@ export class RedisCacheService {
 
   async exists(key: string): Promise<boolean> {
     try {
-      if (!this.isConnected) {
+      if (!this.isConnected || !this.client) {
         return false;
       }
 
@@ -295,7 +295,7 @@ export class RedisCacheService {
 
   async deleteByPattern(pattern: string): Promise<number> {
     try {
-      if (!this.isConnected) {
+      if (!this.isConnected || !this.client) {
         return 0;
       }
 
