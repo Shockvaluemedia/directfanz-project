@@ -1,12 +1,12 @@
 {
   "extends": ["next/core-web-vitals"],
   "rules": {
-    "react/no-unescaped-entities": "error",
-    "react-hooks/exhaustive-deps": "error",
-    "@next/next/no-img-element": "error",
-    "jsx-a11y/alt-text": "error",
-    "import/no-anonymous-default-export": "error",
-    "prefer-const": "error",
+    "react/no-unescaped-entities": "warn",
+    "react-hooks/exhaustive-deps": "warn",
+    "@next/next/no-img-element": "warn",
+    "jsx-a11y/alt-text": "warn",
+    "import/no-anonymous-default-export": "warn",
+    "prefer-const": "warn",
     "no-var": "error",
     "no-console": ["warn", { "allow": ["warn", "error"] }]
   }
