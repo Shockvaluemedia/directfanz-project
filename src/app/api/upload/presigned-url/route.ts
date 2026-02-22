@@ -1,9 +1,8 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { generatePresignedUrl, validateFileUpload } from '@/lib/s3';
-import { createErrorResponse, UnauthorizedError, ValidationError } from '@/lib/api-error-handler';
+import { UnauthorizedError, ValidationError } from '@/lib/api-error-handler';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 
@@ -15,10 +14,10 @@ const presignedUrlSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession(authOptions) as any;
 
     if (!session?.user?.id || session.user.role !== 'ARTIST') {
-      throw UnauthorizedError('Artist authentication required');
+      throw new UnauthorizedError('Artist authentication required');
     }
 
     const body = await request.json();
@@ -32,13 +31,13 @@ export async function POST(request: NextRequest) {
     );
 
     if (validationErrors.length > 0) {
-      throw ValidationError('File validation failed', { errors: validationErrors });
+      throw new ValidationError('File validation failed');
     }
 
     // Check if we're using local storage for development
     const useLocalStorage = process.env.USE_LOCAL_STORAGE === 'true';
     
-    let uploadInfo;
+    let uploadInfo: any;
     if (useLocalStorage) {
       // For local development, create a mock response
       const mockFileUrl = `/uploads/${session.user.id}/${Date.now()}-${validatedData.fileName}`;
@@ -72,16 +71,32 @@ export async function POST(request: NextRequest) {
       success: true,
       data: uploadInfo,
     });
-  } catch (error) {
-    const requestId = request.headers.get('x-request-id');
-
+  } catch (error: unknown) {
     if (error instanceof z.ZodError) {
-      return createErrorResponse(
-        ValidationError('Invalid request data', { errors: error.errors }),
-        requestId || undefined
+      return NextResponse.json(
+        { error: 'Invalid request data', details: error.errors },
+        { status: 400 }
       );
     }
 
-    return createErrorResponse(error, requestId || undefined);
+    if (error instanceof UnauthorizedError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 401 }
+      );
+    }
+
+    if (error instanceof ValidationError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 400 }
+      );
+    }
+
+    const message = error instanceof Error ? error.message : 'Internal server error';
+    return NextResponse.json(
+      { error: message },
+      { status: 500 }
+    );
   }
 }

@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -334,17 +333,15 @@ export function UploadContentPage() {
               </EnhancedCardHeader>
               <EnhancedCardContent>
                 <FileUploadZone
-                  onFilesSelected={handleFilesSelected}
+                  onFilesAdded={(files) => handleFilesSelected(files as any)}
+                  onFileRemoved={(fileId) => setUploadedFiles(prev => prev.filter(f => f.id !== fileId))}
+                  onUploadStart={() => {}}
+                  onUploadProgress={() => {}}
+                  onUploadComplete={() => {}}
+                  onUploadError={() => {}}
+                  files={uploadedFiles as any}
                   maxFiles={10}
-                  maxFileSize={100 * 1024 * 1024} // 100MB
-                  acceptedFileTypes={{
-                    'image/*': ['.jpg', '.jpeg', '.png', '.gif', '.webp'],
-                    'video/*': ['.mp4', '.mov', '.avi', '.mkv'],
-                    'audio/*': ['.mp3', '.wav', '.aac', '.ogg'],
-                    'application/pdf': ['.pdf'],
-                    'application/msword': ['.doc'],
-                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx']
-                  }}
+                  maxSize={100}
                 />
               </EnhancedCardContent>
             </EnhancedCard>

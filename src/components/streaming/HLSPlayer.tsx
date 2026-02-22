@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 /**
@@ -127,6 +126,7 @@ export default function HLSPlayer({
       console.error('HLS is not supported in this browser');
       onError?.({ message: 'HLS not supported' });
     }
+    return undefined;
   }, [src, onError]);
 
   // Video event handlers

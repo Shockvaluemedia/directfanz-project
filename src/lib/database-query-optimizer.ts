@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Database Query Performance Optimizer for DirectFanz
  *
@@ -150,7 +149,7 @@ export class DatabaseQueryOptimizer {
   private startPerformanceMonitoring(): void {
     if (process.env.NODE_ENV === 'production') {
       // In production, use Prisma query events for monitoring
-      this.prisma.$on('query' as any, (e: any) => {
+      (this.prisma as any).$on('query', (e: any) => {
         this.recordQueryPerformance({
           queryId: this.generateQueryId(e.query),
           query: e.query,

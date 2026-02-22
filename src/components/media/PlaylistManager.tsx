@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 /**
@@ -56,6 +55,7 @@ import {
 } from '@heroicons/react/24/solid';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
+// @ts-ignore - no declaration file for react-beautiful-dnd
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 
 // Types

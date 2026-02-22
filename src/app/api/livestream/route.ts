@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -6,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { generateSecureToken } from '@/lib/security';
 import { logger } from '@/lib/logger';
+import crypto from 'crypto';
 
 // Validation schemas
 const createStreamSchema = z.object({
@@ -199,8 +199,8 @@ export async function GET(request: NextRequest) {
           streams: [],
           pagination: {
             total: 0,
-            limit,
-            offset,
+            limit: 10,
+            offset: 0,
             hasMore: false,
           },
         },
@@ -268,6 +268,7 @@ export async function POST(request: NextRequest) {
 
     const stream = await prisma.live_streams.create({
       data: {
+        id: crypto.randomUUID(),
         artistId: session.user.id,
         title: validatedData.title,
         description: validatedData.description,
@@ -280,6 +281,7 @@ export async function POST(request: NextRequest) {
         maxViewers: validatedData.maxViewers,
         streamKey,
         status: validatedData.scheduledAt ? 'SCHEDULED' : 'LIVE',
+        updatedAt: new Date(),
       },
     });
 

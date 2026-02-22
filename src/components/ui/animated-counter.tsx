@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -56,6 +55,7 @@ export default function AnimatedCounter({
         }
       };
     }
+    return undefined;
   }, [isInView, end, duration]);
 
   const formatNumber = (num: number): string => {

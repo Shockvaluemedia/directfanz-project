@@ -10,6 +10,8 @@ interface EnhancedCardProps {
   interactive?: boolean;
   loading?: boolean;
   onClick?: () => void;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
 }
 
 export function EnhancedCard({
@@ -19,6 +21,8 @@ export function EnhancedCard({
   interactive = false,
   loading = false,
   onClick,
+  onMouseEnter,
+  onMouseLeave,
 }: EnhancedCardProps) {
   const baseStyles = 'rounded-xl border transition-all duration-300 ease-in-out';
   
@@ -47,6 +51,8 @@ export function EnhancedCard({
         className
       )}
       onClick={onClick}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
     >
       {loading ? (
         <div className="p-6">

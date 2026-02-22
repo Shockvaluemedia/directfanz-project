@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { withApi } from '@/lib/api-auth';
 import { prisma } from '@/lib/database';
@@ -30,7 +29,7 @@ export async function GET(request: NextRequest) {
         select: {
           artistId: true,
           tierId: true,
-          tier: {
+          tiers: {
             select: {
               id: true,
               name: true,
@@ -82,7 +81,7 @@ export async function GET(request: NextRequest) {
         },
         take: limit,
         include: {
-          artist: {
+          users: {
             select: {
               id: true,
               displayName: true,

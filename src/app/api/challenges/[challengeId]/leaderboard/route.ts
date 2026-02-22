@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -27,7 +26,7 @@ export async function GET(request: NextRequest, { params }: { params: { challeng
         title: true,
         status: true,
         maxScore: true,
-        campaign: {
+        campaigns: {
           select: { artistId: true, status: true, title: true },
         },
       },
@@ -55,7 +54,7 @@ export async function GET(request: NextRequest, { params }: { params: { challeng
       skip: offset,
       take: limit,
       include: {
-        user: {
+        users: {
           select: {
             id: true,
             displayName: true,
@@ -77,7 +76,7 @@ export async function GET(request: NextRequest, { params }: { params: { challeng
           },
         },
         include: {
-          user: {
+          users: {
             select: {
               id: true,
               displayName: true,
@@ -168,7 +167,7 @@ export async function POST(request: NextRequest, { params }: { params: { challen
     const challenge = await prisma.challenges.findUnique({
       where: { id: params.challengeId },
       select: {
-        campaign: {
+        campaigns: {
           select: { artistId: true },
         },
       },
@@ -244,7 +243,7 @@ async function recalculateLeaderboard(challengeId: string) {
       leaderboardUpdates.push({
         userId: participation.participantId,
         score: totalScore,
-        challenge_submissions: participation.challenge_submissions.length,
+        submissions: participation.challenge_submissions.length,
       });
     }
 
@@ -267,15 +266,17 @@ async function recalculateLeaderboard(challengeId: string) {
         update: {
           rank,
           score: entry.score,
-          challenge_submissions: entry.submissions,
+          submissions: entry.submissions,
           updatedAt: new Date(),
         },
         create: {
+          id: crypto.randomUUID(),
           challengeId,
           userId: entry.userId,
           rank,
           score: entry.score,
-          challenge_submissions: entry.submissions,
+          submissions: entry.submissions,
+          updatedAt: new Date(),
         },
       });
 

@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -71,6 +70,7 @@ export default function TestimonialCarousel() {
 
       return () => clearInterval(interval);
     }
+    return undefined;
   }, [isAutoPlaying]);
 
   const goToSlide = (index: number) => {

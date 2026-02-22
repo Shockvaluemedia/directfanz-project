@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -15,7 +14,7 @@ import {
   UserIcon,
   TagIcon,
   FireIcon,
-  TrendingUpIcon,
+  ArrowTrendingUpIcon,
   SparklesIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
@@ -79,7 +78,7 @@ const typeOptions = [
 const sortOptions = [
   { value: 'RECENT', label: 'Most Recent', icon: CalendarIcon },
   { value: 'POPULAR', label: 'Most Popular', icon: HeartIcon },
-  { value: 'TRENDING', label: 'Trending', icon: TrendingUpIcon },
+  { value: 'TRENDING', label: 'Trending', icon: ArrowTrendingUpIcon },
   { value: 'RECOMMENDED', label: 'Recommended', icon: SparklesIcon },
 ];
 

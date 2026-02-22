@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Advanced Media Processing Infrastructure
  *
@@ -10,8 +9,10 @@
  * - Progressive upload and processing
  */
 
+// @ts-ignore - no type declarations available
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegStatic from 'ffmpeg-static';
+// @ts-ignore - no type declarations available
 import ffprobeStatic from 'ffprobe-static';
 import { put } from '@vercel/blob';
 import sharp from 'sharp';
@@ -26,7 +27,7 @@ if (ffmpegStatic) {
   ffmpeg.setFfmpegPath(ffmpegStatic);
 }
 if (ffprobeStatic) {
-  ffmpeg.setFfprobePath(ffprobeStatic.path);
+  (ffmpeg as any).setFfprobePath(ffprobeStatic.path);
 }
 
 // Vercel Blob is configured via BLOB_READ_WRITE_TOKEN env var
@@ -159,7 +160,7 @@ export class MediaProcessor {
    */
   async extractMetadata(inputPath: string): Promise<MediaMetadata> {
     return new Promise((resolve, reject) => {
-      ffmpeg.ffprobe(inputPath, (err, metadata) => {
+      ffmpeg.ffprobe(inputPath, (err: any, metadata: any) => {
         if (err) {
           logger.error('Failed to extract metadata', { inputPath }, err);
           reject(new Error(`Failed to extract metadata: ${err.message}`));
@@ -167,8 +168,8 @@ export class MediaProcessor {
         }
 
         try {
-          const videoStream = metadata.streams.find(s => s.codec_type === 'video');
-          const audioStream = metadata.streams.find(s => s.codec_type === 'audio');
+          const videoStream = metadata.streams.find((s: any) => s.codec_type === 'video');
+          const audioStream = metadata.streams.find((s: any) => s.codec_type === 'audio');
 
           const result: MediaMetadata = {
             duration: metadata.format.duration || 0,
@@ -216,7 +217,7 @@ export class MediaProcessor {
         const outputKey = `${outputPrefix}-${quality.name}.mp4`;
         const outputPath = path.join(this.tempDir, 'output', `${uuidv4()}.mp4`);
 
-        await this.transcodeVideo(inputPath, outputPath, quality, options);
+        await this.transcodeVideo(inputPath, outputPath, quality as any, options);
 
         // Upload to S3
         const buffer = await fs.readFile(outputPath);
@@ -301,10 +302,10 @@ export class MediaProcessor {
       }
 
       command
-        .on('start', cmdline => {
+        .on('start', (cmdline: any) => {
           logger.debug('FFmpeg transcoding started', { cmdline });
         })
-        .on('progress', progress => {
+        .on('progress', (progress: any) => {
           logger.debug('Transcoding progress', {
             percent: progress.percent,
             quality: quality.name,
@@ -314,7 +315,7 @@ export class MediaProcessor {
           logger.info('Transcoding completed', { quality: quality.name });
           resolve();
         })
-        .on('error', err => {
+        .on('error', (err: any) => {
           logger.error('Transcoding failed', { quality: quality.name }, err);
           reject(err);
         })
@@ -407,7 +408,7 @@ export class MediaProcessor {
         const outputKey = `${outputPrefix}-${quality.name}.mp3`;
         const outputPath = path.join(this.tempDir, 'output', `${uuidv4()}.mp3`);
 
-        await this.transcodeAudio(inputPath, outputPath, quality, options);
+        await this.transcodeAudio(inputPath, outputPath, quality as any, options);
 
         const buffer = await fs.readFile(outputPath);
         const url = await this.uploadToS3(buffer, outputKey, 'audio/mpeg');
@@ -643,7 +644,7 @@ export class MediaProcessor {
   private getOptimalQualities(
     metadata: MediaMetadata,
     requestedQualities?: string[]
-  ): typeof PROCESSING_CONFIG.VIDEO_QUALITIES {
+  ): Array<(typeof PROCESSING_CONFIG.VIDEO_QUALITIES)[number]> {
     const inputHeight = metadata.height;
     let availableQualities = [...PROCESSING_CONFIG.VIDEO_QUALITIES];
 

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Error monitoring and reporting integration
  * Integrates with Sentry and other monitoring services
@@ -108,7 +107,7 @@ export function reportError(
         message: error.message,
         code: error.code,
         stack: error.stack,
-        level: context?.level || SEVERITY_MAP[error.code] || 'error',
+        level: context?.level || (SEVERITY_MAP as Record<string, string>)[error.code] || 'error',
         fingerprint: [error.code, error.message],
       };
     } else if ('code' in error && 'source' in error) {

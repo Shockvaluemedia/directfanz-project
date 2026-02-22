@@ -1,10 +1,10 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { stripe } from '@/lib/stripe';
 import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/lib/notifications';
 import Stripe from 'stripe';
+import crypto from 'crypto';
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
 
@@ -75,6 +75,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     // Create subscription record
     await prisma.subscriptions.create({
       data: {
+        id: crypto.randomUUID(),
         fanId,
         artistId,
         tierId,
@@ -83,6 +84,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
         status: 'ACTIVE',
         currentPeriodStart: new Date(),
         currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+        updatedAt: new Date(),
       },
     });
 
@@ -205,6 +207,7 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
       // Create a payment failure record for tracking
       await prisma.payment_failures.create({
         data: {
+          id: crypto.randomUUID(),
           subscriptionId: subscription.id,
           stripeInvoiceId: invoice.id,
           amount: invoice.amount_due / 100,
@@ -213,6 +216,7 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
             ? new Date(invoice.next_payment_attempt * 1000)
             : null,
           failureReason: invoice.last_finalization_error?.message || 'Payment failed',
+          updatedAt: new Date(),
         },
       });
 

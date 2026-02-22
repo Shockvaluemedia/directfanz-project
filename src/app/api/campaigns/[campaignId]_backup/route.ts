@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -39,7 +38,7 @@ export async function GET(request: NextRequest, { params }: { params: { campaign
     const campaign = await prisma.campaigns.findUnique({
       where: { id: params.campaignId },
       include: {
-        artist: {
+        users: {
           select: { id: true, displayName: true, avatar: true },
         },
         challenges: {
@@ -56,7 +55,7 @@ export async function GET(request: NextRequest, { params }: { params: { campaign
             },
           },
         },
-        analytics: {
+        campaign_analytics: {
           where: {
             date: {
               gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Last 30 days
@@ -166,7 +165,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { campai
         updatedAt: new Date(),
       },
       include: {
-        artist: {
+        users: {
           select: { id: true, displayName: true, avatar: true },
         },
         challenges: {

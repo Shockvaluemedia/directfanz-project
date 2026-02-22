@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 /**
@@ -146,9 +145,15 @@ export default function LiveStreamStudio() {
   const [donationMessage, setDonationMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  // Media state
+  const [isAudioEnabled, setIsAudioEnabled] = useState(true);
+  const [isVideoEnabled, setIsVideoEnabled] = useState(true);
+
   // Refs
   const chatEndRef = useRef<HTMLDivElement>(null);
   const streamStatsInterval = useRef<NodeJS.Timeout | null>(null);
+  const peerConnections = useRef<Map<string, RTCPeerConnection>>(new Map());
+  const streamRef = useRef<MediaStream | null>(null);
 
   // Initialize socket connection
   useEffect(() => {
@@ -226,7 +231,7 @@ export default function LiveStreamStudio() {
   const handleStreamEnded = useCallback((data: { streamId: string }) => {
     setActiveStream(prev => (prev ? { ...prev, status: 'ended' } : null));
     setIsStreaming(false);
-    toast.info('Stream ended');
+    toast('Stream ended');
   }, []);
 
   const handleViewerJoined = useCallback((data: { viewer: any; currentViewers: number }) => {
@@ -364,6 +369,21 @@ export default function LiveStreamStudio() {
       setIsLoading(false);
     }
   }, [streamConfig]);
+
+  const fetchStreamStats = useCallback(async () => {
+    if (!activeStream) return;
+    try {
+      const response = await fetch(`/api/streaming/${activeStream.id}/stats`);
+      if (response.ok) {
+        const stats = await response.json();
+        if (stats.bitrate !== undefined) setBitrate(stats.bitrate);
+        if (stats.fps !== undefined) setFps(stats.fps);
+        if (stats.health) setStreamHealth(stats.health);
+      }
+    } catch (error) {
+      console.error('Failed to fetch stream stats:', error);
+    }
+  }, [activeStream]);
 
   const startStream = useCallback(async () => {
     if (!activeStream) return;

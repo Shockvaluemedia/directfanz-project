@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { prisma } from './prisma';
 import { stripe } from './stripe';
 import { sendEmail } from './notifications';
@@ -87,10 +86,10 @@ export async function getUpcomingInvoices(artistId?: string): Promise<UpcomingIn
         ...(artistId ? { artistId } : {}),
       },
       include: {
-        fan: true,
-        tier: {
+        users: true,
+        tiers: {
           include: {
-            artist: true,
+            users: true,
           },
         },
       },
@@ -147,10 +146,10 @@ export async function processBillingRenewals(): Promise<BillingCycleEvent[]> {
         },
       },
       include: {
-        fan: true,
-        tier: {
+        users: true,
+        tiers: {
           include: {
-            artist: true,
+            users: true,
           },
         },
       },
@@ -174,20 +173,22 @@ export async function processBillingRenewals(): Promise<BillingCycleEvent[]> {
         });
 
         // Send renewal notification to fan
-        if (subscription.users.email) {
-          const prefs = subscription.users.notificationPreferences as any;
+        const fan = (subscription as any).users;
+        const tier = (subscription as any).tiers;
+        if (fan?.email) {
+          const prefs = fan.notificationPreferences as any;
           if (!prefs || prefs?.billing !== false) {
             await sendEmail({
-              to: subscription.users.email,
-              subject: `Subscription Renewed - ${subscription.tiers.artist?.displayName}`,
+              to: fan.email,
+              subject: `Subscription Renewed - ${tier?.users?.displayName}`,
               html: `
                 <h1>Subscription Renewed</h1>
-                <p>Your subscription to ${subscription.tiers.artist?.displayName}'s ${subscription.tiers.name} tier has been renewed.</p>
+                <p>Your subscription to ${tier?.users?.displayName}'s ${tier?.name} tier has been renewed.</p>
                 <p>Amount: $${subscription.amount}</p>
                 <p>Next billing date: ${new Date(stripeSubscription.current_period_end * 1000).toLocaleDateString()}</p>
                 <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions">Manage your subscriptions</a></p>
               `,
-              text: `Subscription Renewed\n\nYour subscription to ${subscription.tiers.artist?.displayName}'s ${subscription.tiers.name} tier has been renewed.\n\nAmount: $${subscription.amount}\nNext billing date: ${new Date(stripeSubscription.current_period_end * 1000).toLocaleDateString()}\n\nManage your subscriptions: ${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions`,
+              text: `Subscription Renewed\n\nYour subscription to ${tier?.users?.displayName}'s ${tier?.name} tier has been renewed.\n\nAmount: $${subscription.amount}\nNext billing date: ${new Date(stripeSubscription.current_period_end * 1000).toLocaleDateString()}\n\nManage your subscriptions: ${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions`,
             });
           }
         }
@@ -357,10 +358,10 @@ export async function sendBillingReminders(): Promise<number> {
         },
       },
       include: {
-        fan: true,
-        tier: {
+        users: true,
+        tiers: {
           include: {
-            artist: true,
+            users: true,
           },
         },
       },
@@ -368,21 +369,23 @@ export async function sendBillingReminders(): Promise<number> {
 
     for (const subscription of subscriptionsToRemind) {
       try {
-        if (subscription.users.email && subscription.users.notificationPreferences) {
-          const prefs = subscription.users.notificationPreferences as any;
+        const reminderFan = (subscription as any).users;
+        const reminderTier = (subscription as any).tiers;
+        if (reminderFan?.email && reminderFan?.notificationPreferences) {
+          const prefs = reminderFan.notificationPreferences as any;
           if (prefs?.billing !== false) {
             await sendEmail({
-              to: subscription.users.email,
-              subject: `Upcoming Renewal - ${subscription.tiers.artist?.displayName}`,
+              to: reminderFan.email,
+              subject: `Upcoming Renewal - ${reminderTier?.users?.displayName}`,
               html: `
                 <h1>Upcoming Subscription Renewal</h1>
-                <p>Your subscription to ${subscription.tiers.artist?.displayName}'s ${subscription.tiers.name} tier will renew in 3 days.</p>
+                <p>Your subscription to ${reminderTier?.users?.displayName}'s ${reminderTier?.name} tier will renew in 3 days.</p>
                 <p>Amount: $${subscription.amount}</p>
                 <p>Renewal date: ${subscription.currentPeriodEnd.toLocaleDateString()}</p>
                 <p>If you need to make changes to your subscription, you can do so in your dashboard.</p>
                 <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions">Manage your subscriptions</a></p>
               `,
-              text: `Upcoming Subscription Renewal\n\nYour subscription to ${subscription.tiers.artist?.displayName}'s ${subscription.tiers.name} tier will renew in 3 days.\n\nAmount: $${subscription.amount}\nRenewal date: ${subscription.currentPeriodEnd.toLocaleDateString()}\n\nIf you need to make changes to your subscription, you can do so in your dashboard.\n\nManage your subscriptions: ${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions`,
+              text: `Upcoming Subscription Renewal\n\nYour subscription to ${reminderTier?.users?.displayName}'s ${reminderTier?.name} tier will renew in 3 days.\n\nAmount: $${subscription.amount}\nRenewal date: ${subscription.currentPeriodEnd.toLocaleDateString()}\n\nIf you need to make changes to your subscription, you can do so in your dashboard.\n\nManage your subscriptions: ${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions`,
             });
 
             remindersSent++;
@@ -495,7 +498,7 @@ export async function processScheduledTierChanges(): Promise<BillingCycleEvent[]
         // Update subscription in database
         await prisma.$transaction(async tx => {
           // Update subscription
-          await tx.subscription.update({
+          await tx.subscriptions.update({
             where: { id: subscription.id },
             data: {
               tierId: newTierId,
@@ -806,9 +809,9 @@ export async function getArtistBillingSummary(artistId: string): Promise<{
     const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
     // Get current month revenue
-    const currentMonthInvoices = await prisma.invoice.findMany({
+    const currentMonthInvoices = await prisma.invoices.findMany({
       where: {
-        subscription: {
+        subscriptions: {
           artistId,
         },
         status: 'PAID',
@@ -823,14 +826,14 @@ export async function getArtistBillingSummary(artistId: string): Promise<{
     });
 
     const currentMonthRevenue = currentMonthInvoices.reduce(
-      (sum, invoice) => sum + parseFloat(invoice.amount.toString()),
+      (sum: number, invoice: { amount: any }) => sum + parseFloat(invoice.amount.toString()),
       0
     );
 
     // Get previous month revenue
-    const previousMonthInvoices = await prisma.invoice.findMany({
+    const previousMonthInvoices = await prisma.invoices.findMany({
       where: {
-        subscription: {
+        subscriptions: {
           artistId,
         },
         status: 'PAID',
@@ -845,7 +848,7 @@ export async function getArtistBillingSummary(artistId: string): Promise<{
     });
 
     const previousMonthRevenue = previousMonthInvoices.reduce(
-      (sum, invoice) => sum + parseFloat(invoice.amount.toString()),
+      (sum: number, invoice: { amount: any }) => sum + parseFloat(invoice.amount.toString()),
       0
     );
 

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { withStreamManagement, updateStreamStatus } from '@/lib/streaming-auth';
 import { triggerStreamEvent } from '@/lib/pusher';
@@ -8,7 +7,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { streamId: string } }
 ) {
-  return withStreamManagement(request, async (req) => {
+  return withStreamManagement<any>(request, async (req) => {
     try {
       const { streamId } = params;
 
@@ -20,7 +19,7 @@ export async function POST(
       }
 
       // Update stream status and set endedAt timestamp
-      const updated = await updateStreamStatus(streamId, 'ENDED');
+      const updated = await updateStreamStatus(streamId, 'stopped');
 
       if (!updated) {
         return NextResponse.json(

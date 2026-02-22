@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -40,7 +39,7 @@ export async function GET(request: NextRequest, { params }: { params: { challeng
       select: {
         id: true,
         status: true,
-        campaign: {
+        campaigns: {
           select: { artistId: true, status: true },
         },
       },
@@ -87,7 +86,7 @@ export async function GET(request: NextRequest, { params }: { params: { challeng
           users: {
             select: { id: true, displayName: true, avatar: true },
           },
-          participation: {
+          challenge_participations: {
             select: { currentScore: true, rank: true },
           },
         },
@@ -136,7 +135,7 @@ export async function POST(request: NextRequest, { params }: { params: { challen
     const challengeWithParticipation = await prisma.challenges.findUnique({
       where: { id: params.challengeId },
       include: {
-        campaign: {
+        campaigns: {
           select: { status: true },
         },
         challenge_participations: {
@@ -155,7 +154,7 @@ export async function POST(request: NextRequest, { params }: { params: { challen
     }
 
     const challenge = challengeWithParticipation;
-    const participation = challenge.participations[0];
+    const participation = challenge.challenge_participations[0];
 
     if (!participation) {
       return NextResponse.json(
@@ -217,6 +216,7 @@ export async function POST(request: NextRequest, { params }: { params: { challen
     const submission = await prisma.$transaction(async tx => {
       const newSubmission = await tx.challenge_submissions.create({
         data: {
+          id: crypto.randomUUID(),
           challengeId: params.challengeId,
           participationId: participation.id,
           submitterId: session.user.id,
@@ -226,12 +226,13 @@ export async function POST(request: NextRequest, { params }: { params: { challen
           contentUrl: validatedData.contentUrl,
           thumbnailUrl: validatedData.thumbnailUrl,
           metadata: validatedData.metadata ? JSON.stringify(validatedData.metadata) : null,
+          updatedAt: new Date(),
         },
         include: {
           users: {
             select: { id: true, displayName: true, avatar: true },
           },
-          challenge: {
+          challenges: {
             select: { title: true, type: true },
           },
         },
@@ -262,7 +263,7 @@ export async function POST(request: NextRequest, { params }: { params: { challen
           userId: session.user.id,
         },
         data: {
-          challenge_submissions: { increment: 1 },
+          submissions: { increment: 1 },
           lastSubmissionAt: new Date(),
         },
       });

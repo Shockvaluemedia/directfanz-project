@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -76,7 +75,7 @@ export async function GET(request: NextRequest, { params }: { params: { campaign
             id: true,
             status: true,
             awardedAt: true,
-            user: {
+            users: {
               select: { id: true, displayName: true, avatar: true },
             },
           },
@@ -153,9 +152,11 @@ export async function POST(request: NextRequest, { params }: { params: { campaig
       const newReward = await tx.campaign_rewards.create({
         data: {
           ...validatedData,
+          id: crypto.randomUUID(),
           campaignId: params.campaignId,
           tierAccess: validatedData.tierAccess ? JSON.stringify(validatedData.tierAccess) : null,
           remainingQuantity: validatedData.quantity,
+          updatedAt: new Date(),
         },
         include: {
           content: {
@@ -174,7 +175,7 @@ export async function POST(request: NextRequest, { params }: { params: { campaig
           data: {
             totalPrizePool: { increment: validatedData.value * validatedData.quantity },
             hasDigitalPrizes:
-              validatedData.type === 'EXCLUSIVE_CONTENT' || validatedData.type === 'TIER_ACCESS',
+              (validatedData.type as string) === 'EXCLUSIVE_CONTENT' || (validatedData.type as string) === 'TIER_ACCESS',
             hasPhysicalPrizes: validatedData.shippingRequired,
           },
         });

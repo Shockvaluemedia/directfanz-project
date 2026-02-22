@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -12,7 +11,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: { id: session.user.id },
       select: { id: true, role: true }
     });
@@ -27,33 +26,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Stream title required' }, { status: 400 });
     }
 
+    // Generate stream key for WebRTC signaling
+    const streamKey = `${uuidv4()}`;
+
     // Create stream record
-    const stream = await prisma.liveStream.create({
+    const stream = await prisma.live_streams.create({
       data: {
+        id: uuidv4(),
         title: title.trim(),
         description: description?.trim(),
-        category,
-        streamerId: user.id,
+        artistId: user.id,
         status: 'SCHEDULED',
-        settings: {
-          enableChat: true,
-          enableDonations: true,
-          quality: ['480p', '720p', '1080p']
-        }
-      }
-    });
-
-    // Generate stream key for WebRTC signaling
-    const streamKey = `${stream.id}_${uuidv4()}`;
-
-    await prisma.liveStream.update({
-      where: { id: stream.id },
-      data: {
         streamKey,
-        settings: {
-          ...stream.settings,
-          streamKey
-        }
+        tierIds: '[]',
+        updatedAt: new Date(),
       }
     });
 
@@ -76,22 +62,20 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') || 'LIVE';
 
-    const streams = await prisma.liveStream.findMany({
+    const streams = await prisma.live_streams.findMany({
       where: { status },
       include: {
-        streamer: {
+        users: {
           select: {
             id: true,
-            userName: true,
             displayName: true,
             avatar: true,
-            isVerified: true
           }
         },
         _count: {
           select: {
-            viewers: true,
-            chatMessages: true
+            stream_viewers: true,
+            stream_chat_messages: true
           }
         }
       },

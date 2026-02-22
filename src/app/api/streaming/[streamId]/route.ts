@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -17,16 +16,16 @@ export async function POST(
     const { action } = await request.json();
     const { streamId } = params;
 
-    const stream = await prisma.liveStream.findUnique({
+    const stream = await prisma.live_streams.findUnique({
       where: { id: streamId },
-      include: { streamer: true }
+      include: { users: true }
     });
 
     if (!stream) {
       return NextResponse.json({ error: 'Stream not found' }, { status: 404 });
     }
 
-    if (stream.streamerId !== session.user.id) {
+    if (stream.artistId !== session.user.id) {
       return NextResponse.json({ error: 'Not authorized for this stream' }, { status: 403 });
     }
 
@@ -36,7 +35,7 @@ export async function POST(
           return NextResponse.json({ error: 'Stream already started' }, { status: 400 });
         }
 
-        await prisma.liveStream.update({
+        await prisma.live_streams.update({
           where: { id: streamId },
           data: {
             status: 'LIVE',
@@ -55,7 +54,7 @@ export async function POST(
           return NextResponse.json({ error: 'Stream not live' }, { status: 400 });
         }
 
-        const endedStream = await prisma.liveStream.update({
+        const endedStream = await prisma.live_streams.update({
           where: { id: streamId },
           data: {
             status: 'ENDED',
@@ -90,24 +89,21 @@ export async function GET(
   try {
     const { streamId } = params;
 
-    const stream = await prisma.liveStream.findUnique({
+    const stream = await prisma.live_streams.findUnique({
       where: { id: streamId },
       include: {
-        streamer: {
+        users: {
           select: {
             id: true,
-            userName: true,
             displayName: true,
             avatar: true,
-            isVerified: true
           }
         },
-        viewers: {
+        stream_viewers: {
           select: {
             id: true,
-            user: {
+            users: {
               select: {
-                userName: true,
                 displayName: true,
                 avatar: true
               }
@@ -115,13 +111,12 @@ export async function GET(
             joinedAt: true
           }
         },
-        chatMessages: {
+        stream_chat_messages: {
           orderBy: { createdAt: 'desc' },
           take: 50,
           include: {
-            user: {
+            users: {
               select: {
-                userName: true,
                 displayName: true,
                 avatar: true
               }
@@ -130,9 +125,9 @@ export async function GET(
         },
         _count: {
           select: {
-            viewers: true,
-            chatMessages: true,
-            likes: true
+            stream_viewers: true,
+            stream_chat_messages: true,
+            stream_tips: true
           }
         }
       }
@@ -148,9 +143,9 @@ export async function GET(
         ? (process.env.NEXT_PUBLIC_WEBSOCKET_URL || '/api/socket')
         : null,
       metrics: {
-        currentViewers: stream._count.viewers,
-        totalMessages: stream._count.chatMessages,
-        totalLikes: stream._count.likes,
+        currentViewers: stream._count.stream_viewers,
+        totalMessages: stream._count.stream_chat_messages,
+        totalTips: stream._count.stream_tips,
         duration: stream.startedAt && stream.endedAt
           ? stream.endedAt.getTime() - stream.startedAt.getTime()
           : stream.startedAt

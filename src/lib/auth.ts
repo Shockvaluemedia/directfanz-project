@@ -14,11 +14,19 @@ if (process.env.NODE_ENV === 'production' && typeof window === 'undefined') {
   }
 }
 
-interface DirectFanzJWT extends JWT {
+interface DirectFanzJWT {
   id?: string;
   role?: string;
   lastActivity?: number;
   sessionStart?: number;
+  name?: string | null;
+  email?: string | null;
+  picture?: string | null;
+  sub?: string;
+  iat?: number;
+  exp?: number;
+  jti?: string;
+  [key: string]: unknown;
 }
 
 export const authOptions: NextAuthOptions = {
@@ -161,7 +169,7 @@ export const authOptions: NextAuthOptions = {
       }
     },
     async jwt({ token, user, trigger }) {
-      const t = token as DirectFanzJWT;
+      const t = token as unknown as DirectFanzJWT;
       if (user) {
         const u = user as { id: string; role?: string; name?: string; displayName?: string; email?: string; image?: string; avatar?: string };
         t.id = u.id;
@@ -180,7 +188,7 @@ export const authOptions: NextAuthOptions = {
         t.lastActivity = Date.now();
       }
 
-      return t;
+      return t as any;
     },
     async session({ session, token }) {
       const t = token as DirectFanzJWT;
@@ -202,11 +210,13 @@ export const authOptions: NextAuthOptions = {
         if (!existingUser) {
           await prisma.users.create({
             data: {
+              id: `user_${Date.now()}`,
               email: user.email,
               displayName: user.name || user.email.split('@')[0],
               avatar: user.image,
               role: 'FAN',
               emailVerified: new Date(),
+              updatedAt: new Date(),
             },
           });
         }
@@ -219,8 +229,7 @@ export const authOptions: NextAuthOptions = {
     error: '/auth/error',
   },
   secret: process.env.NEXTAUTH_SECRET,
-  trustHost: true,
-};
+} as NextAuthOptions;
 
 // Securely store OAuth tokens in encrypted database storage
 async function storeOAuthTokens(userId: string, account: any) {
@@ -246,11 +255,13 @@ async function storeOAuthTokens(userId: string, account: any) {
         updatedAt: new Date(),
       },
       create: {
+        id: `oauth_${Date.now()}`,
         userId,
         provider: account.provider,
         encryptedAccessToken,
         encryptedRefreshToken,
         expiresAt: account.expires_at ? new Date(account.expires_at * 1000) : null,
+        updatedAt: new Date(),
       },
     });
   } catch {

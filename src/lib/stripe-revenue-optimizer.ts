@@ -1,9 +1,8 @@
-// @ts-nocheck
 import { stripe } from '@/lib/stripe';
 import { prisma } from '@/lib/prisma';
 import { Logger } from '@/lib/logger';
 
-const logger = new Logger('stripe-revenue-optimizer');
+const logger = new Logger();
 
 interface PricingOptimization {
   priceId: string;
@@ -31,26 +30,28 @@ export async function getRevenueOptimizations(
 ): Promise<RevenueInsights> {
   try {
     // Get artist's Stripe account
-    const artist = await prisma.user.findUnique({
-      where: { id: artistId },
-      select: { stripeConnectedAccountId: true }
+    const artist = await prisma.artists.findUnique({
+      where: { userId: artistId },
+      select: { stripeAccountId: true }
     });
 
-    if (!artist?.stripeConnectedAccountId) {
+    if (!artist?.stripeAccountId) {
       throw new Error('Artist does not have a connected Stripe account');
     }
 
     // Get current subscriptions and pricing data
     const subscriptions = await stripe.subscriptions.list({
-      stripeAccount: artist.stripeConnectedAccountId,
       limit: 100,
       status: 'active'
+    }, {
+      stripeAccount: artist.stripeAccountId,
     });
 
     const prices = await stripe.prices.list({
-      stripeAccount: artist.stripeConnectedAccountId,
       limit: 50,
       active: true
+    }, {
+      stripeAccount: artist.stripeAccountId,
     });
 
     // Analyze current revenue metrics
@@ -111,18 +112,18 @@ export async function implementPricingOptimization(
   message: string;
 }> {
   try {
-    const artist = await prisma.user.findUnique({
-      where: { id: artistId },
-      select: { stripeConnectedAccountId: true }
+    const artist = await prisma.artists.findUnique({
+      where: { userId: artistId },
+      select: { stripeAccountId: true }
     });
 
-    if (!artist?.stripeConnectedAccountId) {
+    if (!artist?.stripeAccountId) {
       throw new Error('Artist does not have a connected Stripe account');
     }
 
     // Get the original price to clone its settings
     const originalPrice = await stripe.prices.retrieve(priceId, {
-      stripeAccount: artist.stripeConnectedAccountId
+      stripeAccount: artist.stripeAccountId
     });
 
     if (testMode) {
@@ -131,7 +132,7 @@ export async function implementPricingOptimization(
         product: originalPrice.product as string,
         unit_amount: Math.round(newAmount * 100),
         currency: originalPrice.currency,
-        recurring: originalPrice.recurring,
+        recurring: originalPrice.recurring ? { interval: originalPrice.recurring.interval } : undefined,
         metadata: {
           test_price: 'true',
           original_price_id: priceId,
@@ -139,11 +140,11 @@ export async function implementPricingOptimization(
           created_by: 'ai_optimizer'
         }
       }, {
-        stripeAccount: artist.stripeConnectedAccountId
+        stripeAccount: artist.stripeAccountId
       });
 
       // Log the pricing optimization for tracking
-      await prisma.priceOptimization.create({
+      await prisma.price_optimizations.create({
         data: {
           artistId,
           originalPriceId: priceId,
@@ -178,21 +179,21 @@ export async function implementPricingOptimization(
         product: originalPrice.product as string,
         unit_amount: Math.round(newAmount * 100),
         currency: originalPrice.currency,
-        recurring: originalPrice.recurring,
+        recurring: originalPrice.recurring ? { interval: originalPrice.recurring.interval } : undefined,
         metadata: {
           previous_price_id: priceId,
           optimized_price: 'true',
           created_by: 'ai_optimizer'
         }
       }, {
-        stripeAccount: artist.stripeConnectedAccountId
+        stripeAccount: artist.stripeAccountId
       });
 
       // Deactivate the old price
       await stripe.prices.update(priceId, {
         active: false
       }, {
-        stripeAccount: artist.stripeConnectedAccountId
+        stripeAccount: artist.stripeAccountId
       });
 
       logger.info('Implemented pricing optimization', {
@@ -230,12 +231,12 @@ export async function createOptimizedBundle(
   message: string;
 }> {
   try {
-    const artist = await prisma.user.findUnique({
-      where: { id: artistId },
-      select: { stripeConnectedAccountId: true }
+    const artist = await prisma.artists.findUnique({
+      where: { userId: artistId },
+      select: { stripeAccountId: true }
     });
 
-    if (!artist?.stripeConnectedAccountId) {
+    if (!artist?.stripeAccountId) {
       throw new Error('Artist does not have a connected Stripe account');
     }
 
@@ -243,7 +244,7 @@ export async function createOptimizedBundle(
     const prices = await Promise.all(
       includedPriceIds.map(id => 
         stripe.prices.retrieve(id, {
-          stripeAccount: artist.stripeConnectedAccountId!
+          stripeAccount: artist.stripeAccountId!
         })
       )
     );
@@ -262,7 +263,7 @@ export async function createOptimizedBundle(
         created_by: 'ai_optimizer'
       }
     }, {
-      stripeAccount: artist.stripeConnectedAccountId
+      stripeAccount: artist.stripeAccountId
     });
 
     // Create bundle price
@@ -270,14 +271,14 @@ export async function createOptimizedBundle(
       product: bundleProduct.id,
       unit_amount: bundlePrice,
       currency: prices[0]?.currency || 'usd',
-      recurring: prices[0]?.recurring || { interval: 'month' },
+      recurring: { interval: prices[0]?.recurring?.interval || 'month' },
       metadata: {
         bundle_price: 'true',
         original_value: totalValue.toString(),
         savings: (totalValue - bundlePrice).toString()
       }
     }, {
-      stripeAccount: artist.stripeConnectedAccountId
+      stripeAccount: artist.stripeAccountId
     });
 
     logger.info('Created optimized bundle', {
@@ -366,12 +367,16 @@ export async function restructureSubscriptionTiers(
   message: string;
 }> {
   try {
-    const artist = await prisma.user.findUnique({
+    const artistProfile = await prisma.artists.findUnique({
+      where: { userId: artistId },
+      select: { stripeAccountId: true }
+    });
+    const artistUser = await prisma.users.findUnique({
       where: { id: artistId },
-      select: { stripeConnectedAccountId: true, displayName: true }
+      select: { displayName: true }
     });
 
-    if (!artist?.stripeConnectedAccountId) {
+    if (!artistProfile?.stripeAccountId) {
       throw new Error('Artist does not have a connected Stripe account');
     }
 
@@ -380,7 +385,7 @@ export async function restructureSubscriptionTiers(
     for (const tier of tierRecommendations) {
       // Create product for the tier
       const product = await stripe.products.create({
-        name: `${artist.displayName} - ${tier.tierName}`,
+        name: `${artistUser?.displayName ?? 'Artist'} - ${tier.tierName}`,
         description: `${tier.targetAudience} tier with: ${tier.features.join(', ')}`,
         metadata: {
           tier_name: tier.tierName,
@@ -389,7 +394,7 @@ export async function restructureSubscriptionTiers(
           created_by: 'ai_optimizer'
         }
       }, {
-        stripeAccount: artist.stripeConnectedAccountId
+        stripeAccount: artistProfile.stripeAccountId!
       });
 
       // Create price for the tier
@@ -403,7 +408,7 @@ export async function restructureSubscriptionTiers(
           ai_optimized: 'true'
         }
       }, {
-        stripeAccount: artist.stripeConnectedAccountId
+        stripeAccount: artistProfile.stripeAccountId!
       });
 
       createdTiers.push({

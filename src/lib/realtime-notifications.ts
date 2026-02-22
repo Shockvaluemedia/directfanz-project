@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Server as SocketIOServer } from 'socket.io';
 import { prisma } from './prisma';
 import { logger } from './logger';

@@ -1,10 +1,9 @@
-// @ts-nocheck
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
 import { EnhancedCard, EnhancedCardHeader, EnhancedCardContent, EnhancedCardTitle } from '@/components/ui/enhanced-card';
 import { EnhancedButton } from '@/components/ui/enhanced-button';
-import { useSearch, useSearchSuggestions, SearchFilters } from '@/hooks/use-search';
+import { useSearch, useSearchSuggestions, type SearchFilters } from '@/hooks/use-search';
 import {
   Search,
   Filter,

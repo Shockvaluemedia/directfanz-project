@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Unified API Error Handling System
  * Consolidates error handling patterns across the application
@@ -150,7 +149,7 @@ export function normalizeApiError(error: unknown, context: ApiRequestContext): A
         path: err.path.join('.'),
         message: err.message,
         code: err.code,
-        value: err.input,
+        value: (err as any).input,
       })),
     };
 

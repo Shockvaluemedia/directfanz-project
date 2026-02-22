@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
@@ -260,11 +259,12 @@ export default function OptimizedContentUploader() {
           if (optimizationResponse.ok) {
             const optimizationData = await optimizationResponse.json();
             
-            setUploads(prev => prev.map(u => 
-              u.id === upload.id 
-                ? { 
-                    ...u, 
+            setUploads(prev => prev.map(u =>
+              u.id === upload.id
+                ? {
+                    ...u,
                     optimization: {
+                      strategy: u.optimization?.strategy || metadata.optimizationStrategy,
                       ...u.optimization,
                       result: optimizationData.data,
                     }

@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 import React, { useState, useRef, useCallback } from 'react';
@@ -159,7 +158,12 @@ export function TouchOptimizedCard({
             
             {/* Long Press Menu Trigger */}
             <motion.button
-              onLongPress={handleLongPress}
+              onPointerDown={() => {
+                const timer = setTimeout(handleLongPress, 500);
+                (window as any).__longPressTimer = timer;
+              }}
+              onPointerUp={() => clearTimeout((window as any).__longPressTimer)}
+              onPointerCancel={() => clearTimeout((window as any).__longPressTimer)}
               whileTap={{ scale: 0.9 }}
               className="p-2 rounded-full hover:bg-gray-100 active:bg-gray-200 transition-colors"
             >

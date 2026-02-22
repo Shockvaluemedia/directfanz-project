@@ -127,7 +127,7 @@ export function createRateLimiter(config: RateLimitConfig, prefix: string = 'def
           current,
           limit: config.maxRequests,
           windowMs: config.windowMs,
-          userAgent: request.headers.get('user-agent'),
+          userAgent: request.headers.get('user-agent') ?? undefined,
         });
 
         return NextResponse.json(

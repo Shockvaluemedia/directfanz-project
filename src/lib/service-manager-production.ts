@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Stripe from 'stripe';
 import { put } from '@vercel/blob';
 import sgMail from '@sendgrid/mail';
@@ -11,7 +10,7 @@ interface ServiceHealthStatus {
 }
 
 export class ProductionServiceManager {
-  private stripe: Stripe;
+  private stripe!: Stripe;
   private sendGridConfigured = false;
   private healthStatus: {
     stripe: ServiceHealthStatus;
@@ -126,7 +125,7 @@ export class ProductionServiceManager {
   async uploadFile(key: string, body: Buffer | Uint8Array | string, contentType?: string): Promise<string> {
     try {
       const start = Date.now();
-      const blob = await put(key, body, {
+      const blob = await put(key, body as any, {
         access: 'public',
         contentType,
         addRandomSuffix: false,

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useState, useEffect } from 'react';
 
 interface BeforeInstallPromptEvent extends Event {
@@ -171,7 +170,7 @@ export const cacheUtils = {
       return {
         usage: estimate.usage || 0,
         quota: estimate.quota || 0,
-        usageDetails: estimate.usageDetails || {},
+        usageDetails: (estimate as any).usageDetails || {},
       };
     }
     return null;

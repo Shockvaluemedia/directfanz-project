@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { withStreamManagement, getStreamMetrics } from '@/lib/streaming-auth';
 
@@ -6,7 +5,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { streamId: string } }
 ) {
-  return withStreamManagement(request, async (req) => {
+  return withStreamManagement<any>(request, async (req) => {
     try {
       const { streamId } = params;
 

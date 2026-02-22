@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useSession } from 'next-auth/react';
@@ -349,6 +348,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
       const interval = setInterval(updatePresence, 30000); // Every 30 seconds
       return () => clearInterval(interval);
     }
+    return undefined;
   }, [connectionStatus, updatePresence]);
 
   // Cleanup on unmount

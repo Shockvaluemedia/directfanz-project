@@ -1,9 +1,8 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { withArtistStreaming, createStreamSession } from '@/lib/streaming-auth';
 
 export async function POST(request: NextRequest) {
-  return withArtistStreaming(request, async (req) => {
+  return withArtistStreaming<any>(request, async (req) => {
     try {
       const body = await request.json();
       const { title, description, isPrivate = false } = body;

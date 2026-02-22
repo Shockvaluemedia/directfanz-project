@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Database Performance Monitoring API
  * 

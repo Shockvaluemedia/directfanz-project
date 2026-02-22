@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -12,7 +11,7 @@ export function useActiveRoute() {
     if (exact) {
       return pathname === path;
     }
-    return pathname.startsWith(path);
+    return pathname?.startsWith(path) ?? false;
   };
 
   return { pathname, isActive };
@@ -179,11 +178,11 @@ export function useBreadcrumbs() {
   const { data: session, status } = useSession();
 
   if (status === 'loading') {
-    return [{ name: 'Home', href: '/' }];
+    return { breadcrumbs: [{ name: 'Home', href: '/' }] };
   }
 
   const generateBreadcrumbs = () => {
-    const segments = pathname.split('/').filter(Boolean);
+    const segments = (pathname ?? '').split('/').filter(Boolean);
     const breadcrumbs = [{ name: 'Home', href: '/' }];
 
     let currentPath = '';

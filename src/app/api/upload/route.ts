@@ -1,5 +1,5 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
+// @ts-ignore - multer lacks type declarations
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
@@ -11,7 +11,7 @@ const upload = multer({
   limits: {
     fileSize: 100 * 1024 * 1024, // 100MB
   },
-  fileFilter: (req, file, cb) => {
+  fileFilter: (req: any, file: any, cb: any) => {
     const allowedTypes = [
       'image/jpeg', 'image/png', 'image/gif', 'image/webp',
       'video/mp4', 'video/mov', 'video/avi', 'video/mkv',

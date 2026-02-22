@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 import React, { useState, useCallback, useRef } from 'react';
@@ -79,6 +78,7 @@ export function FileUploadZone({
       id: generateFileId(),
       progress: 0,
       status: 'pending' as const,
+      preview: undefined as string | undefined,
     });
 
     // Generate preview for images

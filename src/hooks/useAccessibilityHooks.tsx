@@ -39,7 +39,7 @@ export function useScreenReader() {
 
   return {
     isActive: isScreenReaderActive,
-    announce: announcePolite,
+    announce,
     announceUrgent: announceAssertive,
     announceNavigation,
     announceFormError,

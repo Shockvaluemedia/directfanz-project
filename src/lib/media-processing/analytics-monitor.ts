@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Media Analytics and Monitoring System
  *
@@ -482,13 +481,13 @@ export class AnalyticsMonitor {
 
       // Distribution Analysis
       deviceDistribution: this.calculateDistribution(
-        playbackEvents.map(e => e.context.deviceType).filter(Boolean)
+        playbackEvents.map(e => e.context.deviceType).filter(Boolean) as string[]
       ),
       networkDistribution: this.calculateDistribution(
-        playbackEvents.map(e => e.context.network?.type).filter(Boolean)
+        playbackEvents.map(e => e.context.network?.effectiveBandwidth?.toString()).filter(Boolean) as string[]
       ),
       geographicDistribution: this.calculateDistribution(
-        playbackEvents.map(e => e.context.location?.country).filter(Boolean)
+        playbackEvents.map(e => e.context.location?.country).filter(Boolean) as string[]
       ),
     };
   }
@@ -589,7 +588,7 @@ export class AnalyticsMonitor {
       systemHealth: (await this.generateSystemHealthReport()).overall,
       topContent: this.getTopContent(recentEvents),
       geographicDistribution: this.calculateDistribution(
-        recentEvents.map(e => e.context.location?.country).filter(Boolean)
+        recentEvents.map(e => e.context.location?.country).filter(Boolean) as string[]
       ),
       processingQueue: await this.getProcessingQueueStatus(),
     };
@@ -679,7 +678,7 @@ export class AnalyticsMonitor {
 
       logger.debug('Flushed analytics events', { count: eventsToFlush.length });
     } catch (error) {
-      logger.error('Failed to flush analytics events', error);
+      logger.error('Failed to flush analytics events', { error: String(error) });
       // Re-add failed events to buffer for retry
       this.events.unshift(...eventsToFlush);
     }

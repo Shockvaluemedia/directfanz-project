@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -144,7 +143,7 @@ export default function MobileNav({ className }: MobileNavProps) {
     if (href === '/dashboard') {
       return pathname === '/dashboard' || pathname === '/dashboard/';
     }
-    return pathname.startsWith(href);
+    return (pathname ?? '').startsWith(href);
   };
 
   return (

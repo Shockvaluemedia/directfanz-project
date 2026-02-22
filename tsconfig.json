@@ -72,6 +72,12 @@
     "src/lib/cache-rebuild-service.ts",
     "src/components/messaging/chat-interface-old.tsx",
     "src/app/messages/page-old.tsx",
-    "src/app/api/admin/content/moderation/**/*"
+    "src/app/api/admin/content/moderation/**/*",
+    "src/app/api/ai/**/*",
+    "src/lib/socket-server.ts",
+    "src/lib/realtime-notifications.ts",
+    "src/lib/websocket-instance.ts",
+    "src/lib/streaming/server-init.ts",
+    "src/lib/ai-content-moderation.ts"
   ]
 }

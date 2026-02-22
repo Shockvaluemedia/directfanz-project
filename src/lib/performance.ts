@@ -313,7 +313,7 @@ export class RedisCacheService {
   }
 
   async close(): Promise<void> {
-    await this.client.quit();
+    await this.client?.quit();
   }
 }
 

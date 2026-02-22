@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { withApi } from '@/lib/api-auth';
 import { prisma } from '@/lib/prisma';
@@ -13,7 +12,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         where: { id: contentId },
         include: {
           tiers: true,
-          artist: true,
+          users: true,
         },
       });
 
@@ -66,9 +65,10 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       // Create like
       await prisma.content_likes.create({
         data: {
+          id: crypto.randomUUID(),
           userId: req.user.id,
           contentId: contentId,
-        },
+        } as any,
       });
 
       // Update content like count

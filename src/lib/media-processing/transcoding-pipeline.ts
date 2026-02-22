@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Video Transcoding Pipeline
  *
@@ -565,7 +564,7 @@ export class TranscodingPipeline extends EventEmitter {
    */
   private async saveJobToDatabase(job: ProcessingJob): Promise<void> {
     try {
-      await prisma.processingJobs.upsert({
+      await (prisma as any).processingJobs.upsert({
         where: { id: job.id },
         update: {
           status: job.status,
@@ -598,7 +597,7 @@ export class TranscodingPipeline extends EventEmitter {
    */
   private async getJobFromDatabase(jobId: string): Promise<ProcessingJob | null> {
     try {
-      const dbJob = await prisma.processingJobs.findUnique({
+      const dbJob = await (prisma as any).processingJobs.findUnique({
         where: { id: jobId },
       });
 
@@ -628,7 +627,7 @@ export class TranscodingPipeline extends EventEmitter {
    */
   private async resumeIncompleteJobs(): Promise<void> {
     try {
-      const incompleteJobs = await prisma.processingJobs.findMany({
+      const incompleteJobs = await (prisma as any).processingJobs.findMany({
         where: {
           status: {
             in: ['queued', 'processing'],
@@ -674,7 +673,7 @@ export class TranscodingPipeline extends EventEmitter {
         // Clean up old completed/failed jobs (older than 7 days)
         const cutoffDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-        await prisma.processingJobs.deleteMany({
+        await (prisma as any).processingJobs.deleteMany({
           where: {
             status: {
               in: ['completed', 'failed'],

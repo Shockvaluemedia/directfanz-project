@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { NextRequest } from 'next/server';
 import { withStreamingAccess } from '@/middleware/content-access';
 import { prisma } from '@/lib/prisma';

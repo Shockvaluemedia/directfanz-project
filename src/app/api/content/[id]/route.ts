@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { withApi } from '@/lib/api-auth';
 import { prisma } from '@/lib/prisma';
@@ -24,7 +23,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       const content = await prisma.content.findUnique({
         where: { id: contentId },
         include: {
-          artist: {
+          users: {
             select: {
               id: true,
               displayName: true,
@@ -40,7 +39,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
           },
           comments: {
             include: {
-              fan: {
+              users: {
                 select: {
                   id: true,
                   displayName: true,
@@ -205,7 +204,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         where: { id: contentId },
         data: updateData,
         include: {
-          artist: {
+          users: {
             select: {
               id: true,
               displayName: true,

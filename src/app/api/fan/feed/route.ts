@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -33,7 +32,7 @@ interface ContentWithRelations {
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession(authOptions) as any;
 
     if (!session?.user?.id || session.user.role !== 'FAN') {
       return NextResponse.json(
@@ -51,7 +50,7 @@ export async function GET(request: NextRequest) {
 
     const skip = (page - 1) * limit;
 
-    let content: ContentWithRelations[] = [];
+    let content: any[] = [];
     let total = 0;
 
     if (feedType === 'subscriptions') {
@@ -68,8 +67,8 @@ export async function GET(request: NextRequest) {
       });
 
       if (subscriptions.length > 0) {
-        const artistIds = subscriptions.map(s => s.artistId);
-        const tierIds = subscriptions.map(s => s.tierId);
+        const artistIds = subscriptions.map((s: { artistId: string; tierId: string }) => s.artistId);
+        const tierIds = subscriptions.map((s: { artistId: string; tierId: string }) => s.tierId);
 
         // Build where clause
         const where: any = {
@@ -167,7 +166,7 @@ export async function GET(request: NextRequest) {
             },
           },
           orderBy: [
-            { views: 'desc' },
+            { totalViews: 'desc' },
             { createdAt: 'desc' },
           ],
           skip,
@@ -215,8 +214,8 @@ export async function GET(request: NextRequest) {
             },
           },
           orderBy: [
-            { likes: 'desc' },
-            { views: 'desc' },
+            { totalLikes: 'desc' },
+            { totalViews: 'desc' },
             { createdAt: 'desc' },
           ],
           skip,
@@ -233,16 +232,16 @@ export async function GET(request: NextRequest) {
         const viewCount = Math.floor(Math.random() * 1000); // Mock data
         
         // Get like count and user's like status
-        const likeData = await prisma.contentLikes.findMany({
+        const likeData = await prisma.content_likes.findMany({
           where: { contentId: item.id },
           select: { userId: true },
         });
         
         const likes = likeData.length;
-        const hasLiked = likeData.some(like => like.userId === session.user.id);
+        const hasLiked = likeData.some((like: { userId: string }) => like.userId === session.user.id);
 
         // Get comment count
-        const commentsCount = await prisma.contentComments.count({
+        const commentsCount = await prisma.comments.count({
           where: { contentId: item.id },
         });
 

@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -77,6 +76,7 @@ export function StreamControlPanel({ className }: StreamControlPanelProps) {
 
       return () => clearInterval(interval);
     }
+    return undefined;
   }, [isStreaming, getStreamAnalytics]);
 
   const handleToggleVideo = () => {

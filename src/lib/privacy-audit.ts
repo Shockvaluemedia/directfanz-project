@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { getDatabaseClient } from './database-production';
 
 interface AuditLogEntry {
@@ -61,7 +60,7 @@ export class PrivacyAuditLogger {
 
   private async log(entry: AuditLogEntry) {
     try {
-      await this.db.client.auditLog.create({
+      await (this.db.client as any).auditLog.create({
         data: {
           event: entry.event,
           userId: entry.userId,
@@ -77,7 +76,7 @@ export class PrivacyAuditLogger {
   }
 
   async getAuditLogs(userId: string, limit = 100) {
-    return await this.db.client.auditLog.findMany({
+    return await (this.db.client as any).auditLog.findMany({
       where: { userId },
       orderBy: { timestamp: 'desc' },
       take: limit,

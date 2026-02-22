@@ -1,4 +1,3 @@
-// @ts-nocheck
 import fs from 'fs/promises';
 import path from 'path';
 import sharp from 'sharp';
@@ -240,7 +239,7 @@ export class LocalFileUploader {
               const url = await this.saveToLocal(processedBuffer, filePath);
 
               // Get audio duration
-              ffmpeg.ffprobe(tempPath, async (err, metadata) => {
+              ffmpeg.ffprobe(tempPath, async (err: Error | null, metadata: any) => {
                 if (err) {
                   reject(new Error('Failed to get audio metadata'));
                   return;
@@ -262,7 +261,7 @@ export class LocalFileUploader {
               reject(error);
             }
           })
-          .on('error', async (err) => {
+          .on('error', async (err: Error) => {
             // Cleanup on error
             await fs.unlink(tempPath).catch(() => {});
             await fs.unlink(outputPath).catch(() => {});
@@ -320,13 +319,13 @@ export class LocalFileUploader {
               const thumbnailUrl = await this.saveToLocal(thumbnailBuffer, thumbnailFilePath);
 
               // Get video metadata
-              ffmpeg.ffprobe(tempPath, async (err, metadata) => {
+              ffmpeg.ffprobe(tempPath, async (err: Error | null, metadata: any) => {
                 if (err) {
                   reject(new Error('Failed to get video metadata'));
                   return;
                 }
 
-                const videoStream = metadata.streams.find(s => s.codec_type === 'video');
+                const videoStream = metadata.streams.find((s: any) => s.codec_type === 'video');
                 const duration = metadata.format.duration || 0;
                 const width = videoStream?.width || 0;
                 const height = videoStream?.height || 0;
@@ -349,7 +348,7 @@ export class LocalFileUploader {
               reject(error);
             }
           })
-          .on('error', async (err) => {
+          .on('error', async (err: Error) => {
             // Cleanup on error
             await fs.unlink(tempPath).catch(() => {});
             await fs.unlink(outputPath).catch(() => {});

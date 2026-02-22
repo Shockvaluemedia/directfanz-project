@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -8,9 +7,11 @@ import {
   ValidationError,
   NotFoundError,
 } from '@/lib/api-error-handler';
+import { AppError, ErrorCode, isAppError } from '@/lib/errors';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { head } from '@vercel/blob';
+import crypto from 'crypto';
 
 const confirmUploadSchema = z.object({
   key: z.string().min(1, 'File key is required'),
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id || session.user.role !== 'ARTIST') {
-      throw UnauthorizedError('Artist authentication required');
+      throw new UnauthorizedError('Artist authentication required');
     }
 
     const body = await request.json();
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest) {
       });
     } catch (blobError: any) {
       if (blobError?.name === 'BlobNotFoundError') {
-        throw NotFoundError('File not found in storage');
+        throw new NotFoundError('File not found in storage');
       }
 
       logger.error(
@@ -69,15 +70,37 @@ export async function POST(request: NextRequest) {
       throw new Error('Failed to verify file upload');
     }
   } catch (error) {
-    const requestId = request.headers.get('x-request-id');
+    const context = {
+      requestId: request.headers.get('x-request-id') || crypto.randomUUID(),
+      method: request.method,
+      url: request.url,
+      ip: request.headers.get('x-forwarded-for') || 'unknown',
+      userAgent: request.headers.get('user-agent') || 'unknown',
+      startTime: Date.now(),
+    };
 
     if (error instanceof z.ZodError) {
-      return createErrorResponse(
-        ValidationError('Invalid request data', { errors: error.errors }),
-        requestId || undefined
+      const appError = new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        'Invalid request data',
+        400,
+        { errors: error.errors },
+        context.requestId
       );
+      return createErrorResponse(appError, context);
     }
 
-    return createErrorResponse(error, requestId || undefined);
+    if (isAppError(error)) {
+      return createErrorResponse(error, context);
+    }
+
+    const appError = new AppError(
+      ErrorCode.INTERNAL_SERVER_ERROR,
+      error instanceof Error ? error.message : 'An unexpected error occurred',
+      500,
+      undefined,
+      context.requestId
+    );
+    return createErrorResponse(appError, context);
   }
 }

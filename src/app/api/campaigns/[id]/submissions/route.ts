@@ -1,17 +1,14 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
-import { string } from '@prisma/client';
-
 const createSubmissionSchema = z.object({
   challengeId: z.string().cuid(),
   title: z.string().min(1).max(200),
   description: z.string().optional(),
-  contentType: z.nativeEnum(string),
+  contentType: z.string(),
   content: z.string().min(1), // For text content or description
   contentUrl: z.string().url().optional(), // For file uploads
   thumbnailUrl: z.string().url().optional(),
@@ -44,7 +41,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
     // Build where clause
     const where: any = {
-      challenge: {
+      challenges: {
         campaignId: campaignId,
       },
     };
@@ -84,7 +81,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
           users: {
             select: { id: true, displayName: true, avatar: true },
           },
-          challenge: {
+          challenges: {
             select: { id: true, title: true, type: true },
           },
         },
@@ -221,6 +218,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       // Create submission
       const submission = await tx.challenge_submissions.create({
         data: {
+          id: crypto.randomUUID(),
           challengeId: challenge.id,
           participationId: participation.id,
           submitterId: session.user.id,
@@ -232,12 +230,13 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
           metadata: validatedData.metadata ? JSON.stringify(validatedData.metadata) : null,
           status: 'PENDING',
           reviewStatus: 'PENDING',
+          updatedAt: new Date(),
         },
         include: {
           users: {
             select: { id: true, displayName: true, avatar: true },
           },
-          challenge: {
+          challenges: {
             select: { id: true, title: true, type: true },
           },
         },

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { withContentAccess } from '@/middleware/content-access';
 import { prisma } from '@/lib/prisma';
@@ -15,7 +14,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
           format: true,
           fileSize: true,
           type: true,
-          artist: {
+          users: {
             select: {
               displayName: true,
             },

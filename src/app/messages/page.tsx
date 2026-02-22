@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 import React, { useState } from 'react';
@@ -134,7 +133,7 @@ export default function MessagesPage() {
               {!selectedConversation ? (
                 <ConversationsList
                   onSelectConversation={handleSelectConversation}
-                  selectedConversationId={selectedConversation?.conversationId}
+                  selectedConversationId={undefined}
                 />
               ) : (
                 <ChatInterface conversation={selectedConversation} />
