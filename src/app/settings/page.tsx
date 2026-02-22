@@ -76,13 +76,22 @@ export default function SettingsPage() {
   const loadSettings = async () => {
     try {
       setIsLoading(true);
-      
-      // Simulate API call - in real app, this would fetch user settings
-      const mockSettings: UserSettings = {
+
+      const response = await fetch('/api/user/settings');
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          setSettings(result.data);
+          return;
+        }
+      }
+
+      // Fallback to session data if API fails
+      setSettings({
         profile: {
           name: session?.user?.name || '',
           email: session?.user?.email || '',
-          bio: 'DirectFanz user passionate about exclusive content',
+          bio: '',
           isPrivate: false,
         },
         notifications: {
@@ -107,11 +116,9 @@ export default function SettingsPage() {
         billing: {
           currency: 'USD',
           autoRenew: true,
-          paymentMethod: 'card-****-1234',
+          paymentMethod: '',
         },
-      };
-
-      setSettings(mockSettings);
+      });
     } catch (error) {
       console.error('Failed to load settings:', error);
     } finally {
@@ -124,13 +131,26 @@ export default function SettingsPage() {
 
     try {
       setIsSaving(true);
-      // Simulate API call to save settings
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      console.log('Settings saved:', settings);
-      // In real app, would show success toast
+
+      const response = await fetch('/api/user/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profile: {
+            name: settings.profile.name,
+            bio: settings.profile.bio,
+            isPrivate: settings.profile.isPrivate,
+          },
+          notifications: settings.notifications,
+          privacy: settings.privacy,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save settings');
+      }
     } catch (error) {
       console.error('Failed to save settings:', error);
-      // In real app, would show error toast
     } finally {
       setIsSaving(false);
     }

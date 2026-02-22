@@ -1,6 +1,8 @@
 // @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { withStreamManagement, updateStreamStatus } from '@/lib/streaming-auth';
+import { triggerStreamEvent } from '@/lib/pusher';
+import { prisma } from '@/lib/prisma';
 
 export async function POST(
   request: NextRequest,
@@ -17,12 +19,9 @@ export async function POST(
         );
       }
 
-      // TODO: Start stream via WebSocket server
-      // This would involve signaling the WebSocket server to start the stream
-      
-      // Update stream status to starting
-      const updated = await updateStreamStatus(streamId, 'starting');
-      
+      // Update stream status and set startedAt timestamp
+      const updated = await updateStreamStatus(streamId, 'LIVE');
+
       if (!updated) {
         return NextResponse.json(
           { error: 'Failed to start stream' },
@@ -30,16 +29,23 @@ export async function POST(
         );
       }
 
-      // Simulate channel start (in real implementation, this would be async)
-      setTimeout(async () => {
-        await updateStreamStatus(streamId, 'running');
-      }, 5000);
+      // Update startedAt in database
+      await prisma.live_streams.update({
+        where: { id: streamId },
+        data: { startedAt: new Date() },
+      });
+
+      // Notify subscribers via Pusher
+      await triggerStreamEvent(streamId, 'stream-started', {
+        streamId,
+        startedAt: new Date().toISOString(),
+      });
 
       return NextResponse.json({
         streamId,
-        status: 'starting',
-        message: 'Stream is starting up',
-        estimatedStartTime: new Date(Date.now() + 5000).toISOString(),
+        status: 'LIVE',
+        message: 'Stream is live',
+        startedAt: new Date().toISOString(),
       });
     } catch (error) {
       console.error('Stream start error:', error);

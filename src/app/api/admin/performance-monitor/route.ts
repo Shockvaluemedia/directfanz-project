@@ -408,16 +408,20 @@ export async function POST(request: NextRequest) {
 
     switch (action) {
       case 'reset-metrics':
-        // TODO: Implement metrics reset functionality
-        // subscriptionPerformanceMonitor.resetMetrics(); // Method not available
+        subscriptionPerformanceMonitor.resetMetrics();
         return NextResponse.json({
           success: true,
           message: 'Performance metrics reset successfully',
         });
 
       case 'update-thresholds':
-        // TODO: Implement threshold update functionality
-        // subscriptionPerformanceMonitor.updateThresholds(config); // Method not available
+        if (!config || typeof config !== 'object') {
+          return NextResponse.json(
+            { error: 'Config object is required for threshold update' },
+            { status: 400 }
+          );
+        }
+        subscriptionPerformanceMonitor.updateThresholds(config);
         return NextResponse.json({
           success: true,
           message: 'Performance thresholds updated successfully',

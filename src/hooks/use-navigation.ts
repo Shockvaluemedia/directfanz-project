@@ -59,6 +59,20 @@ export function useMobileMenu() {
 export function useNavigationItems() {
   const { data: session, status } = useSession();
   const { isActive } = useActiveRoute();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (!session?.user) return;
+    const userId = (session.user as Record<string, unknown>).id;
+    if (!userId) return;
+
+    fetch('/api/messages/unread-count')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.count != null) setUnreadCount(data.count);
+      })
+      .catch(() => {});
+  }, [session]);
 
   // Return early if session is still loading
   if (status === 'loading') {
@@ -93,7 +107,7 @@ export function useNavigationItems() {
         icon: 'ChatBubbleLeftIcon',
         active: isActive('/messages'),
         description: 'Your conversations',
-        badge: 0, // TODO: Add unread message count
+        badge: unreadCount,
       },
     ];
 

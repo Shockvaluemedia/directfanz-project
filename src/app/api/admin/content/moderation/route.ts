@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
             ]
           },
           include: {
-            artist: {
+            users: {
               select: {
                 id: true,
                 displayName: true,
@@ -170,7 +170,7 @@ export async function GET(request: NextRequest) {
             }
           },
           include: {
-            artist: {
+            users: {
               select: {
                 id: true,
                 displayName: true,
