@@ -384,6 +384,32 @@ class SubscriptionPerformanceMonitor {
       exportedAt: new Date(),
     };
   }
+
+  /**
+   * Reset all collected metrics and alerts
+   */
+  resetMetrics(): void {
+    const previousCount = this.metrics.length;
+    this.metrics = [];
+    this.alerts = [];
+    logger.info('Performance metrics reset', { previousMetricCount: previousCount });
+  }
+
+  /**
+   * Update performance alert thresholds
+   */
+  updateThresholds(config: Record<string, unknown>): void {
+    if (typeof config.slowQueryThreshold === 'number') {
+      (this as any).slowQueryThreshold = config.slowQueryThreshold;
+    }
+    if (typeof config.errorRateThreshold === 'number') {
+      (this as any).errorRateThreshold = config.errorRateThreshold;
+    }
+    if (typeof config.cacheHitRateThreshold === 'number') {
+      (this as any).cacheHitRateThreshold = config.cacheHitRateThreshold;
+    }
+    logger.info('Performance thresholds updated', { config });
+  }
 }
 
 // Singleton instance

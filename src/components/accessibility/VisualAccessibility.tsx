@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -25,8 +24,7 @@ import {
   Minus,
   Plus,
   AlertTriangle,
-  Minimize2,
-  Moon
+  Minimize2
 } from 'lucide-react';
 import { useAccessibility } from '@/contexts/AccessibilityContext';
 import { useScreenReader } from '@/hooks/useAccessibilityHooks';

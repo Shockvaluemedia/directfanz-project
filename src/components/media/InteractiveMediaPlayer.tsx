@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 /**
@@ -1049,7 +1048,7 @@ export default function InteractiveMediaPlayer({
                       value={gain}
                       onChange={e => updateEqualizer(freq, Number(e.target.value))}
                       className='w-full h-20 slider-vertical'
-                      style={{ writingMode: 'bt-lr', appearance: 'slider-vertical' }}
+                      style={{ writingMode: 'vertical-lr' as React.CSSProperties['writingMode'], appearance: 'slider-vertical' as any }}
                     />
                     <div className='text-xs text-gray-400 mt-1'>{freq}Hz</div>
                   </div>

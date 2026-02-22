@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { performanceMonitor } from '@/lib/performance-monitor';
 
@@ -29,14 +28,7 @@ export async function performanceMiddleware(
     const duration = endTime - startTime;
     
     // Record API performance metrics
-    await performanceMonitor.monitorApiEndpoint(
-      endpoint,
-      method,
-      async () => {
-        // Simulate the work by returning the duration
-        return duration;
-      }
-    );
+    performanceMonitor.recordMetric(`api_${endpoint}_${method}`, duration);
 
     // Add performance headers to response
     response.headers.set('X-Performance-Duration', duration.toString());
@@ -67,12 +59,7 @@ export function withPerformanceMonitoring<T extends any[]>(
       const method = request.method;
       
       // Record performance metrics
-      await performanceMonitor.recordMeasurement(
-        `api_${endpoint}_${method}`,
-        duration,
-        'api',
-        { endpoint, method, success: true }
-      );
+      performanceMonitor.recordMetric(`api_${endpoint}_${method}`, duration);
 
       // Add performance headers if it's a NextResponse
       if (result instanceof NextResponse) {
@@ -88,12 +75,7 @@ export function withPerformanceMonitoring<T extends any[]>(
       const endpoint = request.nextUrl.pathname;
       const method = request.method;
       
-      await performanceMonitor.recordMeasurement(
-        `api_${endpoint}_${method}`,
-        duration,
-        'api',
-        { endpoint, method, success: false, error: (error as Error).message }
-      );
+      performanceMonitor.recordMetric(`api_${endpoint}_${method}_error`, duration);
 
       throw error;
     }

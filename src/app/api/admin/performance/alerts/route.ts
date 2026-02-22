@@ -1,10 +1,9 @@
-// @ts-nocheck
 import { NextRequest } from 'next/server';
 import { 
   withAdminApiHandler, 
   ApiRequestContext 
 } from '@/lib/api-error-handler';
-import { performanceMonitor } from '@/lib/performance-monitor';
+import { performanceMonitor, getPerformanceSummary } from '@/lib/performance-monitor';
 
 export const GET = withAdminApiHandler(
   async (context: ApiRequestContext, userId: string, request: NextRequest) => {
@@ -13,17 +12,17 @@ export const GET = withAdminApiHandler(
     const type = url.searchParams.get('type');
     const limit = Math.min(100, parseInt(url.searchParams.get('limit') || '20'));
 
-    const summary = performanceMonitor.getPerformanceSummary();
-    let alerts = summary.recentAlerts;
+    const summary = await getPerformanceSummary();
+    let alerts = summary.alerts;
 
     // Filter by severity if specified
     if (severity && ['low', 'medium', 'high', 'critical'].includes(severity)) {
-      alerts = alerts.filter(alert => alert.severity === severity);
+      alerts = alerts.filter((alert: { severity: string }) => alert.severity === severity);
     }
 
-    // Filter by type if specified  
+    // Filter by type if specified
     if (type && ['regression', 'improvement', 'threshold_exceeded'].includes(type)) {
-      alerts = alerts.filter(alert => alert.type === type);
+      alerts = alerts.filter((alert: { metric: string }) => alert.metric === type);
     }
 
     // Apply limit
@@ -32,11 +31,10 @@ export const GET = withAdminApiHandler(
     return {
       alerts,
       summary: {
-        total: summary.recentAlerts.length,
+        total: summary.alerts.length,
         filtered: alerts.length,
-        counts: summary.alertCounts,
-        regressions: summary.regressions,
-        improvements: summary.improvements,
+        healthy: summary.healthy,
+        metrics: summary.metrics,
       },
       filters: {
         severity,

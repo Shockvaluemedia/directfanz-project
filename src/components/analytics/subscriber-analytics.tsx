@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -7,7 +6,7 @@ import { ModernLineChart, ModernAreaChart, ModernBarChart, ModernPieChart } from
 import { EnhancedButton } from '@/components/ui/enhanced-button';
 import { EnhancedCard, EnhancedCardHeader, EnhancedCardContent, EnhancedCardTitle, EnhancedCardDescription } from '@/components/ui/enhanced-card';
 import { StatsWidget, StatsGrid } from '@/components/ui/stats-widget';
-import { Users, UserPlus, UserMinus, Heart, Eye, MessageCircle, Clock, TrendingUp } from 'lucide-react';
+import { Users, UserPlus, UserMinus, Heart, Eye, MessageCircle, Clock, TrendingUp, Target } from 'lucide-react';
 
 // Time period type
 type TimePeriod = '7d' | '30d' | '90d' | '1y';

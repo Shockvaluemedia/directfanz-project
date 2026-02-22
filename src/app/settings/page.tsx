@@ -6,19 +6,22 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { LoadingSpinner } from '@/components/ui/loading';
-import { 
-  User, 
-  Bell, 
-  Shield, 
-  Eye, 
-  CreditCard, 
+import {
+  User,
+  Bell,
+  Shield,
+  Eye,
+  CreditCard,
   Smartphone,
   Mail,
   Lock,
   Globe,
   Trash2,
   Save,
-  AlertTriangle
+  AlertTriangle,
+  Download,
+  FileText,
+  Clock,
 } from 'lucide-react';
 
 interface UserSettings {
@@ -61,6 +64,10 @@ export default function SettingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('profile');
+  const [consentHistory, setConsentHistory] = useState<Array<{ id: string; consentType: string; granted: boolean; timestamp: string; source: string }>>([]);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isDeletionPending, setIsDeletionPending] = useState(false);
+  const [deletionDate, setDeletionDate] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -76,13 +83,22 @@ export default function SettingsPage() {
   const loadSettings = async () => {
     try {
       setIsLoading(true);
-      
-      // Simulate API call - in real app, this would fetch user settings
-      const mockSettings: UserSettings = {
+
+      const response = await fetch('/api/user/settings');
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          setSettings(result.data);
+          return;
+        }
+      }
+
+      // Fallback to session data if API fails
+      setSettings({
         profile: {
           name: session?.user?.name || '',
           email: session?.user?.email || '',
-          bio: 'DirectFanz user passionate about exclusive content',
+          bio: '',
           isPrivate: false,
         },
         notifications: {
@@ -107,11 +123,9 @@ export default function SettingsPage() {
         billing: {
           currency: 'USD',
           autoRenew: true,
-          paymentMethod: 'card-****-1234',
+          paymentMethod: '',
         },
-      };
-
-      setSettings(mockSettings);
+      });
     } catch (error) {
       console.error('Failed to load settings:', error);
     } finally {
@@ -124,13 +138,26 @@ export default function SettingsPage() {
 
     try {
       setIsSaving(true);
-      // Simulate API call to save settings
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      console.log('Settings saved:', settings);
-      // In real app, would show success toast
+
+      const response = await fetch('/api/user/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profile: {
+            name: settings.profile.name,
+            bio: settings.profile.bio,
+            isPrivate: settings.profile.isPrivate,
+          },
+          notifications: settings.notifications,
+          privacy: settings.privacy,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save settings');
+      }
     } catch (error) {
       console.error('Failed to save settings:', error);
-      // In real app, would show error toast
     } finally {
       setIsSaving(false);
     }
@@ -169,6 +196,7 @@ export default function SettingsPage() {
     { id: 'privacy', label: 'Privacy', icon: Eye },
     { id: 'security', label: 'Security', icon: Shield },
     { id: 'billing', label: 'Billing', icon: CreditCard },
+    { id: 'data', label: 'Privacy & Data', icon: FileText },
   ];
 
   const renderProfileSettings = () => (
@@ -395,6 +423,177 @@ export default function SettingsPage() {
     </Card>
   );
 
+  const loadConsentHistory = async () => {
+    try {
+      const res = await fetch('/api/consent/history');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setConsentHistory(data.data.consentHistory || []);
+          const pendingDeletion = data.data.gdprRequests?.find(
+            (r: { type: string; status: string }) => r.type === 'DATA_DELETION' && r.status === 'PENDING'
+          );
+          if (pendingDeletion) {
+            setIsDeletionPending(true);
+            const scheduled = new Date(
+              new Date(pendingDeletion.requestDate).getTime() + 30 * 24 * 60 * 60 * 1000
+            );
+            setDeletionDate(scheduled.toLocaleDateString());
+          }
+        }
+      }
+    } catch {
+      // silently fail
+    }
+  };
+
+  const handleExportData = async () => {
+    setIsExporting(true);
+    try {
+      const res = await fetch('/api/user/gdpr/export', { method: 'POST' });
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'my-data-export.json';
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    } catch {
+      console.error('Export failed');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!confirm('Are you sure you want to delete your account? You will have 30 days to cancel this request.')) {
+      return;
+    }
+    try {
+      const res = await fetch('/api/user/gdpr/delete', { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setIsDeletionPending(true);
+          setDeletionDate(data.data?.scheduledDeletion ? new Date(data.data.scheduledDeletion).toLocaleDateString() : null);
+        }
+      }
+    } catch {
+      console.error('Deletion request failed');
+    }
+  };
+
+  const handleCancelDeletion = async () => {
+    try {
+      const res = await fetch('/api/user/gdpr/delete', { method: 'DELETE' });
+      if (res.ok) {
+        setIsDeletionPending(false);
+        setDeletionDate(null);
+      }
+    } catch {
+      console.error('Cancel deletion failed');
+    }
+  };
+
+  const renderDataSettings = () => {
+    // Load consent history on first render of this tab
+    if (consentHistory.length === 0 && activeTab === 'data') {
+      loadConsentHistory();
+    }
+
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Download className="w-5 h-5 mr-2" />
+              Export Your Data
+            </CardTitle>
+            <CardDescription>
+              Download a copy of all the data we have about you (GDPR Article 20)
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={handleExportData} disabled={isExporting}>
+              {isExporting ? <LoadingSpinner size="sm" /> : <Download className="w-4 h-4 mr-2" />}
+              {isExporting ? 'Preparing export...' : 'Download My Data'}
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Clock className="w-5 h-5 mr-2" />
+              Consent History
+            </CardTitle>
+            <CardDescription>
+              Your complete history of consent decisions
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {consentHistory.length === 0 ? (
+              <p className="text-sm text-gray-500">No consent records found.</p>
+            ) : (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {consentHistory.map((record) => (
+                  <div key={record.id} className="flex items-center justify-between p-2 bg-gray-50 rounded text-sm">
+                    <div>
+                      <span className="font-medium">{record.consentType}</span>
+                      <span className="text-gray-500 ml-2">via {record.source}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={record.granted ? 'text-green-600' : 'text-red-600'}>
+                        {record.granted ? 'Granted' : 'Revoked'}
+                      </span>
+                      <span className="text-gray-400 text-xs">
+                        {new Date(record.timestamp).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="border-red-200">
+          <CardHeader>
+            <CardTitle className="text-red-600 flex items-center">
+              <AlertTriangle className="w-5 h-5 mr-2" />
+              Delete Account
+            </CardTitle>
+            <CardDescription>
+              Request permanent deletion of your account and all associated data (GDPR Article 17)
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isDeletionPending ? (
+              <div className="space-y-3">
+                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-sm font-medium text-yellow-800">Deletion scheduled</p>
+                  <p className="text-sm text-yellow-700">
+                    Your account will be permanently deleted{deletionDate ? ` on ${deletionDate}` : ' in 30 days'}.
+                  </p>
+                </div>
+                <Button variant="outline" onClick={handleCancelDeletion}>
+                  Cancel Deletion Request
+                </Button>
+              </div>
+            ) : (
+              <Button variant="destructive" onClick={handleDeleteAccount}>
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete My Account
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
   const renderTabContent = () => {
     switch (activeTab) {
       case 'profile': return renderProfileSettings();
@@ -402,6 +601,7 @@ export default function SettingsPage() {
       case 'privacy': return renderPrivacySettings();
       case 'security': return renderSecuritySettings();
       case 'billing': return renderBillingSettings();
+      case 'data': return renderDataSettings();
       default: return renderProfileSettings();
     }
   };

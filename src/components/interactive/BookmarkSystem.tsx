@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 import React, { useState, useCallback } from 'react';
@@ -18,7 +17,7 @@ import {
   Share2,
   MoreHorizontal,
   Filter,
-  Sort,
+  ArrowUpDown,
   Heart,
   Eye,
   X

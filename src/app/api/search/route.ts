@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 
 // Force dynamic rendering for this route
@@ -113,7 +112,7 @@ export async function GET(request: NextRequest) {
         const content = await prisma.content.findMany({
           where: contentWhere,
           include: {
-            artist: {
+            users: {
               select: {
                 id: true,
                 displayName: true,
@@ -154,7 +153,7 @@ export async function GET(request: NextRequest) {
           format: item.format,
           tags: item.tags,
           createdAt: item.createdAt,
-          artist: item.artist,
+          artist: item.users,
           requiredTier: item.tiers.length > 0 ? item.tiers[0] : null,
           commentCount: item._count.comments,
         }));

@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -75,7 +74,7 @@ interface ParticipationSubmission {
 }
 
 export default function CampaignDetailsPage() {
-  const params = useParams();
+  const params = useParams<{ id: string }>();
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [loading, setLoading] = useState(true);
   const [participating, setParticipating] = useState(false);
@@ -87,11 +86,11 @@ export default function CampaignDetailsPage() {
 
   useEffect(() => {
     fetchCampaign();
-  }, [params.id]);
+  }, [params!.id]);
 
   const fetchCampaign = async () => {
     try {
-      const response = await fetch(`/api/campaigns/${params.id}`);
+      const response = await fetch(`/api/campaigns/${params!.id}`);
       if (!response.ok) {
         if (response.status === 404) {
           setCampaign(null);
@@ -156,7 +155,7 @@ export default function CampaignDetailsPage() {
 
   const handleJoinCampaign = async () => {
     try {
-      const response = await fetch(`/api/campaigns/${params.id}/join`, {
+      const response = await fetch(`/api/campaigns/${params!.id}/join`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -199,7 +198,7 @@ export default function CampaignDetailsPage() {
         formData.append('file', submission.file);
       }
 
-      const response = await fetch(`/api/campaigns/${params.id}/submissions`, {
+      const response = await fetch(`/api/campaigns/${params!.id}/submissions`, {
         method: 'POST',
         body: formData,
       });

@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 import React, { useState } from 'react';
@@ -7,8 +6,8 @@ import { useNotifications } from '@/components/providers/RealTimeProvider';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuHeader,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -145,9 +144,8 @@ export function NotificationBell() {
   };
 
   return (
-    <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
-      <DropdownMenuTrigger asChild>
-        <Button variant='ghost' size='sm' className='relative p-2 hover:bg-gray-100 rounded-full'>
+    <DropdownMenu>
+      <DropdownMenuTrigger className='relative p-2 hover:bg-gray-100 rounded-full'>
           <Bell size={20} className='text-gray-600' />
           {unreadCount > 0 && (
             <Badge
@@ -157,11 +155,10 @@ export function NotificationBell() {
               {unreadCount > 99 ? '99+' : unreadCount}
             </Badge>
           )}
-        </Button>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align='end' className='w-80 p-0'>
-        <DropdownMenuHeader className='p-4 border-b'>
+      <DropdownMenuContent className='w-80 p-0'>
+        <DropdownMenuLabel className='p-4 border-b'>
           <div className='flex items-center justify-between'>
             <h3 className='text-lg font-semibold'>Notifications</h3>
             {notifications.length > 0 && (
@@ -181,7 +178,7 @@ export function NotificationBell() {
               {unreadCount} unread notification{unreadCount === 1 ? '' : 's'}
             </p>
           )}
-        </DropdownMenuHeader>
+        </DropdownMenuLabel>
 
         {notifications.length === 0 ? (
           <div className='p-8 text-center'>

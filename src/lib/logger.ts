@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Centralized logging system with structured logging
  */
@@ -235,8 +234,9 @@ export const generateRequestId = (): string => {
   }
 
   // Fallback for environments without Web Crypto API
-  const randomStr =
-    crypto.getRandomValues(new Uint32Array(1))[0] / (0xffffffff + 1).toString(36).substring(2, 15);
+  const randomStr = (crypto.getRandomValues(new Uint32Array(1))[0] / (0xffffffff + 1))
+    .toString(36)
+    .substring(2, 15);
   return `req_${Date.now()}_${randomStr}`;
 };
 

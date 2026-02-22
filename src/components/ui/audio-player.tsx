@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
@@ -85,6 +84,7 @@ export default function AudioPlayer({
         };
       }
     }
+    return undefined;
   }, [currentTrack, trackIndex, tracks]);
 
   // Audio event handlers

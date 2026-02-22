@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Migration Dashboard API
  * Provides real-time migration progress and monitoring data
@@ -21,12 +20,13 @@ export async function GET(request: NextRequest) {
       success: true,
       data: dashboard
     });
-  } catch (error) {
-    logger.error('Failed to get migration dashboard', { error: error.message });
-    
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error('Failed to get migration dashboard', { error: errorMessage });
+
     return NextResponse.json({
       success: false,
-      error: error.message
+      error: errorMessage
     }, { status: 500 });
   }
 }
@@ -74,12 +74,13 @@ export async function POST(request: NextRequest) {
       success: true,
       message: `Action ${action} completed successfully`
     });
-  } catch (error) {
-    logger.error('Failed to execute migration dashboard action', { error: error.message });
-    
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error('Failed to execute migration dashboard action', { error: errorMessage });
+
     return NextResponse.json({
       success: false,
-      error: error.message
+      error: errorMessage
     }, { status: 500 });
   }
 }

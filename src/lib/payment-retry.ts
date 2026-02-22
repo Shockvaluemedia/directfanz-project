@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { prisma } from './prisma';
 import { stripe } from './stripe';
 import { sendEmail } from './notifications';
@@ -44,11 +43,13 @@ export async function createPaymentFailure(
       // Create new record
       const newFailure = await prisma.payment_failures.create({
         data: {
+          id: crypto.randomUUID(),
           subscriptionId,
           stripeInvoiceId,
           amount: new Decimal(amount),
           failureReason,
           nextRetryAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+          updatedAt: new Date(),
         },
       });
 

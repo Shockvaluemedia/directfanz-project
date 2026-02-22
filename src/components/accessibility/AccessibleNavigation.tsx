@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
@@ -122,6 +121,7 @@ export function AccessibleNavigation({
       const cleanup = createFocusTrap(mobileMenuRef);
       return cleanup;
     }
+    return undefined;
   }, [isMobileMenuOpen, createFocusTrap]);
 
   const handleItemClick = useCallback((item: NavigationItem) => {

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -18,7 +17,7 @@ export async function POST(request: NextRequest, { params }: { params: { challen
     const challenge = await prisma.challenges.findUnique({
       where: { id: params.challengeId },
       include: {
-        campaign: {
+        campaigns: {
           select: {
             id: true,
             title: true,
@@ -90,7 +89,7 @@ export async function POST(request: NextRequest, { params }: { params: { challen
             lastActiveAt: new Date(),
           },
           include: {
-            challenge: {
+            challenges: {
               select: { title: true, type: true },
             },
           },
@@ -121,15 +120,16 @@ export async function POST(request: NextRequest, { params }: { params: { challen
     const participation = await prisma.$transaction(async tx => {
       const newParticipation = await tx.challenge_participations.create({
         data: {
+          id: crypto.randomUUID(),
           challengeId: params.challengeId,
           participantId: session.user.id,
           status: 'ACTIVE',
         },
         include: {
-          challenge: {
+          challenges: {
             select: { title: true, type: true, maxScore: true },
           },
-          participant: {
+          users: {
             select: { displayName: true, avatar: true },
           },
         },
@@ -154,11 +154,13 @@ export async function POST(request: NextRequest, { params }: { params: { challen
       // Initialize leaderboard entry
       await tx.challenge_leaderboards.create({
         data: {
+          id: crypto.randomUUID(),
           challengeId: params.challengeId,
           userId: session.user.id,
           rank: challenge.participantCount + 1,
           score: 0,
-          challenge_submissions: 0,
+          submissions: 0,
+          updatedAt: new Date(),
         },
       });
 
@@ -207,9 +209,9 @@ export async function DELETE(
         },
       },
       include: {
-        challenge: {
+        challenges: {
           include: {
-            campaign: {
+            campaigns: {
               select: { id: true },
             },
           },

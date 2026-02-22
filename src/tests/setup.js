@@ -1,62 +1,23 @@
-// Mock AWS S3 services
-jest.mock('@aws-sdk/client-s3', () => {
-  return {
-    S3Client: jest.fn().mockImplementation(() => ({
-      send: jest.fn().mockImplementation((command) => {
-        // Mock different responses based on command type
-        if (command.constructor.name === 'PutObjectCommand') {
-          return Promise.resolve({ 
-            ETag: '"mockedETag"', 
-            ServerSideEncryption: 'AES256' 
-          });
-        }
-        
-        if (command.constructor.name === 'GetObjectCommand') {
-          return Promise.resolve({ 
-            Body: { 
-              transformToByteArray: () => new Uint8Array([1, 2, 3, 4]),
-              transformToString: () => 'mocked-content'
-            },
-            ContentType: 'image/jpeg',
-            ContentLength: 12345
-          });
-        }
-        
-        if (command.constructor.name === 'HeadObjectCommand') {
-          return Promise.resolve({
-            ContentType: 'image/jpeg',
-            ContentLength: 12345,
-            LastModified: new Date()
-          });
-        }
-        
-        if (command.constructor.name === 'ListObjectsV2Command') {
-          return Promise.resolve({
-            Contents: [
-              { Key: 'test-key-1.jpg', Size: 1024, LastModified: new Date() },
-              { Key: 'test-key-2.mp4', Size: 5120, LastModified: new Date() }
-            ],
-            IsTruncated: false
-          });
-        }
-        
-        // Default response
-        return Promise.resolve({ success: true });
-      })
-    })),
-    PutObjectCommand: jest.fn(),
-    GetObjectCommand: jest.fn(),
-    HeadObjectCommand: jest.fn(),
-    ListObjectsV2Command: jest.fn(),
-    DeleteObjectCommand: jest.fn()
-  };
-});
-
-jest.mock('@aws-sdk/s3-request-presigner', () => {
-  return {
-    getSignedUrl: jest.fn().mockResolvedValue('https://mock-presigned-url.com/test-file')
-  };
-});
+// Mock Vercel Blob storage
+jest.mock('@vercel/blob', () => ({
+  put: jest.fn().mockResolvedValue({
+    url: 'https://mock-blob.vercel-storage.com/test-file',
+    pathname: 'test-file',
+    contentType: 'image/jpeg',
+  }),
+  del: jest.fn().mockResolvedValue(undefined),
+  head: jest.fn().mockResolvedValue({
+    url: 'https://mock-blob.vercel-storage.com/test-file',
+    size: 12345,
+    uploadedAt: new Date(),
+    contentType: 'image/jpeg',
+  }),
+  list: jest.fn().mockResolvedValue({
+    blobs: [],
+    cursor: undefined,
+    hasMore: false,
+  }),
+}));
 
 // Mock FFmpeg
 jest.mock('fluent-ffmpeg', () => {

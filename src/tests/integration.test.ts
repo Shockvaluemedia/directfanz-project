@@ -52,13 +52,11 @@ jest.mock('fluent-ffmpeg', () => {
   return mockConstructor;
 });
 jest.mock('ffprobe-static', () => ({ path: '/fake/ffprobe/path' }));
-jest.mock('@aws-sdk/client-s3', () => ({
-  S3Client: jest.fn(() => ({ send: jest.fn() })),
-  GetObjectCommand: jest.fn(),
-  PutObjectCommand: jest.fn(),
-}));
-jest.mock('@aws-sdk/lib-storage', () => ({
-  Upload: jest.fn(() => ({ done: jest.fn() })),
+jest.mock('@vercel/blob', () => ({
+  put: jest.fn().mockResolvedValue({ url: 'https://mock-blob.vercel-storage.com/test-file', pathname: 'test-file' }),
+  del: jest.fn().mockResolvedValue(undefined),
+  head: jest.fn().mockResolvedValue({ url: 'https://mock-blob.vercel-storage.com/test-file', size: 12345, uploadedAt: new Date() }),
+  list: jest.fn().mockResolvedValue({ blobs: [], cursor: undefined, hasMore: false }),
 }));
 
 // Mock prisma
@@ -157,11 +155,11 @@ describe('Content Optimization Integration Tests', () => {
       user: { id: 'artist-123', role: 'ARTIST', email: 'artist@example.com' },
     } as any);
 
-    // Setup S3 mock
+    // Setup storage mock
     const { generatePresignedUrl, validateFileUpload, SUPPORTED_FILE_TYPES } = require('../lib/s3');
     (generatePresignedUrl as jest.Mock).mockResolvedValue({
-      uploadUrl: 'https://mock-s3-bucket.s3.amazonaws.com/presigned-upload-url',
-      fileUrl: 'https://mock-s3-bucket.s3.amazonaws.com/uploads/mock-file.jpg',
+      uploadUrl: 'https://mock-blob.vercel-storage.com/presigned-upload-url',
+      fileUrl: 'https://mock-blob.vercel-storage.com/uploads/mock-file.jpg',
       key: 'content/artist-123/mock-file.jpg',
     });
     (validateFileUpload as jest.Mock).mockReturnValue([]);

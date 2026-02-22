@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 import { motion } from 'framer-motion';
@@ -91,7 +90,7 @@ export default function FeaturesSection() {
       opacity: 1,
       transition: {
         duration: 0.6,
-        ease: 'easeOut',
+        ease: [0, 0, 0.2, 1] as [number, number, number, number],
       },
     },
   };
@@ -128,7 +127,7 @@ export default function FeaturesSection() {
           {features.map((feature, index) => (
             <motion.div
               key={index}
-              variants={cardVariants}
+              variants={cardVariants as any}
               whileHover={{
                 y: -10,
                 transition: { duration: 0.2 },

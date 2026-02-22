@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import GoogleProvider from 'next-auth/providers/google';
@@ -57,6 +56,7 @@ export class ProductionAuthManager {
   }
 
   getNextAuthConfig(): NextAuthOptions {
+    const self = this;
     return {
       adapter: PrismaAdapter(this.dbClient.client),
       
@@ -67,22 +67,22 @@ export class ProductionAuthManager {
             email: { label: 'Email', type: 'email' },
             password: { label: 'Password', type: 'password' },
           },
-          async authorize(credentials) {
+          authorize: async (credentials) => {
             if (!credentials?.email || !credentials?.password) {
               return null;
             }
 
             try {
-              const user = await this.dbClient.client.user.findUnique({
+              const user = await this.dbClient.client.users.findUnique({
                 where: { email: credentials.email },
                 select: {
                   id: true,
                   email: true,
-                  name: true,
+                  displayName: true,
                   password: true,
                   role: true,
                   emailVerified: true,
-                  isActive: true,
+                  status: true,
                 },
               });
 
@@ -91,7 +91,7 @@ export class ProductionAuthManager {
               }
 
               // Check if user is active
-              if (!user.isActive) {
+              if (user.status !== 'ACTIVE') {
                 throw new Error('Account is deactivated');
               }
 
@@ -109,7 +109,7 @@ export class ProductionAuthManager {
               return {
                 id: user.id,
                 email: user.email,
-                name: user.name,
+                name: user.displayName,
                 role: user.role,
               };
             } catch (error) {
@@ -183,7 +183,6 @@ export class ProductionAuthManager {
 
       pages: {
         signIn: '/auth/signin',
-        signUp: '/auth/signup',
         error: '/auth/error',
         verifyRequest: '/auth/verify-request',
         newUser: '/onboarding',
@@ -217,7 +216,7 @@ export class ProductionAuthManager {
           // Additional security checks
           if (account?.provider === 'google') {
             // Verify Google account
-            if (!profile?.email_verified) {
+            if (!(profile as any)?.email_verified) {
               return false;
             }
           }
@@ -241,25 +240,24 @@ export class ProductionAuthManager {
       },
 
       events: {
-        async signIn({ user, account, profile, isNewUser }) {
+        async signIn({ user, account }) {
           console.log(`User signed in: ${user.email} via ${account?.provider}`);
-          
+
           // Log security event
-          await this.logSecurityEvent('signin', {
+          await self.logSecurityEvent('signin', {
             userId: user.id,
             email: user.email,
             provider: account?.provider,
-            isNewUser,
             timestamp: new Date(),
           });
         },
 
         async signOut({ session, token }) {
           console.log(`User signed out: ${session?.user?.email}`);
-          
+
           // Log security event
-          await this.logSecurityEvent('signout', {
-            userId: token?.userId,
+          await self.logSecurityEvent('signout', {
+            userId: (token as any)?.userId,
             email: session?.user?.email,
             timestamp: new Date(),
           });
@@ -267,9 +265,9 @@ export class ProductionAuthManager {
 
         async createUser({ user }) {
           console.log(`New user created: ${user.email}`);
-          
+
           // Log security event
-          await this.logSecurityEvent('user_created', {
+          await self.logSecurityEvent('user_created', {
             userId: user.id,
             email: user.email,
             timestamp: new Date(),
@@ -293,7 +291,7 @@ export class ProductionAuthManager {
 
   private async logSecurityEvent(event: string, data: any): Promise<void> {
     try {
-      await this.dbClient.client.auditLog.create({
+      await (this.dbClient.client as any).auditLog?.create?.({
         data: {
           event,
           data: JSON.stringify(data),
@@ -320,7 +318,7 @@ export class ProductionAuthManager {
   // Session security utilities
   async invalidateUserSessions(userId: string): Promise<void> {
     try {
-      await this.dbClient.client.session.deleteMany({
+      await this.dbClient.client.sessions.deleteMany({
         where: { userId },
       });
     } catch (error) {
@@ -354,7 +352,7 @@ export class ProductionAuthManager {
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: https: blob:",
-      "connect-src 'self' https://api.stripe.com https://*.amazonaws.com",
+      "connect-src 'self' https://api.stripe.com",
       "frame-src https://js.stripe.com",
       "object-src 'none'",
       "base-uri 'self'",

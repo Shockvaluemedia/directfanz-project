@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 
 // Force dynamic rendering for this route
@@ -40,7 +39,7 @@ export async function GET(request: NextRequest) {
       include: {
         tiers: {
           include: {
-            artists: {
+            users: {
               select: {
                 id: true,
                 displayName: true,
@@ -57,9 +56,9 @@ export async function GET(request: NextRequest) {
     const formattedSubscriptions = subscriptions.map(sub => ({
       id: sub.id,
       artist: {
-        id: sub.tiers.artists.id,
-        displayName: sub.tiers.artists.displayName,
-        avatar: sub.tiers.artists.avatar,
+        id: sub.tiers.users.id,
+        displayName: sub.tiers.users.displayName,
+        avatar: sub.tiers.users.avatar,
       },
       tier: {
         name: sub.tiers.name,

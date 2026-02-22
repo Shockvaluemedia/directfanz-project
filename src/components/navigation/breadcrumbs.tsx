@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 import React from 'react';
@@ -15,7 +14,7 @@ export default function Breadcrumbs() {
 
   return (
     <nav className='flex items-center space-x-2 text-sm text-gray-500 mb-6'>
-      {breadcrumbs.map((crumb, index) => {
+      {breadcrumbs.map((crumb: { name: string; href: string }, index: number) => {
         const isLast = index === breadcrumbs.length - 1;
         const isHome = index === 0;
 

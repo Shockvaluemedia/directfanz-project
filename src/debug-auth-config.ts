@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
@@ -111,5 +110,4 @@ export const debugAuthOptions: NextAuthOptions = {
     error: '/auth/error',
   },
   secret: process.env.NEXTAUTH_SECRET,
-  trustHost: true,
-};
+} as const;

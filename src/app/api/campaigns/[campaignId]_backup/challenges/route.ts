@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -89,11 +88,11 @@ export async function GET(request: NextRequest, { params }: { params: { campaign
       include: {
         _count: {
           select: {
-            challenge_challenge_participations: true,
-            challenge_challenge_submissions: true,
+            challenge_participations: true,
+            challenge_submissions: true,
           },
         },
-        challenge_challenge_participations: {
+        challenge_participations: {
           where: { participantId: session.user.id },
           select: {
             id: true,
@@ -114,7 +113,7 @@ export async function GET(request: NextRequest, { params }: { params: { campaign
       submissionTypes: JSON.parse(challenge.submissionTypes),
       scoringCriteria: JSON.parse(challenge.scoringCriteria),
       userParticipation: challenge.challenge_participations[0] || null,
-      challenge_challenge_participations: undefined, // Remove from response
+      challenge_participations: undefined, // Remove from response
     }));
 
     return NextResponse.json({ challenges: challengesWithParsedData });
@@ -215,8 +214,8 @@ export async function POST(request: NextRequest, { params }: { params: { campaig
         },
         _count: {
           select: {
-            challenge_challenge_participations: true,
-            challenge_challenge_submissions: true,
+            challenge_participations: true,
+            challenge_submissions: true,
           },
         },
       },

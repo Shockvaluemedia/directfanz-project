@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { safeParseURL } from '@/lib/api-utils';
 
@@ -36,7 +35,7 @@ export async function GET(request: NextRequest) {
 
     if (status) where.status = status;
     if (campaignId) {
-      where.challenge = {
+      where.challenges = {
         campaignId: campaignId,
       };
     }
@@ -45,13 +44,13 @@ export async function GET(request: NextRequest) {
     const submissions = await prisma.challenge_submissions.findMany({
       where,
       include: {
-        challenge: {
+        challenges: {
           include: {
-            campaign: {
+            campaigns: {
               select: {
                 id: true,
                 title: true,
-                artist: {
+                users: {
                   select: {
                     id: true,
                     displayName: true,
@@ -72,14 +71,14 @@ export async function GET(request: NextRequest) {
     // Transform the data to match the frontend interface
     const transformedSubmissions = submissions.map(submission => ({
       id: submission.id,
-      campaignId: submission.challenges.campaigns.id,
-      campaignTitle: submission.challenges.campaigns.title,
+      campaignId: submission.challenges?.campaigns?.id,
+      campaignTitle: submission.challenges?.campaigns?.title,
       type: submission.contentType.toLowerCase(),
       status: submission.reviewStatus.toLowerCase(), // Use review status for frontend
       submittedAt: submission.submittedAt.toISOString(),
       likes: submission.likeCount,
       views: submission.viewCount,
-      artistName: submission.challenges.campaigns.users.displayName,
+      artistName: submission.challenges?.campaigns?.users?.displayName,
       title: submission.title,
       description: submission.description,
       score: submission.totalScore,

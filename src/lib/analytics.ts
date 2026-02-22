@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { prisma } from '@/lib/prisma';
 
 export interface EarningsData {
@@ -239,16 +238,16 @@ export async function getRecentActivity(
   const recentSubscriptions = await prisma.subscriptions.findMany({
     where: { artistId },
     include: {
-      fan: { select: { displayName: true } },
-      tier: { select: { name: true } },
+      users: { select: { displayName: true } },
+      tiers: { select: { name: true } },
     },
     orderBy: { createdAt: 'desc' },
     take: limit,
   });
 
   for (const sub of recentSubscriptions) {
-    const fanName = sub.fan?.displayName || 'Anonymous Fan';
-    const tierName = sub.tier?.name || 'Unknown Tier';
+    const fanName = sub.users?.displayName || 'Anonymous Fan';
+    const tierName = sub.tiers?.name || 'Unknown Tier';
 
     activities.push({
       id: sub.id,

@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 import React, { useState } from 'react';
@@ -67,7 +66,8 @@ export default function SimpleUploadPage() {
       setFile(null);
     } catch (error) {
       console.error('Upload error:', error);
-      console.log("Full upload error details:", error, result); alert("Upload failed: " + (result?.error || error?.message || "Check console") + " - See browser console for full details");
+      const errMsg = error instanceof Error ? error.message : 'Check console';
+      alert("Upload failed: " + errMsg + " - See browser console for full details");
     } finally {
       setUploading(false);
     }

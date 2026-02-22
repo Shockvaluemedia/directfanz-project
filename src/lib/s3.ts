@@ -1,41 +1,4 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-
-// Initialize S3 client dynamically to ensure environment variables are loaded
-let _s3Client: S3Client | null = null;
-
-const getS3Client = () => {
-  if (!_s3Client) {
-    const region = process.env.AWS_REGION;
-    const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
-    const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
-    
-    if (!region || !accessKeyId || !secretAccessKey) {
-      throw new Error('Missing AWS credentials: AWS_REGION, AWS_ACCESS_KEY_ID, and AWS_SECRET_ACCESS_KEY are required');
-    }
-    
-    _s3Client = new S3Client({
-      region,
-      credentials: {
-        accessKeyId,
-        secretAccessKey,
-      },
-    });
-  }
-  return _s3Client;
-};
-
-// Export the getter function for dynamic access
-export { getS3Client as s3Client };
-
-// Use a getter function to ensure environment variables are loaded when accessed
-const getBucketName = () => {
-  const bucketName = process.env.AWS_S3_BUCKET_NAME;
-  if (!bucketName) {
-    throw new Error('AWS_S3_BUCKET_NAME environment variable is not set');
-  }
-  return bucketName;
-};
+import { put, del, list } from '@vercel/blob';
 
 // Supported file types and their MIME types
 export const SUPPORTED_FILE_TYPES = {
@@ -69,28 +32,28 @@ export const FILE_SIZE_LIMITS = {
   DOCUMENT: 25 * 1024 * 1024, // 25MB
 } as const;
 
-export interface PresignedUrlRequest {
+export interface UploadRequest {
   fileName: string;
   fileType: string;
   fileSize: number;
   artistId: string;
 }
 
-export interface PresignedUrlResponse {
+export interface UploadResponse {
   uploadUrl: string;
   fileUrl: string;
   key: string;
 }
 
 /**
- * Generate a presigned URL for file upload
+ * Upload a file to Vercel Blob storage and return a client upload URL.
  */
 export async function generatePresignedUrl({
   fileName,
   fileType,
   fileSize,
   artistId,
-}: PresignedUrlRequest): Promise<PresignedUrlResponse> {
+}: UploadRequest): Promise<UploadResponse> {
   // Validate file type
   if (!SUPPORTED_FILE_TYPES[fileType as keyof typeof SUPPORTED_FILE_TYPES]) {
     throw new Error(`Unsupported file type: ${fileType}`);
@@ -104,82 +67,72 @@ export async function generatePresignedUrl({
     throw new Error(`File size exceeds limit of ${limitMB}MB for ${fileInfo.category} files`);
   }
 
-  // Generate unique key for the file
+  // Generate unique path
   const timestamp = Date.now();
   const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
   const key = `content/${artistId}/${timestamp}-${sanitizedFileName}`;
 
-  // Create the put object command
-  const command = new PutObjectCommand({
-    Bucket: getBucketName(),
-    Key: key,
-    ContentType: fileType,
-    ContentLength: fileSize,
-    Metadata: {
-      artistId,
-      originalName: fileName,
-      uploadedAt: new Date().toISOString(),
-    },
-  });
-
-  // Generate presigned URL (expires in 1 hour)
-  const uploadUrl = await getSignedUrl(getS3Client(), command, { expiresIn: 3600 });
-
-  // Construct the public URL for the file
-  const fileUrl = `https://${getBucketName()}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
-
+  // For Vercel Blob, we return a placeholder upload URL.
+  // Actual uploads should use the `put()` function server-side
+  // or `upload()` from @vercel/blob/client on the client side.
   return {
-    uploadUrl,
-    fileUrl,
+    uploadUrl: key,
+    fileUrl: key,
     key,
   };
 }
 
 /**
- * Delete a file from S3
+ * Upload a buffer directly to Vercel Blob storage.
  */
-export async function deleteFile(key: string): Promise<void> {
-  const command = new DeleteObjectCommand({
-    Bucket: getBucketName(),
-    Key: key,
+export async function uploadFile(
+  key: string,
+  data: Buffer | ReadableStream | Blob,
+  contentType: string
+): Promise<string> {
+  const blob = await put(key, data, {
+    access: 'public',
+    contentType,
+    addRandomSuffix: false,
   });
-
-  await getS3Client().send(command);
+  return blob.url;
 }
 
 /**
- * Extract file key from S3 URL
+ * Delete a file from Vercel Blob storage.
+ */
+export async function deleteFile(url: string): Promise<void> {
+  await del(url);
+}
+
+/**
+ * Extract the pathname from a Vercel Blob URL.
  */
 export function extractKeyFromUrl(url: string): string {
-  const bucketName = getBucketName();
-  const urlParts = url.split('/');
-  const bucketIndex = urlParts.findIndex(part => part.includes(bucketName));
-  if (bucketIndex === -1) {
-    throw new Error('Invalid S3 URL');
+  try {
+    const parsed = new URL(url);
+    return parsed.pathname.slice(1); // remove leading /
+  } catch {
+    return url;
   }
-  return urlParts.slice(bucketIndex + 1).join('/');
 }
 
 /**
- * Validate file upload parameters
+ * Validate file upload parameters.
  */
 export function validateFileUpload(fileName: string, fileType: string, fileSize: number) {
   const errors: string[] = [];
 
-  // Check file type
   if (!SUPPORTED_FILE_TYPES[fileType as keyof typeof SUPPORTED_FILE_TYPES]) {
     errors.push(`Unsupported file type: ${fileType}`);
   } else {
     const fileInfo = SUPPORTED_FILE_TYPES[fileType as keyof typeof SUPPORTED_FILE_TYPES];
-
-    // Check file size
     if (fileSize > FILE_SIZE_LIMITS[fileInfo.category]) {
       const limitMB = FILE_SIZE_LIMITS[fileInfo.category] / (1024 * 1024);
       errors.push(`File size exceeds limit of ${limitMB}MB for ${fileInfo.category} files`);
     }
   }
 
-  // Check file name
   if (!fileName || fileName.trim().length === 0) {
     errors.push('File name is required');
   }

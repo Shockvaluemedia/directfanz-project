@@ -1,17 +1,13 @@
-// @ts-nocheck
 /**
- * Database Query Performance Optimizer for DirectFanz AWS Migration
- * 
+ * Database Query Performance Optimizer for DirectFanz
+ *
  * Analyzes and optimizes database queries to meet the requirement of
  * maintaining query response times under 50ms for 95th percentile.
- * 
- * Validates: Requirements 12.4
  */
 
 import { PrismaClient } from '@prisma/client';
 import { performance } from 'perf_hooks';
 import { logger } from './logger';
-import { isRunningInECS } from './aws-config';
 
 export interface QueryPerformanceMetrics {
   queryId: string;
@@ -151,9 +147,9 @@ export class DatabaseQueryOptimizer {
    * Start performance monitoring for all queries
    */
   private startPerformanceMonitoring(): void {
-    if (isRunningInECS()) {
+    if (process.env.NODE_ENV === 'production') {
       // In production, use Prisma query events for monitoring
-      this.prisma.$on('query' as any, (e: any) => {
+      (this.prisma as any).$on('query', (e: any) => {
         this.recordQueryPerformance({
           queryId: this.generateQueryId(e.query),
           query: e.query,

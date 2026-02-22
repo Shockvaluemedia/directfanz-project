@@ -1,12 +1,13 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { withStreamManagement, updateStreamStatus } from '@/lib/streaming-auth';
+import { triggerStreamEvent } from '@/lib/pusher';
+import { prisma } from '@/lib/prisma';
 
 export async function POST(
   request: NextRequest,
   { params }: { params: { streamId: string } }
 ) {
-  return withStreamManagement(request, async (req) => {
+  return withStreamManagement<any>(request, async (req) => {
     try {
       const { streamId } = params;
 
@@ -17,12 +18,9 @@ export async function POST(
         );
       }
 
-      // TODO: Stop MediaLive channel
-      // This would involve calling AWS MediaLive API to stop the channel
-      
-      // Update stream status to stopping
-      const updated = await updateStreamStatus(streamId, 'stopping');
-      
+      // Update stream status and set endedAt timestamp
+      const updated = await updateStreamStatus(streamId, 'stopped');
+
       if (!updated) {
         return NextResponse.json(
           { error: 'Failed to stop stream' },
@@ -30,16 +28,31 @@ export async function POST(
         );
       }
 
-      // Simulate MediaLive channel stop (in real implementation, this would be async)
-      setTimeout(async () => {
-        await updateStreamStatus(streamId, 'stopped');
-      }, 3000);
+      const endedAt = new Date();
+
+      // Update endedAt in database and mark all viewers as left
+      await Promise.all([
+        prisma.live_streams.update({
+          where: { id: streamId },
+          data: { endedAt },
+        }),
+        prisma.stream_viewers.updateMany({
+          where: { streamId, leftAt: null },
+          data: { leftAt: endedAt },
+        }),
+      ]);
+
+      // Notify subscribers via Pusher
+      await triggerStreamEvent(streamId, 'stream-ended', {
+        streamId,
+        endedAt: endedAt.toISOString(),
+      });
 
       return NextResponse.json({
         streamId,
-        status: 'stopping',
-        message: 'Stream is shutting down',
-        estimatedStopTime: new Date(Date.now() + 3000).toISOString(),
+        status: 'ENDED',
+        message: 'Stream has ended',
+        endedAt: endedAt.toISOString(),
       });
     } catch (error) {
       console.error('Stream stop error:', error);

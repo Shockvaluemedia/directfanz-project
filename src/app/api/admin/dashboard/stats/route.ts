@@ -52,7 +52,7 @@ export async function GET(_request: NextRequest) {
         },
       }).then(async (roleGroups) => {
         // Get additional user counts in parallel
-        const [totalUsers, recentSignups] = await Promise.all([
+        const [totalUsers, recentSignups, bannedUsers] = await Promise.all([
           prisma.users.count(),
           prisma.users.count({
             where: {
@@ -61,19 +61,24 @@ export async function GET(_request: NextRequest) {
               },
             },
           }),
+          prisma.users.count({
+            where: {
+              status: 'BANNED',
+            },
+          }),
         ]);
-        
+
         const roleCounts = roleGroups.reduce((acc, item) => {
           acc[item.role] = item._count;
           return acc;
         }, {} as Record<string, number>);
-        
+
         return {
           totalUsers,
           totalArtists: roleCounts.ARTIST || 0,
           totalFans: roleCounts.FAN || 0,
           recentSignups,
-          bannedUsers: 0, // TODO: implement when user status field exists
+          bannedUsers,
         };
       }),
       

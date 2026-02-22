@@ -28,7 +28,19 @@ export function useSafeApi<T = any>(
     ...apiOptions
   } = options;
 
-  // If API is disabled, return fallback data immediately
+  // Always call useApi (hooks must not be conditional)
+  const apiResult = useApi<T>(url, {
+    ...apiOptions,
+    immediate: enableApi ? apiOptions.immediate : false,
+    onError: (error) => {
+      if (!silentFallback) {
+        console.warn(`API call to ${url} failed, using fallback data:`, error.message);
+      }
+      onError?.(error);
+    },
+  });
+
+  // If API is disabled, return fallback data
   if (!enableApi) {
     return {
       data: fallbackData || null,
@@ -38,16 +50,6 @@ export function useSafeApi<T = any>(
       reset: () => {},
     };
   }
-
-  const apiResult = useApi<T>(url, {
-    ...apiOptions,
-    onError: (error) => {
-      if (!silentFallback) {
-        console.warn(`API call to ${url} failed, using fallback data:`, error.message);
-      }
-      onError?.(error);
-    },
-  });
 
   // If there's an error and we have fallback data, use it
   if (apiResult.error && fallbackData !== undefined) {

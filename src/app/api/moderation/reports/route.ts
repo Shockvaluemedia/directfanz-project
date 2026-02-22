@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { withApi, withAdminApi } from '@/lib/api-auth';
 import { prisma } from '@/lib/prisma';
@@ -57,7 +56,7 @@ export async function POST(request: NextRequest) {
           target = await prisma.content.findUnique({
             where: { id: targetId },
             include: {
-              artist: {
+              users: {
                 select: { id: true, displayName: true },
               },
             },
@@ -67,7 +66,7 @@ export async function POST(request: NextRequest) {
           target = await prisma.comments.findUnique({
             where: { id: targetId },
             include: {
-              fan: {
+              users: {
                 select: { id: true, displayName: true },
               },
               content: {
@@ -83,7 +82,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Check for duplicate reports from same user
-      const existingReport = await prisma.report.findFirst({
+      const existingReport = await prisma.reports.findFirst({
         where: {
           reporterId: req.user.id,
           targetType: targetType.toUpperCase() as any,
@@ -96,19 +95,21 @@ export async function POST(request: NextRequest) {
       }
 
       // Create the report in the database
-      const report = await prisma.report.create({
+      const report = await prisma.reports.create({
         data: {
+          id: crypto.randomUUID(),
           reporterId: req.user.id,
-          targetType: targetType.toUpperCase() as any, // Convert to enum
+          targetType: targetType.toUpperCase(),
           targetId,
-          reason: reason.toUpperCase() as any, // Convert to enum
+          reason: reason.toUpperCase(),
           description,
           evidence: JSON.stringify(evidence || []),
           priority: getPriority(reason),
           status: 'PENDING',
-        },
+          updatedAt: new Date(),
+        } as any,
         include: {
-          reporter: {
+          users_reports_reporterIdTousers: {
             select: {
               id: true,
               displayName: true,
@@ -188,16 +189,16 @@ export async function GET(request: NextRequest) {
 
       // Get reports from database
       const [reports, totalCount] = await Promise.all([
-        prisma.report.findMany({
+        prisma.reports.findMany({
           where: whereClause,
           include: {
-            reporter: {
+            users_reports_reporterIdTousers: {
               select: {
                 id: true,
                 displayName: true,
               },
             },
-            reviewer: {
+            users_reports_reviewedByTousers: {
               select: {
                 id: true,
                 displayName: true,
@@ -208,17 +209,17 @@ export async function GET(request: NextRequest) {
           take: limit,
           skip: offset,
         }),
-        prisma.report.count({ where: whereClause }),
+        prisma.reports.count({ where: whereClause }),
       ]);
 
       // Get detailed stats
       const [pendingCount, reviewingCount, resolvedCount, dismissedCount, highPriorityCount] =
         await Promise.all([
-          prisma.report.count({ where: { status: 'PENDING' } }),
-          prisma.report.count({ where: { status: 'REVIEWING' } }),
-          prisma.report.count({ where: { status: 'RESOLVED' } }),
-          prisma.report.count({ where: { status: 'DISMISSED' } }),
-          prisma.report.count({ where: { priority: 'HIGH' } }),
+          prisma.reports.count({ where: { status: 'PENDING' } }),
+          prisma.reports.count({ where: { status: 'REVIEWING' } }),
+          prisma.reports.count({ where: { status: 'RESOLVED' } }),
+          prisma.reports.count({ where: { status: 'DISMISSED' } }),
+          prisma.reports.count({ where: { priority: 'HIGH' } }),
         ]);
 
       // Format reports for response
@@ -237,8 +238,8 @@ export async function GET(request: NextRequest) {
         createdAt: report.createdAt,
         updatedAt: report.updatedAt,
         reviewedAt: report.reviewedAt,
-        reporter: report.reporter,
-        reviewer: report.reviewer,
+        reporter: report.users_reports_reporterIdTousers,
+        reviewer: report.users_reports_reviewedByTousers,
       }));
 
       return NextResponse.json({
@@ -278,7 +279,7 @@ export async function PUT(request: NextRequest) {
       const { reportId, status, resolution, action } = validatedData;
 
       // Update the report in the database
-      const report = await prisma.report.update({
+      const report = await prisma.reports.update({
         where: { id: reportId },
         data: {
           status: status.toUpperCase() as any,
@@ -288,7 +289,7 @@ export async function PUT(request: NextRequest) {
           reviewedAt: new Date(),
         },
         include: {
-          reporter: {
+          users_reports_reporterIdTousers: {
             select: {
               id: true,
               displayName: true,
@@ -303,7 +304,7 @@ export async function PUT(request: NextRequest) {
       }
 
       // Notify reporter of resolution (placeholder)
-      console.log('Would send notification to:', report.reporter.id, `Report ${status}`);
+      console.log('Would send notification to:', report.users_reports_reporterIdTousers.id, `Report ${status}`);
 
       logger.info('Report updated', {
         reportId,

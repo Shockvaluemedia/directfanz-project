@@ -270,7 +270,7 @@ export async function generateStreamAccessUrl(
   }
 }
 
-// Validate stream key for MediaLive input
+// Validate stream key format
 export async function validateStreamKey(
   streamKey: string,
   userId: string

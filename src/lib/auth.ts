@@ -1,18 +1,32 @@
-// @ts-nocheck
 import { NextAuthOptions } from 'next-auth';
+import type { JWT } from 'next-auth/jwt';
 import CredentialsProvider from 'next-auth/providers/credentials';
-// OAuth providers removed - add back when credentials are configured
 import bcrypt from 'bcryptjs';
 import { prisma } from './prisma';
 
 // Environment variable validation (skip during build)
 if (process.env.NODE_ENV === 'production' && typeof window === 'undefined') {
   if (!process.env.NEXTAUTH_SECRET) {
-    console.warn('WARNING: NEXTAUTH_SECRET is not set');
+    throw new Error('NEXTAUTH_SECRET must be set in production');
   }
   if (!process.env.DATABASE_URL) {
     console.warn('WARNING: DATABASE_URL is not set');
   }
+}
+
+interface DirectFanzJWT {
+  id?: string;
+  role?: string;
+  lastActivity?: number;
+  sessionStart?: number;
+  name?: string | null;
+  email?: string | null;
+  picture?: string | null;
+  sub?: string;
+  iat?: number;
+  exp?: number;
+  jti?: string;
+  [key: string]: unknown;
 }
 
 export const authOptions: NextAuthOptions = {
@@ -154,34 +168,36 @@ export const authOptions: NextAuthOptions = {
         return url.startsWith('/') ? url : appUrl || '/';
       }
     },
-    async jwt({ token, user, account, profile, trigger }) {
+    async jwt({ token, user, trigger }) {
+      const t = token as unknown as DirectFanzJWT;
       if (user) {
-        const u: any = user;
-        token.id = u.id;
-        token.role = u.role;
-        token.name = u.name || u.displayName || token.name;
-        token.email = u.email || token.email;
-        token.picture = u.image || u.avatar || token.picture;
+        const u = user as { id: string; role?: string; name?: string; displayName?: string; email?: string; image?: string; avatar?: string };
+        t.id = u.id;
+        t.role = u.role;
+        t.name = u.name || u.displayName || t.name;
+        t.email = u.email || t.email;
+        t.picture = u.image || u.avatar || t.picture;
 
         // Add security context for session validation
-        token.lastActivity = Date.now();
-        token.sessionStart = Date.now();
+        t.lastActivity = Date.now();
+        t.sessionStart = Date.now();
       }
 
       // Update last activity on token refresh
       if (trigger === 'update') {
-        token.lastActivity = Date.now();
+        t.lastActivity = Date.now();
       }
 
-      return token;
+      return t as any;
     },
     async session({ session, token }) {
-      if (token && session?.user) {
-        (session.user as any).id = (token as any).id as string;
-        (session.user as any).role = (token as any).role as string;
-        session.user.name = (token as any).name || session.user.name;
-        session.user.email = (token as any).email || session.user.email;
-        session.user.image = (token as any).picture || session.user.image;
+      const t = token as DirectFanzJWT;
+      if (t && session?.user) {
+        (session.user as Record<string, unknown>).id = t.id;
+        (session.user as Record<string, unknown>).role = t.role;
+        session.user.name = t.name || session.user.name;
+        session.user.email = t.email || session.user.email;
+        session.user.image = t.picture as string || session.user.image;
       }
       return session;
     },
@@ -194,11 +210,13 @@ export const authOptions: NextAuthOptions = {
         if (!existingUser) {
           await prisma.users.create({
             data: {
+              id: `user_${Date.now()}`,
               email: user.email,
               displayName: user.name || user.email.split('@')[0],
               avatar: user.image,
               role: 'FAN',
               emailVerified: new Date(),
+              updatedAt: new Date(),
             },
           });
         }
@@ -211,8 +229,7 @@ export const authOptions: NextAuthOptions = {
     error: '/auth/error',
   },
   secret: process.env.NEXTAUTH_SECRET,
-  trustHost: true,
-};
+} as NextAuthOptions;
 
 // Securely store OAuth tokens in encrypted database storage
 async function storeOAuthTokens(userId: string, account: any) {
@@ -238,11 +255,13 @@ async function storeOAuthTokens(userId: string, account: any) {
         updatedAt: new Date(),
       },
       create: {
+        id: `oauth_${Date.now()}`,
         userId,
         provider: account.provider,
         encryptedAccessToken,
         encryptedRefreshToken,
         expiresAt: account.expires_at ? new Date(account.expires_at * 1000) : null,
+        updatedAt: new Date(),
       },
     });
   } catch {

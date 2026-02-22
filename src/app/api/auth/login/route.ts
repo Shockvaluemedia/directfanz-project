@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
@@ -42,13 +41,15 @@ export const POST = withApiHandler(
 
     if (!user || !user.password) {
       // Track failed login (non-blocking)
-      businessMetrics.track({
-        event: 'login_failed',
-        properties: {
-          reason: 'user_not_found',
-          email,
-        },
-      }).catch?.(err => console.warn('Failed to track login failure:', err));
+      try {
+        businessMetrics.track({
+          event: 'login_failed',
+          properties: {
+            reason: 'user_not_found',
+            email,
+          },
+        });
+      } catch (err: unknown) { console.warn('Failed to track login failure:', err); }
 
       throw new AppError(
         ErrorCode.UNAUTHORIZED,
@@ -75,14 +76,16 @@ export const POST = withApiHandler(
 
     if (!isPasswordValid) {
       // Track failed login (non-blocking)
-      businessMetrics.track({
-        event: 'login_failed',
-        userId: user.id,
-        properties: {
-          reason: 'invalid_password',
-          email,
-        },
-      }).catch?.(err => console.warn('Failed to track login failure:', err));
+      try {
+        businessMetrics.track({
+          event: 'login_failed',
+          userId: user.id,
+          properties: {
+            reason: 'invalid_password',
+            email,
+          },
+        });
+      } catch (err: unknown) { console.warn('Failed to track login failure:', err); }
 
       throw new AppError(
         ErrorCode.UNAUTHORIZED,

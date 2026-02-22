@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 import React, { useRef, useState, useEffect } from 'react';
@@ -340,7 +339,7 @@ export function VideoPlayer({
             <div className='flex items-center space-x-2'>
               {/* Settings Menu */}
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
+                <DropdownMenuTrigger>
                   <Button variant='ghost' size='sm' className='text-white hover:bg-white/20'>
                     <Settings className='h-4 w-4' />
                   </Button>

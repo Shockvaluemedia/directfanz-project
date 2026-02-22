@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 
 // Force dynamic rendering for this route
@@ -6,7 +5,6 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 import { prisma } from '@/lib/prisma';
 import { redis, getRedisClient } from '@/lib/redis';
-import { string } from '@prisma/client';
 import { businessMetrics } from '@/lib/business-metrics';
 import { logger } from '@/lib/logger';
 import client from 'prom-client';
@@ -148,7 +146,7 @@ async function collectApplicationMetrics(collector: MetricsCollector) {
 
     // Active subscriptions
     const activeSubscriptions = await prisma.subscriptions.count({
-      where: { status: string.ACTIVE },
+      where: { status: 'ACTIVE' },
     });
 
     collector.addMetric({
@@ -186,7 +184,7 @@ async function collectApplicationMetrics(collector: MetricsCollector) {
     // Get Redis info if available
     try {
       const client = await getRedisClient();
-      const info = client ? ((await client.sendCommand(['INFO', 'memory'])) as string) : '';
+      const info = client ? ((await (client as any).sendCommand(['INFO', 'memory'])) as string) : '';
       const lines = info.split('\r\n');
       const memoryInfo: Record<string, string> = {};
 

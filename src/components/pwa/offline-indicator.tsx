@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -37,6 +36,7 @@ export function OfflineIndicator({ className, showDetails = false }: OfflineIndi
       }, 3000);
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [isOnline]);
 
   if (!showOfflineBanner && isOnline) {

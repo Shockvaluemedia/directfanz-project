@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Centralized Security Configuration
  *
@@ -7,7 +6,31 @@
  */
 
 import { RateLimitConfig } from '@/lib/rate-limiting';
-import { SecurityHeadersConfig } from '@/lib/security-headers';
+// SecurityHeadersConfig is defined inline as it's not exported from the module
+interface SecurityHeadersConfig {
+  csp?: {
+    enabled: boolean;
+    directives?: Record<string, string[] | undefined>;
+    reportOnly?: boolean;
+    reportUri?: string;
+  };
+  hsts?: {
+    enabled: boolean;
+    maxAge?: number;
+    includeSubDomains?: boolean;
+    preload?: boolean;
+  };
+  frameOptions?: string | false;
+  contentTypeOptions?: boolean;
+  xssProtection?: boolean;
+  referrerPolicy?: string;
+  permissionsPolicy?: Record<string, string[]>;
+  crossOrigin?: {
+    embedderPolicy?: string;
+    openerPolicy?: string;
+    resourcePolicy?: string;
+  };
+}
 
 // Environment configuration
 export const SECURITY_ENV = {
@@ -384,16 +407,16 @@ export function isAllowedOrigin(origin: string): boolean {
 }
 
 export function getMaxFileSize(fileType: string): number {
-  if (ALLOWED_FILE_TYPES.IMAGES.includes(fileType)) {
+  if ((ALLOWED_FILE_TYPES.IMAGES as readonly string[]).includes(fileType)) {
     return VALIDATION_LIMITS.IMAGE_MAX_SIZE;
   }
-  if (ALLOWED_FILE_TYPES.AUDIO.includes(fileType)) {
+  if ((ALLOWED_FILE_TYPES.AUDIO as readonly string[]).includes(fileType)) {
     return VALIDATION_LIMITS.AUDIO_MAX_SIZE;
   }
-  if (ALLOWED_FILE_TYPES.VIDEO.includes(fileType)) {
+  if ((ALLOWED_FILE_TYPES.VIDEO as readonly string[]).includes(fileType)) {
     return VALIDATION_LIMITS.VIDEO_MAX_SIZE;
   }
-  if (ALLOWED_FILE_TYPES.DOCUMENTS.includes(fileType)) {
+  if ((ALLOWED_FILE_TYPES.DOCUMENTS as readonly string[]).includes(fileType)) {
     return VALIDATION_LIMITS.DOCUMENT_MAX_SIZE;
   }
   return VALIDATION_LIMITS.IMAGE_MAX_SIZE; // Default to image size
@@ -404,9 +427,9 @@ export function isAllowedFileType(
   category?: keyof typeof ALLOWED_FILE_TYPES
 ): boolean {
   if (category) {
-    return ALLOWED_FILE_TYPES[category].includes(fileType as any);
+    return (ALLOWED_FILE_TYPES[category] as readonly string[]).includes(fileType);
   }
 
   // Check all categories
-  return Object.values(ALLOWED_FILE_TYPES).some(types => types.includes(fileType as any));
+  return Object.values(ALLOWED_FILE_TYPES).some(types => (types as readonly string[]).includes(fileType));
 }

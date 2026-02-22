@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useState, useEffect, useMemo } from 'react';
 import Fuse from 'fuse.js';
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
@@ -116,12 +115,13 @@ export function useSearch(initialQuery = '', initialFilters: Partial<SearchFilte
     isLoading,
     error,
     refetch
-  } = useInfiniteQuery({
+  } = useInfiniteQuery<{ results: SearchableContent[]; total: number; hasMore: boolean; page: number }>({
     queryKey: ['search', query, filters],
-    queryFn: ({ pageParam = 0 }) => fetchSearchResults(query, filters, pageParam),
-    getNextPageParam: (lastPage, pages) => 
+    queryFn: ({ pageParam = 0 }) => fetchSearchResults(query, filters, pageParam as number),
+    getNextPageParam: (lastPage, pages) =>
       lastPage.hasMore ? pages.length : undefined,
-    enabled: query.length > 0 || Object.values(filters).some(v => 
+    initialPageParam: 0,
+    enabled: query.length > 0 || Object.values(filters).some(v =>
       Array.isArray(v) ? v.length > 0 : v !== undefined && v !== ''
     ),
   });

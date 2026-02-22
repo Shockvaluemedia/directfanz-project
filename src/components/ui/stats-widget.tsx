@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -217,7 +216,7 @@ function Sparkline({ data, color }: { data: number[]; color: string }) {
         fill="none"
         stroke="currentColor"
         strokeWidth="2"
-        className={cn(colors[color], 'transition-all duration-300')}
+        className={cn(colors[color as keyof typeof colors], 'transition-all duration-300')}
       />
     </svg>
   );

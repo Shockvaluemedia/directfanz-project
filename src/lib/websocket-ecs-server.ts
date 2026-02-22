@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 
 /**
- * DirectFanZ WebSocket Server optimized for AWS ECS deployment
- * Supports sticky sessions with ALB and graceful shutdown
+ * DirectFanZ WebSocket Server
+ * Supports sticky sessions and graceful shutdown
  */
 
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import { isRunningInECS, loadAWSConfiguration, getContainerHealth } from './aws-config';
 import { logger } from './logger';
 
 const port = parseInt(process.env.WEBSOCKET_PORT || process.env.PORT || '3001', 10);
-const hostname = isRunningInECS() ? '0.0.0.0' : 'localhost';
+const isProduction = process.env.NODE_ENV === 'production';
+const hostname = isProduction ? '0.0.0.0' : 'localhost';
 
 // Store active streams and their connections
 const activeStreams = new Map();
@@ -60,35 +60,18 @@ const server = createServer((req, res) => {
 // Health check handler optimized for ALB
 const handleHealthCheck = async (req: any, res: any) => {
   try {
-    const isALBHealthCheck = req.headers['user-agent']?.includes('ELB-HealthChecker') ||
-                            req.url?.includes('source=alb');
-
-    if (isALBHealthCheck) {
-      // Simple ALB health check
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ 
-        status: 'UP',
-        timestamp: new Date().toISOString(),
-        service: 'DirectFanZ WebSocket Server'
-      }));
-    } else {
-      // Detailed health check
-      const health = await getContainerHealth();
-      const status = health.status === 'healthy' ? 200 : 503;
-      
-      res.writeHead(status, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ 
-        status: health.status === 'healthy' ? 'healthy' : 'unhealthy',
-        timestamp: new Date().toISOString(),
-        service: 'DirectFanZ WebSocket Server',
-        checks: health.checks,
-        connections: {
-          streaming: streamingSessions.size,
-          messaging: userSessions.size,
-          activeStreams: activeStreams.size,
-        }
-      }));
-    }
+    // Health check response
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      service: 'DirectFanZ WebSocket Server',
+      connections: {
+        streaming: streamingSessions.size,
+        messaging: userSessions.size,
+        activeStreams: activeStreams.size,
+      }
+    }));
   } catch (error) {
     logger.error('Health check failed', { error: error instanceof Error ? error.message : 'Unknown error' });
     res.writeHead(503, { 'Content-Type': 'application/json' });
@@ -104,12 +87,9 @@ const handleHealthCheck = async (req: any, res: any) => {
 const io = new Server(server, {
   cors: {
     origin: [
-      "http://localhost:3000", 
-      "https://www.directfanz.io", 
+      "http://localhost:3000",
+      "https://www.directfanz.io",
       "https://*.vercel.app",
-      // Add ALB and CloudFront origins
-      process.env.ALB_DNS_NAME ? `https://${process.env.ALB_DNS_NAME}` : null,
-      process.env.CLOUDFRONT_DOMAIN ? `https://${process.env.CLOUDFRONT_DOMAIN}` : null,
     ].filter(Boolean),
     credentials: true,
   },
@@ -129,24 +109,6 @@ const io = new Server(server, {
 
 // Initialize server
 const initializeServer = async () => {
-  // Load AWS configuration if running in ECS
-  if (process.env.NODE_ENV === 'production' && isRunningInECS()) {
-    try {
-      logger.info('Loading AWS configuration from Parameter Store...');
-      const config = await loadAWSConfiguration();
-      
-      // Set environment variables from Parameter Store
-      if (config.redisUrl) process.env.REDIS_URL = config.redisUrl;
-      if (config.databaseUrl) process.env.DATABASE_URL = config.databaseUrl;
-      
-      logger.info('AWS configuration loaded successfully');
-    } catch (error) {
-      logger.warn('Failed to load AWS configuration, using environment variables', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
-    }
-  }
-
   // Load demo data
   loadDemoData();
 };
@@ -368,7 +330,7 @@ mainNamespace.on('connection', (socket) => {
   });
 });
 
-// Setup streaming handlers (similar to existing websocket-server.js but optimized for ECS)
+// Setup streaming handlers
 streamingNamespace.on('connection', (socket) => {
   logger.info('✅ Streaming client connected', { socketId: socket.id });
 
@@ -560,7 +522,7 @@ streamingNamespace.on('connection', (socket) => {
   });
 });
 
-// Graceful shutdown handling for ECS
+// Graceful shutdown handling
 const gracefulShutdown = (signal: string) => {
   logger.info(`Received ${signal}, starting graceful shutdown...`);
   
@@ -592,19 +554,14 @@ const startServer = async () => {
     await initializeServer();
     
     server.listen(port, hostname, () => {
-      logger.info('🚀 DirectFanZ WebSocket Server running', { 
-        port, 
+      logger.info('🚀 DirectFanZ WebSocket Server running', {
+        port,
         hostname,
         environment: process.env.NODE_ENV,
-        isECS: isRunningInECS()
       });
       logger.info('📡 Streaming namespace: /streaming');
       logger.info('💬 Messaging namespace: /');
       logger.info('🎥 Ready for live streaming and messaging!');
-      
-      if (isRunningInECS()) {
-        logger.info('🐳 Running in AWS ECS environment with ALB sticky session support');
-      }
     });
   } catch (error) {
     logger.error('Failed to start WebSocket server', { error: error instanceof Error ? error.message : 'Unknown error' });

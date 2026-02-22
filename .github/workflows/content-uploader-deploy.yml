@@ -82,7 +82,7 @@ jobs:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-args: '--env DATABASE_URL="${{ secrets.STAGING_DATABASE_URL }}" --env NEXTAUTH_SECRET="${{ secrets.NEXTAUTH_SECRET }}" --env AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}" --env AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}" --env AWS_S3_BUCKET_NAME="${{ secrets.AWS_S3_BUCKET_NAME }}"'
+          vercel-args: '--env DATABASE_URL="${{ secrets.STAGING_DATABASE_URL }}" --env NEXTAUTH_SECRET="${{ secrets.NEXTAUTH_SECRET }}"'
           
       - name: Notify deployment
         run: |
@@ -107,7 +107,7 @@ jobs:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-args: '--prod --env DATABASE_URL="${{ secrets.PRODUCTION_DATABASE_URL }}" --env NEXTAUTH_SECRET="${{ secrets.NEXTAUTH_SECRET }}" --env AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}" --env AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}" --env AWS_S3_BUCKET_NAME="${{ secrets.AWS_S3_BUCKET_NAME }}"'
+          vercel-args: '--prod --env DATABASE_URL="${{ secrets.PRODUCTION_DATABASE_URL }}" --env NEXTAUTH_SECRET="${{ secrets.NEXTAUTH_SECRET }}"'
           
       - name: Run production health checks
         run: |

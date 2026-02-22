@@ -1,191 +1,168 @@
 # DirectFanz - Next Steps Action Plan
 
 **Last Updated**: February 21, 2026
+**Platform**: Vercel (fully migrated from AWS)
 
 ## Current Status: 95% Production Ready
 
-The DirectFanz platform is **live at directfanz.io** and **highly complete**. The main blockers are **environment configuration and service integration**, not missing features.
+The DirectFanz platform is **live at directfanz.io** and deployed on **Vercel**. All AWS dependencies have been removed. The platform now uses:
+
+- **Vercel** for hosting and deployment
+- **Vercel Blob** for file storage (replacing AWS S3)
+- **Vercel Postgres** or external PostgreSQL for database
+- **Upstash Redis** for caching (replacing AWS ElastiCache)
+- **WebRTC + Socket.io** for live streaming (replacing AWS MediaLive)
+- **OpenAI** for content moderation (replacing AWS Rekognition)
+- **SendGrid** for email (replacing AWS SES)
 
 ### Platform Summary
 
 - **130+ API endpoints** across authentication, content, payments, streaming, messaging, campaigns, and admin
 - **25+ database models** covering users, content, subscriptions, streaming, gamification, and compliance
 - **699/700 tests passing** across 56 test suites
-- **9 CI/CD workflows** via GitHub Actions
-- **Full deployment support** for Vercel, Docker, and AWS ECS
+- **4 CI/CD workflows** via GitHub Actions (CI/CD, Vercel deploy, security, content uploader)
 - **React Native mobile app** foundation in `/NahveeEvenMobile/`
-- **113 documentation files** covering features, deployment, and architecture
-
-### What's Built and Working
-
-| Area | Status | Details |
-|------|--------|---------|
-| Authentication | Complete | NextAuth.js with OAuth, JWT, session management |
-| Artist Dashboard | Complete | Analytics, content management, tier configuration |
-| Fan Discovery | Complete | Browse, search, recommendations, subscriptions |
-| Payments | Complete | Stripe Connect, subscriptions, tipping, daily artist payouts |
-| Content Management | Complete | Upload (S3), access control, moderation |
-| Live Streaming | Complete | WebRTC, chat, polls, tips, recordings |
-| Messaging | Complete | Real-time via Socket.io |
-| Campaigns/Gamification | Complete | Challenges, leaderboards, rewards |
-| Admin Tools | Complete | User management, moderation, analytics |
-| Security | Complete | Rate limiting, CSP, GDPR consent, age verification |
-| CI/CD | Complete | GitHub Actions, linting, type checking, tests |
 
 ---
 
-## HIGH PRIORITY - Resolve Known Issues
+## HIGH PRIORITY - Immediate Actions
 
 ### 1. Fix Redis Connection
 
 **Problem**: Redis connection timeout — affects session management, caching, and rate limiting.
 
-**Recommended Fix**: Switch to Upstash (serverless Redis, Vercel-optimized)
+**Fix**: Set up Upstash Redis (serverless, Vercel-optimized)
 1. Create a database at https://upstash.com
 2. Select the region closest to your Vercel deployment
 3. Copy the connection string (`rediss://...`)
-4. Update `REDIS_URL` in Vercel environment variables
+4. Add `REDIS_URL` in Vercel environment variables
 5. Redeploy
 
-**Fallback**: The app functions without Redis (just slower), so this is non-blocking for launch but important for production performance.
+### 2. Set Up Vercel Blob Storage
 
-### 2. Verify Production Routes
+File storage has been migrated from S3 to Vercel Blob. To enable:
+1. In Vercel dashboard: Storage > Create Store > Blob
+2. Connect to your project
+3. The `BLOB_READ_WRITE_TOKEN` will be added automatically
+4. Redeploy
 
-**Problem**: Some routes (e.g., `/login`) were returning 404 in production.
+### 3. Verify Production Routes
 
-**Action Items**:
-- Audit all public-facing routes against Next.js App Router config
-- Verify authentication middleware isn't blocking valid routes
-- Check that route groups `(dashboard)` are resolving correctly
-- Test all navigation links on the live site
+Some routes (e.g., `/login`) were returning 404. Audit:
+- All public-facing routes against Next.js App Router config
+- Authentication middleware isn't blocking valid routes
+- Route groups `(dashboard)` resolve correctly
 
-### 3. Verify External Service Integration
+### 4. Verify External Services
 
-These services have keys configured on Vercel but need end-to-end verification:
-
-| Service | Purpose | What to Test |
-|---------|---------|-------------|
-| **Stripe** | Payments & subscriptions | Create a test subscription, verify webhook delivery |
-| **AWS S3** | File storage & uploads | Upload content as an artist, verify file retrieval |
-| **SendGrid** | Transactional email | Trigger a password reset, verify email delivery |
-| **Sentry** | Error tracking | Needs initial setup — create project at https://sentry.io |
+| Service | Purpose | Env Var | Action |
+|---------|---------|---------|--------|
+| **Stripe** | Payments | `STRIPE_SECRET_KEY` | Test subscription flow |
+| **SendGrid** | Email | `SENDGRID_API_KEY` | Test password reset email |
+| **Upstash Redis** | Caching | `REDIS_URL` | Set up + test |
+| **Vercel Blob** | File storage | `BLOB_READ_WRITE_TOKEN` | Set up + test upload |
+| **OpenAI** | Moderation | `OPENAI_API_KEY` | Optional, for content moderation |
 
 ---
 
 ## MEDIUM PRIORITY - Technical Improvements
 
-### 4. Fix Build Configuration
+### 5. Fix Build Configuration
 
-TypeScript strict mode and ESLint are currently disabled during builds:
-
+Re-enable strict checking:
 ```javascript
-// next.config.js — change these to catch errors earlier:
-typescript: {
-  ignoreBuildErrors: false,  // currently true
-},
-eslint: {
-  ignoreDuringBuilds: false,  // currently true
-},
+// next.config.js
+typescript: { ignoreBuildErrors: false },
+eslint: { ignoreDuringBuilds: false },
 ```
+Then fix errors incrementally.
 
-Then fix TypeScript errors incrementally.
+### 6. Complete Mobile App
 
-### 5. Complete Mobile App Screens
-
-The React Native app (`/NahveeEvenMobile/`) has a solid foundation:
-- Authentication system
-- Multi-role support (Artist/Fan/Admin)
-- Navigation structure
-- Theme system (light/dark)
-
-**Remaining work**: Replace placeholder screens with full implementations for content browsing, artist profiles, media playback, messaging, and subscription management.
-
-### 6. Add Push Notifications
-
-Not yet implemented. Critical for fan engagement:
-- New content from subscribed artists
-- Live stream starting alerts
-- Campaign/challenge updates
-- Message notifications
+The React Native app has auth, navigation, and themes working. Remaining:
+- Replace placeholder screens with full implementations
+- Content browsing and media playback
+- Push notifications
+- Subscription management
 
 ### 7. Expand E2E Test Coverage
 
-Playwright is configured with some tests in `/e2e/`. Expand coverage for:
-- Full authentication flows (register, login, password reset)
+Playwright is configured. Add tests for:
+- Authentication flows (register, login, reset)
 - Artist content upload and management
 - Fan subscription and content access
-- Payment flows end-to-end
-- Live streaming viewer experience
+- Payment flows
+- Live streaming
 
 ### 8. Complete GDPR Compliance
 
-Currently ~60% implemented. Remaining work:
+~60% implemented. Remaining:
 - Complete `src/lib/legal-compliance.ts` (has TODOs)
-- Add user-facing UI for data export requests
-- Test data deletion workflows end-to-end
-- Verify consent tracking covers all data collection points
+- User-facing data export UI
+- Test data deletion workflows
 
----
+### 9. Set Up Error Tracking (Sentry)
 
-## LOWER PRIORITY - Feature Enhancements
-
-### 9. Expand AI Features
-
-Partially built capabilities that can be extended:
-- **Content moderation** — OpenAI integration exists, needs tuning
-- **Recommendation engine** — Framework in place, needs training data
-- **Pricing optimization** — Dynamic pricing model started
-- **Analytics summaries** — AI-generated insights for artists
-
-### 10. Enable Error Tracking (Sentry)
-
-Sentry is configured in code but needs credentials:
-
-1. Create a project at https://sentry.io
-2. Add to Vercel environment variables:
+1. Create project at https://sentry.io
+2. Add to Vercel:
    ```
    NEXT_PUBLIC_SENTRY_DSN=https://...@sentry.io/...
    SENTRY_AUTH_TOKEN=...
-   SENTRY_ORG=your-org
-   SENTRY_PROJECT=directfanz
    ```
+
+---
+
+## Environment Variables (Vercel Dashboard)
+
+### Required
+```
+DATABASE_URL=postgresql://...
+NEXTAUTH_SECRET=<generated>
+NEXTAUTH_URL=https://www.directfanz.io
+NODE_ENV=production
+```
+
+### Services
+```
+STRIPE_SECRET_KEY=sk_live_...
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+SENDGRID_API_KEY=SG...
+FROM_EMAIL=noreply@directfanz.io
+REDIS_URL=rediss://...
+BLOB_READ_WRITE_TOKEN=<auto-configured by Vercel>
+```
+
+### Optional
+```
+OPENAI_API_KEY=sk-...
+NEXT_PUBLIC_SENTRY_DSN=https://...@sentry.io/...
+```
 
 ---
 
 ## Cost Estimate
 
-### Minimum (MVP):
 | Service | Cost |
 |---------|------|
 | Vercel Pro | $20/month |
-| Vercel Postgres | $0-10/month |
-| Upstash Redis | $0/month (free tier) |
-| SendGrid | $0/month (free tier) |
-| **Total** | **~$20-30/month** |
-
-### Recommended (Full Features):
-| Service | Cost |
-|---------|------|
-| Vercel Pro | $20/month |
-| Vercel Postgres | $25/month |
-| Upstash Redis | $10/month |
-| AWS S3 + CloudFront | $10-50/month |
-| SendGrid | $15/month |
-| Sentry | $0-26/month |
-| **Total** | **~$80-150/month** |
+| Vercel Postgres | $0-25/month |
+| Vercel Blob | $0-20/month (pay per use) |
+| Upstash Redis | $0-10/month |
+| SendGrid | $0-15/month |
+| Stripe | 2.9% + 30c per transaction |
+| **Total** | **~$20-90/month** |
 
 ---
 
-## Quick Reference - Key Files
+## Key Files Reference
 
 | Category | Files |
 |----------|-------|
 | Database schema | `prisma/schema.prisma` |
 | API routes | `src/app/api/` |
-| Environment template | `.env.production.example` |
-| Docker setup | `docker-compose.production.yml` |
-| CI/CD | `.github/workflows/ci-cd.yml` |
-| Main config | `package.json`, `tsconfig.json`, `next.config.js` |
-| Deployment guides | `DEPLOY_FROM_GITHUB.md`, `PRODUCTION_QUICKSTART.md`, `AWS_DEPLOYMENT_GUIDE.md` |
-| Security docs | `SECURITY_IMPLEMENTATION_SUMMARY.md` |
-| Feature overview | `FEATURE_MAP.md`, `PLATFORM_FEATURES_OVERVIEW.md` |
+| File storage | `src/lib/s3.ts`, `src/lib/upload.ts` (Vercel Blob) |
+| Auth | `src/lib/auth.ts` |
+| Main config | `next.config.js`, `package.json` |
+| CI/CD | `.github/workflows/ci-cd.yml`, `.github/workflows/vercel-deploy.yml` |
+| Deployment | Vercel dashboard |

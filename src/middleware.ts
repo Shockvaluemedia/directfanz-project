@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from 'next-auth/middleware';
 import {
@@ -9,10 +8,10 @@ import {
   createWebhookRateLimiter,
   createGeneralRateLimiter,
 } from '@/middleware/rate-limit';
-import { addSecurityHeaders, detectSuspiciousActivity, generateCSP } from '@/lib/security';
+import { addSecurityHeaders, detectSuspiciousActivity } from '@/lib/security';
 import { createRateLimitResponse } from '@/lib/error-handler';
 import { logger, generateRequestId } from '@/lib/logger';
-import { applySecurityHeaders, getSecurityConfig } from '@/lib/security-headers';
+import { applySecurityHeaders } from '@/lib/security-headers';
 import { AdaptiveRateLimiter } from './lib/adaptive-rate-limiter';
 import { getToken } from 'next-auth/jwt';
 import { captureError } from '@/lib/sentry';
@@ -65,10 +64,7 @@ export async function middleware(request: NextRequest) {
   if (!url.startsWith('/api/')) {
     const response = NextResponse.next();
     // Apply browser-specific security headers
-    applySecurityHeaders(response, {
-      ...getSecurityConfig(),
-      csp: generateCSP(), // Enhanced CSP for pages
-    });
+    applySecurityHeaders(response);
     return response;
   }
 
@@ -269,7 +265,7 @@ export async function middleware(request: NextRequest) {
   response.headers.set('x-response-time', `${Date.now() - startTime}ms`);
 
   // Apply comprehensive security headers
-  applySecurityHeaders(response, getSecurityConfig());
+  applySecurityHeaders(response);
 
   // Add CORS headers for API routes if needed
   if (url.startsWith('/api/') && origin !== 'unknown') {

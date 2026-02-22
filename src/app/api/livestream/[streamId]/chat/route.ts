@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -71,7 +70,7 @@ export async function GET(request: NextRequest, { params }: { params: { streamId
       },
       take: limit,
       include: {
-        sender: {
+        users: {
           select: {
             id: true,
             displayName: true,
@@ -92,12 +91,12 @@ export async function GET(request: NextRequest, { params }: { params: { streamId
       type: msg.type,
       isHighlighted: msg.isHighlighted,
       createdAt: msg.createdAt,
-      sender: msg.sender
+      sender: msg.users
         ? {
-            id: msg.users_messages_senderIdTousers.id,
-            displayName: msg.users_messages_senderIdTousers.displayName,
-            avatar: msg.users_messages_senderIdTousers.avatar,
-            role: msg.users_messages_senderIdTousers.role,
+            id: msg.users.id,
+            displayName: msg.users.displayName,
+            avatar: msg.users.avatar,
+            role: msg.users.role,
           }
         : null,
     }));
@@ -207,14 +206,15 @@ export async function POST(request: NextRequest, { params }: { params: { streamI
     // Create the message
     const message = await prisma.stream_chat_messages.create({
       data: {
+        id: crypto.randomUUID(),
         streamId: params.streamId,
         senderId,
         senderName,
         message: validatedData.message,
         type: validatedData.type,
-      },
+      } as any,
       include: {
-        sender: {
+        users: {
           select: {
             id: true,
             displayName: true,
@@ -235,6 +235,7 @@ export async function POST(request: NextRequest, { params }: { params: { streamI
       },
     });
 
+    const messageWithUsers = message as any;
     const formattedMessage = {
       id: message.id,
       streamId: message.streamId,
@@ -244,12 +245,12 @@ export async function POST(request: NextRequest, { params }: { params: { streamI
       type: message.type,
       isHighlighted: message.isHighlighted,
       createdAt: message.createdAt,
-      sender: message.sender
+      sender: messageWithUsers.users
         ? {
-            id: message.users_messages_senderIdTousers.id,
-            displayName: message.users_messages_senderIdTousers.displayName,
-            avatar: message.users_messages_senderIdTousers.avatar,
-            role: message.users_messages_senderIdTousers.role,
+            id: messageWithUsers.users.id,
+            displayName: messageWithUsers.users.displayName,
+            avatar: messageWithUsers.users.avatar,
+            role: messageWithUsers.users.role,
           }
         : null,
     };

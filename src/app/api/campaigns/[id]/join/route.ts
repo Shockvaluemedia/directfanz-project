@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -52,7 +51,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     const existingParticipation = await prisma.challenge_participations.findFirst({
       where: {
         participantId: session.user.id,
-        challenge: {
+        challenges: {
           campaignId: campaignId,
         },
       },
@@ -89,6 +88,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       // Create challenge participation
       const participation = await tx.challenge_participations.create({
         data: {
+          id: crypto.randomUUID(),
           challengeId: mainChallenge.id,
           participantId: session.user.id,
           status: 'ACTIVE',
@@ -155,12 +155,12 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     const participation = await prisma.challenge_participations.findFirst({
       where: {
         participantId: session.user.id,
-        challenge: {
+        challenges: {
           campaignId: campaignId,
         },
       },
       include: {
-        challenge: {
+        challenges: {
           select: { id: true, status: true },
         },
         challenge_submissions: {

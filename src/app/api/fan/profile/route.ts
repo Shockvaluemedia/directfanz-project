@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { withFanApi } from '@/lib/api-auth';
 import { prisma } from '@/lib/prisma';
@@ -15,9 +14,9 @@ export async function GET(request: NextRequest) {
         include: {
           subscriptions: {
             include: {
-              tier: {
+              tiers: {
                 include: {
-                  artist: {
+                  users: {
                     select: {
                       id: true,
                       displayName: true,

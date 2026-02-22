@@ -1,17 +1,16 @@
-// @ts-nocheck
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Play, 
-  Pause, 
-  Volume2, 
-  VolumeX, 
-  Maximize, 
-  Minimize, 
-  SkipBack, 
-  SkipForward, 
+import {
+  Play,
+  Pause,
+  Volume2,
+  VolumeX,
+  Maximize,
+  Minimize,
+  SkipBack,
+  SkipForward,
   Settings,
   ClosedCaption as ClosedCaptioning,
   FileText,
@@ -22,7 +21,8 @@ import {
   RotateCcw,
   FastForward,
   Rewind,
-  Loader
+  Loader,
+  X
 } from 'lucide-react';
 import { useAccessibility } from '@/contexts/AccessibilityContext';
 import { useScreenReader, useKeyboardNavigation, useAriaUtilities } from '@/hooks/useAccessibilityHooks';
@@ -130,7 +130,8 @@ export function AccessibleVideoPlayer({
   // Auto-pause when reduced motion is preferred
   useEffect(() => {
     if (settings.reducedMotion && isPlaying) {
-      handlePause();
+      videoRef.current?.pause();
+      setIsPlaying(false);
     }
   }, [settings.reducedMotion]);
 

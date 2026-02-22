@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Advanced Thumbnail and Preview Generation System
  *
@@ -186,7 +185,7 @@ export class ThumbnailGenerator {
 
     return new Promise((resolve, reject) => {
       // Use FFmpeg scene detection filter
-      ffmpeg(inputPath)
+      (ffmpeg(inputPath) as any)
         .outputOptions([
           `-vf select='gt(scene,${THUMBNAIL_CONFIG.SCENE_DETECTION.threshold})',metadata=print:file=${sceneFile}`,
           '-f null',
@@ -208,7 +207,7 @@ export class ThumbnailGenerator {
             resolve(this.generateEvenTimestamps(metadata.duration, count));
           }
         })
-        .on('error', err => {
+        .on('error', (err: Error) => {
           logger.warn('Scene detection failed, using even distribution', {}, err);
           resolve(this.generateEvenTimestamps(metadata.duration, count));
         })
@@ -412,7 +411,7 @@ export class ThumbnailGenerator {
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       ffmpeg(inputPath)
-        .screenshots({
+        .screenshot({
           timestamps: [timestamp],
           filename: path.basename(outputPath),
           folder: path.dirname(outputPath),
@@ -658,7 +657,7 @@ export class ThumbnailGenerator {
     const outputKey = `${outputPrefix}-preview.gif`;
 
     return new Promise((resolve, reject) => {
-      ffmpeg(inputPath)
+      (ffmpeg(inputPath) as any)
         .seekInput(startTimestamp)
         .duration(gifDuration)
         .size(`${gifWidth}x${gifHeight}`)
@@ -667,7 +666,7 @@ export class ThumbnailGenerator {
         .output(tempPath.replace('.gif', '_palette.png'))
         .on('end', () => {
           // Second pass with palette
-          ffmpeg(inputPath)
+          (ffmpeg(inputPath) as any)
             .seekInput(startTimestamp)
             .duration(gifDuration)
             .size(`${gifWidth}x${gifHeight}`)

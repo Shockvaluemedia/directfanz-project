@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -61,8 +60,8 @@ export function RealtimeDashboard({
   const [activeTab, setActiveTab] = useState<'overview' | 'messaging' | 'streaming'>('overview');
   const [isExpanded, setIsExpanded] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [messages, setMessages] = useState([]);
-  const [conversations, setConversations] = useState([]);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [conversations, setConversations] = useState<any[]>([]);
   
   const { socket, isConnected } = useSocket({ userId });
   const { presence } = usePresence(userId);

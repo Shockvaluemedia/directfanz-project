@@ -1,5 +1,4 @@
-// @ts-nocheck
-import { getRedisClient } from './redis-production';
+import { getRedisClient } from './redis';
 
 interface RateLimitConfig {
   windowMs: number;
@@ -19,30 +18,34 @@ export class AuthSecurityManager {
     const windowStart = now - config.windowMs;
 
     try {
+      if (!this.redis) {
+        return { allowed: true, remaining: config.maxAttempts, resetTime: now + config.windowMs };
+      }
+
       // Remove old entries
       await this.redis.zremrangebyscore(key, 0, windowStart);
-      
+
       // Count current attempts
       const currentAttempts = await this.redis.zcard(key);
-      
+
       if (currentAttempts >= config.maxAttempts) {
         // Check if still blocked
         const oldestAttempt = await this.redis.zrange(key, 0, 0, 'WITHSCORES');
-        const resetTime = oldestAttempt.length > 0 
+        const resetTime = oldestAttempt.length > 0
           ? parseInt(oldestAttempt[1]) + config.windowMs
           : now + config.windowMs;
-        
+
         return {
           allowed: false,
           remaining: 0,
           resetTime,
         };
       }
-      
+
       // Add current attempt
       await this.redis.zadd(key, now, `${now}-${Math.random()}`);
       await this.redis.expire(key, Math.ceil(config.windowMs / 1000));
-      
+
       return {
         allowed: true,
         remaining: config.maxAttempts - currentAttempts - 1,
@@ -56,22 +59,25 @@ export class AuthSecurityManager {
   }
 
   async recordFailedLogin(identifier: string): Promise<void> {
+    if (!this.redis) return;
     const key = `failed_login:${identifier}`;
     const attempts = await this.redis.incr(key);
     await this.redis.expire(key, 900); // 15 minutes
-    
+
     if (attempts >= 5) {
       // Lock account temporarily
-      await this.redis.set(`locked:${identifier}`, '1', 1800); // 30 minutes
+      await this.redis.set(`locked:${identifier}`, '1', 'EX', 1800); // 30 minutes
     }
   }
 
   async isAccountLocked(identifier: string): Promise<boolean> {
+    if (!this.redis) return false;
     const locked = await this.redis.get(`locked:${identifier}`);
     return locked === '1';
   }
 
   async clearFailedAttempts(identifier: string): Promise<void> {
+    if (!this.redis) return;
     await this.redis.del(`failed_login:${identifier}`);
     await this.redis.del(`locked:${identifier}`);
   }

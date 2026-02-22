@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Advanced Content Optimization Service
  * 
@@ -248,7 +247,7 @@ export class ContentOptimizer {
         outputs: outputs.map(output => ({
           quality: output.quality,
           format: output.format,
-          size: output.size,
+          size: output.fileSize,
           url: output.url,
           optimizations: output.optimizations || [],
         })),
@@ -595,7 +594,7 @@ export class ContentOptimizer {
     return result.outputs.map(output => ({
       quality: output.quality,
       format: output.format,
-      size: output.size,
+      size: output.fileSize,
       url: output.url,
       optimizations: ['transcoding', 'bitrate_optimization', 'keyframe_optimization'],
     }));
@@ -611,7 +610,7 @@ export class ContentOptimizer {
     return result.outputs.map(output => ({
       quality: output.quality,
       format: output.format,
-      size: output.size,
+      size: output.fileSize,
       url: output.url,
       optimizations: ['format_conversion', 'bitrate_optimization', 'normalization'],
     }));

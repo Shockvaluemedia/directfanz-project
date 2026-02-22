@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -60,7 +59,7 @@ export default function CampaignDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
 
-  const campaignId = params.id as string;
+  const campaignId = params?.id as string;
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -378,7 +377,7 @@ export default function CampaignDetailsPage() {
           isOpen={isEditing}
           onClose={() => setIsEditing(false)}
           campaign={campaign}
-          onSave={handleSaveCampaign}
+          onSave={handleSaveCampaign as (updatedCampaign: any) => void}
         />
       )}
     </div>

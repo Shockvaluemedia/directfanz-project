@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 /**
@@ -7,7 +6,7 @@
  * Professional video player with:
  * - HLS streaming from AWS MediaPackage
  * - Adaptive bitrate streaming
- * - CloudFront CDN delivery
+ * - CDN delivery
  * - Quality selection and controls
  * - Mobile-optimized playback
  */
@@ -127,6 +126,7 @@ export default function HLSPlayer({
       console.error('HLS is not supported in this browser');
       onError?.({ message: 'HLS not supported' });
     }
+    return undefined;
   }, [src, onError]);
 
   // Video event handlers
