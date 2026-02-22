@@ -720,11 +720,13 @@ model users {
   email                                String                     @unique
   password                             String?
   role                                 String                     @default("FAN")
+  status                               String                     @default("ACTIVE")
   displayName                          String
   bio                                  String?
   avatar                               String?
   socialLinks                          Json?
   notificationPreferences              Json?
+  privacySettings                      Json?
   emailVerified                        DateTime?
   image                                String?
   createdAt                            DateTime                   @default(now())
@@ -740,6 +742,8 @@ model users {
   content                              content[]
   content_likes                        content_likes[]
   content_views                        content_views[]
+  following                            follows[]                  @relation("UserFollowing")
+  followers                            follows[]                  @relation("UserFollowers")
   live_streams                         live_streams[]
   messages_messages_recipientIdTousers messages[]                 @relation("messages_recipientIdTousers")
   messages_messages_senderIdTousers    messages[]                 @relation("messages_senderIdTousers")
@@ -768,6 +772,20 @@ model users {
   @@index([emailVerified])
   @@index([displayName])
   @@index([role, lastSeenAt])
+  @@index([status])
+}
+
+model follows {
+  id         String   @id @default(cuid())
+  followerId String
+  followedId String
+  createdAt  DateTime @default(now())
+  follower   users    @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
+  followed   users    @relation("UserFollowers", fields: [followedId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followedId])
+  @@index([followerId])
+  @@index([followedId])
 }
 
 model verificationtokens {
