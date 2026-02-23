@@ -139,7 +139,7 @@ export default function FanEngagementHub({ currentUser, className = '' }: FanEng
       {
         id: '1',
         title: 'First Listen',
-        description: 'Listen to your first track on Nahvee Even',
+        description: 'Listen to your first track on DirectFanz',
         icon: '🎧',
         category: 'engagement',
         rarity: 'common',

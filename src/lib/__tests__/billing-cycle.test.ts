@@ -59,6 +59,7 @@ describe('Billing Cycle Functions', () => {
 
   afterEach(() => {
     delete process.env.NEXT_PUBLIC_APP_URL;
+    jest.restoreAllMocks();
   });
 
   describe('getUpcomingInvoices', () => {
@@ -178,7 +179,7 @@ describe('Billing Cycle Functions', () => {
           },
           tiers: {
             name: 'Premium',
-            artist: { displayName: 'Test Artist' },
+            users: { displayName: 'Test Artist' },
           },
           amount: new Decimal(10.0),
         },
@@ -240,7 +241,7 @@ describe('Billing Cycle Functions', () => {
           },
           tiers: {
             name: 'Premium',
-            artist: { displayName: 'Test Artist' },
+            users: { displayName: 'Test Artist' },
           },
           amount: new Decimal(10.0),
         },
@@ -430,7 +431,7 @@ describe('Billing Cycle Functions', () => {
           },
           tiers: {
             name: 'Premium',
-            artist: { displayName: 'Test Artist' },
+            users: { displayName: 'Test Artist' },
           },
         },
         {
@@ -443,7 +444,7 @@ describe('Billing Cycle Functions', () => {
           },
           tiers: {
             name: 'VIP',
-            artist: { displayName: 'Test Artist' },
+            users: { displayName: 'Test Artist' },
           },
         },
       ];

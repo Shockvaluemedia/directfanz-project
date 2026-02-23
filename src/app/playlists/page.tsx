@@ -1,7 +1,7 @@
 import { PlaylistManager } from '@/components/playlists/PlaylistManager';
 
 export const metadata = {
-  title: 'Playlists | Nahvee Even',
+  title: 'Playlists | DirectFanz',
   description: 'Discover and create music playlists',
 };
 

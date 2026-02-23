@@ -110,11 +110,11 @@ function updateDependencies() {
   }
   
   // Check mobile dependencies
-  const mobileDir = path.join(process.cwd(), 'NahveeEvenMobile');
+  const mobileDir = path.join(process.cwd(), 'DirectFanzMobile');
   if (fs.existsSync(mobileDir)) {
     process.chdir(mobileDir);
     
-    const mobilePackageChanged = execCommand('git diff --name-only HEAD~1 HEAD | grep NahveeEvenMobile/package', { 
+    const mobilePackageChanged = execCommand('git diff --name-only HEAD~1 HEAD | grep DirectFanzMobile/package', { 
       silent: true, 
       ignoreError: true 
     });

@@ -29,7 +29,7 @@ export default function SimpleNav() {
           {/* Logo */}
           <div className='flex items-center gap-6'>
             <Link href='/' className='text-xl font-bold text-gray-900'>
-              Nahvee Even 🎵
+              DirectFanz 🎵
             </Link>
 
             {/* Main Navigation */}

@@ -1,7 +1,7 @@
 // Mock dependencies first
 jest.mock('@/lib/prisma', () => ({
   prisma: {
-    invoice: {
+    invoices: {
       create: jest.fn(),
       update: jest.fn(),
       findMany: jest.fn(),
@@ -88,7 +88,7 @@ describe('Invoice Functions', () => {
         items: [{ description: 'Monthly subscription' }],
       };
 
-      mockPrisma.invoice.create.mockResolvedValue(mockInvoiceData as any);
+      mockPrisma.invoices.create.mockResolvedValue(mockInvoiceData as any);
 
       const result = await createInvoice({
         subscriptionId: 'sub_123',
@@ -102,7 +102,7 @@ describe('Invoice Functions', () => {
       });
 
       expect(result).toEqual(mockInvoiceData);
-      expect(mockPrisma.invoice.create).toHaveBeenCalledWith({
+      expect(mockPrisma.invoices.create).toHaveBeenCalledWith({
         data: {
           subscriptionId: 'sub_123',
           stripeInvoiceId: 'in_stripe_123',
@@ -119,7 +119,7 @@ describe('Invoice Functions', () => {
     });
 
     it('should handle errors when creating an invoice', async () => {
-      mockPrisma.invoice.create.mockRejectedValue(new Error('Database error'));
+      mockPrisma.invoices.create.mockRejectedValue(new Error('Database error'));
 
       await expect(
         createInvoice({
@@ -146,7 +146,7 @@ describe('Invoice Functions', () => {
         status: 'PAID',
       };
 
-      mockPrisma.invoice.update.mockResolvedValue(mockInvoiceData as any);
+      mockPrisma.invoices.update.mockResolvedValue(mockInvoiceData as any);
 
       const result = await updateInvoice('inv_123', {
         amount: 15.0,
@@ -154,7 +154,7 @@ describe('Invoice Functions', () => {
       });
 
       expect(result).toEqual(mockInvoiceData);
-      expect(mockPrisma.invoice.update).toHaveBeenCalledWith({
+      expect(mockPrisma.invoices.update).toHaveBeenCalledWith({
         where: { id: 'inv_123' },
         data: {
           amount: new Decimal(15.0),
@@ -165,7 +165,7 @@ describe('Invoice Functions', () => {
     });
 
     it('should handle errors when updating an invoice', async () => {
-      mockPrisma.invoice.update.mockRejectedValue(new Error('Database error'));
+      mockPrisma.invoices.update.mockRejectedValue(new Error('Database error'));
 
       await expect(updateInvoice('inv_123', { status: 'PAID' })).rejects.toThrow(
         'Failed to update invoice'
@@ -182,7 +182,7 @@ describe('Invoice Functions', () => {
         { id: 'inv_2', amount: new Decimal(15.0) },
       ];
 
-      mockPrisma.invoice.findMany.mockResolvedValue(mockInvoices as any);
+      mockPrisma.invoices.findMany.mockResolvedValue(mockInvoices as any);
 
       const result = await getInvoices({
         subscriptionId: 'sub_123',
@@ -191,7 +191,7 @@ describe('Invoice Functions', () => {
       });
 
       expect(result).toEqual(mockInvoices);
-      expect(mockPrisma.invoice.findMany).toHaveBeenCalledWith({
+      expect(mockPrisma.invoices.findMany).toHaveBeenCalledWith({
         where: {
           subscriptionId: 'sub_123',
           status: 'PAID',
@@ -209,14 +209,14 @@ describe('Invoice Functions', () => {
       const startDate = new Date('2022-01-01');
       const endDate = new Date('2022-01-31');
 
-      mockPrisma.invoice.findMany.mockResolvedValue([]);
+      mockPrisma.invoices.findMany.mockResolvedValue([]);
 
       await getInvoices({
         startDate,
         endDate,
       });
 
-      expect(mockPrisma.invoice.findMany).toHaveBeenCalledWith({
+      expect(mockPrisma.invoices.findMany).toHaveBeenCalledWith({
         where: {
           dueDate: {
             gte: startDate,
@@ -233,7 +233,7 @@ describe('Invoice Functions', () => {
     });
 
     it('should handle errors when getting invoices', async () => {
-      mockPrisma.invoice.findMany.mockRejectedValue(new Error('Database error'));
+      mockPrisma.invoices.findMany.mockRejectedValue(new Error('Database error'));
 
       await expect(getInvoices({})).rejects.toThrow('Failed to get invoices');
 
@@ -252,25 +252,25 @@ describe('Invoice Functions', () => {
         },
       };
 
-      mockPrisma.invoice.findUnique.mockResolvedValue(mockInvoice as any);
+      mockPrisma.invoices.findUnique.mockResolvedValue(mockInvoice as any);
 
       const result = await getInvoiceById('inv_123');
 
       expect(result).toEqual(mockInvoice);
-      expect(mockPrisma.invoice.findUnique).toHaveBeenCalledWith({
+      expect(mockPrisma.invoices.findUnique).toHaveBeenCalledWith({
         where: { id: 'inv_123' },
         include: expect.any(Object),
       });
     });
 
     it('should throw error if invoice not found', async () => {
-      mockPrisma.invoice.findUnique.mockResolvedValue(null);
+      mockPrisma.invoices.findUnique.mockResolvedValue(null);
 
       await expect(getInvoiceById('nonexistent')).rejects.toThrow('Failed to get invoice');
     });
 
     it('should handle errors when getting an invoice', async () => {
-      mockPrisma.invoice.findUnique.mockRejectedValue(new Error('Database error'));
+      mockPrisma.invoices.findUnique.mockRejectedValue(new Error('Database error'));
 
       await expect(getInvoiceById('inv_123')).rejects.toThrow('Failed to get invoice');
 
@@ -306,13 +306,13 @@ describe('Invoice Functions', () => {
 
       mockGenerateInvoiceData.mockResolvedValue(mockInvoiceData as any);
       mockPrisma.subscriptions.findUnique.mockResolvedValue(mockSubscription as any);
-      mockPrisma.invoice.findUnique.mockResolvedValue(null);
-      mockPrisma.invoice.create.mockResolvedValue({ id: 'inv_123' } as any);
+      mockPrisma.invoices.findUnique.mockResolvedValue(null);
+      mockPrisma.invoices.create.mockResolvedValue({ id: 'inv_123' } as any);
 
       const result = await generateAndStoreInvoice('in_stripe_123');
 
       expect(result).toEqual({ id: 'inv_123' });
-      expect(mockPrisma.invoice.create).toHaveBeenCalled();
+      expect(mockPrisma.invoices.create).toHaveBeenCalled();
     });
 
     it('should update an existing invoice', async () => {
@@ -338,13 +338,13 @@ describe('Invoice Functions', () => {
 
       mockGenerateInvoiceData.mockResolvedValue(mockInvoiceData as any);
       mockPrisma.subscriptions.findUnique.mockResolvedValue(mockSubscription as any);
-      mockPrisma.invoice.findUnique.mockResolvedValue(existingInvoice as any);
-      mockPrisma.invoice.update.mockResolvedValue({ id: 'inv_123', updated: true } as any);
+      mockPrisma.invoices.findUnique.mockResolvedValue(existingInvoice as any);
+      mockPrisma.invoices.update.mockResolvedValue({ id: 'inv_123', updated: true } as any);
 
       const result = await generateAndStoreInvoice('in_stripe_123');
 
       expect(result).toEqual({ id: 'inv_123', updated: true });
-      expect(mockPrisma.invoice.update).toHaveBeenCalled();
+      expect(mockPrisma.invoices.update).toHaveBeenCalled();
     });
 
     it('should handle proration items', async () => {
@@ -383,12 +383,12 @@ describe('Invoice Functions', () => {
 
       mockGenerateInvoiceData.mockResolvedValue(mockInvoiceData as any);
       mockPrisma.subscriptions.findUnique.mockResolvedValue(mockSubscription as any);
-      mockPrisma.invoice.findUnique.mockResolvedValue(null);
-      mockPrisma.invoice.create.mockResolvedValue({ id: 'inv_123' } as any);
+      mockPrisma.invoices.findUnique.mockResolvedValue(null);
+      mockPrisma.invoices.create.mockResolvedValue({ id: 'inv_123' } as any);
 
       await generateAndStoreInvoice('in_stripe_123');
 
-      expect(mockPrisma.invoice.create).toHaveBeenCalledWith({
+      expect(mockPrisma.invoices.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           prorationAmount: new Decimal(5.0),
         }),
@@ -427,7 +427,7 @@ describe('Invoice Functions', () => {
         },
       };
 
-      mockPrisma.invoice.findUnique.mockResolvedValue(mockInvoice as any);
+      mockPrisma.invoices.findUnique.mockResolvedValue(mockInvoice as any);
       mockSendEmail.mockResolvedValue(undefined);
 
       await sendInvoiceNotification('inv_123');
@@ -454,7 +454,7 @@ describe('Invoice Functions', () => {
         },
       };
 
-      mockPrisma.invoice.findUnique.mockResolvedValue(mockInvoice as any);
+      mockPrisma.invoices.findUnique.mockResolvedValue(mockInvoice as any);
 
       await sendInvoiceNotification('inv_123');
 
@@ -477,7 +477,7 @@ describe('Invoice Functions', () => {
         },
       };
 
-      mockPrisma.invoice.findUnique.mockResolvedValue(mockInvoice as any);
+      mockPrisma.invoices.findUnique.mockResolvedValue(mockInvoice as any);
 
       await sendInvoiceNotification('inv_123');
 
@@ -515,9 +515,9 @@ describe('Invoice Functions', () => {
       };
 
       // Mock getInvoiceById call inside processInvoicePayment
-      mockPrisma.invoice.findUnique.mockResolvedValue(mockInvoice as any);
+      mockPrisma.invoices.findUnique.mockResolvedValue(mockInvoice as any);
       mockStripe.invoices.pay.mockResolvedValue({} as any);
-      mockPrisma.invoice.update.mockResolvedValue(updatedInvoice as any);
+      mockPrisma.invoices.update.mockResolvedValue(updatedInvoice as any);
       mockSendEmail.mockResolvedValue(undefined);
 
       const result = await processInvoicePayment('inv_123');
@@ -525,7 +525,7 @@ describe('Invoice Functions', () => {
       expect(result.success).toBe(true);
       expect(result.invoice).toEqual(updatedInvoice);
       expect(mockStripe.invoices.pay).toHaveBeenCalledWith('in_stripe_123');
-      expect(mockPrisma.invoice.update).toHaveBeenCalledWith({
+      expect(mockPrisma.invoices.update).toHaveBeenCalledWith({
         where: { id: 'inv_123' },
         data: {
           status: 'PAID',
@@ -541,7 +541,7 @@ describe('Invoice Functions', () => {
         status: 'PAID',
       };
 
-      mockPrisma.invoice.findUnique.mockResolvedValue(mockInvoice as any);
+      mockPrisma.invoices.findUnique.mockResolvedValue(mockInvoice as any);
 
       const result = await processInvoicePayment('inv_123');
 

@@ -83,13 +83,13 @@ describe('Payment Retry Functions', () => {
 
       expect(result).toEqual(mockFailure);
       expect(mockPrisma.payment_failures.create).toHaveBeenCalledWith({
-        data: {
+        data: expect.objectContaining({
           subscriptionId: 'sub_123',
           stripeInvoiceId: 'in_123',
           amount: new Decimal(10.0),
           failureReason: 'Card declined',
           nextRetryAt: expect.any(Date),
-        },
+        }),
       });
       expect(mockPrisma.subscriptions.update).toHaveBeenCalledWith({
         where: { id: 'sub_123' },

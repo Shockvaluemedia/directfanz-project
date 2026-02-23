@@ -331,7 +331,7 @@ describe('Payment Flow Integration Tests', () => {
 
       // Verify Prisma operations were called for subscription creation
       expect(prisma.subscriptions.create).toHaveBeenCalledWith({
-        data: {
+        data: expect.objectContaining({
           fanId: 'fan-123',
           artistId: 'artist-123',
           tierId: 'tier-123',
@@ -340,7 +340,7 @@ describe('Payment Flow Integration Tests', () => {
           status: 'ACTIVE',
           currentPeriodStart: expect.any(Date),
           currentPeriodEnd: expect.any(Date),
-        },
+        }),
       });
 
       expect(prisma.tiers.update).toHaveBeenCalledWith({

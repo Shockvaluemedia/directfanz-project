@@ -173,10 +173,10 @@ curl https://directfanz.io/api/health
 
 ## 📱 Mobile App Synchronization
 
-### React Native (NahveeEvenMobile)
+### React Native (DirectFanzMobile)
 ```bash
 # Update mobile dependencies
-cd NahveeEvenMobile
+cd DirectFanzMobile
 npm install
 
 # Build and test

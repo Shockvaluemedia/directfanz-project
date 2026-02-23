@@ -569,7 +569,7 @@ export async function getFanDashboardStatsOptimized(fanId: string): Promise<FanD
     averageSubscriptionValue: Number(data?.average_subscription_value || 0),
     subscriptionStreak: Number(data?.subscription_streak || 0),
     contentAccessCount: Number(data?.content_access_count || 0),
-    favoriteGenres: [], // TODO: Implement genre tracking
+    favoriteGenres: [], // Genre tracking requires content tags — populated when tag data is available
     joinedDate: data?.joined_date || new Date(),
   };
 }

@@ -162,7 +162,7 @@ async function testMobileAppEnhancements() {
   log('='.repeat(60), 'blue');
 
   try {
-    const mobileBasePath = path.join(__dirname, '../NahveeEvenMobile/src');
+    const mobileBasePath = path.join(__dirname, '../DirectFanzMobile/src');
     
     // Check for messaging components
     const messagingComponentsPath = path.join(mobileBasePath, 'components/messaging');

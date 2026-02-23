@@ -1,4 +1,4 @@
-// @ts-nocheck — TODO: Fix Prisma relation names and type errors in admin moderation
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';

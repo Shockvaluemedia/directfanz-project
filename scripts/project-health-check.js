@@ -46,7 +46,7 @@ class ProjectHealthChecker {
         fs.readFileSync(path.join(this.projectRoot, 'package.json'), 'utf8')
       );
       const mobilePackage = JSON.parse(
-        fs.readFileSync(path.join(this.projectRoot, 'NahveeEvenMobile', 'package.json'), 'utf8')
+        fs.readFileSync(path.join(this.projectRoot, 'DirectFanzMobile', 'package.json'), 'utf8')
       );
 
       // Check for version inconsistencies
@@ -88,7 +88,7 @@ class ProjectHealthChecker {
         fs.readFileSync(path.join(this.projectRoot, 'tsconfig.json'), 'utf8')
       );
       const mobileTsConfig = JSON.parse(
-        fs.readFileSync(path.join(this.projectRoot, 'NahveeEvenMobile', 'tsconfig.json'), 'utf8')
+        fs.readFileSync(path.join(this.projectRoot, 'DirectFanzMobile', 'tsconfig.json'), 'utf8')
       );
 
       // Check if strict mode is properly configured

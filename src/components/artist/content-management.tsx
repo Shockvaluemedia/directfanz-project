@@ -16,6 +16,21 @@ import {
 } from '@heroicons/react/24/solid';
 import FileUpload, { FileUploadItem } from './file-upload';
 
+function getMediaDuration(file: File): Promise<number | undefined> {
+  return new Promise((resolve) => {
+    const isVideo = file.type.startsWith('video/');
+    const isAudio = file.type.startsWith('audio/');
+    if (!isVideo && !isAudio) { resolve(undefined); return; }
+    const url = URL.createObjectURL(file);
+    const media = isVideo
+      ? document.createElement('video')
+      : document.createElement('audio');
+    media.src = url;
+    media.onloadedmetadata = () => { URL.revokeObjectURL(url); resolve(Math.round(media.duration)); };
+    media.onerror = () => { URL.revokeObjectURL(url); resolve(undefined); };
+  });
+}
+
 interface Content {
   id: string;
   title: string;
@@ -129,6 +144,7 @@ export default function ContentManagement() {
     if (!fileItem.fileUrl) return;
 
     try {
+      const duration = await getMediaDuration(fileItem.file);
       const response = await fetch('/api/artist/content', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -138,7 +154,7 @@ export default function ContentManagement() {
           fileUrl: fileItem.fileUrl,
           fileSize: fileItem.file.size,
           format: fileItem.file.name.split('.').pop()?.toLowerCase() || '',
-          duration: undefined, // TODO: Extract from metadata
+          duration,
           tags: formData.tags,
           tierIds: formData.tierIds,
           isPublic: formData.isPublic,

@@ -178,7 +178,7 @@ npx prisma generate
 
 These exist in the codebase but should NOT be priorities:
 
-- **Mobile app** (NahveeEvenMobile/) — Focus on web first
+- **Mobile app** (DirectFanzMobile/) — Focus on web first
 - **AI features** — Nice-to-have, not MVP
 - **Advanced analytics/ML** — Basic analytics work; ML can wait
 - **NFT/Web3** — Not started, not needed

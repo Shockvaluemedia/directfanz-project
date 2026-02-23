@@ -188,7 +188,7 @@ export async function calculateTierAnalyticsOptimized(artistId: string) {
     subscriberCount: Number(tier.subscriber_count),
     monthlyRevenue: Number(tier.monthly_revenue),
     averageAmount: Number(tier.average_amount),
-    conversionRate: 0, // TODO: Implement tier view tracking
+    conversionRate: 0, // Requires view tracking data — tracked via content_views when available
   }));
 }
 

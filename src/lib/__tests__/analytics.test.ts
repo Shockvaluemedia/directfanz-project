@@ -234,16 +234,16 @@ describe('Analytics Library', () => {
           status: 'ACTIVE',
           amount: 10.0,
           createdAt: new Date('2024-01-14T10:00:00Z'),
-          fan: { displayName: 'John Doe' },
-          tier: { name: 'Basic' },
+          users: { displayName: 'John Doe' },
+          tiers: { name: 'Basic' },
         },
         {
           id: 'sub-2',
           status: 'CANCELED',
           amount: 15.0,
           createdAt: new Date('2024-01-13T10:00:00Z'),
-          fan: { displayName: 'Jane Smith' },
-          tier: { name: 'Premium' },
+          users: { displayName: 'Jane Smith' },
+          tiers: { name: 'Premium' },
         },
       ];
 

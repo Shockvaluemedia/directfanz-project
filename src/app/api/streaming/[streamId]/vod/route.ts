@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withStreamManagement } from '@/lib/streaming-auth';
+import { prisma } from '@/lib/prisma';
 
 export async function POST(
   request: NextRequest,
@@ -9,7 +10,7 @@ export async function POST(
     try {
       const { streamId } = params;
       const body = await request.json();
-      const { recordingKey, title, description } = body;
+      const { recordingKey, title, description, videoUrl, duration = 0, fileSize = 0, quality = 'HD', format = 'mp4' } = body;
 
       if (!streamId || !recordingKey) {
         return NextResponse.json(
@@ -18,28 +19,29 @@ export async function POST(
         );
       }
 
-      // TODO: Implement VOD conversion with a Vercel-compatible transcoding service
-      // Previous implementation used AWS MediaConvert which is no longer available.
-      // Options: use a third-party transcoding API (e.g., Mux, Cloudflare Stream)
-      // or store the raw recording directly for playback.
-
-      const vodRecord = {
-        id: crypto.randomUUID(),
-        streamId,
-        userId: req.user.id,
-        title: title || `VOD from Stream ${streamId}`,
-        description: description || '',
-        status: 'pending',
-        recordingKey,
-        createdAt: new Date().toISOString(),
-      };
+      // Store VOD record in stream_recordings table.
+      // Raw recording URL is stored directly; transcoding can be added later via Mux or Cloudflare Stream.
+      const vodRecord = await prisma.stream_recordings.create({
+        data: {
+          id: crypto.randomUUID(),
+          streamId,
+          videoUrl: videoUrl || recordingKey,
+          duration,
+          fileSize,
+          quality,
+          format,
+          status: 'PROCESSING',
+          isPublic: false,
+          updatedAt: new Date(),
+        },
+      });
 
       return NextResponse.json({
         vodId: vodRecord.id,
-        status: 'pending',
-        title: vodRecord.title,
-        description: vodRecord.description,
-        message: 'VOD conversion queued. Transcoding service integration pending.',
+        status: vodRecord.status,
+        title: title || `VOD from Stream ${streamId}`,
+        description: description || '',
+        message: 'VOD record created. Raw recording stored for playback.',
       });
     } catch (error) {
       console.error('VOD conversion error:', error);
@@ -55,7 +57,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { streamId: string } }
 ) {
-  return withStreamManagement<any>(request, async (req) => {
+  return withStreamManagement<any>(request, async (_req) => {
     try {
       const { streamId } = params;
 
@@ -66,8 +68,10 @@ export async function GET(
         );
       }
 
-      // TODO: Get VOD records from database
-      const vodRecords: any[] = [];
+      const vodRecords = await prisma.stream_recordings.findMany({
+        where: { streamId },
+        orderBy: { createdAt: 'desc' },
+      });
 
       return NextResponse.json({
         streamId,

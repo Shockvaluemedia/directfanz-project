@@ -53,7 +53,7 @@
     ".kiro/tests/**/*",
     "e2e/**/*",
     "src/mobile/**/*",
-    "NahveeEvenMobile/**/*",
+    "DirectFanzMobile/**/*",
     "prisma/seed.ts",
     "prisma/seed-simple.ts",
     "sentry.*.config.ts",

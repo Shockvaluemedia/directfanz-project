@@ -55,15 +55,36 @@ export async function GET() {
       }),
     ]);
 
+    const trendingStreams = await prisma.live_streams.findMany({
+      where: { status: 'LIVE' },
+      orderBy: { totalViewers: 'desc' },
+      take: 5,
+      select: { id: true, title: true, status: true, totalViewers: true, artistId: true },
+    });
+
+    const categoryGroups = await prisma.live_streams.groupBy({
+      by: ['category'],
+      where: { status: 'LIVE', category: { not: null } },
+      _count: { category: true },
+      orderBy: { _count: { category: 'desc' } },
+      take: 5,
+    });
+    const popularCategories = categoryGroups
+      .map(g => g.category)
+      .filter(Boolean) as string[];
+
     return NextResponse.json({
       success: true,
       data: {
         totalStreams,
+        totalLiveStreams: liveStreams,
         liveStreams,
         totalViewers,
         totalTips: totalTips._sum.amount || 0,
         totalMessages,
         recentStreams,
+        trendingStreams,
+        popularCategories,
       },
     });
   } catch (error) {

@@ -262,10 +262,12 @@ export default function LiveStreamViewer({
       setChatMessages(data.chatHistory || []);
       setIsLoading(false);
 
-      // Check if user is following
-      if (session?.user?.id) {
-        // This would typically come from the server
-        setIsFollowing(false); // TODO: Get actual follow status
+      // Check if user is following the artist
+      if (session?.user?.id && data.stream?.artistId) {
+        fetch(`/api/user/following/${data.stream.artistId}`)
+          .then(r => r.ok ? r.json() : null)
+          .then(d => { if (d) setIsFollowing(d.isFollowing ?? false); })
+          .catch(() => setIsFollowing(false));
       }
     },
     [session?.user?.id]

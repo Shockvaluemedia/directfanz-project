@@ -1,5 +1,5 @@
 /**
- * Nahvee Even - Advanced Media Processing System
+ * DirectFanz - Advanced Media Processing System
  *
  * This comprehensive media processing system provides enterprise-grade capabilities for:
  * - Video and audio transcoding with FFmpeg integration

@@ -121,7 +121,7 @@ export async function GET(request: NextRequest) {
             totalContent: contentCount,
             engagementRate,
             unreadMessages: unreadMessages,
-            pendingNotifications: 0, // TODO: implement notifications system
+            pendingNotifications: unreadMessages,
           },
         },
       });
