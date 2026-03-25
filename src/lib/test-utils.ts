@@ -396,7 +396,7 @@ export const createMockFile = (name = 'test.jpg', type = 'image/jpeg', size = 10
 
 export const mockBlobUpload = {
   upload: (jest.fn() as any).mockResolvedValue({
-    url: 'https://test-storage.public.blob.vercel-storage.com/test.jpg',
+    url: 'https://mock-s3.amazonaws.com/test.jpg',
     pathname: 'test.jpg',
   }),
   getSignedUrl: (jest.fn() as any).mockResolvedValue('https://signed-url.example.com'),

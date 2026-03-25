@@ -52,10 +52,10 @@ jest.mock('fluent-ffmpeg', () => {
   return mockConstructor;
 });
 jest.mock('ffprobe-static', () => ({ path: '/fake/ffprobe/path' }));
-jest.mock('@vercel/blob', () => ({
-  put: jest.fn().mockResolvedValue({ url: 'https://mock-blob.vercel-storage.com/test-file', pathname: 'test-file' }),
+jest.mock('@/lib/s3', () => ({
+  put: jest.fn().mockResolvedValue({ url: 'https://mock-s3.amazonaws.com/test-file', pathname: 'test-file' }),
   del: jest.fn().mockResolvedValue(undefined),
-  head: jest.fn().mockResolvedValue({ url: 'https://mock-blob.vercel-storage.com/test-file', size: 12345, uploadedAt: new Date() }),
+  head: jest.fn().mockResolvedValue({ url: 'https://mock-s3.amazonaws.com/test-file', size: 12345, uploadedAt: new Date() }),
   list: jest.fn().mockResolvedValue({ blobs: [], cursor: undefined, hasMore: false }),
 }));
 
@@ -158,8 +158,8 @@ describe('Content Optimization Integration Tests', () => {
     // Setup storage mock
     const { generatePresignedUrl, validateFileUpload, SUPPORTED_FILE_TYPES } = require('../lib/s3');
     (generatePresignedUrl as jest.Mock).mockResolvedValue({
-      uploadUrl: 'https://mock-blob.vercel-storage.com/presigned-upload-url',
-      fileUrl: 'https://mock-blob.vercel-storage.com/uploads/mock-file.jpg',
+      uploadUrl: 'https://mock-s3.amazonaws.com/presigned-upload-url',
+      fileUrl: 'https://mock-s3.amazonaws.com/uploads/mock-file.jpg',
       key: 'content/artist-123/mock-file.jpg',
     });
     (validateFileUpload as jest.Mock).mockReturnValue([]);

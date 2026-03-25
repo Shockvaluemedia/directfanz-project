@@ -6,7 +6,7 @@
  */
 
 import { logger } from './logger';
-import { captureMessage, setUser, Sentry } from './sentry';
+import { captureMessage, setUser } from './sentry';
 import client from 'prom-client';
 
 // Types for business events
@@ -177,16 +177,6 @@ class BusinessMetricsTracker {
 
       if (this.debug) {
         logger.info('Business event tracked', eventData);
-      }
-
-      // Send to Sentry as breadcrumb for context
-      if (process.env.NODE_ENV === 'production') {
-        Sentry.addBreadcrumb({
-          category: 'business',
-          message: event.event,
-          data: event.properties,
-          level: 'info',
-        });
       }
 
       // Log for analytics processing

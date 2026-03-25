@@ -3,268 +3,179 @@
 A platform that connects independent artists with their superfans through
 subscription-based exclusive content access.
 
-## 🚀 Ready to Deploy to Production?
-
-**Your DirectFanz platform is 95% production-ready!**
-
-→ **[START HERE: DEPLOYMENT_READY.md](./DEPLOYMENT_READY.md)** ←
-
-This master guide will take you from zero to live in ~50 minutes.
-
 ## Features
 
 - **Artist Dashboard**: Create subscription tiers, upload exclusive content,
   track earnings
 - **Fan Experience**: Discover artists, flexible subscription pricing, access
   exclusive content
-- **Secure Payments**: Stripe integration with daily payouts
-- **Community Features**: Comments, notifications, and fan interactions
+- **Secure Payments**: Stripe Connect integration with daily payouts
+- **Live Streaming**: Real-time streams with chat, polls, and tips
+- **Community Features**: Comments, notifications, messaging, and fan interactions
+- **Campaigns & Challenges**: Gamification with leaderboards, submissions, rewards
+- **Admin Panel**: User management, content moderation, analytics
+- **GDPR Compliance**: Data export, deletion requests, consent tracking
 
 ## Tech Stack
 
-- **Frontend**: Next.js 14, React 18, Tailwind CSS
-- **Backend**: Next.js API routes
+- **Frontend**: Next.js 14 (App Router), React 18, Tailwind CSS
+- **Backend**: Next.js API routes + custom server (Socket.IO)
 - **Database**: PostgreSQL with Prisma ORM
-- **Cache**: Redis
+- **Cache**: Redis (ioredis)
 - **Payments**: Stripe Connect
-- **Storage**: AWS S3 (for production)
+- **Storage**: AWS S3 (with optional CloudFront CDN)
 - **Authentication**: NextAuth.js
+- **Real-time**: Pusher + Socket.IO
+- **Deployment**: Docker → AWS ECS (Fargate)
 
-## Docker Setup
+## Quick Start (Local Development)
 
 ### Prerequisites
 
-- Docker and Docker Compose installed on your system
-- Git (to clone the repository)
+- Node.js 20+
+- Docker & Docker Compose (for Postgres + Redis)
 
-### Quick Start
-
-1. **Clone the repository** (if not already done):
-
-   ```bash
-   git clone https://github.com/your-username/directfanz-project-project.git
-   cd directfanz-project-project
-   ```
-
-2. **Set up environment variables**:
-
-   ```bash
-   cp .env.local.example .env.local
-   ```
-
-   Edit `.env.local` with your configuration values.
-
-3. **Start the application with Docker**:
-
-   ```bash
-   docker-compose up --build
-   ```
-
-4. **Access the application**:
-   - Main app: http://localhost:3000
-   - PostgreSQL: localhost:5432
-   - Redis: localhost:6379
-   - pgAdmin: http://localhost:5050 (admin@directfanz.io / admin)
-
-### Docker Services
-
-- **app**: Next.js application (port 3000)
-- **postgres**: PostgreSQL database (port 5432)
-- **redis**: Redis cache (port 6379)
-- **pgadmin**: Database management interface (port 5050)
-
-### Development Commands
+### 1. Clone & install
 
 ```bash
-# Start all services
-docker-compose up
-
-# Start in background
-docker-compose up -d
-
-# Rebuild and start
-docker-compose up --build
-
-# Stop all services
-docker-compose down
-
-# View logs
-docker-compose logs app
-
-# Access app container shell
-docker-compose exec app sh
-
-# Access database
-docker-compose exec postgres psql -U postgres -d direct_fan_platform
+git clone https://github.com/Shockvaluemedia/directfanz-project.git
+cd directfanz-project
+npm ci
 ```
 
-### Database Setup
-
-The database will be automatically initialized when you first run
-`docker-compose up`. The schema will be created using Prisma migrations.
-
-To run database operations:
+### 2. Start databases
 
 ```bash
-# Generate Prisma client
-docker-compose exec app npm run db:generate
-
-# Push schema to database
-docker-compose exec app npm run db:push
-
-# Run migrations
-docker-compose exec app npm run db:migrate
-
-# Seed database
-docker-compose exec app npm run db:seed
+docker compose up -d postgres redis
 ```
 
-## Environment Variables
+### 3. Configure environment
 
-Key environment variables you need to configure in `.env.local`:
-
-```env
-# Database (automatically configured for Docker)
-DATABASE_URL="postgresql://postgres:password@postgres:5432/directfanz"
-
-# Redis (automatically configured for Docker)
-REDIS_URL="redis://redis:6379"
-
-# NextAuth.js
-NEXTAUTH_SECRET="your-secret-key-change-in-production"
-NEXTAUTH_URL="http://localhost:3000"
-
-# Stripe (required for payments)
-STRIPE_PUBLISHABLE_KEY="pk_test_..."
-STRIPE_SECRET_KEY="sk_test_..."
-STRIPE_WEBHOOK_SECRET="whsec_..."
-
-# AWS S3 (required for file uploads)
-AWS_ACCESS_KEY_ID="your-access-key"
-AWS_SECRET_ACCESS_KEY="your-secret-key"
-AWS_S3_BUCKET_NAME="your-bucket-name"
-
-# SendGrid (required for emails)
-SENDGRID_API_KEY="SG...."
-FROM_EMAIL="noreply@directfanz.io"
+```bash
+cp .env.example .env.local
+# Edit .env.local with your keys
 ```
 
-## Troubleshooting
+### 4. Set up database
 
-### Common Issues
+```bash
+npx prisma generate
+npx prisma db push
+# Optional: seed demo data
+npm run db:seed
+```
 
-1. **Port conflicts**: If ports 3000, 5432, 6379, or 5050 are already in use,
-   modify the ports in `docker-compose.yml`
+### 5. Run the dev server
 
-2. **Database connection issues**: Ensure PostgreSQL service is running:
+```bash
+npm run dev
+```
 
+Open http://localhost:3000.
+
+## Docker (Full Stack)
+
+```bash
+docker compose up --build
+```
+
+Services:
+- **app**: Next.js application — http://localhost:3000
+- **postgres**: PostgreSQL — localhost:5432
+- **redis**: Redis — localhost:6379
+
+## Production Deployment (AWS)
+
+The project is configured for AWS ECS (Fargate) deployment.
+
+### Required AWS Resources
+
+| Service | Purpose |
+|---------|---------|
+| ECS Fargate | Application hosting |
+| RDS PostgreSQL | Database |
+| ElastiCache Redis | Cache & sessions |
+| S3 | Media file storage |
+| CloudFront | CDN (optional) |
+| ALB | Load balancer & TLS termination |
+| ECR | Docker image registry |
+| Parameter Store | Secrets management |
+
+### Deploy Steps
+
+1. **Build & push Docker image**:
    ```bash
-   docker-compose logs postgres
+   docker build -t directfanz .
+   # Tag and push to ECR
    ```
 
-3. **Node modules issues**: If you encounter module-related errors, rebuild the
-   container:
+2. **Set environment variables** in AWS Parameter Store or ECS task definition.
 
+3. **Run database migrations**:
    ```bash
-   docker-compose down
-   docker-compose up --build
+   npx prisma migrate deploy
    ```
 
-4. **Permission issues**: On Linux/Mac, you might need to adjust file
-   permissions:
-   ```bash
-   sudo chown -R $USER:$USER .
-   ```
+4. **Deploy ECS service** using the provided task definition.
 
-### Logs and Debugging
+### Environment Variables
 
-```bash
-# View all logs
-docker-compose logs
+See [`.env.example`](.env.example) for the full list. Key variables:
 
-# View specific service logs
-docker-compose logs app
-docker-compose logs postgres
-docker-compose logs redis
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_URL` | PostgreSQL connection string |
+| `REDIS_URL` | Redis connection string |
+| `NEXTAUTH_SECRET` | Auth session secret |
+| `NEXTAUTH_URL` | Public app URL |
+| `STRIPE_SECRET_KEY` | Stripe API key |
+| `AWS_S3_BUCKET_NAME` | S3 bucket for media |
+| `AWS_REGION` | AWS region |
+| `AWS_CLOUDFRONT_DOMAIN` | CloudFront domain (optional) |
 
-# Follow logs in real-time
-docker-compose logs -f app
-```
-
-## Production Deployment
-
-### 🎯 Ready to Go Live?
-
-**Your DirectFanz platform is production-ready!**
-
-**→ [DEPLOYMENT_READY.md](./DEPLOYMENT_READY.md)** - Master deployment guide (start here)
-
-### Quick Deploy Options
-
-**Option 1: GitHub → Vercel** (Recommended, ~50 minutes)
-```bash
-# 1. Go to https://vercel.com/new
-# 2. Import repository: Shockvaluemedia/directfanz-project
-# 3. Add environment variables
-# 4. Deploy!
-```
-See: [DEPLOY_FROM_GITHUB.md](./DEPLOY_FROM_GITHUB.md)
-
-**Option 2: Vercel CLI** (~1 hour)
-```bash
-# Automated setup wizard
-npm run vercel:setup
-
-# Or manual deployment
-./deploy-to-vercel.sh
-```
-See: [DEPLOY_NOW.md](./DEPLOY_NOW.md)
-
-### Pre-Deployment Checklist
+## Scripts
 
 ```bash
-# Run automated checks
-npm run vercel:check
+npm run dev          # Development server
+npm run build        # Production build
+npm run start        # Start production server
+npm run lint         # Lint & auto-fix
+npm run typecheck    # TypeScript check
+npm run test         # Run unit & integration tests
+npm run db:generate  # Generate Prisma client
+npm run db:push      # Push schema to DB
+npm run db:migrate   # Run migrations
+npm run db:seed      # Seed demo data
 ```
 
-### Available Deployment Scripts
+## Project Structure
 
-- `npm run vercel:setup` - Interactive production setup wizard
-- `npm run vercel:check` - Run pre-deployment checklist
-- `npm run vercel:deploy` - Deploy to production
-- `npm run vercel:preview` - Deploy preview environment
-- `npm run vercel:env` - Pull environment variables
-
-### Required Services
-
-For production deployment, you'll need:
-
-1. **Database**: Vercel Postgres, Supabase, or AWS RDS
-2. **Cache**: Upstash Redis (recommended for Vercel)
-3. **Storage**: AWS S3 for media files
-4. **Payments**: Stripe account with live keys
-5. **Email**: SendGrid or similar service
-6. **Monitoring**: Sentry for error tracking (optional)
-
-### Documentation
-
-**Deployment Guides:**
-- [DEPLOYMENT_READY.md](./DEPLOYMENT_READY.md) - **Master deployment guide (start here)**
-- [NEXT_STEPS.md](./NEXT_STEPS.md) - Comprehensive action plan & feature roadmap
-- [DEPLOY_FROM_GITHUB.md](./DEPLOY_FROM_GITHUB.md) - GitHub integration (recommended)
-- [DEPLOY_NOW.md](./DEPLOY_NOW.md) - Quick CLI deployment
-- [VERCEL_ENV_CHECKLIST.md](./VERCEL_ENV_CHECKLIST.md) - Environment variables guide
-- [AWS_DEPLOYMENT_GUIDE.md](./AWS_DEPLOYMENT_GUIDE.md) - AWS architecture alternative
-- [PRODUCTION_QUICKSTART.md](./PRODUCTION_QUICKSTART.md) - 5-minute quick start
+```
+src/
+├── app/           # Next.js App Router (pages + API routes)
+├── components/    # React components
+├── lib/           # Shared utilities, Prisma client, S3, auth
+├── hooks/         # React hooks
+├── contexts/      # React contexts
+├── middleware/     # Rate limiting middleware
+├── types/         # TypeScript types
+└── styles/        # Global CSS
+prisma/            # Prisma schema & migrations
+scripts/           # Utility, debug, test, deploy, and DB scripts
+e2e/               # Playwright end-to-end tests
+tests/             # Jest integration tests
+docker/            # Docker-related configs
+monitoring/        # Monitoring & alerting configs
+```
 
 ## Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Test with Docker
+4. Run `npm run lint && npm run typecheck && npm test`
 5. Submit a pull request
 
 ## License
 
-[Your License Here]
+Proprietary — All rights reserved.

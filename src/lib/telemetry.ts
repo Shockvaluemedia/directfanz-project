@@ -2,8 +2,8 @@
  * Telemetry Module — Intentionally Stubbed
  *
  * OpenTelemetry packages are not installed in this project.
- * Error tracking and performance monitoring are handled by Sentry
- * (configured via NEXT_PUBLIC_SENTRY_DSN).
+ * Error tracking is handled by the centralized logger.
+ * Add CloudWatch or Datadog integration as needed.
  *
  * The TracingService methods below log timing information through the
  * centralized logger so that developers still get visibility into

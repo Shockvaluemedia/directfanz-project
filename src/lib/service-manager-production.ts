@@ -1,6 +1,6 @@
 import Stripe from 'stripe';
-import { put } from '@vercel/blob';
 import sgMail from '@sendgrid/mail';
+import { uploadFile as s3Upload, headFile } from '@/lib/s3';
 
 interface ServiceHealthStatus {
   healthy: boolean;
@@ -14,14 +14,14 @@ export class ProductionServiceManager {
   private sendGridConfigured = false;
   private healthStatus: {
     stripe: ServiceHealthStatus;
-    blob: ServiceHealthStatus;
+    s3: ServiceHealthStatus;
     sendgrid: ServiceHealthStatus;
   };
 
   constructor() {
     this.healthStatus = {
       stripe: { healthy: false, lastChecked: new Date() },
-      blob: { healthy: false, lastChecked: new Date() },
+      s3: { healthy: false, lastChecked: new Date() },
       sendgrid: { healthy: false, lastChecked: new Date() },
     };
 
@@ -121,41 +121,34 @@ export class ProductionServiceManager {
     }
   }
 
-  // Blob storage methods
+  // S3 storage methods
   async uploadFile(key: string, body: Buffer | Uint8Array | string, contentType?: string): Promise<string> {
     try {
       const start = Date.now();
-      const blob = await put(key, body as any, {
-        access: 'public',
-        contentType,
-        addRandomSuffix: false,
-      });
-      this.updateHealthStatus('blob', true, Date.now() - start);
-      return blob.url;
+      const buf = Buffer.isBuffer(body) ? body : Buffer.from(body as any);
+      const url = await s3Upload(key, buf, contentType || 'application/octet-stream');
+      this.updateHealthStatus('s3', true, Date.now() - start);
+      return url;
     } catch (error) {
-      this.updateHealthStatus('blob', false, undefined, error as Error);
+      this.updateHealthStatus('s3', false, undefined, error as Error);
       throw error;
     }
   }
 
-  async checkBlobHealth(): Promise<ServiceHealthStatus> {
-    if (!process.env.BLOB_READ_WRITE_TOKEN) {
-      this.updateHealthStatus('blob', false, undefined, new Error('BLOB_READ_WRITE_TOKEN not configured'));
-      return this.healthStatus.blob;
+  async checkS3Health(): Promise<ServiceHealthStatus> {
+    if (!process.env.AWS_S3_BUCKET_NAME) {
+      this.updateHealthStatus('s3', false, undefined, new Error('AWS_S3_BUCKET_NAME not configured'));
+      return this.healthStatus.s3;
     }
 
     try {
       const start = Date.now();
-      // Simple health check — upload a tiny test blob
-      await put('_health-check', 'ok', {
-        access: 'public',
-        addRandomSuffix: false,
-      });
-      this.updateHealthStatus('blob', true, Date.now() - start);
-      return this.healthStatus.blob;
+      await s3Upload('_health-check', Buffer.from('ok'), 'text/plain');
+      this.updateHealthStatus('s3', true, Date.now() - start);
+      return this.healthStatus.s3;
     } catch (error) {
-      this.updateHealthStatus('blob', false, undefined, error as Error);
-      return this.healthStatus.blob;
+      this.updateHealthStatus('s3', false, undefined, error as Error);
+      return this.healthStatus.s3;
     }
   }
 
@@ -223,7 +216,7 @@ export class ProductionServiceManager {
   async checkAllServicesHealth(): Promise<typeof this.healthStatus> {
     await Promise.all([
       this.checkStripeHealth(),
-      this.checkBlobHealth(),
+      this.checkS3Health(),
       this.checkSendGridHealth(),
     ]);
     return this.healthStatus;

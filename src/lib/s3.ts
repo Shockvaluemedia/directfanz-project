@@ -1,4 +1,23 @@
-import { put, del, list } from '@vercel/blob';
+import {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectCommand,
+  HeadObjectCommand,
+  ListObjectsV2Command,
+} from '@aws-sdk/client-s3';
+
+const REGION = process.env.AWS_REGION || 'us-east-1';
+const BUCKET = process.env.AWS_S3_BUCKET_NAME || '';
+
+const s3 = new S3Client({ region: REGION });
+
+function publicUrl(key: string): string {
+  const cdnDomain = process.env.AWS_CLOUDFRONT_DOMAIN;
+  if (cdnDomain) {
+    return `https://${cdnDomain}/${key}`;
+  }
+  return `https://${BUCKET}.s3.${REGION}.amazonaws.com/${key}`;
+}
 
 // Supported file types and their MIME types
 export const SUPPORTED_FILE_TYPES = {
@@ -46,7 +65,7 @@ export interface UploadResponse {
 }
 
 /**
- * Upload a file to Vercel Blob storage and return a client upload URL.
+ * Generate a presigned-style upload response (server-side upload path).
  */
 export async function generatePresignedUrl({
   fileName,
@@ -54,59 +73,88 @@ export async function generatePresignedUrl({
   fileSize,
   artistId,
 }: UploadRequest): Promise<UploadResponse> {
-  // Validate file type
   if (!SUPPORTED_FILE_TYPES[fileType as keyof typeof SUPPORTED_FILE_TYPES]) {
     throw new Error(`Unsupported file type: ${fileType}`);
   }
 
   const fileInfo = SUPPORTED_FILE_TYPES[fileType as keyof typeof SUPPORTED_FILE_TYPES];
 
-  // Validate file size
   if (fileSize > FILE_SIZE_LIMITS[fileInfo.category]) {
     const limitMB = FILE_SIZE_LIMITS[fileInfo.category] / (1024 * 1024);
     throw new Error(`File size exceeds limit of ${limitMB}MB for ${fileInfo.category} files`);
   }
 
-  // Generate unique path
   const timestamp = Date.now();
   const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
   const key = `content/${artistId}/${timestamp}-${sanitizedFileName}`;
 
-  // For Vercel Blob, we return a placeholder upload URL.
-  // Actual uploads should use the `put()` function server-side
-  // or `upload()` from @vercel/blob/client on the client side.
   return {
     uploadUrl: key,
-    fileUrl: key,
+    fileUrl: publicUrl(key),
     key,
   };
 }
 
 /**
- * Upload a buffer directly to Vercel Blob storage.
+ * Upload a buffer directly to S3.
  */
 export async function uploadFile(
   key: string,
   data: Buffer | ReadableStream | Blob,
   contentType: string
 ): Promise<string> {
-  const blob = await put(key, data, {
-    access: 'public',
-    contentType,
-    addRandomSuffix: false,
-  });
-  return blob.url;
+  let body: Buffer;
+  if (Buffer.isBuffer(data)) {
+    body = data;
+  } else if (data instanceof Blob) {
+    body = Buffer.from(await data.arrayBuffer());
+  } else {
+    const chunks: Uint8Array[] = [];
+    const reader = (data as ReadableStream).getReader();
+    let done = false;
+    while (!done) {
+      const result = await reader.read();
+      done = result.done;
+      if (result.value) chunks.push(result.value);
+    }
+    body = Buffer.concat(chunks);
+  }
+
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: BUCKET,
+      Key: key,
+      Body: body,
+      ContentType: contentType,
+    })
+  );
+  return publicUrl(key);
 }
 
 /**
- * Delete a file from Vercel Blob storage.
+ * Delete a file from S3 (accepts a full URL or a bare key).
  */
-export async function deleteFile(url: string): Promise<void> {
-  await del(url);
+export async function deleteFile(urlOrKey: string): Promise<void> {
+  const key = extractKeyFromUrl(urlOrKey);
+  await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }));
 }
 
 /**
- * Extract the pathname from a Vercel Blob URL.
+ * Get metadata for an object in S3.
+ */
+export async function headFile(urlOrKey: string) {
+  const key = extractKeyFromUrl(urlOrKey);
+  const response = await s3.send(new HeadObjectCommand({ Bucket: BUCKET, Key: key }));
+  return {
+    size: response.ContentLength ?? 0,
+    uploadedAt: response.LastModified ?? new Date(),
+    url: publicUrl(key),
+    contentType: response.ContentType,
+  };
+}
+
+/**
+ * Extract the S3 key from a full URL or return the string as-is if it's already a key.
  */
 export function extractKeyFromUrl(url: string): string {
   try {
@@ -143,3 +191,5 @@ export function validateFileUpload(fileName: string, fileType: string, fileSize:
 
   return errors;
 }
+
+export { s3 as s3Client, BUCKET, REGION };

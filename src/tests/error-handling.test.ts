@@ -22,10 +22,10 @@ jest.mock('../lib/content-optimization');
 jest.mock('../lib/media-processing');
 jest.mock('sharp', () => jest.fn(() => mockSharp));
 
-jest.mock('@vercel/blob', () => ({
-  put: jest.fn().mockResolvedValue({ url: 'https://mock-blob.vercel-storage.com/test-file', pathname: 'test-file' }),
+jest.mock('@/lib/s3', () => ({
+  put: jest.fn().mockResolvedValue({ url: 'https://mock-s3.amazonaws.com/test-file', pathname: 'test-file' }),
   del: jest.fn().mockResolvedValue(undefined),
-  head: jest.fn().mockResolvedValue({ url: 'https://mock-blob.vercel-storage.com/test-file', size: 12345, uploadedAt: new Date() }),
+  head: jest.fn().mockResolvedValue({ url: 'https://mock-s3.amazonaws.com/test-file', size: 12345, uploadedAt: new Date() }),
   list: jest.fn().mockResolvedValue({ blobs: [], cursor: undefined, hasMore: false }),
 }));
 
@@ -65,10 +65,10 @@ describe('Error Handling & Edge Cases', () => {
     mockSharp.stats.mockResolvedValue({ channels: 3, density: 72, hasProfile: false, hasAlpha: false, size: 1048576 });
 
     // Setup Vercel Blob mocks
-    const blob = require('@vercel/blob');
-    (blob.put as jest.Mock).mockResolvedValue({ url: 'https://mock-blob.vercel-storage.com/test-file', pathname: 'test-file' });
+    const blob = require('@/lib/s3');
+    (blob.put as jest.Mock).mockResolvedValue({ url: 'https://mock-s3.amazonaws.com/test-file', pathname: 'test-file' });
     (blob.del as jest.Mock).mockResolvedValue(undefined);
-    (blob.head as jest.Mock).mockResolvedValue({ url: 'https://mock-blob.vercel-storage.com/test-file', size: 12345, uploadedAt: new Date() });
+    (blob.head as jest.Mock).mockResolvedValue({ url: 'https://mock-s3.amazonaws.com/test-file', size: 12345, uploadedAt: new Date() });
     (blob.list as jest.Mock).mockResolvedValue({ blobs: [], cursor: undefined, hasMore: false });
   });
 
@@ -454,15 +454,15 @@ describe('Error Handling & Edge Cases', () => {
       const batchRequest = {
         files: [
           {
-            filePath: 'https://mock-blob.vercel-storage.com/uploads/image1.jpg',
+            filePath: 'https://mock-s3.amazonaws.com/uploads/image1.jpg',
             contentType: 'IMAGE' as const,
           },
           {
-            filePath: 'https://mock-blob.vercel-storage.com/uploads/image2.jpg',
+            filePath: 'https://mock-s3.amazonaws.com/uploads/image2.jpg',
             contentType: 'IMAGE' as const,
           },
           {
-            filePath: 'https://mock-blob.vercel-storage.com/uploads/image3.jpg',
+            filePath: 'https://mock-s3.amazonaws.com/uploads/image3.jpg',
             contentType: 'IMAGE' as const,
           }
         ],

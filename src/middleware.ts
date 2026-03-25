@@ -14,7 +14,7 @@ import { logger, generateRequestId } from '@/lib/logger';
 import { applySecurityHeaders } from '@/lib/security-headers';
 import { AdaptiveRateLimiter } from './lib/adaptive-rate-limiter';
 import { getToken } from 'next-auth/jwt';
-import { captureError } from '@/lib/sentry';
+import { captureError } from '@/lib/sentry'; // now a no-op stub
 
 // Define adaptive rate limiters with different configurations
 const apiRateLimiter = new AdaptiveRateLimiter({
@@ -273,7 +273,7 @@ export async function middleware(request: NextRequest) {
     const allowedOrigins = [
       process.env.NEXT_PUBLIC_FRONTEND_URL || '',
       'http://localhost:3000',
-      'https://direct-fan-platform.vercel.app',
+      process.env.NEXT_PUBLIC_APP_URL || '',
     ];
 
     if (allowedOrigins.includes(origin)) {

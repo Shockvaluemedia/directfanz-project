@@ -10,7 +10,7 @@ import {
 import { AppError, ErrorCode, isAppError } from '@/lib/errors';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
-import { head } from '@vercel/blob';
+import { headFile } from '@/lib/s3';
 import crypto from 'crypto';
 
 const confirmUploadSchema = z.object({
@@ -31,8 +31,8 @@ export async function POST(request: NextRequest) {
     const validatedData = confirmUploadSchema.parse(body);
 
     try {
-      // Verify the file exists in Vercel Blob
-      const blobInfo = await head(validatedData.key);
+      // Verify the file exists in S3
+      const blobInfo = await headFile(validatedData.key);
 
       logger.info('Upload confirmed', {
         artistId: session.user.id,
@@ -54,12 +54,12 @@ export async function POST(request: NextRequest) {
         },
       });
     } catch (blobError: any) {
-      if (blobError?.name === 'BlobNotFoundError') {
+      if (blobError?.name === 'NotFound' || blobError?.$metadata?.httpStatusCode === 404) {
         throw new NotFoundError('File not found in storage');
       }
 
       logger.error(
-        'Blob error during upload confirmation',
+        'S3 error during upload confirmation',
         {
           artistId: session.user.id,
           key: validatedData.key,

@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { FileUploader } from '@/lib/upload';
-import { del } from '@vercel/blob';
+import { deleteFile as s3Delete } from '@/lib/s3';
 
 const listQuerySchema = z.object({
   page: z.string().optional().default('1'),
@@ -403,14 +403,14 @@ export async function DELETE(request: NextRequest) {
         where: { id: contentId },
       });
 
-      // Delete actual files from Vercel Blob storage
+      // Delete actual files from S3
       if (existingContent.fileUrl) {
         const filesToDelete = [existingContent.fileUrl, existingContent.thumbnailUrl].filter(Boolean) as string[];
 
         await Promise.allSettled(
           filesToDelete.map(async (url) => {
-            await del(url);
-            logger.info('Blob file deleted', { contentId, url });
+            await s3Delete(url);
+            logger.info('S3 file deleted', { contentId, url });
           })
         );
       }

@@ -14,7 +14,7 @@ import ffmpeg from 'fluent-ffmpeg';
 import ffmpegStatic from 'ffmpeg-static';
 // @ts-ignore - no type declarations available
 import ffprobeStatic from 'ffprobe-static';
-import { put } from '@vercel/blob';
+import { uploadFile as s3Upload } from '../s3';
 import sharp from 'sharp';
 import path from 'path';
 import fs from 'fs/promises';
@@ -30,7 +30,7 @@ if (ffprobeStatic) {
   (ffmpeg as any).setFfprobePath(ffprobeStatic.path);
 }
 
-// Vercel Blob is configured via BLOB_READ_WRITE_TOKEN env var
+// AWS S3 is configured via AWS_S3_BUCKET_NAME / AWS_REGION env vars
 
 // Processing Configuration
 export const PROCESSING_CONFIG = {
@@ -622,18 +622,13 @@ export class MediaProcessor {
   }
 
   /**
-   * Upload buffer to Vercel Blob
+   * Upload buffer to AWS S3
    */
   private async uploadToS3(buffer: Buffer, key: string, contentType: string): Promise<string> {
     try {
-      const blob = await put(key, buffer, {
-        access: 'public',
-        contentType,
-        addRandomSuffix: false,
-      });
-      return blob.url;
+      return await s3Upload(key, buffer, contentType);
     } catch (error) {
-      logger.error('Blob upload failed', { key }, error as Error);
+      logger.error('S3 upload failed', { key }, error as Error);
       throw new Error(`Failed to upload ${key} to storage`);
     }
   }

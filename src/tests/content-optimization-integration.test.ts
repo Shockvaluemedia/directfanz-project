@@ -30,10 +30,10 @@ jest.mock('ffprobe-static', () => ({
   path: '/fake/ffprobe/path'
 }));
 
-jest.mock('@vercel/blob', () => ({
-  put: jest.fn().mockResolvedValue({ url: 'https://mock-blob.vercel-storage.com/test-file', pathname: 'test-file' }),
+jest.mock('@/lib/s3', () => ({
+  put: jest.fn().mockResolvedValue({ url: 'https://mock-s3.amazonaws.com/test-file', pathname: 'test-file' }),
   del: jest.fn().mockResolvedValue(undefined),
-  head: jest.fn().mockResolvedValue({ url: 'https://mock-blob.vercel-storage.com/test-file', size: 12345, uploadedAt: new Date() }),
+  head: jest.fn().mockResolvedValue({ url: 'https://mock-s3.amazonaws.com/test-file', size: 12345, uploadedAt: new Date() }),
   list: jest.fn().mockResolvedValue({ blobs: [], cursor: undefined, hasMore: false }),
 }));
 
@@ -118,10 +118,10 @@ describe('Content Optimization Integration', () => {
     });
 
     // Setup Vercel Blob mocks
-    const blob = require('@vercel/blob');
-    (blob.put as jest.Mock).mockResolvedValue({ url: 'https://mock-blob.vercel-storage.com/test-file', pathname: 'test-file' });
+    const blob = require('@/lib/s3');
+    (blob.put as jest.Mock).mockResolvedValue({ url: 'https://mock-s3.amazonaws.com/test-file', pathname: 'test-file' });
     (blob.del as jest.Mock).mockResolvedValue(undefined);
-    (blob.head as jest.Mock).mockResolvedValue({ url: 'https://mock-blob.vercel-storage.com/test-file', size: 12345, uploadedAt: new Date() });
+    (blob.head as jest.Mock).mockResolvedValue({ url: 'https://mock-s3.amazonaws.com/test-file', size: 12345, uploadedAt: new Date() });
     (blob.list as jest.Mock).mockResolvedValue({ blobs: [], cursor: undefined, hasMore: false });
   });
 
@@ -131,7 +131,7 @@ describe('Content Optimization Integration', () => {
 
       // Step 1: Analyze content
       const analysis = await optimizer.analyzeContent(
-        'https://mock-blob.vercel-storage.com/uploads/test.jpg',
+        'https://mock-s3.amazonaws.com/uploads/test.jpg',
         'IMAGE'
       );
 
@@ -147,7 +147,7 @@ describe('Content Optimization Integration', () => {
 
       // Step 2: Optimize content
       const result = await optimizer.optimizeContent(
-        'https://mock-blob.vercel-storage.com/uploads/test.jpg',
+        'https://mock-s3.amazonaws.com/uploads/test.jpg',
         'IMAGE',
         {
           strategy: 'balanced',
@@ -176,7 +176,7 @@ describe('Content Optimization Integration', () => {
       const optimizer = contentOptimizer;
 
       const analysis = await optimizer.analyzeContent(
-        'https://mock-blob.vercel-storage.com/uploads/video.mp4',
+        'https://mock-s3.amazonaws.com/uploads/video.mp4',
         'VIDEO'
       );
 
@@ -190,7 +190,7 @@ describe('Content Optimization Integration', () => {
       });
 
       const result = await optimizer.optimizeContent(
-        'https://mock-blob.vercel-storage.com/uploads/video.mp4',
+        'https://mock-s3.amazonaws.com/uploads/video.mp4',
         'VIDEO',
         {
           strategy: 'streaming',
@@ -214,17 +214,17 @@ describe('Content Optimization Integration', () => {
 
       const files = [
         {
-          url: 'https://mock-blob.vercel-storage.com/uploads/image1.jpg',
+          url: 'https://mock-s3.amazonaws.com/uploads/image1.jpg',
           type: 'IMAGE' as const,
           strategy: 'balanced' as const
         },
         {
-          url: 'https://mock-blob.vercel-storage.com/uploads/image2.png',
+          url: 'https://mock-s3.amazonaws.com/uploads/image2.png',
           type: 'IMAGE' as const,
           strategy: 'quality' as const
         },
         {
-          url: 'https://mock-blob.vercel-storage.com/uploads/audio.mp3',
+          url: 'https://mock-s3.amazonaws.com/uploads/audio.mp3',
           type: 'AUDIO' as const,
           strategy: 'size' as const
         }
@@ -262,7 +262,7 @@ describe('Content Optimization Integration', () => {
     test('should preserve metadata throughout optimization', async () => {
       const optimizer = contentOptimizer;
 
-      const originalUrl = 'https://mock-blob.vercel-storage.com/uploads/metadata-test.jpg';
+      const originalUrl = 'https://mock-s3.amazonaws.com/uploads/metadata-test.jpg';
       const params = {
         strategy: 'balanced' as const,
         targetDevice: 'desktop' as const,
@@ -298,7 +298,7 @@ describe('Content Optimization Integration', () => {
 
       await expect(
         optimizer.optimizeContent(
-          'https://mock-blob.vercel-storage.com/uploads/corrupted.jpg',
+          'https://mock-s3.amazonaws.com/uploads/corrupted.jpg',
           'IMAGE',
           { strategy: 'balanced' }
         )
@@ -307,7 +307,7 @@ describe('Content Optimization Integration', () => {
 
     test('should validate optimization strategies work correctly', async () => {
       const optimizer = contentOptimizer;
-      const baseUrl = 'https://mock-blob.vercel-storage.com/uploads/test.jpg';
+      const baseUrl = 'https://mock-s3.amazonaws.com/uploads/test.jpg';
 
       const strategies = ['auto', 'balanced', 'quality', 'size', 'mobile'] as const;
 
@@ -328,7 +328,7 @@ describe('Content Optimization Integration', () => {
 
     test('should handle different target devices appropriately', async () => {
       const optimizer = contentOptimizer;
-      const baseUrl = 'https://mock-blob.vercel-storage.com/uploads/responsive.jpg';
+      const baseUrl = 'https://mock-s3.amazonaws.com/uploads/responsive.jpg';
 
       const devices = ['mobile', 'tablet', 'desktop', 'tv'] as const;
 
@@ -358,7 +358,7 @@ describe('Content Optimization Integration', () => {
 
     test('should handle different connection types appropriately', async () => {
       const optimizer = contentOptimizer;
-      const baseUrl = 'https://mock-blob.vercel-storage.com/uploads/connection-test.jpg';
+      const baseUrl = 'https://mock-s3.amazonaws.com/uploads/connection-test.jpg';
 
       const connections = ['2g', '3g', '4g', '5g', 'wifi'] as const;
 
@@ -392,7 +392,7 @@ describe('Content Optimization Integration', () => {
 
       const concurrentTasks = Array.from({ length: 5 }, (_, i) =>
         optimizer.optimizeContent(
-          `https://mock-blob.vercel-storage.com/uploads/concurrent-${i}.jpg`,
+          `https://mock-s3.amazonaws.com/uploads/concurrent-${i}.jpg`,
           'IMAGE',
           { strategy: 'balanced' }
         )
@@ -414,7 +414,7 @@ describe('Content Optimization Integration', () => {
 
     test('should maintain consistent quality across optimization runs', async () => {
       const optimizer = contentOptimizer;
-      const baseUrl = 'https://mock-blob.vercel-storage.com/uploads/consistency.jpg';
+      const baseUrl = 'https://mock-s3.amazonaws.com/uploads/consistency.jpg';
       const params = { strategy: 'balanced' as const };
 
       // Run the same optimization multiple times

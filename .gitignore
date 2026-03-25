@@ -72,6 +72,12 @@ tmp/
 temp/
 .vercel
 
+# SQLite / local dev databases
+*.db
+
+# Cookies / session dumps
+cookies.txt
+
 # Local file uploads (don't commit user uploads)
 public/uploads/content/
 public/uploads/temp/

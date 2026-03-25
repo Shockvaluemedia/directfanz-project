@@ -28,7 +28,7 @@ export default async function createCustomServer() {
       if (config.stripeSecretKey) process.env.STRIPE_SECRET_KEY = config.stripeSecretKey;
       if (config.openAiApiKey) process.env.OPENAI_API_KEY = config.openAiApiKey;
       if (config.sendGridApiKey) process.env.SENDGRID_API_KEY = config.sendGridApiKey;
-      if (config.sentryDsn) process.env.SENTRY_DSN = config.sentryDsn;
+      // Sentry removed — no DSN to set
       if (config.encryptionKey) process.env.ENCRYPTION_KEY = config.encryptionKey;
       if (config.jwtSecret) process.env.JWT_SECRET = config.jwtSecret;
       

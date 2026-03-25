@@ -1,9 +1,9 @@
-import { put, del } from '@vercel/blob';
 import sharp from 'sharp';
 import { lookup as mimeTypeLookup } from 'mime-types';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { ContentType } from '@/lib/types/enums';
+import { uploadFile as s3Upload, deleteFile as s3Delete } from '@/lib/s3';
 
 // File upload configuration
 const MAX_FILE_SIZES = {
@@ -88,7 +88,7 @@ export class FileUploader {
   }
 
   /**
-   * Upload buffer to Vercel Blob
+   * Upload buffer to S3
    */
   static async uploadToBlob(
     buffer: Buffer,
@@ -96,26 +96,21 @@ export class FileUploader {
     contentType: string,
   ): Promise<string> {
     try {
-      const blob = await put(key, buffer, {
-        access: 'public',
-        contentType,
-        addRandomSuffix: false,
-      });
-      return blob.url;
+      return await s3Upload(key, buffer, contentType);
     } catch (error) {
-      console.error('Blob upload error:', error);
+      console.error('S3 upload error:', error);
       throw new Error('Failed to upload file to storage');
     }
   }
 
   /**
-   * Delete file from Vercel Blob
+   * Delete file from S3
    */
   static async deleteFromBlob(url: string): Promise<void> {
     try {
-      await del(url);
+      await s3Delete(url);
     } catch (error) {
-      console.error('Blob delete error:', error);
+      console.error('S3 delete error:', error);
       throw new Error('Failed to delete file from storage');
     }
   }

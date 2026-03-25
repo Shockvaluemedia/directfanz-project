@@ -1094,29 +1094,21 @@ jest.mock('prom-client', () => ({
   },
 }));
 
-// Mock Vercel Blob storage
-jest.mock('@vercel/blob', () => {
-  return {
-    put: jest.fn().mockResolvedValue({
-      url: 'https://mock-blob.vercel-storage.com/test-file',
-      pathname: 'test-file',
-      contentType: 'image/jpeg',
-      contentDisposition: 'inline',
-    }),
-    del: jest.fn().mockResolvedValue(undefined),
-    head: jest.fn().mockResolvedValue({
-      url: 'https://mock-blob.vercel-storage.com/test-file',
-      size: 12345,
-      uploadedAt: new Date(),
-      contentType: 'image/jpeg',
-    }),
-    list: jest.fn().mockResolvedValue({
-      blobs: [],
-      cursor: undefined,
-      hasMore: false,
-    }),
-  };
-});
+// Mock AWS S3 storage layer
+jest.mock('@/lib/s3', () => ({
+  uploadFile: jest.fn().mockResolvedValue('https://mock-s3.amazonaws.com/test-file'),
+  deleteFile: jest.fn().mockResolvedValue(undefined),
+  headFile: jest.fn().mockResolvedValue({
+    url: 'https://mock-s3.amazonaws.com/test-file',
+    size: 12345,
+    uploadedAt: new Date(),
+    contentType: 'image/jpeg',
+  }),
+  extractKeyFromUrl: jest.fn(url => url),
+  validateFileUpload: jest.fn().mockReturnValue([]),
+  SUPPORTED_FILE_TYPES: {},
+  FILE_SIZE_LIMITS: { AUDIO: 104857600, VIDEO: 524288000, IMAGE: 10485760, DOCUMENT: 26214400 },
+}));
 
 // Mock FFmpeg
 jest.mock('fluent-ffmpeg', () => {
