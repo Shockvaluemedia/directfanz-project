@@ -1,4 +1,4 @@
-// @ts-nocheck
+// @ts-nocheck — barrel file + factory class; agent config types need full alignment
 // Core AI Agent System
 export { BaseAgent, AgentType, AgentStatus, type AgentConfig, type AgentContext, type AgentTask, type AgentResponse, type AgentMetrics } from './base-agent';
 
@@ -13,7 +13,7 @@ export { RecommendationAgent, type RecommendationAgentConfig, type Recommendatio
 export { CommunityManagementAgent, type CommunityManagementConfig, type CommunityEvent, type FanChallenge, type LoyaltyProgram, type SentimentAnalysis, type CommunityInsight } from './agents/community-management-agent';
 
 // Advanced Analytics and Optimization Agents
-export { PredictiveAnalyticsAgent, type PredictiveAnalyticsConfig, type RevenueForcast, type ChurnAnalysis, type TrendAnalysis, type ContentPerformancePrediction, type MarketAnalysis, type UserSegmentation } from './agents/predictive-analytics-agent';
+export { PredictiveAnalyticsAgent, type PredictiveAnalyticsConfig, type RevenueForecast, type ChurnAnalysis, type TrendAnalysis, type PerformancePrediction, type MarketPrediction, type UserSegment } from './agents/predictive-analytics-agent';
 export { PerformanceOptimizerAgent, type PerformanceOptimizerConfig, type ABTest, type TestVariant, type TestResults, type PriceOptimization, type ContentStrategy, type ResourceAllocation } from './agents/performance-optimizer-agent';
 export { ContentCurationAgent, type ContentCurationConfig, type ContentItem, type ContentRecommendation, type ContentCuration, type QualityScore, type AudienceProfile } from './agents/content-curation-agent';
 export { RevenueOptimizationAgent, type RevenueOptimizationConfig, type RevenueStream, type PricingStrategy, type MonetizationOpportunity, type CustomerSegmentation, type PricingModel } from './agents/revenue-optimization-agent';
@@ -448,26 +448,43 @@ export const DEFAULT_AGENT_CONFIGS = {
   },
 };
 
+// Priority mapping from numeric to string literals
+const PRIORITY_MAP: Record<number, AgentTask['priority']> = {
+  0: 'low',
+  1: 'medium',
+  2: 'high',
+  3: 'critical',
+};
+
 // Task creation helper function
 export const createAgentTask = (
   type: string,
   payload: any = {},
   options: {
-    priority?: number;
+    priority?: number | AgentTask['priority'];
     timeout?: number;
     retries?: number;
     metadata?: Record<string, any>;
+    userId?: string;
+    requestId?: string;
   } = {}
 ): AgentTask => {
+  const priority: AgentTask['priority'] =
+    typeof options.priority === 'string'
+      ? options.priority
+      : PRIORITY_MAP[options.priority ?? 1] ?? 'medium';
+
   return {
     id: `task_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`,
     type,
     payload,
-    priority: options.priority || 1,
-    timeout: options.timeout || 30000,
-    retries: options.retries || 0,
-    metadata: options.metadata || {},
-    createdAt: Date.now(),
-    status: 'pending' as const,
+    priority,
+    context: {
+      userId: options.userId,
+      requestId: options.requestId ?? `req_${Date.now()}`,
+      timestamp: new Date(),
+      metadata: options.metadata,
+    },
+    createdAt: new Date(),
   };
 };

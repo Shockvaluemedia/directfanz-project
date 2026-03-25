@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
@@ -153,7 +152,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    logger.error('Revenue API Error:', error);
+    logger.error('Revenue API Error', {}, error as Error);
     return NextResponse.json({
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error'
@@ -294,7 +293,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    logger.error('Revenue POST API Error:', error);
+    logger.error('Revenue POST API Error', {}, error as Error);
     return NextResponse.json({
       error: 'Revenue optimization failed',
       message: error instanceof Error ? error.message : 'Unknown error'

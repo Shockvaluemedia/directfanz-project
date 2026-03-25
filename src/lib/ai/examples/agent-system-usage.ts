@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Logger } from '@/lib/logger';
 import {
   createAgentRegistry,

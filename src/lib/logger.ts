@@ -39,6 +39,11 @@ export interface LogEntry {
 export class Logger {
   private isDevelopment = process.env.NODE_ENV === 'development';
   private isProduction = process.env.NODE_ENV === 'production';
+  private prefix?: string;
+
+  constructor(prefix?: string, _options?: Record<string, any>) {
+    this.prefix = prefix;
+  }
 
   private formatLogEntry(entry: LogEntry): string {
     if (this.isDevelopment) {
@@ -131,8 +136,12 @@ export class Logger {
     }
   }
 
-  error(message: string, context?: LogContext, error?: Error, metadata?: Record<string, any>) {
-    this.log(LogLevel.ERROR, message, context, error, metadata);
+  error(message: string, contextOrError?: LogContext | Error | unknown, error?: Error, metadata?: Record<string, any>) {
+    if (contextOrError instanceof Error) {
+      this.log(LogLevel.ERROR, message, undefined, contextOrError, metadata);
+    } else {
+      this.log(LogLevel.ERROR, message, contextOrError as LogContext | undefined, error, metadata);
+    }
   }
 
   warn(message: string, context?: LogContext, metadata?: Record<string, any>) {

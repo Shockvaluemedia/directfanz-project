@@ -1,9 +1,8 @@
-// @ts-nocheck
 import { EventEmitter } from 'events';
 import { Logger } from '@/lib/logger';
 import { BaseAgent, AgentType, AgentStatus, AgentTask, AgentResponse, AgentConfig } from './base-agent';
 import { EventBus } from './event-bus';
-import type { Database } from '@/lib/database/types';
+import type { Database } from './base-agent';
 
 export interface OrchestratorConfig {
   maxConcurrentTasks: number;

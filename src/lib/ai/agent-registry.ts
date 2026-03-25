@@ -1,4 +1,4 @@
-// @ts-nocheck
+// @ts-nocheck — agent configuration literals need alignment with type definitions
 import { BaseAgent, AgentType, AgentTask, AgentResponse, AgentConfig } from './base-agent';
 import { PredictiveAnalyticsAgent, PredictiveAnalyticsConfig } from './agents/predictive-analytics-agent';
 import { CommunityManagementAgent, CommunityManagementConfig } from './agents/community-management-agent';
@@ -6,7 +6,7 @@ import { PerformanceOptimizerAgent, PerformanceOptimizerConfig } from './agents/
 import { ContentCurationAgent, ContentCurationConfig } from './agents/content-curation-agent';
 import { RevenueOptimizationAgent, RevenueOptimizationConfig } from './agents/revenue-optimization-agent';
 import { Logger } from '@/lib/logger';
-import type { Database } from '@/lib/database/types';
+import type { Database } from './base-agent';
 
 export interface AgentRegistration {
   id: string;
@@ -208,7 +208,7 @@ export class AgentRegistry {
 
     try {
       // Execute the task
-      const response = await Promise.race([
+      const response = await Promise.race<AgentResponse>([
         registration.agent.executeTask(task),
         this.createTimeoutPromise(this.config.taskTimeout),
       ]);
@@ -228,8 +228,8 @@ export class AgentRegistry {
       this.logger.error(`Task execution failed for agent ${agentId}:`, error);
       
       // Retry if enabled
-      if (this.config.autoRetryFailedTasks && task.retryCount < this.config.maxRetryAttempts) {
-        task.retryCount++;
+      if (this.config.autoRetryFailedTasks && (task.retryCount ?? 0) < this.config.maxRetryAttempts) {
+        task.retryCount = (task.retryCount ?? 0) + 1;
         this.logger.info(`Retrying task for agent ${agentId} (attempt ${task.retryCount})`);
         return this.executeTask(agentId, task);
       }
@@ -498,7 +498,9 @@ export class AgentRegistry {
       payload: { ...step.payload, context: Object.fromEntries(context) },
       priority: 'medium',
       retryCount: step.retryCount,
-      timeout: step.timeout * 1000, // Convert to milliseconds
+      timeout: step.timeout * 1000,
+      context: { requestId: `coord_${Date.now()}`, timestamp: new Date() },
+      createdAt: new Date(),
     };
 
     // Execute the task
@@ -593,7 +595,7 @@ export function createAgentRegistry(
 
   // Register Predictive Analytics Agent
   const predictiveConfig: PredictiveAnalyticsConfig = {
-    enableRevenueForecasting: true,
+    enableRevenueForecast: true,
     enableChurnAnalysis: true,
     enableTrendAnalysis: true,
     enableCompetitorIntelligence: true,

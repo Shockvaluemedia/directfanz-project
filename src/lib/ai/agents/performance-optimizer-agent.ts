@@ -1,7 +1,7 @@
-// @ts-nocheck
+// @ts-nocheck — agent executeTask signatures need alignment
 import { BaseAgent, AgentType, AgentTask, AgentResponse, AgentConfig } from '../base-agent';
 import { Logger } from '@/lib/logger';
-import type { Database } from '@/lib/database/types';
+import type { Database } from '../base-agent';
 
 export interface ABTest {
   id: string;

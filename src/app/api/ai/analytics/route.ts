@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
@@ -147,7 +146,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    logger.error('Analytics API Error:', error);
+    logger.error('Analytics API Error', {}, error as Error);
     return NextResponse.json({
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error'
@@ -255,7 +254,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    logger.error('Analytics POST API Error:', error);
+    logger.error('Analytics POST API Error', {}, error as Error);
     return NextResponse.json({
       error: 'Analysis execution failed',
       message: error instanceof Error ? error.message : 'Unknown error'

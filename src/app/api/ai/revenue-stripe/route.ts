@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
@@ -103,7 +102,7 @@ export async function GET(request: NextRequest) {
     }
 
   } catch (error) {
-    logger.error('Revenue Stripe API Error:', error);
+    logger.error('Revenue Stripe API Error', {}, error as Error);
     return NextResponse.json({
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error'
@@ -299,7 +298,7 @@ export async function POST(request: NextRequest) {
     }
 
   } catch (error) {
-    logger.error('Revenue Stripe POST API Error:', error);
+    logger.error('Revenue Stripe POST API Error', {}, error as Error);
     return NextResponse.json({
       error: 'Revenue optimization failed',
       message: error instanceof Error ? error.message : 'Unknown error'
@@ -309,7 +308,7 @@ export async function POST(request: NextRequest) {
 
 // Helper functions
 function generatePricingRecommendations(opportunities: any[]): string[] {
-  const recommendations = [];
+  const recommendations: string[] = [];
   
   if (opportunities.length > 0) {
     recommendations.push('Consider testing higher prices for your most popular tiers');
@@ -325,7 +324,7 @@ function generatePricingRecommendations(opportunities: any[]): string[] {
 }
 
 function generateRevenueGrowthRecommendations(revenueData: any): string[] {
-  const recommendations = [];
+  const recommendations: string[] = [];
   
   if (revenueData.churnRate > 5) {
     recommendations.push('Focus on retention strategies to reduce churn rate');
@@ -352,7 +351,7 @@ function generateNextSteps(revenueData: any): string[] {
 }
 
 function generateMonitoringRecommendations(performanceData: any): string[] {
-  const recommendations = [];
+  const recommendations: string[] = [];
   
   performanceData.performanceMetrics.forEach((metric: any) => {
     if (metric.recommendation === 'implement') {
@@ -368,7 +367,7 @@ function generateMonitoringRecommendations(performanceData: any): string[] {
 }
 
 function generatePerformanceAlerts(performanceData: any): Array<{type: string, message: string, priority: string}> {
-  const alerts = [];
+  const alerts: Array<{type: string, message: string, priority: string}> = [];
   
   performanceData.performanceMetrics.forEach((metric: any) => {
     if (metric.conversionRate < 0.7) {
