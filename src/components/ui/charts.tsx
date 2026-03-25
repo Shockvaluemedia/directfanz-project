@@ -465,7 +465,7 @@ export function ModernPieChart({
               onMouseEnter={onPieEnter}
               onMouseLeave={onPieLeave}
               animationDuration={1200}
-              label={showLabels ? ({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%` : false}
+              label={showLabels ? (({ name, percent }: any) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`) as any : undefined}
               labelLine={false}
             >
               {data.map((entry, index) => (

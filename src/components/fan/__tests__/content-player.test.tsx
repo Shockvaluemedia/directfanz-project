@@ -1,3 +1,6 @@
+/**
+ * @jest-environment jsdom
+ */
 import { render, screen, waitFor, act } from '@testing-library/react';
 import ContentPlayer from '../content-player';
 

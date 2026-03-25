@@ -46,20 +46,21 @@ export const POST = withArtistApiHandler(
     }
 
     // Verify that specified tiers belong to the artist
-    if (validatedData.tierIds.length > 0) {
+    const tierIds = validatedData.tierIds ?? [];
+    if (tierIds.length > 0) {
       const tierCount = await prisma.tiers.count({
         where: {
-          id: { in: validatedData.tierIds },
+          id: { in: tierIds },
           artistId: userId,
         },
       });
 
-      if (tierCount !== validatedData.tierIds.length) {
+      if (tierCount !== tierIds.length) {
         throw new AppError(
           ErrorCode.VALIDATION_ERROR,
           'One or more tiers do not belong to this artist',
           400,
-          { providedTiers: validatedData.tierIds, validTiers: tierCount },
+          { providedTiers: tierIds, validTiers: tierCount },
           context.requestId,
           userId
         );
@@ -82,7 +83,7 @@ export const POST = withArtistApiHandler(
         visibility: validatedData.visibility,
         users: { connect: { id: userId } },
         tiers: {
-          connect: validatedData.tierIds.map(id => ({ id })),
+          connect: tierIds.map(id => ({ id })),
         },
         updatedAt: new Date(),
       },
@@ -103,7 +104,7 @@ export const POST = withArtistApiHandler(
     });
 
     // Send notifications to subscribers (async, don't await)
-    if (validatedData.tierIds.length > 0) {
+    if (tierIds.length > 0) {
       notifyNewContent(content, artist?.displayName || 'Artist').catch(error =>
         console.error('Failed to send content notifications:', error)
       );

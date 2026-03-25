@@ -1,4 +1,4 @@
-import { getRedisClient } from './redis-production';
+import { getRedisClient } from './redis';
 
 interface CacheConfig {
   ttl: number;
@@ -13,6 +13,7 @@ export class CacheManager {
 
   async get<T>(key: string): Promise<T | null> {
     try {
+      if (!this.redis) return null;
       const cached = await this.redis.get(key);
       if (cached) {
         this.hitCount++;
@@ -29,9 +30,10 @@ export class CacheManager {
 
   async set(key: string, value: any, config: CacheConfig): Promise<boolean> {
     try {
+      if (!this.redis) return false;
       const serialized = JSON.stringify(value);
-      await this.redis.set(key, serialized, config.ttl);
-      
+      await this.redis.setex(key, config.ttl, serialized);
+
       // Store cache tags for invalidation
       if (config.tags) {
         for (const tag of config.tags) {
@@ -39,7 +41,7 @@ export class CacheManager {
           await this.redis.expire(`tag:${tag}`, config.ttl);
         }
       }
-      
+
       return true;
     } catch (error) {
       console.error('Cache set error:', error);
@@ -49,9 +51,10 @@ export class CacheManager {
 
   async invalidateByTag(tag: string): Promise<void> {
     try {
+      if (!this.redis) return;
       const keys = await this.redis.smembers(`tag:${tag}`);
       if (keys.length > 0) {
-        await Promise.all(keys.map(key => this.redis.del(key)));
+        await Promise.all(keys.map(key => this.redis!.del(key)));
         await this.redis.del(`tag:${tag}`);
       }
     } catch (error) {

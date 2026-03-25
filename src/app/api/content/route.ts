@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { FileUploader } from '@/lib/upload';
+import { deleteFile as s3Delete } from '@/lib/s3';
 
 const listQuerySchema = z.object({
   page: z.string().optional().default('1'),
@@ -402,15 +403,16 @@ export async function DELETE(request: NextRequest) {
         where: { id: contentId },
       });
 
-      // TODO: Delete actual files from storage
-      // This should be implemented based on your file storage solution
-      // For now, we'll just log what files should be deleted
+      // Delete actual files from S3
       if (existingContent.fileUrl) {
-        logger.info('File deletion needed', {
-          contentId,
-          fileUrl: existingContent.fileUrl,
-          thumbnailUrl: existingContent.thumbnailUrl,
-        });
+        const filesToDelete = [existingContent.fileUrl, existingContent.thumbnailUrl].filter(Boolean) as string[];
+
+        await Promise.allSettled(
+          filesToDelete.map(async (url) => {
+            await s3Delete(url);
+            logger.info('S3 file deleted', { contentId, url });
+          })
+        );
       }
 
       logger.info('Content deleted', {

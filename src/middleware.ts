@@ -8,13 +8,13 @@ import {
   createWebhookRateLimiter,
   createGeneralRateLimiter,
 } from '@/middleware/rate-limit';
-import { addSecurityHeaders, detectSuspiciousActivity, generateCSP } from '@/lib/security';
+import { addSecurityHeaders, detectSuspiciousActivity } from '@/lib/security';
 import { createRateLimitResponse } from '@/lib/error-handler';
 import { logger, generateRequestId } from '@/lib/logger';
-import { applySecurityHeaders, getSecurityConfig } from '@/lib/security-headers';
+import { applySecurityHeaders } from '@/lib/security-headers';
 import { AdaptiveRateLimiter } from './lib/adaptive-rate-limiter';
 import { getToken } from 'next-auth/jwt';
-import { captureError } from '@/lib/sentry';
+import { captureError } from '@/lib/sentry'; // now a no-op stub
 
 // Define adaptive rate limiters with different configurations
 const apiRateLimiter = new AdaptiveRateLimiter({
@@ -64,10 +64,7 @@ export async function middleware(request: NextRequest) {
   if (!url.startsWith('/api/')) {
     const response = NextResponse.next();
     // Apply browser-specific security headers
-    applySecurityHeaders(response, {
-      ...getSecurityConfig(),
-      csp: generateCSP(), // Enhanced CSP for pages
-    });
+    applySecurityHeaders(response);
     return response;
   }
 
@@ -85,8 +82,6 @@ export async function middleware(request: NextRequest) {
       '/api/auth/', // All NextAuth routes need to be exempt
       '/api/webhooks/', // Stripe/external webhooks
       '/api/health', // Health check endpoint
-      '/api/debug-auth', // Debug endpoint
-      '/api/simple-upload', // Simple upload test endpoint
     ];
 
     const isCSRFExempt = CSRF_EXEMPT_ROUTES.some(exemptRoute => url.startsWith(exemptRoute));
@@ -270,7 +265,7 @@ export async function middleware(request: NextRequest) {
   response.headers.set('x-response-time', `${Date.now() - startTime}ms`);
 
   // Apply comprehensive security headers
-  applySecurityHeaders(response, getSecurityConfig());
+  applySecurityHeaders(response);
 
   // Add CORS headers for API routes if needed
   if (url.startsWith('/api/') && origin !== 'unknown') {
@@ -278,7 +273,7 @@ export async function middleware(request: NextRequest) {
     const allowedOrigins = [
       process.env.NEXT_PUBLIC_FRONTEND_URL || '',
       'http://localhost:3000',
-      'https://direct-fan-platform.vercel.app',
+      process.env.NEXT_PUBLIC_APP_URL || '',
     ];
 
     if (allowedOrigins.includes(origin)) {

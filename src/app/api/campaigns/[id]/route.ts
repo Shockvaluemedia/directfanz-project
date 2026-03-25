@@ -38,7 +38,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     const campaign = await prisma.campaigns.findUnique({
       where: { id },
       include: {
-        artist: {
+        users: {
           select: {
             id: true,
             displayName: true,
@@ -105,7 +105,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       const participation = await prisma.challenge_participations.findFirst({
         where: {
           participantId: session.user.id,
-          challenge: {
+          challenges: {
             campaignId: campaign.id,
           },
         },
@@ -130,7 +130,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
           currentScore: participation.currentScore,
           submissionCount: participation.submissionCount,
           rank: participation.rank,
-          challenge_submissions: participation.submissions,
+          challenge_submissions: participation.challenge_submissions,
         };
       }
     }
@@ -210,7 +210,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         ...(validatedData.tags && { tags: JSON.stringify(validatedData.tags) }),
       },
       include: {
-        artist: {
+        users: {
           select: { id: true, displayName: true, avatar: true },
         },
         challenges: {

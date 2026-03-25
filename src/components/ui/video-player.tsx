@@ -209,6 +209,7 @@ export default function VideoPlayer({
       document.addEventListener('mousemove', handleMouseMove);
       return () => document.removeEventListener('mousemove', handleMouseMove);
     }
+    return undefined;
   }, [isFullscreen, showControlsTemporarily]);
 
   // Cleanup timeout on unmount
@@ -265,6 +266,7 @@ export default function VideoPlayer({
         // Auto-play failed, which is expected in many browsers
       });
     }
+    return undefined;
   }, [autoPlay, video.duration, duration]);
 
   // Format time display

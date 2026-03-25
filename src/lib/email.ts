@@ -1,8 +1,15 @@
 /**
  * Email Service
  *
- * Handles sending emails for authentication, notifications, and business communications
+ * Handles sending emails for authentication, notifications, and business communications.
+ * Uses SendGrid for email delivery.
  */
+
+import sgMail from '@sendgrid/mail';
+
+if (process.env.SENDGRID_API_KEY) {
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+}
 
 interface EmailOptions {
   to: string;
@@ -24,12 +31,27 @@ interface WelcomeEmailOptions {
 }
 
 /**
- * Send a generic email
+ * Send a generic email via SendGrid
  */
 export async function sendEmail(options: EmailOptions): Promise<boolean> {
-  // In a real implementation, this would use a service like SendGrid, AWS SES, etc.
-  console.log('Sending email:', options);
-  return true;
+  if (!process.env.SENDGRID_API_KEY || !process.env.FROM_EMAIL) {
+    console.warn('SendGrid not configured (missing SENDGRID_API_KEY or FROM_EMAIL), skipping email');
+    return false;
+  }
+
+  try {
+    await sgMail.send({
+      to: options.to,
+      from: process.env.FROM_EMAIL,
+      subject: options.subject,
+      html: options.html,
+      text: options.text || options.html.replace(/<[^>]*>/g, ''),
+    });
+    return true;
+  } catch (error) {
+    console.error('Failed to send email:', error);
+    return false;
+  }
 }
 
 /**

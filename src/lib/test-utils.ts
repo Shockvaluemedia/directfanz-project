@@ -235,99 +235,68 @@ export const mockStripe = {
   },
 };
 
-// Mock Prisma with better type safety
-export const mockPrisma = {
-  user: {
-    findUnique: jest.fn(),
-    findFirst: jest.fn(),
-    findMany: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-    delete: jest.fn(),
-    count: jest.fn(),
-    aggregate: jest.fn(),
-  },
-  artist: {
-    findUnique: jest.fn(),
-    findFirst: jest.fn(),
-    findMany: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-    delete: jest.fn(),
-    count: jest.fn(),
-    aggregate: jest.fn(),
-  },
-  subscription: {
-    findUnique: jest.fn(),
-    findFirst: jest.fn(),
-    findMany: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-    delete: jest.fn(),
-    count: jest.fn(),
-    aggregate: jest.fn(),
-  },
-  tier: {
-    findUnique: jest.fn(),
-    findFirst: jest.fn(),
-    findMany: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-    delete: jest.fn(),
-    count: jest.fn(),
-  },
-  content: {
-    findUnique: jest.fn(),
-    findFirst: jest.fn(),
-    findMany: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-    delete: jest.fn(),
-    count: jest.fn(),
-  },
-  invoice: {
-    findUnique: jest.fn(),
-    findFirst: jest.fn(),
-    findMany: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-    delete: jest.fn(),
-    count: jest.fn(),
-    aggregate: jest.fn(),
-  },
-  comment: {
-    findMany: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-    delete: jest.fn(),
-    count: jest.fn(),
-  },
-  message: {
-    findMany: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-    delete: jest.fn(),
-    count: jest.fn(),
-  },
-  report: {
-    findMany: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-    delete: jest.fn(),
-    count: jest.fn(),
-  },
-  paymentFailure: {
-    findMany: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-    delete: jest.fn(),
-    count: jest.fn(),
-  },
+// Helper to create a mock model with standard Prisma methods
+const createMockModel = () => ({
+  findUnique: jest.fn(),
+  findFirst: jest.fn(),
+  findMany: jest.fn(),
+  create: jest.fn(),
+  update: jest.fn(),
+  updateMany: jest.fn(),
+  delete: jest.fn(),
+  deleteMany: jest.fn(),
+  count: jest.fn(),
+  aggregate: jest.fn(),
+  groupBy: jest.fn(),
+  upsert: jest.fn(),
+});
+
+// Mock Prisma with both singular and plural model names for compatibility
+export const mockPrisma: Record<string, any> = {
+  // Plural names (match Prisma schema)
+  users: createMockModel(),
+  artists: createMockModel(),
+  subscriptions: createMockModel(),
+  tiers: createMockModel(),
+  content: createMockModel(),
+  invoices: createMockModel(),
+  comments: createMockModel(),
+  messages: createMockModel(),
+  reports: createMockModel(),
+  payment_failures: createMockModel(),
+  live_streams: createMockModel(),
+  stream_recordings: createMockModel(),
+  stream_chat_messages: createMockModel(),
+  stream_viewers: createMockModel(),
+  moderation_logs: createMockModel(),
+  accounts: createMockModel(),
+  sessions: createMockModel(),
+  gdpr_requests: createMockModel(),
+  consent_records: createMockModel(),
+  content_views: createMockModel(),
+  content_likes: createMockModel(),
+  // Singular aliases (for tests that use singular names)
+  user: createMockModel(),
+  artist: createMockModel(),
+  subscription: createMockModel(),
+  tier: createMockModel(),
+  invoice: createMockModel(),
+  comment: createMockModel(),
+  message: createMockModel(),
+  report: createMockModel(),
+  paymentFailure: createMockModel(),
+  // Prisma utilities
   $queryRaw: jest.fn(),
+  $executeRaw: jest.fn(),
   $transaction: jest.fn((callback: any) => callback(mockPrisma)),
   $connect: jest.fn(),
   $disconnect: jest.fn(),
 };
+
+// Aliases for tests that use specific variable names
+export const mockPrismaUser = mockPrisma.users;
+export const mockPrismaArtist = mockPrisma.artists;
+export const mockPrismaProfile = mockPrisma.users;
 
 // Authentication helpers
 export const mockSession = (overrides: any = {}) => ({
@@ -425,12 +394,10 @@ export const createMockFile = (name = 'test.jpg', type = 'image/jpeg', size = 10
   lastModified: Date.now(),
 });
 
-export const mockS3Upload = {
+export const mockBlobUpload = {
   upload: (jest.fn() as any).mockResolvedValue({
-    Location: 'https://s3.amazonaws.com/test-bucket/test.jpg',
-    Key: 'test.jpg',
-    Bucket: 'test-bucket',
-    ETag: '"test-etag"',
+    url: 'https://mock-s3.amazonaws.com/test.jpg',
+    pathname: 'test.jpg',
   }),
   getSignedUrl: (jest.fn() as any).mockResolvedValue('https://signed-url.example.com'),
 };
@@ -586,9 +553,7 @@ export const businessMetrics = {
   reset: jest.fn(),
 };
 
-// Export everything for easy importing
-export * from '@testing-library/jest-dom';
-export { render, screen, fireEvent, waitFor } from '@testing-library/react';
+// Re-export jest globals for convenience
 export {
   jest,
   expect,

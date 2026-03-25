@@ -14,9 +14,9 @@ export async function GET(request: NextRequest) {
         include: {
           subscriptions: {
             include: {
-              tier: {
+              tiers: {
                 include: {
-                  artist: {
+                  users: {
                     select: {
                       id: true,
                       displayName: true,

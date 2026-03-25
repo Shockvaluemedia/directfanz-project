@@ -42,7 +42,7 @@ export interface InvoiceFilterParams {
  */
 export async function createInvoice(params: InvoiceCreateParams): Promise<any> {
   try {
-    const invoice = await prisma.invoice.create({
+    const invoice = await prisma.invoices.create({
       data: {
         subscriptionId: params.subscriptionId,
         stripeInvoiceId: params.stripeInvoiceId,
@@ -54,7 +54,7 @@ export async function createInvoice(params: InvoiceCreateParams): Promise<any> {
         periodEnd: params.periodEnd,
         prorationAmount: params.prorationAmount ? new Decimal(params.prorationAmount) : null,
         items: params.items,
-      },
+      } as any,
     });
 
     return invoice;
@@ -69,7 +69,7 @@ export async function createInvoice(params: InvoiceCreateParams): Promise<any> {
  */
 export async function updateInvoice(id: string, params: InvoiceUpdateParams): Promise<any> {
   try {
-    const invoice = await prisma.invoice.update({
+    const invoice = await prisma.invoices.update({
       where: { id },
       data: {
         ...(params.amount !== undefined && { amount: new Decimal(params.amount) }),
@@ -128,7 +128,7 @@ export async function getInvoices(filters: InvoiceFilterParams): Promise<any[]> 
       }
     }
 
-    const invoices = await prisma.invoice.findMany({
+    const invoices = await prisma.invoices.findMany({
       where,
       orderBy: {
         dueDate: 'desc',
@@ -136,16 +136,16 @@ export async function getInvoices(filters: InvoiceFilterParams): Promise<any[]> 
       skip: filters.offset || 0,
       take: filters.limit || 10,
       include: {
-        subscription: {
+        subscriptions: {
           include: {
-            fan: {
+            users: {
               select: {
                 id: true,
                 email: true,
                 displayName: true,
               },
             },
-            tier: {
+            tiers: {
               select: {
                 id: true,
                 name: true,
@@ -168,19 +168,19 @@ export async function getInvoices(filters: InvoiceFilterParams): Promise<any[]> 
  */
 export async function getInvoiceById(id: string): Promise<any> {
   try {
-    const invoice = await prisma.invoice.findUnique({
+    const invoice = await prisma.invoices.findUnique({
       where: { id },
       include: {
-        subscription: {
+        subscriptions: {
           include: {
-            fan: {
+            users: {
               select: {
                 id: true,
                 email: true,
                 displayName: true,
               },
             },
-            tier: {
+            tiers: {
               select: {
                 id: true,
                 name: true,
@@ -227,7 +227,7 @@ export async function generateAndStoreInvoice(stripeInvoiceId: string): Promise<
       : null;
 
     // Check if invoice already exists
-    const existingInvoice = await prisma.invoice.findUnique({
+    const existingInvoice = await prisma.invoices.findUnique({
       where: { stripeInvoiceId },
     });
 

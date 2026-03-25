@@ -67,11 +67,11 @@ export default function SearchInterface() {
   const searchParams = useSearchParams();
 
   const [filters, setFilters] = useState<SearchFilters>({
-    query: searchParams.get('q') || '',
-    type: (searchParams.get('type') as any) || 'all',
-    genre: searchParams.get('genre') || 'All Genres',
+    query: searchParams?.get('q') || '',
+    type: (searchParams?.get('type') as any) || 'all',
+    genre: searchParams?.get('genre') || 'All Genres',
     priceRange: [0, 100],
-    sortBy: (searchParams.get('sort') as any) || 'relevance',
+    sortBy: (searchParams?.get('sort') as any) || 'relevance',
     tags: [],
   });
 

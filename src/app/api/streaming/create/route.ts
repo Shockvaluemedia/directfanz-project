@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withArtistStreaming, createStreamSession } from '@/lib/streaming-auth';
 
 export async function POST(request: NextRequest) {
-  return withArtistStreaming(request, async (req) => {
+  return withArtistStreaming<any>(request, async (req) => {
     try {
       const body = await request.json();
       const { title, description, isPrivate = false } = body;
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
         description,
         status: streamSession.status,
         createdAt: new Date().toISOString(),
-        rtmpUrl: `rtmp://medialive-input.${process.env.AWS_REGION}.amazonaws.com/live`,
+        wsUrl: `${process.env.WEBSOCKET_URL || 'wss://ws.directfanz.io'}/streaming`,
         streamKey: streamSession.streamKey, // Only return to stream owner
       });
     } catch (error) {

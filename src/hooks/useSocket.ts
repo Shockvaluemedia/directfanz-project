@@ -50,12 +50,11 @@ export function useSocket({
     }));
 
     try {
-      const socketOptions = {
-        transports: ['websocket', 'polling'] as const,
-        upgrade: true,
+      const socketOptions: Parameters<typeof io>[1] = {
+        transports: ['websocket', 'polling'],
         timeout: 10000,
         forceNew: true,
-        query: userId ? { userId } : undefined
+        query: userId ? { userId } : undefined,
       };
 
       const newSocket = io(url, socketOptions);

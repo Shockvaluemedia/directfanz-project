@@ -230,7 +230,7 @@ export default function StreamDashboard() {
         router.push(`/stream/${stream.id}`);
       } else {
         // Handle scheduled or ended streams
-        toast.info('Stream is not currently live');
+        toast('Stream is not currently live');
       }
     },
     [router]

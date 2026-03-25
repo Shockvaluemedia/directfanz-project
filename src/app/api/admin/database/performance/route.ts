@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
         );
     }
   } catch (error) {
-    logger.error('Database performance API error:', error);
+    logger.error('Database performance API error:', undefined, error instanceof Error ? error : undefined);
     return NextResponse.json(
       { 
         success: false, 
@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
         );
     }
   } catch (error) {
-    logger.error('Database performance test error:', error);
+    logger.error('Database performance test error:', undefined, error instanceof Error ? error : undefined);
     return NextResponse.json(
       { 
         success: false, 

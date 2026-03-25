@@ -64,10 +64,10 @@ export function normalizeClientError(
   // API response errors
   if (isApiErrorResponse(error)) {
     return {
-      code: error.error.code,
-      message: error.error.message,
-      details: error.error.details,
-      timestamp: error.error.timestamp,
+      code: error.error!.code,
+      message: error.error!.message,
+      details: error.error!.details,
+      timestamp: error.error!.timestamp,
       source: 'api',
     };
   }

@@ -2,10 +2,16 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { captureMessage } from '@/lib/sentry';
+import { redis } from '@/lib/redis';
 
 // Force this route to be dynamic
 export const dynamic = 'force-dynamic';
-import { string } from '@prisma/client';
+
+interface HealthCheck {
+  status: 'ok' | 'error';
+  message?: string;
+  metrics?: Record<string, unknown>;
+}
 
 /**
  * Cron health check endpoint for scheduled monitoring
@@ -13,8 +19,8 @@ import { string } from '@prisma/client';
  */
 export async function GET() {
   const startTime = Date.now();
-  const metrics: Record<string, any> = {};
-  const checks: Record<string, { status: 'ok' | 'error'; message?: string; metrics?: any }> = {};
+  const metrics: Record<string, unknown> = {};
+  const checks: Record<string, HealthCheck> = {};
 
   // Check database connection and get some metrics
   try {
@@ -30,7 +36,7 @@ export async function GET() {
     // Check active subscriptions
     const activeSubscriptions = await prisma.subscriptions.count({
       where: {
-        status: string.ACTIVE,
+        status: 'ACTIVE',
       },
     });
 

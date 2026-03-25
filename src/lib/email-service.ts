@@ -16,7 +16,7 @@ export interface EmailTemplate {
 
 export interface EmailOptions {
   to: string | string[];
-  subject: string;
+  subject?: string;
   html?: string;
   text?: string;
   template?: keyof typeof emailTemplates;
@@ -417,6 +417,79 @@ Best regards,
 The Direct Fan Team
     `,
   }),
+
+  subscriptionCancellation: (variables: {
+    fanName: string;
+    artistName: string;
+    tierName: string;
+    endDate: string;
+  }): EmailTemplate => ({
+    subject: `Subscription Canceled - ${variables.artistName}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Subscription Canceled</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #6B7280; color: white; padding: 30px 20px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background: white; padding: 30px 20px; border: 1px solid #e5e7eb; }
+          .footer { background: #f9fafb; padding: 20px; text-align: center; font-size: 14px; color: #6b7280; border-radius: 0 0 8px 8px; }
+          .button { display: inline-block; background: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+          .details { background: #f9fafb; border: 1px solid #e5e7eb; padding: 20px; border-radius: 6px; margin: 20px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Subscription Canceled</h1>
+          </div>
+          <div class="content">
+            <h2>Hi ${variables.fanName},</h2>
+            <p>Your subscription to <strong>${variables.artistName}</strong> has been canceled.</p>
+
+            <div class="details">
+              <p><strong>Artist:</strong> ${variables.artistName}</p>
+              <p><strong>Tier:</strong> ${variables.tierName}</p>
+              <p><strong>Access until:</strong> ${variables.endDate}</p>
+            </div>
+
+            <p>You will continue to have access to exclusive content until the end of your current billing period.</p>
+            <p>You can resubscribe at any time to regain access.</p>
+
+            <a href="${process.env.NEXTAUTH_URL}/discover" class="button">Explore Artists</a>
+          </div>
+          <div class="footer">
+            <p>&copy; ${new Date().getFullYear()} Direct Fan. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `,
+    text: `
+Subscription Canceled
+
+Hi ${variables.fanName},
+
+Your subscription to ${variables.artistName} has been canceled.
+
+Details:
+- Artist: ${variables.artistName}
+- Tier: ${variables.tierName}
+- Access until: ${variables.endDate}
+
+You will continue to have access until the end of your current billing period.
+You can resubscribe at any time.
+
+Explore Artists: ${process.env.NEXTAUTH_URL}/discover
+
+Best regards,
+The Direct Fan Team
+    `,
+  }),
 };
 
 class EmailService {
@@ -437,7 +510,7 @@ class EmailService {
 
       // Use template if specified
       if (options.template && options.variables) {
-        const template = emailTemplates[options.template](options.variables);
+        const template = emailTemplates[options.template](options.variables as any);
         html = template.html;
         text = template.text;
         subject = template.subject;

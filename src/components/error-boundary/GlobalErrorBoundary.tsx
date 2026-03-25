@@ -15,7 +15,7 @@ interface State {
 }
 
 export class GlobalErrorBoundary extends Component<Props, State> {
-  public state: State = {
+  public override state: State = {
     hasError: false,
   };
 
@@ -24,7 +24,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
     return { hasError: true, error };
   }
 
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  public override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Global Error Boundary caught an error:', error, errorInfo);
 
     // Log to external service in production
@@ -56,7 +56,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
     this.setState({ hasError: false, error: undefined, errorInfo: undefined });
   };
 
-  public render() {
+  public override render() {
     if (this.state.hasError) {
       // Use custom fallback if provided
       if (this.props.fallback) {

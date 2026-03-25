@@ -92,7 +92,7 @@ export function ToastProvider({ children, maxToasts = 5 }: ToastProviderProps) {
   const addToast = useCallback(
     (toast: Omit<Toast, 'id'>) => {
       const id =
-        crypto.getRandomValues(new Uint32Array(1))[0] / (0xffffffff + 1).toString(36).substring(7);
+        (crypto.getRandomValues(new Uint32Array(1))[0] / (0xffffffff + 1)).toString(36).substring(7);
       const newToast: Toast = {
         id,
         duration: 5000,

@@ -222,12 +222,12 @@ export function NotificationSystem({ className }: NotificationSystemProps) {
               {!notification.read && <div className='w-2 h-2 bg-blue-500 rounded-full' />}
 
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
+                <DropdownMenuTrigger>
                   <Button variant='ghost' size='sm' className='h-6 w-6 p-0'>
                     <MoreHorizontal className='h-3 w-3' />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align='end'>
+                <DropdownMenuContent>
                   {!notification.read && (
                     <DropdownMenuItem onClick={() => markAsRead(notification.id)}>
                       <Check className='h-3 w-3 mr-2' />

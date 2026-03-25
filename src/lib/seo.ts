@@ -136,9 +136,9 @@ export function generateMetadata(props: SEOProps = {}): Metadata {
   // Add Facebook App ID if available
   if (seoConfig.facebookAppId) {
     metadata.other = {
-      ...metadata.other,
+      ...(metadata.other as Record<string, string>),
       'fb:app_id': seoConfig.facebookAppId,
-    };
+    } as typeof metadata.other;
   }
 
   return metadata;

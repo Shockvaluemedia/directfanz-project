@@ -97,7 +97,7 @@ export function SearchDiscoveryDashboard({
   const [activeTab, setActiveTab] = useState<'search' | 'recommendations' | 'analytics' | 'filters'>('search');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showFilters, setShowFilters] = useState(false);
-  const [searchResults, setSearchResults] = useState([]);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [analytics, setAnalytics] = useState<SearchAnalytics>(mockAnalytics);
   const [savedSearches, setSavedSearches] = useLocalStorage('search-discovery-saves', []);
@@ -114,7 +114,7 @@ export function SearchDiscoveryDashboard({
   const { announce } = useScreenReader();
 
   // Mock search function
-  const performSearch = useCallback(async (query: string, filters: Record<string, any>) => {
+  const performSearch = useCallback(async (query: string, filters: Record<string, any>): Promise<any[]> => {
     setIsLoading(true);
     
     // Simulate API call
@@ -153,7 +153,7 @@ export function SearchDiscoveryDashboard({
   }, []);
 
   // Mock suggestions function
-  const fetchSuggestions = useCallback(async (query: string) => {
+  const fetchSuggestions = useCallback(async (query: string): Promise<any[]> => {
     await new Promise(resolve => setTimeout(resolve, 200));
     
     return [
@@ -369,6 +369,7 @@ export function SearchDiscoveryDashboard({
   const renderFiltersTab = () => (
     <div className="space-y-6">
       <AdvancedFilters
+        filters={[]}
         onFiltersChange={(filters) => {
           console.log('Filters changed:', filters);
         }}
@@ -473,6 +474,7 @@ export function SearchDiscoveryDashboard({
               >
                 <div className="sticky top-24">
                   <AdvancedFilters
+                    filters={[]}
                     onFiltersChange={(filters) => {
                       console.log('Sidebar filters changed:', filters);
                     }}

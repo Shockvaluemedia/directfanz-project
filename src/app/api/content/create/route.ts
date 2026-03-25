@@ -3,9 +3,11 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { createErrorResponse, UnauthorizedError, ValidationError } from '@/lib/api-error-handler';
+import { AppError, ErrorCode, isAppError } from '@/lib/errors';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { nanoid } from 'nanoid';
+import crypto from 'crypto';
 
 const createContentSchema = z.object({
   title: z.string().min(1, 'Title is required').max(255, 'Title too long'),
@@ -33,7 +35,7 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id || session.user.role !== 'ARTIST') {
-      throw UnauthorizedError('Artist authentication required');
+      throw new UnauthorizedError('Artist authentication required');
     }
 
     const body = await request.json();
@@ -88,16 +90,38 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    const requestId = request.headers.get('x-request-id');
+    const context = {
+      requestId: request.headers.get('x-request-id') || crypto.randomUUID(),
+      method: request.method,
+      url: request.url,
+      ip: request.headers.get('x-forwarded-for') || 'unknown',
+      userAgent: request.headers.get('user-agent') || 'unknown',
+      startTime: Date.now(),
+    };
 
     if (error instanceof z.ZodError) {
-      return createErrorResponse(
-        ValidationError('Invalid content data', { errors: error.errors }),
-        requestId || undefined
+      const appError = new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        'Invalid content data',
+        400,
+        { errors: error.errors },
+        context.requestId
       );
+      return createErrorResponse(appError, context);
     }
 
-    return createErrorResponse(error, requestId || undefined);
+    if (isAppError(error)) {
+      return createErrorResponse(error, context);
+    }
+
+    const appError = new AppError(
+      ErrorCode.INTERNAL_SERVER_ERROR,
+      error instanceof Error ? error.message : 'An unexpected error occurred',
+      500,
+      undefined,
+      context.requestId
+    );
+    return createErrorResponse(appError, context);
   }
 }
 

@@ -116,3 +116,23 @@ export class PerformanceMonitor {
 }
 
 export const performanceMonitor = new PerformanceMonitor();
+
+export async function getPerformanceHealth(): Promise<{
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  checks: Record<string, { status: string; value?: number }>;
+}> {
+  const result = await performanceMonitor.healthCheck();
+  return {
+    status: result.healthy ? 'healthy' : 'degraded',
+    checks: Object.fromEntries(
+      Object.entries(result.metrics).map(([key, stats]: [string, any]) => [
+        key,
+        { status: 'ok', value: stats?.avg },
+      ])
+    ),
+  };
+}
+
+export async function getPerformanceSummary() {
+  return performanceMonitor.healthCheck();
+}

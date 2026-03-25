@@ -6,7 +6,7 @@
  * Professional stream viewer with:
  * - HLS streaming from AWS MediaPackage
  * - Adaptive bitrate playback
- * - CloudFront CDN delivery
+ * - CDN delivery
  * - Real-time chat and donations
  * - Stream interactions and analytics
  * - Mobile-optimized experience
@@ -34,6 +34,7 @@ import {
   ClockIcon,
   CalendarIcon,
   UserGroupIcon,
+  VideoCameraIcon,
 } from '@heroicons/react/24/outline';
 import {
   HeartIcon as HeartIconSolid,
@@ -44,6 +45,7 @@ import { toast } from 'react-hot-toast';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import HLSPlayer from './HLSPlayer';
+import EmojiPicker from 'emoji-picker-react';
 
 // Types
 interface Stream {
@@ -52,6 +54,7 @@ interface Stream {
   description: string;
   category: string;
   status: 'scheduled' | 'starting' | 'live' | 'ending' | 'ended';
+  playbackUrl?: string;
   streamer: {
     id: string;
     userName: string;
@@ -146,13 +149,16 @@ export default function LiveStreamViewer({
   const [showDonationModal, setShowDonationModal] = useState(false);
 
   // UI state
-  const [showControls, setShowControlsState] = useState(showControls);
+  const [controlsVisible, setControlsVisible] = useState(showControls);
   const [controlsTimeout, setControlsTimeout] = useState<NodeJS.Timeout | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   // Refs
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const peerConnection = useRef<RTCPeerConnection | null>(null);
 
   // Initialize socket connection and fetch stream data
   useEffect(() => {
@@ -222,11 +228,11 @@ export default function LiveStreamViewer({
   // Auto-hide controls
   useEffect(() => {
     const handleMouseMove = () => {
-      setShowControlsState(true);
+      setControlsVisible(true);
       if (controlsTimeout) clearTimeout(controlsTimeout);
       const timeout = setTimeout(() => {
         if (!showQualityMenu && !showDonationModal) {
-          setShowControlsState(false);
+          setControlsVisible(false);
         }
       }, 3000);
       setControlsTimeout(timeout);
@@ -240,6 +246,8 @@ export default function LiveStreamViewer({
         if (controlsTimeout) clearTimeout(controlsTimeout);
       };
     }
+
+    return undefined;
   }, [showControls, showQualityMenu, showDonationModal, controlsTimeout]);
 
   // Scroll chat to bottom
@@ -265,7 +273,7 @@ export default function LiveStreamViewer({
 
   const handleStreamEnded = useCallback((data: { streamId: string; reason: string }) => {
     setStream(prev => (prev ? { ...prev, status: 'ended' } : null));
-    toast.info('Stream has ended');
+    toast('Stream has ended');
     setIsPlaying(false);
   }, []);
 
@@ -606,14 +614,14 @@ export default function LiveStreamViewer({
                     <VideoCameraIcon className='w-8 h-8 text-gray-400' />
                   </div>
                   <p className='text-gray-400'>
-                    {stream?.status === 'SCHEDULED' ? 'Stream not started yet' : 'Stream not available'}
+                    {stream?.status === 'scheduled' ? 'Stream not started yet' : 'Stream not available'}
                   </p>
                 </div>
               </div>
             )}
 
             {/* Stream Status Overlay */}
-            {stream?.status === 'LIVE' && (
+            {stream?.status === 'live' && (
               <div className='absolute top-4 left-4 flex items-center gap-4 z-10'>
                 <div className='flex items-center gap-2 bg-red-600 px-3 py-1 rounded-full'>
                   <div className='w-2 h-2 bg-white rounded-full animate-pulse' />
@@ -835,7 +843,7 @@ export default function LiveStreamViewer({
 
                   {showEmojiPicker && (
                     <div className='absolute bottom-full mb-2 right-0 z-10'>
-                      <EmojiPicker onEmojiClick={emoji => sendEmoji(emoji.emoji)} theme='dark' />
+                      <EmojiPicker onEmojiClick={(emoji: { emoji: string }) => sendEmoji(emoji.emoji)} theme={'dark' as any} />
                     </div>
                   )}
 

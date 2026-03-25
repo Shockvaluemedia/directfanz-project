@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDatabaseClient } from './database-production';
-import { getRedisClient } from './redis-production';
+import { getRedisClient } from './redis';
 
 interface PerformanceMetrics {
   responseTime: number;
@@ -22,17 +22,19 @@ export class APIPerformanceOptimizer {
     let cacheHit = false;
 
     // Try cache first
-    const cached = await this.redis.get(cacheKey);
-    if (cached) {
-      cacheHit = true;
-      return {
-        data: JSON.parse(cached),
-        metrics: {
-          responseTime: Date.now() - startTime,
-          dbQueryTime: 0,
-          cacheHit: true,
-        },
-      };
+    if (this.redis) {
+      const cached = await this.redis.get(cacheKey);
+      if (cached) {
+        cacheHit = true;
+        return {
+          data: JSON.parse(cached),
+          metrics: {
+            responseTime: Date.now() - startTime,
+            dbQueryTime: 0,
+            cacheHit: true,
+          },
+        };
+      }
     }
 
     // Execute query
@@ -41,7 +43,9 @@ export class APIPerformanceOptimizer {
     dbQueryTime = Date.now() - dbStart;
 
     // Cache result
-    await this.redis.set(cacheKey, JSON.stringify(data), ttl);
+    if (this.redis) {
+      await this.redis.setex(cacheKey, ttl, JSON.stringify(data));
+    }
 
     return {
       data,
@@ -58,12 +62,12 @@ export class APIPerformanceOptimizer {
       `user:${userId}:content`,
       async () => {
         return await this.db.client.content.findMany({
-          where: { authorId: userId },
+          where: { artistId: userId },
           select: {
             id: true,
             title: true,
             createdAt: true,
-            viewCount: true,
+            totalViews: true,
           },
           orderBy: { createdAt: 'desc' },
           take: 20,
@@ -77,14 +81,14 @@ export class APIPerformanceOptimizer {
     return this.optimizeQuery(
       `user:${userId}:subscriptions`,
       async () => {
-        return await this.db.client.subscription.findMany({
-          where: { userId },
+        return await this.db.client.subscriptions.findMany({
+          where: { fanId: userId },
           include: {
-            tier: {
+            tiers: {
               select: {
                 id: true,
                 name: true,
-                price: true,
+                minimumPrice: true,
               },
             },
           },

@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
   const { format = 'json' } = await request.json();
   const db = getDatabaseClient();
 
-  const exportRequest = await db.client.dataExportRequest.create({
+  const exportRequest = await (db.client as any).dataExportRequest.create({
     data: {
       userId: session.user.id,
       format,
@@ -33,7 +33,7 @@ async function processDataExport(userId: string, requestId: string, format: stri
   const db = getDatabaseClient();
   
   try {
-    await db.client.dataExportRequest.update({
+    await (db.client as any).dataExportRequest.update({
       where: { id: requestId },
       data: { status: 'processing' },
     });
@@ -41,7 +41,7 @@ async function processDataExport(userId: string, requestId: string, format: stri
     const userData = await collectUserData(userId);
     const exportData = format === 'json' ? JSON.stringify(userData, null, 2) : convertToCSV(userData);
     
-    await db.client.dataExportRequest.update({
+    await (db.client as any).dataExportRequest.update({
       where: { id: requestId },
       data: {
         status: 'completed',
@@ -50,7 +50,7 @@ async function processDataExport(userId: string, requestId: string, format: stri
       },
     });
   } catch (error) {
-    await db.client.dataExportRequest.update({
+    await (db.client as any).dataExportRequest.update({
       where: { id: requestId },
       data: { status: 'failed' },
     });
@@ -60,13 +60,13 @@ async function processDataExport(userId: string, requestId: string, format: stri
 async function collectUserData(userId: string) {
   const db = getDatabaseClient();
   
-  const user = await db.client.user.findUnique({
+  const user = await db.client.users.findUnique({
     where: { id: userId },
     include: {
-      profile: true,
       subscriptions: true,
       content: true,
       comments: true,
+      artists: true,
     },
   });
 

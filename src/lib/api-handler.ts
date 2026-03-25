@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { logger } from './logger';
-import { AppError, createError } from './errors';
+import { AppError, ErrorCode } from './errors';
 import { createRateLimiter } from './rate-limiting';
 
 // Standard API response interface
@@ -119,7 +119,7 @@ export function createApiHandler<TQuery = any, TBody = any, TResponse = any>(
         if (rateLimitResponse) {
           // Rate limit exceeded - return the rate limiter's response with our headers
           const responseData = await rateLimitResponse.json();
-          return NextResponse.json(
+          return NextResponse.json<ApiResponse<TResponse>>(
             {
               success: false,
               error: {
@@ -130,7 +130,7 @@ export function createApiHandler<TQuery = any, TBody = any, TResponse = any>(
                 requestId,
                 timestamp: new Date().toISOString(),
               },
-            } as ApiResponse,
+            },
             {
               status: 429,
               headers: {
@@ -147,16 +147,23 @@ export function createApiHandler<TQuery = any, TBody = any, TResponse = any>(
       if (config.requireAuth) {
         const authHeader = request.headers.get('authorization');
         if (!authHeader?.startsWith('Bearer ')) {
-          throw createError('UNAUTHORIZED', 'Missing or invalid authentication token');
+          throw new AppError(ErrorCode.UNAUTHORIZED, 'Missing or invalid authentication token', 401);
         }
 
-        // TODO: Implement actual JWT verification
-        // For now, mock user extraction
-        user = { id: 'user-123', email: 'user@example.com', role: 'USER' };
+        const { getToken } = await import('next-auth/jwt');
+        const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+        if (!token || !token.id) {
+          throw new AppError(ErrorCode.UNAUTHORIZED, 'Invalid authentication token', 401);
+        }
+        user = {
+          id: token.id as string,
+          email: (token.email as string) || '',
+          role: (token.role as string) || 'USER',
+        };
 
         // Role-based authorization
         if (config.allowedRoles && !config.allowedRoles.includes(user.role)) {
-          throw createError('FORBIDDEN', 'Insufficient permissions for this resource');
+          throw new AppError(ErrorCode.FORBIDDEN, 'Insufficient permissions for this resource', 403);
         }
       }
 
@@ -178,7 +185,7 @@ export function createApiHandler<TQuery = any, TBody = any, TResponse = any>(
           if (config.bodySchema && error instanceof z.ZodError) {
             throw error; // Re-throw Zod errors to be handled by the error handler
           }
-          throw createError('VALIDATION_ERROR', 'Invalid JSON in request body');
+          throw new AppError(ErrorCode.VALIDATION_ERROR, 'Invalid JSON in request body', 400);
         }
       }
 
@@ -188,7 +195,7 @@ export function createApiHandler<TQuery = any, TBody = any, TResponse = any>(
       const timeoutPromise = config.options?.timeout
         ? new Promise<never>((_, reject) =>
             setTimeout(
-              () => reject(createError('TIMEOUT', 'Request timeout')),
+              () => reject(new AppError(ErrorCode.REQUEST_TIMEOUT, 'Request timeout', 408)),
               config.options!.timeout!
             )
           )
@@ -206,8 +213,8 @@ export function createApiHandler<TQuery = any, TBody = any, TResponse = any>(
           requestId,
           method: request.method,
           url: request.url,
-          duration: `${duration}ms`,
-          userAgent: request.headers.get('user-agent'),
+          duration: duration,
+          userAgent: request.headers.get('user-agent') || undefined,
           userId: user?.id,
         });
       }
@@ -250,7 +257,7 @@ export function createApiHandler<TQuery = any, TBody = any, TResponse = any>(
           details: error.errors.map(err => ({
             field: err.path.join('.'),
             message: err.message,
-            value: err.input,
+            value: (err as any).input,
           })),
         };
       } else if (error instanceof AppError) {
@@ -258,7 +265,7 @@ export function createApiHandler<TQuery = any, TBody = any, TResponse = any>(
         errorResponse = {
           code: error.code,
           message: error.message,
-          field: error.field,
+          field: (error as any).field,
           details: error.details,
         };
       } else if (error instanceof Error) {
@@ -267,10 +274,9 @@ export function createApiHandler<TQuery = any, TBody = any, TResponse = any>(
           requestId,
           method: request.method,
           url: request.url,
-          duration: `${duration}ms`,
+          duration: duration,
           error: error.message,
           stack: error.stack,
-          userId: user?.id,
         });
 
         // Don't expose internal error details in production
@@ -282,7 +288,7 @@ export function createApiHandler<TQuery = any, TBody = any, TResponse = any>(
         }
       }
 
-      return NextResponse.json(
+      return NextResponse.json<ApiResponse<TResponse>>(
         {
           success: false,
           error: errorResponse,
@@ -290,7 +296,7 @@ export function createApiHandler<TQuery = any, TBody = any, TResponse = any>(
             requestId,
             timestamp: new Date().toISOString(),
           },
-        } as ApiResponse,
+        },
         {
           status: statusCode,
           headers: {
@@ -350,7 +356,7 @@ export function paginationMeta(
   page: number,
   limit: number,
   total: number
-): ApiResponse['meta']['pagination'] {
+): NonNullable<NonNullable<ApiResponse['meta']>['pagination']> {
   const totalPages = Math.ceil(total / limit);
 
   return {
@@ -387,5 +393,4 @@ export const commonSchemas = {
   }),
 };
 
-// Export types for external use
-export type { ApiHandlerConfig, ApiResponse };
+// Types are already exported above via the interface/function declarations

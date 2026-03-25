@@ -1,3 +1,6 @@
+/**
+ * @jest-environment jsdom
+ */
 import { render, screen } from '@testing-library/react';
 import { RoleGuard, ArtistGuard, FanGuard } from '@/components/auth/role-guard';
 import { UserRole } from '@/types/database';

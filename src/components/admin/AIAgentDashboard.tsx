@@ -89,11 +89,12 @@ export function AIAgentDashboard() {
 
   useEffect(() => {
     fetchDashboardData();
-    
+
     if (autoRefresh) {
       const interval = setInterval(fetchDashboardData, 30000); // Refresh every 30 seconds
       return () => clearInterval(interval);
     }
+    return undefined;
   }, [autoRefresh]);
 
   const fetchDashboardData = async () => {

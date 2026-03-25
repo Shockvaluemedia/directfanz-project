@@ -9,7 +9,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
@@ -39,7 +39,9 @@ export async function GET(request: NextRequest) {
     const [
       userStats,
       contentStats,
-      recentActivity
+      revenueStats,
+      reportStats,
+      recentActivity,
     ] = await Promise.all([
       // Combined user statistics in single query
       prisma.users.groupBy({
@@ -50,7 +52,7 @@ export async function GET(request: NextRequest) {
         },
       }).then(async (roleGroups) => {
         // Get additional user counts in parallel
-        const [totalUsers, recentSignups] = await Promise.all([
+        const [totalUsers, recentSignups, bannedUsers] = await Promise.all([
           prisma.users.count(),
           prisma.users.count({
             where: {
@@ -59,19 +61,24 @@ export async function GET(request: NextRequest) {
               },
             },
           }),
+          prisma.users.count({
+            where: {
+              status: 'BANNED',
+            },
+          }),
         ]);
-        
+
         const roleCounts = roleGroups.reduce((acc, item) => {
           acc[item.role] = item._count;
           return acc;
         }, {} as Record<string, number>);
-        
+
         return {
           totalUsers,
           totalArtists: roleCounts.ARTIST || 0,
           totalFans: roleCounts.FAN || 0,
           recentSignups,
-          bannedUsers: 0, // TODO: implement when user status field exists
+          bannedUsers,
         };
       }),
       
@@ -90,6 +97,29 @@ export async function GET(request: NextRequest) {
         contentToday,
       })),
       
+      // Revenue statistics from subscriptions and stream tips
+      Promise.all([
+        prisma.subscriptions.aggregate({
+          _sum: { amount: true },
+          where: { status: 'ACTIVE' },
+        }),
+        prisma.subscriptions.aggregate({
+          _sum: { amount: true },
+          where: {
+            status: 'ACTIVE',
+            currentPeriodStart: { gte: thisMonth },
+          },
+        }),
+      ]).then(([totalAgg, monthlyAgg]) => ({
+        totalRevenue: Number(totalAgg._sum.amount || 0),
+        monthlyRevenue: Number(monthlyAgg._sum.amount || 0),
+      })),
+
+      // Active reports count
+      prisma.reports.count({
+        where: { status: 'PENDING' },
+      }),
+
       // Recent activity (optimized to get recent activities efficiently)
       Promise.all([
         // Recent user signups
@@ -154,10 +184,10 @@ export async function GET(request: NextRequest) {
       totalUsers: userStats.totalUsers,
       totalArtists: userStats.totalArtists,
       totalFans: userStats.totalFans,
-      totalRevenue: 0, // TODO: implement when payments table exists
-      monthlyRevenue: 0, // TODO: implement when payments table exists
+      totalRevenue: revenueStats.totalRevenue,
+      monthlyRevenue: revenueStats.monthlyRevenue,
       totalContent: contentStats.totalContent,
-      activeReports: 0, // TODO: implement when reports table exists
+      activeReports: reportStats,
       bannedUsers: userStats.bannedUsers,
       recentSignups: userStats.recentSignups,
       contentUploadsToday: contentStats.contentToday,
@@ -177,7 +207,7 @@ export async function GET(request: NextRequest) {
     });
     
   } catch (error) {
-    logger.error('Admin dashboard stats error', { userId: session?.user?.id }, error as Error);
+    logger.error('Admin dashboard stats error', {}, error as Error);
     return NextResponse.json({ error: 'Failed to fetch admin dashboard stats' }, { status: 500 });
   }
 }

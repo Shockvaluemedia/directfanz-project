@@ -23,7 +23,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     // Try to delete the notification (implementation depends on if notification table exists)
     try {
-      await notificationService.deleteNotification?.(notificationId, session.user.id);
+      await (notificationService as any).deleteNotification?.(notificationId, session.user.id);
     } catch (error) {
       // If method doesn't exist, just log it
       logger.info('Notification delete requested', {

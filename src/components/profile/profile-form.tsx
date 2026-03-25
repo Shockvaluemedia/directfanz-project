@@ -114,11 +114,21 @@ export default function ProfileForm({ initialData, userRole, onSuccess }: Profil
     e.preventDefault();
 
     try {
-      // TODO: Upload avatar if selected
+      // Upload avatar if selected
       let avatarUrl = formData.avatar;
       if (avatarFile) {
-        // This would typically upload to S3 or similar
-        // avatarUrl = await uploadAvatar(avatarFile)
+        const uploadFormData = new FormData();
+        uploadFormData.append('file', avatarFile);
+
+        const uploadResponse = await fetch('/api/upload', {
+          method: 'POST',
+          body: uploadFormData,
+        });
+
+        if (uploadResponse.ok) {
+          const uploadResult = await uploadResponse.json();
+          avatarUrl = uploadResult.url;
+        }
       }
 
       await updateProfile({

@@ -1,5 +1,6 @@
 import { prisma } from './prisma';
 import { UserRole, SubscriptionStatus } from '@/types/database';
+// @ts-ignore - no type declarations available
 import jwt from 'jsonwebtoken';
 
 // Content access verification types
@@ -31,7 +32,7 @@ export async function checkContentAccess(
     const contentWithUserAccess = await prisma.content.findUnique({
       where: { id: contentId },
       include: {
-        artist: {
+        users: {
           select: {
             id: true,
             displayName: true,
@@ -76,13 +77,14 @@ export async function checkContentAccess(
     }
 
     // Check if user has subscription to any of the content's tiers
-    if (contentWithUserAccess.tiers.length === 0) {
+    const contentTiers = (contentWithUserAccess as any).tiers as Array<any>;
+    if (contentTiers.length === 0) {
       // Content not assigned to any tier - only owner can access
       return { hasAccess: false, reason: 'no_subscription' };
     }
 
     // Check access in memory - no additional DB queries needed
-    for (const tier of contentWithUserAccess.tiers) {
+    for (const tier of contentTiers) {
       if (tier.isActive && tier.subscriptions.length > 0) {
         const subscription = tier.subscriptions[0]; // User can only have one active subscription per tier
         return {
@@ -199,7 +201,7 @@ export async function getUserAccessibleContent(
             minimumPrice: true,
           },
         },
-        artist: {
+        users: {
           select: {
             id: true,
             displayName: true,
@@ -215,9 +217,9 @@ export async function getUserAccessibleContent(
   ]);
 
   return {
-    content: content.map(item => ({
+    content: content.map((item: any) => ({
       ...item,
-      tiers: item.tiers.map(tier => ({
+      tiers: (item.tiers || []).map((tier: any) => ({
         ...tier,
         minimumPrice: Number(tier.minimumPrice),
       })),
@@ -289,7 +291,7 @@ export async function getContentAccessSummary(
         },
       },
       include: {
-        tier: {
+        tiers: {
           select: {
             id: true,
             name: true,
@@ -331,7 +333,7 @@ export async function getContentAccessSummary(
 
         return {
           tierId: sub.tierId,
-          tierName: sub.tiers.name,
+          tierName: (sub as any).tiers.name,
           contentCount,
         };
       })

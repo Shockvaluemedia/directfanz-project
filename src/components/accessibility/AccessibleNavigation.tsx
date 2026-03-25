@@ -121,6 +121,7 @@ export function AccessibleNavigation({
       const cleanup = createFocusTrap(mobileMenuRef);
       return cleanup;
     }
+    return undefined;
   }, [isMobileMenuOpen, createFocusTrap]);
 
   const handleItemClick = useCallback((item: NavigationItem) => {

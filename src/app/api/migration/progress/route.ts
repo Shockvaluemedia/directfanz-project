@@ -20,19 +20,21 @@ export async function GET(request: NextRequest) {
       success: true,
       data: overview
     });
-  } catch (error) {
-    logger.error('Failed to get migration progress', { error: error.message });
-    
+  } catch (error: unknown) {
+    const errMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Failed to get migration progress', { error: errMessage });
+
     return NextResponse.json({
       success: false,
-      error: error.message
+      error: errMessage
     }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
+  let body: any;
   try {
-    const body = await request.json();
+    body = await request.json();
     const { migrationId, action, phaseId, subTaskId, ...params } = body;
 
     if (!migrationId) {
@@ -140,16 +142,17 @@ export async function POST(request: NextRequest) {
       success: true,
       message: `Action ${action} completed successfully`
     });
-  } catch (error) {
-    logger.error('Failed to execute migration progress action', { 
-      error: error.message,
+  } catch (error: unknown) {
+    const errMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Failed to execute migration progress action', {
+      error: errMessage,
       action: body?.action,
       migrationId: body?.migrationId
     });
-    
+
     return NextResponse.json({
       success: false,
-      error: error.message
+      error: errMessage
     }, { status: 500 });
   }
 }
@@ -182,12 +185,13 @@ export async function PUT(request: NextRequest) {
       success: false,
       error: 'No valid operation specified'
     }, { status: 400 });
-  } catch (error) {
-    logger.error('Failed to execute migration progress operation', { error: error.message });
-    
+  } catch (error: unknown) {
+    const errMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Failed to execute migration progress operation', { error: errMessage });
+
     return NextResponse.json({
       success: false,
-      error: error.message
+      error: errMessage
     }, { status: 500 });
   }
 }

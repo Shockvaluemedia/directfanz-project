@@ -57,7 +57,7 @@ export function AudioPlayer({
   // Audio context for visualization
   const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
   const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
-  const [dataArray, setDataArray] = useState<Uint8Array | null>(null);
+  const [dataArray, setDataArray] = useState<Uint8Array<ArrayBuffer> | null>(null);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -136,7 +136,7 @@ export function AudioPlayer({
 
       setAudioContext(ctx);
       setAnalyser(analyserNode);
-      setDataArray(dataArrayBuffer);
+      setDataArray(dataArrayBuffer as Uint8Array<ArrayBuffer>);
     } catch (error) {
       console.error('Failed to setup audio visualization:', error);
     }

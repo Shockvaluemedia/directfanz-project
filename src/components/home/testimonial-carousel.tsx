@@ -70,6 +70,7 @@ export default function TestimonialCarousel() {
 
       return () => clearInterval(interval);
     }
+    return undefined;
   }, [isAutoPlaying]);
 
   const goToSlide = (index: number) => {

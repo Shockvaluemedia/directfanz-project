@@ -1,9 +1,7 @@
 /**
- * PgBouncer configuration utilities for RDS connection pooling
- * Handles connection pooling configuration for AWS RDS deployment
+ * PgBouncer configuration utilities for database connection pooling
  */
 
-import { getParameter, isRunningInECS } from './aws-config';
 import { logger } from './logger';
 
 export interface PgBouncerConfig {
@@ -30,11 +28,11 @@ export interface PgBouncerConfig {
  * Generate PgBouncer configuration for RDS
  */
 export const generatePgBouncerConfig = async (): Promise<PgBouncerConfig> => {
-  // Get RDS connection details from Parameter Store or environment
-  const databaseUrl = await getParameter('/directfanz/database/url', 'DATABASE_URL');
+  // Get database connection details from environment
+  const databaseUrl = process.env.DATABASE_URL;
   
   if (!databaseUrl) {
-    throw new Error('Database URL not found in Parameter Store or environment variables');
+    throw new Error('Database URL not found in environment variables');
   }
 
   const url = new URL(databaseUrl);
@@ -46,22 +44,23 @@ export const generatePgBouncerConfig = async (): Promise<PgBouncerConfig> => {
   const username = url.username;
   const password = url.password;
 
-  // ECS-optimized configuration
+  const isProduction = process.env.NODE_ENV === 'production';
+
   const config: PgBouncerConfig = {
     host,
     port,
     database,
     username,
     password,
-    
-    // Connection pooling settings optimized for ECS + RDS
+
+    // Connection pooling settings
     poolMode: 'transaction', // Most efficient for web applications
-    maxClientConnections: isRunningInECS() ? 200 : 50,
-    defaultPoolSize: isRunningInECS() ? 20 : 10,
-    reservePoolSize: isRunningInECS() ? 5 : 2,
+    maxClientConnections: isProduction ? 200 : 50,
+    defaultPoolSize: isProduction ? 20 : 10,
+    reservePoolSize: isProduction ? 5 : 2,
     reservePoolTimeout: 5, // seconds
-    maxDbConnections: isRunningInECS() ? 100 : 25,
-    maxUserConnections: isRunningInECS() ? 100 : 25,
+    maxDbConnections: isProduction ? 100 : 25,
+    maxUserConnections: isProduction ? 100 : 25,
     
     // Performance optimizations
     serverRoundRobin: true,
@@ -87,7 +86,7 @@ export const generatePgBouncerIni = async (): Promise<string> => {
   const config = await generatePgBouncerConfig();
   
   const iniContent = `
-# PgBouncer configuration for DirectFanz RDS deployment
+# PgBouncer configuration for DirectFanz deployment
 # Generated automatically - do not edit manually
 
 [databases]
@@ -196,7 +195,7 @@ export const getPgBouncerUrl = async (): Promise<string> => {
  * Check if PgBouncer should be used
  */
 export const shouldUsePgBouncer = (): boolean => {
-  return isRunningInECS() && process.env.USE_PGBOUNCER === 'true';
+  return process.env.NODE_ENV === 'production' && process.env.USE_PGBOUNCER === 'true';
 };
 
 /**
@@ -207,8 +206,8 @@ export const getDatabaseUrl = async (): Promise<string> => {
     logger.info('Using PgBouncer for database connections');
     return await getPgBouncerUrl();
   } else {
-    logger.info('Using direct RDS connection');
-    return await getParameter('/directfanz/database/url', 'DATABASE_URL') || '';
+    logger.info('Using direct database connection');
+    return process.env.DATABASE_URL || '';
   }
 };
 

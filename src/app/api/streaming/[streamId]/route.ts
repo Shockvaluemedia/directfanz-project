@@ -2,9 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { MediaLiveClient, StartChannelCommand, StopChannelCommand } from '@aws-sdk/client-medialive';
-
-const mediaLive = new MediaLiveClient({ region: process.env.AWS_REGION || 'us-east-1' });
 
 export async function POST(
   request: NextRequest,
@@ -19,16 +16,16 @@ export async function POST(
     const { action } = await request.json();
     const { streamId } = params;
 
-    const stream = await prisma.liveStream.findUnique({
+    const stream = await prisma.live_streams.findUnique({
       where: { id: streamId },
-      include: { streamer: true }
+      include: { users: true }
     });
 
     if (!stream) {
       return NextResponse.json({ error: 'Stream not found' }, { status: 404 });
     }
 
-    if (stream.streamerId !== session.user.id) {
+    if (stream.artistId !== session.user.id) {
       return NextResponse.json({ error: 'Not authorized for this stream' }, { status: 403 });
     }
 
@@ -38,13 +35,7 @@ export async function POST(
           return NextResponse.json({ error: 'Stream already started' }, { status: 400 });
         }
 
-        // Start MediaLive channel
-        await mediaLive.send(new StartChannelCommand({
-          ChannelId: `directfanz-${streamId}`
-        }));
-
-        // Update stream status
-        await prisma.liveStream.update({
+        await prisma.live_streams.update({
           where: { id: streamId },
           data: {
             status: 'LIVE',
@@ -52,10 +43,10 @@ export async function POST(
           }
         });
 
-        return NextResponse.json({ 
+        return NextResponse.json({
           status: 'LIVE',
           message: 'Stream started successfully',
-          playbackUrl: `https://${process.env.CLOUDFRONT_STREAMING_DOMAIN}/${streamId}/playlist.m3u8`
+          signalingUrl: process.env.NEXT_PUBLIC_WEBSOCKET_URL || '/api/socket',
         });
 
       case 'stop':
@@ -63,13 +54,7 @@ export async function POST(
           return NextResponse.json({ error: 'Stream not live' }, { status: 400 });
         }
 
-        // Stop MediaLive channel
-        await mediaLive.send(new StopChannelCommand({
-          ChannelId: `directfanz-${streamId}`
-        }));
-
-        // Update stream status
-        const endedStream = await prisma.liveStream.update({
+        const endedStream = await prisma.live_streams.update({
           where: { id: streamId },
           data: {
             status: 'ENDED',
@@ -77,12 +62,11 @@ export async function POST(
           }
         });
 
-        // Calculate duration
-        const duration = endedStream.endedAt && endedStream.startedAt 
+        const duration = endedStream.endedAt && endedStream.startedAt
           ? endedStream.endedAt.getTime() - endedStream.startedAt.getTime()
           : 0;
 
-        return NextResponse.json({ 
+        return NextResponse.json({
           status: 'ENDED',
           message: 'Stream ended successfully',
           duration
@@ -105,24 +89,21 @@ export async function GET(
   try {
     const { streamId } = params;
 
-    const stream = await prisma.liveStream.findUnique({
+    const stream = await prisma.live_streams.findUnique({
       where: { id: streamId },
       include: {
-        streamer: {
+        users: {
           select: {
             id: true,
-            userName: true,
             displayName: true,
             avatar: true,
-            isVerified: true
           }
         },
-        viewers: {
+        stream_viewers: {
           select: {
             id: true,
-            user: {
+            users: {
               select: {
-                userName: true,
                 displayName: true,
                 avatar: true
               }
@@ -130,13 +111,12 @@ export async function GET(
             joinedAt: true
           }
         },
-        chatMessages: {
+        stream_chat_messages: {
           orderBy: { createdAt: 'desc' },
           take: 50,
           include: {
-            user: {
+            users: {
               select: {
-                userName: true,
                 displayName: true,
                 avatar: true
               }
@@ -145,9 +125,9 @@ export async function GET(
         },
         _count: {
           select: {
-            viewers: true,
-            chatMessages: true,
-            likes: true
+            stream_viewers: true,
+            stream_chat_messages: true,
+            stream_tips: true
           }
         }
       }
@@ -157,20 +137,18 @@ export async function GET(
       return NextResponse.json({ error: 'Stream not found' }, { status: 404 });
     }
 
-    const playbackUrl = stream.status === 'LIVE' 
-      ? `https://${process.env.CLOUDFRONT_STREAMING_DOMAIN}/${streamId}/playlist.m3u8`
-      : null;
-
     return NextResponse.json({
       ...stream,
-      playbackUrl,
+      signalingUrl: stream.status === 'LIVE'
+        ? (process.env.NEXT_PUBLIC_WEBSOCKET_URL || '/api/socket')
+        : null,
       metrics: {
-        currentViewers: stream._count.viewers,
-        totalMessages: stream._count.chatMessages,
-        totalLikes: stream._count.likes,
-        duration: stream.startedAt && stream.endedAt 
+        currentViewers: stream._count.stream_viewers,
+        totalMessages: stream._count.stream_chat_messages,
+        totalTips: stream._count.stream_tips,
+        duration: stream.startedAt && stream.endedAt
           ? stream.endedAt.getTime() - stream.startedAt.getTime()
-          : stream.startedAt 
+          : stream.startedAt
           ? Date.now() - stream.startedAt.getTime()
           : 0
       }

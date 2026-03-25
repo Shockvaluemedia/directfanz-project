@@ -33,7 +33,7 @@ export async function disconnectDatabase() {
 export const dbUtils = {
   // Transaction wrapper
   async transaction<T>(fn: (tx: PrismaClient) => Promise<T>): Promise<T> {
-    return await db.$transaction(fn);
+    return await db.$transaction(fn as any) as T;
   },
 
   // Soft delete helper (if implementing soft deletes)

@@ -7,7 +7,7 @@ import { useTrending, useRecommendations, useFeaturedContent } from '@/hooks/use
 import {
   TrendingUp,
   TrendingDown,
-  Fire,
+  Flame,
   Star,
   Eye,
   Heart,
@@ -173,7 +173,7 @@ function TrendingSection({ trending, loading, onItemClick }: TrendingSectionProp
     <EnhancedCard variant="elevated">
       <EnhancedCardHeader>
         <EnhancedCardTitle className="flex items-center gap-2">
-          <Fire className="w-5 h-5 text-orange-500" />
+          <Flame className="w-5 h-5 text-orange-500" />
           Trending Now
         </EnhancedCardTitle>
       </EnhancedCardHeader>

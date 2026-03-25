@@ -281,6 +281,7 @@ export function RealTimeProvider({ children }: RealTimeProviderProps) {
         socketRef.current = null;
       };
     }
+    return undefined;
   }, [
     session?.accessToken,
     session?.user?.id,

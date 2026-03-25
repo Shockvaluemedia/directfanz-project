@@ -322,7 +322,7 @@ class ModerationService {
     targetType: ContentType
   ): Promise<any> {
     try {
-      return await prisma.report.findFirst({
+      return await prisma.reports.findFirst({
         where: {
           reporterId,
           targetId,
@@ -336,16 +336,16 @@ class ModerationService {
 
   private async createReport(reportData: ReportData): Promise<any> {
     try {
-      return await prisma.report.create({
+      return await prisma.reports.create({
         data: {
           reporterId: reportData.reporterId,
           targetId: reportData.targetId,
           targetType: reportData.targetType,
           reason: reportData.reason,
-          description: reportData.description,
-          evidence: reportData.evidence || [],
+          description: reportData.description || '',
+          evidence: JSON.stringify(reportData.evidence || []),
           status: 'pending',
-        },
+        } as any,
       });
     } catch (error) {
       // If table doesn't exist, return mock data
@@ -360,7 +360,7 @@ class ModerationService {
 
   private async checkExistingBlock(blockerId: string, blockedId: string): Promise<any> {
     try {
-      return await prisma.userBlock.findFirst({
+      return await (prisma as any).userBlock.findFirst({
         where: {
           OR: [
             { blockerId, blockedId },
@@ -375,7 +375,7 @@ class ModerationService {
 
   private async createBlock(blockerId: string, blockedId: string, type: string): Promise<void> {
     try {
-      await prisma.userBlock.create({
+      await (prisma as any).userBlock.create({
         data: {
           blockerId,
           blockedId,
@@ -390,7 +390,7 @@ class ModerationService {
 
   private async updateBlock(blockId: string, type: string): Promise<void> {
     try {
-      await prisma.userBlock.update({
+      await (prisma as any).userBlock.update({
         where: { id: blockId },
         data: { type },
       });
@@ -401,7 +401,7 @@ class ModerationService {
 
   private async removeBlock(blockerId: string, blockedId: string): Promise<void> {
     try {
-      await prisma.userBlock.deleteMany({
+      await (prisma as any).userBlock.deleteMany({
         where: {
           OR: [
             { blockerId, blockedId },
@@ -416,7 +416,7 @@ class ModerationService {
 
   private async getUserBlocks(userId: string): Promise<any[]> {
     try {
-      return await prisma.userBlock.findMany({
+      return await (prisma as any).userBlock.findMany({
         where: { blockerId: userId },
         include: {
           blockedUser: {
@@ -481,14 +481,14 @@ class ModerationService {
   ): Promise<{ violations: number; warnings: number }> {
     try {
       const [violations, warnings] = await Promise.all([
-        prisma.report.count({
+        prisma.reports.count({
           where: {
             targetId: userId,
             targetType: 'user_profile',
             status: 'resolved',
           },
         }),
-        prisma.userWarning.count({
+        (prisma as any).userWarning.count({
           where: { userId },
         }),
       ]);
@@ -521,10 +521,10 @@ class ModerationService {
 
   private async getReports(limit: number, offset: number): Promise<any[]> {
     try {
-      return await prisma.report.findMany({
+      return await prisma.reports.findMany({
         include: {
-          reporter: {
-            select: { id: true, name: true, email: true },
+          users_reports_reporterIdTousers: {
+            select: { id: true, email: true },
           },
         },
         orderBy: { createdAt: 'desc' },
@@ -538,7 +538,7 @@ class ModerationService {
 
   private async getReportsCount(): Promise<number> {
     try {
-      return await prisma.report.count();
+      return await prisma.reports.count();
     } catch (error) {
       return 0;
     }
@@ -546,7 +546,7 @@ class ModerationService {
 
   private async getReport(reportId: string): Promise<any> {
     try {
-      return await prisma.report.findUnique({
+      return await prisma.reports.findUnique({
         where: { id: reportId },
       });
     } catch (error) {
@@ -560,14 +560,14 @@ class ModerationService {
     moderatorId?: string
   ): Promise<void> {
     try {
-      await prisma.report.update({
+      await prisma.reports.update({
         where: { id: reportId },
         data: {
           status: 'resolved',
           moderatorAction: action,
           moderatorId,
           resolvedAt: new Date(),
-        },
+        } as any,
       });
     } catch (error) {
       logger.info('Report status updated (simulated)', { reportId, action });
@@ -586,7 +586,7 @@ class ModerationService {
         case 'message':
           await prisma.messages.update({
             where: { id: targetId },
-            data: { isDeleted: true },
+            data: { isDeleted: true } as any,
           });
           break;
         // Add other content types as needed
@@ -614,7 +614,7 @@ class ModerationService {
 
   private async warnUser(userId: string): Promise<void> {
     try {
-      await prisma.userWarning.create({
+      await (prisma as any).userWarning.create({
         data: {
           userId,
           reason: 'Content violation',
@@ -645,7 +645,7 @@ class ModerationService {
         where: { id: userId },
         data: {
           restrictedUntil: expiresAt,
-        },
+        } as any,
       });
 
       await sendNotification({
@@ -670,7 +670,7 @@ class ModerationService {
         where: { id: userId },
         data: {
           suspendedUntil: expiresAt,
-        },
+        } as any,
       });
 
       await sendNotification({
@@ -693,7 +693,7 @@ class ModerationService {
         data: {
           banned: true,
           bannedAt: new Date(),
-        },
+        } as any,
       });
 
       await sendNotification({

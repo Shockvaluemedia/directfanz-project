@@ -23,7 +23,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       const content = await prisma.content.findUnique({
         where: { id: contentId },
         include: {
-          artist: {
+          users: {
             select: {
               id: true,
               displayName: true,
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
           },
           comments: {
             include: {
-              fan: {
+              users: {
                 select: {
                   id: true,
                   displayName: true,
@@ -204,7 +204,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         where: { id: contentId },
         data: updateData,
         include: {
-          artist: {
+          users: {
             select: {
               id: true,
               displayName: true,
@@ -289,18 +289,14 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
         where: { id: contentId },
       });
 
-      // Extract S3 keys from URLs for cleanup
+      // Delete files from Vercel Blob storage
       try {
-        const fileKey = content.fileUrl.split('/').pop();
-        if (fileKey && content.fileUrl.includes('amazonaws.com')) {
-          await FileUploader.deleteFromS3(fileKey);
+        if (content.fileUrl) {
+          await FileUploader.deleteFromBlob(content.fileUrl);
         }
 
         if (content.thumbnailUrl) {
-          const thumbnailKey = content.thumbnailUrl.split('/').pop();
-          if (thumbnailKey && content.thumbnailUrl.includes('amazonaws.com')) {
-            await FileUploader.deleteFromS3(thumbnailKey);
-          }
+          await FileUploader.deleteFromBlob(content.thumbnailUrl);
         }
       } catch (storageError) {
         // Log error but don't fail the request - database deletion succeeded

@@ -76,6 +76,7 @@ export function StreamControlPanel({ className }: StreamControlPanelProps) {
 
       return () => clearInterval(interval);
     }
+    return undefined;
   }, [isStreaming, getStreamAnalytics]);
 
   const handleToggleVideo = () => {

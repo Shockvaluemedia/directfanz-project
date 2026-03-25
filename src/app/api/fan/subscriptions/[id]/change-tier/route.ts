@@ -37,7 +37,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         fanId: session.user.id,
       },
       include: {
-        tier: true,
+        tiers: true,
       },
     });
 
@@ -174,7 +174,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         fanId: session.user.id,
       },
       include: {
-        tier: true,
+        tiers: true,
       },
     });
 

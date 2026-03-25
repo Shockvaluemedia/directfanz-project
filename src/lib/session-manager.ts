@@ -1,5 +1,5 @@
 /**
- * Session management optimized for AWS ElastiCache
+ * Session management optimized for Redis
  * Handles user sessions, WebSocket connections, and streaming state
  */
 
@@ -73,7 +73,7 @@ export interface ChatMessage {
 }
 
 /**
- * Session Manager class for ElastiCache operations
+ * Session Manager class for Redis operations
  */
 export class SessionManager {
   private readonly SESSION_TTL = CACHE_TTL.VERY_LONG; // 24 hours
@@ -102,10 +102,10 @@ export class SessionManager {
         ...sessionData,
       };
 
-      await setSession(sessionId, session, this.SESSION_TTL);
-      
+      await setSession(sessionId, session as unknown as Record<string, unknown>, this.SESSION_TTL);
+
       // Also store user-to-session mapping for quick lookups
-      await setSession(`user:${session.userId}:session`, sessionId, this.SESSION_TTL);
+      await setSession(`user:${session.userId}:session`, { sessionId } as Record<string, unknown>, this.SESSION_TTL);
       
       logger.info('User session created', { 
         sessionId, 
@@ -158,9 +158,9 @@ export class SessionManager {
         session.socketId = socketId;
       }
 
-      await setSession(sessionId, session, this.SESSION_TTL);
+      await setSession(sessionId, session as unknown as Record<string, unknown>, this.SESSION_TTL);
     } catch (error) {
-      logger.error('Failed to update session activity', { 
+      logger.error('Failed to update session activity', {
         sessionId, 
         error: error instanceof Error ? error.message : 'Unknown error' 
       });
@@ -194,7 +194,8 @@ export class SessionManager {
    */
   async getSessionByUserId(userId: string): Promise<{ sessionId: string; session: UserSession } | null> {
     try {
-      const sessionId = await getSession<string>(`user:${userId}:session`);
+      const sessionData = await getSession<{ sessionId: string }>(`user:${userId}:session`);
+      const sessionId = typeof sessionData === 'string' ? sessionData : sessionData?.sessionId;
       if (!sessionId) return null;
 
       const session = await this.getUserSession(sessionId);
@@ -392,8 +393,8 @@ export class SessionManager {
       
       // Add new message and keep only recent messages (last 100)
       const updatedMessages = [...existingMessages, chatMessage].slice(-100);
-      
-      await setChatMessages(streamId, updatedMessages, this.CHAT_TTL);
+
+      await setChatMessages(streamId, updatedMessages as unknown as Record<string, unknown>[], this.CHAT_TTL);
       
       logger.debug('Chat message added', { streamId, messageId: chatMessage.id, senderId: message.senderId });
       return chatMessage;
@@ -411,10 +412,10 @@ export class SessionManager {
    */
   async getStreamChatMessages(streamId: string, limit: number = 50): Promise<ChatMessage[]> {
     try {
-      const messages = await getChatMessages(streamId) || [];
+      const messages = (await getChatMessages(streamId) || []) as unknown as ChatMessage[];
       return messages
         .slice(-limit)
-        .map(msg => ({
+        .map((msg: any) => ({
           ...msg,
           timestamp: new Date(msg.timestamp),
         }));

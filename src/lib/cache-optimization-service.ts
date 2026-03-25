@@ -2,11 +2,9 @@
 // Implements intelligent caching strategies and cache warming
 
 import Redis from 'ioredis';
-import * as AWS from 'aws-sdk';
 
 interface CacheConfig {
   redisUrl: string;
-  cloudfrontDistributionId?: string;
   defaultTTL: number;
   maxTTL: number;
 }
@@ -27,14 +25,12 @@ interface CacheMetrics {
 
 export class CacheOptimizationService {
   private redis: Redis;
-  private cloudfront: AWS.CloudFront;
   private config: CacheConfig;
   private metrics: Map<string, number>;
 
   constructor(config: CacheConfig) {
     this.config = config;
     this.redis = new Redis(config.redisUrl);
-    this.cloudfront = new AWS.CloudFront();
     this.metrics = new Map();
 
     // Initialize metrics tracking
@@ -204,33 +200,6 @@ export class CacheOptimizationService {
       
     } catch (error) {
       console.error('Cache optimization error:', error);
-    }
-  }
-
-  // CloudFront cache invalidation
-  async invalidateCloudFrontCache(paths: string[]): Promise<void> {
-    if (!this.config.cloudfrontDistributionId) {
-      console.warn('CloudFront distribution ID not configured');
-      return;
-    }
-    
-    try {
-      const params = {
-        DistributionId: this.config.cloudfrontDistributionId,
-        InvalidationBatch: {
-          Paths: {
-            Quantity: paths.length,
-            Items: paths
-          },
-          CallerReference: `invalidation-${Date.now()}`
-        }
-      };
-      
-      const result = await this.cloudfront.createInvalidation(params).promise();
-      console.log('CloudFront invalidation created:', result.Invalidation?.Id);
-      
-    } catch (error) {
-      console.error('CloudFront invalidation error:', error);
     }
   }
 

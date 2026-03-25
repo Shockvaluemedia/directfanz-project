@@ -96,10 +96,10 @@ export function FileUpload({
   const createFileWithPreview = async (file: File): Promise<FileWithPreview> => {
     const fileWithPreview = Object.assign(file, {
       id:
-        crypto.getRandomValues(new Uint32Array(1))[0] / (0xffffffff + 1).toString(36).substring(7),
+        (crypto.getRandomValues(new Uint32Array(1))[0] / (0xffffffff + 1)).toString(36).substring(7),
       progress: 0,
       status: 'uploading' as const,
-      preview: undefined,
+      preview: undefined as string | undefined,
     });
 
     // Create preview for images
@@ -108,13 +108,13 @@ export function FileUpload({
         const reader = new FileReader();
         reader.onload = e => {
           fileWithPreview.preview = e.target?.result as string;
-          resolve(fileWithPreview);
+          resolve(fileWithPreview as FileWithPreview);
         };
         reader.readAsDataURL(file);
       });
     }
 
-    return fileWithPreview;
+    return fileWithPreview as FileWithPreview;
   };
 
   const handleFiles = useCallback(

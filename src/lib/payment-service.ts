@@ -1,6 +1,7 @@
 import Stripe from 'stripe';
 import { logger } from './logger';
 import { emailService } from './email-service';
+import { prisma } from '@/lib/prisma';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2023-10-16',
@@ -138,7 +139,7 @@ class PaymentService {
         // Update customer if needed
         if (name || metadata) {
           const updatedCustomer = await this.stripe.customers.update(customer.id, {
-            name: name || customer.name,
+            name: name || (customer.name ?? undefined),
             metadata: { ...customer.metadata, ...metadata },
           });
           return updatedCustomer;
@@ -382,9 +383,44 @@ class PaymentService {
       amount: paymentIntent.amount / 100,
     });
 
-    // TODO: Update database with successful payment
-    // TODO: Send confirmation email
-    // TODO: Grant access to purchased content
+    try {
+      const subscriptionId = paymentIntent.metadata?.subscriptionId;
+      if (!subscriptionId) {
+        logger.info('No subscriptionId in payment intent metadata, skipping DB update', {
+          paymentIntentId: paymentIntent.id,
+        });
+        return;
+      }
+
+      const subscription = await prisma.subscriptions.findUnique({
+        where: { id: subscriptionId },
+      });
+
+      if (!subscription) {
+        logger.error('Subscription not found for payment success', {
+          subscriptionId,
+          paymentIntentId: paymentIntent.id,
+        });
+        return;
+      }
+
+      await prisma.subscriptions.update({
+        where: { id: subscriptionId },
+        data: {
+          status: 'ACTIVE',
+          updatedAt: new Date(),
+        },
+      });
+
+      logger.info('Subscription activated after payment success', {
+        subscriptionId,
+        paymentIntentId: paymentIntent.id,
+      });
+    } catch (error) {
+      logger.error('Failed to handle payment success', {
+        paymentIntentId: paymentIntent.id,
+      }, error as Error);
+    }
   }
 
   private async handlePaymentFailure(paymentIntent: Stripe.PaymentIntent): Promise<void> {
@@ -394,9 +430,49 @@ class PaymentService {
       lastPaymentError: paymentIntent.last_payment_error,
     });
 
-    // TODO: Update database with failed payment
-    // TODO: Send failure notification email
-    // TODO: Implement retry logic
+    try {
+      const customer = await this.stripe.customers.retrieve(paymentIntent.customer as string);
+
+      if (customer && !customer.deleted && customer.email) {
+        await emailService.sendEmail({
+          to: customer.email,
+          subject: 'Payment Failed',
+          template: 'paymentFailed',
+          variables: {
+            name: customer.name || 'Customer',
+            amount: paymentIntent.amount / 100,
+            artistName: paymentIntent.metadata?.artistName || 'Artist',
+            retryUrl: `${process.env.NEXTAUTH_URL}/billing/retry?payment_intent=${paymentIntent.id}`,
+          },
+        });
+      }
+
+      const subscriptionId = paymentIntent.metadata?.subscriptionId;
+      if (subscriptionId) {
+        await prisma.payment_failures.create({
+          data: {
+            id: crypto.randomUUID(),
+            subscriptionId,
+            stripeInvoiceId: paymentIntent.id,
+            amount: paymentIntent.amount / 100,
+            attemptCount: 1,
+            failureReason: paymentIntent.last_payment_error?.message || 'Payment failed',
+            isResolved: false,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        });
+
+        logger.info('Payment failure recorded', {
+          subscriptionId,
+          paymentIntentId: paymentIntent.id,
+        });
+      }
+    } catch (error) {
+      logger.error('Failed to handle payment failure', {
+        paymentIntentId: paymentIntent.id,
+      }, error as Error);
+    }
   }
 
   private async handleInvoicePaymentSuccess(invoice: Stripe.Invoice): Promise<void> {
@@ -406,9 +482,83 @@ class PaymentService {
       amount: invoice.amount_paid / 100,
     });
 
-    // TODO: Update subscription status in database
-    // TODO: Send subscription confirmation email
-    // TODO: Grant/extend access
+    try {
+      const stripeSubscriptionId = invoice.subscription as string;
+      if (!stripeSubscriptionId) {
+        logger.info('No subscription on invoice, skipping', { invoiceId: invoice.id });
+        return;
+      }
+
+      const subscription = await prisma.subscriptions.findUnique({
+        where: { stripeSubscriptionId },
+        include: {
+          tiers: {
+            include: {
+              users: true,
+            },
+          },
+          users: true,
+        },
+      });
+
+      if (!subscription) {
+        logger.error('Subscription not found for invoice payment success', {
+          stripeSubscriptionId,
+          invoiceId: invoice.id,
+        });
+        return;
+      }
+
+      // Retrieve the Stripe subscription to get current period dates
+      const stripeSubscription = await this.stripe.subscriptions.retrieve(stripeSubscriptionId);
+
+      await prisma.subscriptions.update({
+        where: { id: subscription.id },
+        data: {
+          status: 'ACTIVE',
+          currentPeriodStart: new Date(stripeSubscription.current_period_start * 1000),
+          currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000),
+          updatedAt: new Date(),
+        },
+      });
+
+      // Update artist earnings (5% platform fee, 95% to artist)
+      const amountPaid = invoice.amount_paid / 100;
+      const platformFee = amountPaid * 0.05;
+      const artistEarnings = amountPaid - platformFee;
+
+      const artist = await prisma.artists.findUnique({
+        where: { userId: subscription.tiers.users.id },
+      });
+
+      if (artist) {
+        await prisma.artists.update({
+          where: { id: artist.id },
+          data: {
+            totalEarnings: {
+              increment: artistEarnings,
+            },
+            updatedAt: new Date(),
+          },
+        });
+
+        logger.info('Artist earnings updated', {
+          artistId: artist.id,
+          artistEarnings,
+          platformFee,
+          invoiceId: invoice.id,
+        });
+      }
+
+      logger.info('Subscription updated after invoice payment success', {
+        subscriptionId: subscription.id,
+        stripeSubscriptionId,
+      });
+    } catch (error) {
+      logger.error('Failed to handle invoice payment success', {
+        invoiceId: invoice.id,
+      }, error as Error);
+    }
   }
 
   private async handleInvoicePaymentFailure(invoice: Stripe.Invoice): Promise<void> {
@@ -424,6 +574,7 @@ class PaymentService {
       if (customer && !customer.deleted && customer.email) {
         await emailService.sendEmail({
           to: customer.email,
+          subject: 'Payment Failed',
           template: 'paymentFailed',
           variables: {
             name: customer.name || 'Customer',
@@ -441,9 +592,63 @@ class PaymentService {
       );
     }
 
-    // TODO: Update subscription status
-    // TODO: Implement grace period logic
-    // TODO: Schedule retry attempts
+    try {
+      const stripeSubscriptionId = invoice.subscription as string;
+      if (!stripeSubscriptionId) {
+        return;
+      }
+
+      const subscription = await prisma.subscriptions.findUnique({
+        where: { stripeSubscriptionId },
+      });
+
+      if (!subscription) {
+        logger.error('Subscription not found for invoice payment failure', {
+          stripeSubscriptionId,
+          invoiceId: invoice.id,
+        });
+        return;
+      }
+
+      // Update subscription status to PAST_DUE
+      await prisma.subscriptions.update({
+        where: { id: subscription.id },
+        data: {
+          status: 'PAST_DUE',
+          updatedAt: new Date(),
+        },
+      });
+
+      // Create payment failure record
+      const nextRetryAt = invoice.next_payment_attempt
+        ? new Date(invoice.next_payment_attempt * 1000)
+        : null;
+
+      await prisma.payment_failures.create({
+        data: {
+          id: crypto.randomUUID(),
+          subscriptionId: subscription.id,
+          stripeInvoiceId: invoice.id!,
+          amount: invoice.amount_due / 100,
+          attemptCount: invoice.attempt_count || 1,
+          nextRetryAt,
+          failureReason: invoice.last_finalization_error?.message || 'Invoice payment failed',
+          isResolved: false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+
+      logger.info('Invoice payment failure recorded with retry scheduled', {
+        subscriptionId: subscription.id,
+        invoiceId: invoice.id,
+        nextRetryAt: nextRetryAt?.toISOString() || null,
+      });
+    } catch (error) {
+      logger.error('Failed to handle invoice payment failure', {
+        invoiceId: invoice.id,
+      }, error as Error);
+    }
   }
 
   private async handleSubscriptionCreated(subscription: Stripe.Subscription): Promise<void> {
@@ -453,8 +658,47 @@ class PaymentService {
       status: subscription.status,
     });
 
-    // TODO: Update database with new subscription
-    // TODO: Send welcome email
+    try {
+      const dbSubscription = await prisma.subscriptions.findUnique({
+        where: { stripeSubscriptionId: subscription.id },
+      });
+
+      if (!dbSubscription) {
+        logger.info('Subscription record not yet created in DB, will be handled by checkout', {
+          stripeSubscriptionId: subscription.id,
+        });
+        return;
+      }
+
+      // Map Stripe status to internal status
+      const statusMap: Record<string, string> = {
+        active: 'ACTIVE',
+        past_due: 'PAST_DUE',
+        canceled: 'CANCELED',
+        incomplete: 'INCOMPLETE',
+        incomplete_expired: 'INCOMPLETE_EXPIRED',
+        trialing: 'TRIALING',
+        unpaid: 'UNPAID',
+      };
+
+      await prisma.subscriptions.update({
+        where: { id: dbSubscription.id },
+        data: {
+          status: statusMap[subscription.status] || subscription.status.toUpperCase(),
+          updatedAt: new Date(),
+        },
+      });
+
+      logger.info('Subscription status synced from Stripe webhook', {
+        subscriptionId: dbSubscription.id,
+        stripeSubscriptionId: subscription.id,
+        status: subscription.status,
+      });
+    } catch (error) {
+      logger.error('Failed to handle subscription created', {
+        stripeSubscriptionId: subscription.id,
+      }, error as Error);
+    }
   }
 
   private async handleSubscriptionUpdated(subscription: Stripe.Subscription): Promise<void> {
@@ -463,8 +707,48 @@ class PaymentService {
       status: subscription.status,
     });
 
-    // TODO: Update database with subscription changes
-    // TODO: Handle status changes (active, past_due, canceled, etc.)
+    try {
+      const dbSubscription = await prisma.subscriptions.findUnique({
+        where: { stripeSubscriptionId: subscription.id },
+      });
+
+      if (!dbSubscription) {
+        logger.error('Subscription not found for update', {
+          stripeSubscriptionId: subscription.id,
+        });
+        return;
+      }
+
+      const statusMap: Record<string, string> = {
+        active: 'ACTIVE',
+        past_due: 'PAST_DUE',
+        canceled: 'CANCELED',
+        incomplete: 'INCOMPLETE',
+        incomplete_expired: 'INCOMPLETE_EXPIRED',
+        trialing: 'TRIALING',
+        unpaid: 'UNPAID',
+      };
+
+      await prisma.subscriptions.update({
+        where: { id: dbSubscription.id },
+        data: {
+          status: statusMap[subscription.status] || subscription.status.toUpperCase(),
+          currentPeriodStart: new Date(subscription.current_period_start * 1000),
+          currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+          updatedAt: new Date(),
+        },
+      });
+
+      logger.info('Subscription updated in database', {
+        subscriptionId: dbSubscription.id,
+        stripeSubscriptionId: subscription.id,
+        newStatus: subscription.status,
+      });
+    } catch (error) {
+      logger.error('Failed to handle subscription updated', {
+        stripeSubscriptionId: subscription.id,
+      }, error as Error);
+    }
   }
 
   private async handleSubscriptionDeleted(subscription: Stripe.Subscription): Promise<void> {
@@ -472,9 +756,91 @@ class PaymentService {
       subscriptionId: subscription.id,
     });
 
-    // TODO: Update database - mark subscription as cancelled
-    // TODO: Revoke access
-    // TODO: Send cancellation confirmation email
+    try {
+      const dbSubscription = await prisma.subscriptions.findUnique({
+        where: { stripeSubscriptionId: subscription.id },
+        include: {
+          tiers: {
+            include: {
+              users: true,
+            },
+          },
+          users: true,
+        },
+      });
+
+      if (!dbSubscription) {
+        logger.error('Subscription not found for deletion', {
+          stripeSubscriptionId: subscription.id,
+        });
+        return;
+      }
+
+      // Update subscription status to CANCELED
+      await prisma.subscriptions.update({
+        where: { id: dbSubscription.id },
+        data: {
+          status: 'CANCELED',
+          updatedAt: new Date(),
+        },
+      });
+
+      // Decrement tier subscriber count
+      await prisma.tiers.update({
+        where: { id: dbSubscription.tierId },
+        data: {
+          subscriberCount: {
+            decrement: 1,
+          },
+          updatedAt: new Date(),
+        },
+      });
+
+      // Decrement artist total subscribers
+      const artist = await prisma.artists.findUnique({
+        where: { userId: dbSubscription.tiers.users.id },
+      });
+
+      if (artist) {
+        await prisma.artists.update({
+          where: { id: artist.id },
+          data: {
+            totalSubscribers: {
+              decrement: 1,
+            },
+            updatedAt: new Date(),
+          },
+        });
+      }
+
+      // Send cancellation email to the fan
+      await emailService.sendEmail({
+        to: dbSubscription.users.email,
+        subject: 'Subscription Canceled',
+        template: 'subscriptionCancellation',
+        variables: {
+          fanName: dbSubscription.users.displayName,
+          artistName: dbSubscription.tiers.users.displayName,
+          tierName: dbSubscription.tiers.name,
+          endDate: dbSubscription.currentPeriodEnd.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+          }),
+        },
+      });
+
+      logger.info('Subscription canceled and cleanup completed', {
+        subscriptionId: dbSubscription.id,
+        stripeSubscriptionId: subscription.id,
+        fanId: dbSubscription.fanId,
+        tierId: dbSubscription.tierId,
+      });
+    } catch (error) {
+      logger.error('Failed to handle subscription deleted', {
+        stripeSubscriptionId: subscription.id,
+      }, error as Error);
+    }
   }
 }
 

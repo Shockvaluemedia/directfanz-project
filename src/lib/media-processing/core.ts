@@ -9,11 +9,12 @@
  * - Progressive upload and processing
  */
 
+// @ts-ignore - no type declarations available
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegStatic from 'ffmpeg-static';
+// @ts-ignore - no type declarations available
 import ffprobeStatic from 'ffprobe-static';
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
-import { Upload } from '@aws-sdk/lib-storage';
+import { uploadFile as s3Upload } from '../s3';
 import sharp from 'sharp';
 import path from 'path';
 import fs from 'fs/promises';
@@ -26,20 +27,10 @@ if (ffmpegStatic) {
   ffmpeg.setFfmpegPath(ffmpegStatic);
 }
 if (ffprobeStatic) {
-  ffmpeg.setFfprobePath(ffprobeStatic.path);
+  (ffmpeg as any).setFfprobePath(ffprobeStatic.path);
 }
 
-// AWS S3 Configuration
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION || 'us-east-1',
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-  },
-});
-
-const BUCKET_NAME = process.env.AWS_S3_BUCKET_NAME!;
-const CDN_DOMAIN = process.env.AWS_CLOUDFRONT_DOMAIN || process.env.AWS_S3_BUCKET_NAME;
+// AWS S3 is configured via AWS_S3_BUCKET_NAME / AWS_REGION env vars
 
 // Processing Configuration
 export const PROCESSING_CONFIG = {
@@ -169,7 +160,7 @@ export class MediaProcessor {
    */
   async extractMetadata(inputPath: string): Promise<MediaMetadata> {
     return new Promise((resolve, reject) => {
-      ffmpeg.ffprobe(inputPath, (err, metadata) => {
+      ffmpeg.ffprobe(inputPath, (err: any, metadata: any) => {
         if (err) {
           logger.error('Failed to extract metadata', { inputPath }, err);
           reject(new Error(`Failed to extract metadata: ${err.message}`));
@@ -177,8 +168,8 @@ export class MediaProcessor {
         }
 
         try {
-          const videoStream = metadata.streams.find(s => s.codec_type === 'video');
-          const audioStream = metadata.streams.find(s => s.codec_type === 'audio');
+          const videoStream = metadata.streams.find((s: any) => s.codec_type === 'video');
+          const audioStream = metadata.streams.find((s: any) => s.codec_type === 'audio');
 
           const result: MediaMetadata = {
             duration: metadata.format.duration || 0,
@@ -226,7 +217,7 @@ export class MediaProcessor {
         const outputKey = `${outputPrefix}-${quality.name}.mp4`;
         const outputPath = path.join(this.tempDir, 'output', `${uuidv4()}.mp4`);
 
-        await this.transcodeVideo(inputPath, outputPath, quality, options);
+        await this.transcodeVideo(inputPath, outputPath, quality as any, options);
 
         // Upload to S3
         const buffer = await fs.readFile(outputPath);
@@ -311,10 +302,10 @@ export class MediaProcessor {
       }
 
       command
-        .on('start', cmdline => {
+        .on('start', (cmdline: any) => {
           logger.debug('FFmpeg transcoding started', { cmdline });
         })
-        .on('progress', progress => {
+        .on('progress', (progress: any) => {
           logger.debug('Transcoding progress', {
             percent: progress.percent,
             quality: quality.name,
@@ -324,7 +315,7 @@ export class MediaProcessor {
           logger.info('Transcoding completed', { quality: quality.name });
           resolve();
         })
-        .on('error', err => {
+        .on('error', (err: any) => {
           logger.error('Transcoding failed', { quality: quality.name }, err);
           reject(err);
         })
@@ -375,7 +366,7 @@ export class MediaProcessor {
 
             await Promise.all(uploadPromises);
 
-            const playlistUrl = `https://${CDN_DOMAIN}/${outputPrefix}-hls/playlist.m3u8`;
+            const playlistUrl = `${outputPrefix}-hls/playlist.m3u8`;
 
             // Get total size of HLS files
             const stats = await Promise.all(files.map(file => fs.stat(path.join(hlsDir, file))));
@@ -417,7 +408,7 @@ export class MediaProcessor {
         const outputKey = `${outputPrefix}-${quality.name}.mp3`;
         const outputPath = path.join(this.tempDir, 'output', `${uuidv4()}.mp3`);
 
-        await this.transcodeAudio(inputPath, outputPath, quality, options);
+        await this.transcodeAudio(inputPath, outputPath, quality as any, options);
 
         const buffer = await fs.readFile(outputPath);
         const url = await this.uploadToS3(buffer, outputKey, 'audio/mpeg');
@@ -631,26 +622,14 @@ export class MediaProcessor {
   }
 
   /**
-   * Upload buffer to S3
+   * Upload buffer to AWS S3
    */
   private async uploadToS3(buffer: Buffer, key: string, contentType: string): Promise<string> {
-    const upload = new Upload({
-      client: s3Client,
-      params: {
-        Bucket: BUCKET_NAME,
-        Key: key,
-        Body: buffer,
-        ContentType: contentType,
-        CacheControl: 'max-age=31536000', // 1 year cache
-      },
-    });
-
     try {
-      await upload.done();
-      return `https://${CDN_DOMAIN}/${key}`;
+      return await s3Upload(key, buffer, contentType);
     } catch (error) {
       logger.error('S3 upload failed', { key }, error as Error);
-      throw new Error(`Failed to upload ${key} to S3`);
+      throw new Error(`Failed to upload ${key} to storage`);
     }
   }
 
@@ -660,7 +639,7 @@ export class MediaProcessor {
   private getOptimalQualities(
     metadata: MediaMetadata,
     requestedQualities?: string[]
-  ): typeof PROCESSING_CONFIG.VIDEO_QUALITIES {
+  ): Array<(typeof PROCESSING_CONFIG.VIDEO_QUALITIES)[number]> {
     const inputHeight = metadata.height;
     let availableQualities = [...PROCESSING_CONFIG.VIDEO_QUALITIES];
 

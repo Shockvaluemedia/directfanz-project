@@ -37,6 +37,7 @@ import {
   Settings,
   Info,
   AlertCircle,
+  Star,
   X
 } from 'lucide-react';
 import { useAccessibility } from '@/contexts/AccessibilityContext';

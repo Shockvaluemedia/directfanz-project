@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { generateSecureToken } from '@/lib/security';
 import { logger } from '@/lib/logger';
+import crypto from 'crypto';
 
 // Validation schemas
 const createStreamSchema = z.object({
@@ -92,47 +93,93 @@ export async function GET(request: NextRequest) {
             id: true,
             displayName: true,
             avatar: true,
+            lastSeenAt: true,
+            artists: {
+              select: { isStripeOnboarded: true },
+            },
+            _count: {
+              select: { followers: true },
+            },
+          },
+        },
+        _count: {
+          select: {
+            stream_chat_messages: true,
+            stream_viewers: true,
           },
         },
       },
     });
 
+    // Get current viewer counts (viewers who haven't left)
+    const streamIds = streams.map(s => s.id);
+    const currentViewerCounts = streamIds.length > 0
+      ? await prisma.stream_viewers.groupBy({
+          by: ['streamId'],
+          where: { streamId: { in: streamIds }, leftAt: null },
+          _count: true,
+        })
+      : [];
+    const viewerCountMap = new Map(
+      currentViewerCounts.map(v => [v.streamId, v._count])
+    );
+
+    // Get like counts for streams (using content_likes on associated content)
+    const likeCounts = streamIds.length > 0
+      ? await prisma.content_likes.groupBy({
+          by: ['contentId'],
+          where: { contentId: { in: streamIds } },
+          _count: true,
+        })
+      : [];
+    const likeCountMap = new Map(
+      likeCounts.map(l => [l.contentId, l._count])
+    );
+
     const total = await prisma.live_streams.count({ where });
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
 
     return NextResponse.json({
       success: true,
       data: {
-        streams: streams.map(stream => ({
-          ...stream,
-          tierIds: JSON.parse(stream.tierIds),
-          streamer: {
-            id: stream.users.id,
-            userName: stream.users.displayName, // Using displayName as username
-            displayName: stream.users.displayName,
-            avatar: stream.users.avatar,
-            isVerified: false, // TODO: implement verification system
-            isOnline: true, // TODO: implement online status
-            followers: 0, // TODO: implement follower count
-          },
-          metadata: {
-            currentViewers: 0, // TODO: implement real-time viewer count
-            totalViews: stream.totalViewers || 0,
-            duration: 0, // TODO: calculate stream duration
-            totalDonations: stream.totalTips || 0,
-            likes: 0, // TODO: implement likes system
-            shares: 0, // TODO: implement shares system
-            chatMessages: 0, // TODO: implement chat message count
-            quality: ['720p'], // TODO: implement quality options
-            maxQuality: '720p',
-          },
-          settings: {
-            enableChat: true,
-            enableDonations: true,
-            chatModeration: 'moderate',
-            subscribersOnly: false,
-            isPrivate: !stream.isPublic,
-          },
-        })),
+        streams: streams.map(stream => {
+          const startedAt = stream.startedAt ? new Date(stream.startedAt).getTime() : 0;
+          const endedAt = stream.endedAt ? new Date(stream.endedAt).getTime() : Date.now();
+          const durationMs = startedAt ? endedAt - startedAt : 0;
+          const durationSeconds = Math.floor(durationMs / 1000);
+
+          return {
+            ...stream,
+            tierIds: JSON.parse(stream.tierIds),
+            streamer: {
+              id: stream.users.id,
+              userName: stream.users.displayName,
+              displayName: stream.users.displayName,
+              avatar: stream.users.avatar,
+              isVerified: stream.users.artists?.isStripeOnboarded ?? false,
+              isOnline: stream.users.lastSeenAt ? stream.users.lastSeenAt >= fiveMinutesAgo : false,
+              followers: stream.users._count.followers,
+            },
+            metadata: {
+              currentViewers: viewerCountMap.get(stream.id) || 0,
+              totalViews: stream.totalViewers || 0,
+              duration: durationSeconds,
+              totalDonations: stream.totalTips || 0,
+              likes: likeCountMap.get(stream.id) || 0,
+              shares: 0,
+              chatMessages: stream._count.stream_chat_messages,
+              quality: ['720p'],
+              maxQuality: '720p',
+            },
+            settings: {
+              enableChat: true,
+              enableDonations: true,
+              chatModeration: 'moderate',
+              subscribersOnly: false,
+              isPrivate: !stream.isPublic,
+            },
+          };
+        }),
         pagination: {
           total,
           limit,
@@ -152,8 +199,8 @@ export async function GET(request: NextRequest) {
           streams: [],
           pagination: {
             total: 0,
-            limit,
-            offset,
+            limit: 10,
+            offset: 0,
             hasMore: false,
           },
         },
@@ -221,6 +268,7 @@ export async function POST(request: NextRequest) {
 
     const stream = await prisma.live_streams.create({
       data: {
+        id: crypto.randomUUID(),
         artistId: session.user.id,
         title: validatedData.title,
         description: validatedData.description,
@@ -233,6 +281,7 @@ export async function POST(request: NextRequest) {
         maxViewers: validatedData.maxViewers,
         streamKey,
         status: validatedData.scheduledAt ? 'SCHEDULED' : 'LIVE',
+        updatedAt: new Date(),
       },
     });
 

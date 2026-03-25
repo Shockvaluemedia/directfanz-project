@@ -84,6 +84,7 @@ export default function AudioPlayer({
         };
       }
     }
+    return undefined;
   }, [currentTrack, trackIndex, tracks]);
 
   // Audio event handlers

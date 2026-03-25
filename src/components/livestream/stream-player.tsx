@@ -42,6 +42,7 @@ interface LiveStreamData {
   status: 'SCHEDULED' | 'LIVE' | 'ENDED' | 'CANCELLED';
   isPublic: boolean;
   maxViewers: number;
+  streamKey?: string;
   artist: {
     id: string;
     displayName: string;

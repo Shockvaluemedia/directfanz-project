@@ -7,7 +7,7 @@ import { logger } from '@/lib/logger';
 
 function AuthErrorContent() {
   const searchParams = useSearchParams();
-  const error = searchParams.get('error');
+  const error = searchParams?.get('error') ?? null;
 
   useEffect(() => {
     // Log the auth error

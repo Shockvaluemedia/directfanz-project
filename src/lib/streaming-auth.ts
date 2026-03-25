@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getToken } from 'next-auth/jwt';
+import crypto from 'crypto';
 import { UserRole } from '@/types/database';
 import { AuthenticatedRequest, withApiAuth } from '@/lib/api-auth';
-import { hasPermission, Permission } from '@/lib/rbac';
+import { prisma } from '@/lib/prisma';
 
 // Streaming-specific permissions
 export const STREAMING_PERMISSIONS = {
@@ -98,13 +99,46 @@ export async function checkStreamAccess(request: StreamAccessRequest): Promise<b
         return false;
       }
 
-      // TODO: Add database check to verify stream ownership
-      // For now, we'll assume the artist owns the stream if they have the permission
+      // Verify stream ownership in database
+      if (streamId) {
+        const stream = await prisma.live_streams.findUnique({
+          where: { id: streamId },
+        });
+        if (!stream || stream.artistId !== userId) {
+          return false;
+        }
+      }
     }
 
     if (action === 'view') {
-      // TODO: Add subscription/tier checks for private streams
-      // For now, we'll allow viewing if user has the permission
+      // Check subscription/tier access for private streams
+      const stream = await prisma.live_streams.findUnique({
+        where: { id: streamId },
+      });
+      if (!stream) {
+        return false;
+      }
+      // Public streams are accessible to anyone with the view permission
+      if (!stream.isPublic) {
+        // Stream owner always has access
+        if (stream.artistId === userId) {
+          return true;
+        }
+        // Parse tier IDs from the stream and check for active subscription
+        const tierIds: string[] = stream.tierIds ? JSON.parse(stream.tierIds) : [];
+        if (tierIds.length > 0) {
+          const activeSubscription = await prisma.subscriptions.findFirst({
+            where: {
+              fanId: userId,
+              tierId: { in: tierIds },
+              status: 'ACTIVE',
+            },
+          });
+          if (!activeSubscription) {
+            return false;
+          }
+        }
+      }
     }
 
     return true;
@@ -173,8 +207,16 @@ export async function withStreamManagement<T = any>(
       ) as NextResponse<T>;
     }
 
-    // TODO: Verify stream ownership
-    // For now, we'll trust that the authenticated artist owns the stream
+    // Verify stream ownership
+    const stream = await prisma.live_streams.findUnique({
+      where: { id: streamId },
+    });
+    if (!stream || stream.artistId !== req.user.id) {
+      return NextResponse.json(
+        { error: 'You do not own this stream' },
+        { status: 403 }
+      ) as NextResponse<T>;
+    }
 
     const extendedReq = req as AuthenticatedRequest & { streamId: string };
     extendedReq.streamId = streamId;
@@ -209,31 +251,32 @@ export async function generateStreamAccessUrl(
       throw new Error('MediaStore endpoint not configured');
     }
 
-    // For now, return the direct URL
-    // In production, this would generate a signed URL with expiration
+    // Generate a signed URL with HMAC signature and expiration
     const streamUrl = `${mediaStoreEndpoint}/live/${streamId}/index.m3u8`;
-    
-    // TODO: Implement actual signed URL generation with AWS SDK
-    // This would involve creating a signed URL with expiration time
-    
-    return streamUrl;
+    const signingSecret = process.env.STREAM_URL_SIGNING_SECRET || process.env.NEXTAUTH_SECRET || '';
+    const expiresAt = Math.floor(Date.now() / 1000) + expirationMinutes * 60;
+    const payload = `${streamId}:${userId}:${expiresAt}`;
+    const signature = crypto
+      .createHmac('sha256', signingSecret)
+      .update(payload)
+      .digest('hex');
+
+    const signedUrl = `${streamUrl}?userId=${encodeURIComponent(userId)}&expires=${expiresAt}&signature=${signature}`;
+
+    return signedUrl;
   } catch (error) {
     console.error('Error generating stream access URL:', error);
     return null;
   }
 }
 
-// Validate stream key for MediaLive input
+// Validate stream key format
 export async function validateStreamKey(
   streamKey: string,
   userId: string
 ): Promise<boolean> {
   try {
-    // TODO: Implement stream key validation
-    // This would check if the stream key belongs to the user
-    // and is valid for starting a stream
-    
-    // For now, we'll do basic validation
+    // Basic format validation
     if (!streamKey || streamKey.length < 10) {
       return false;
     }
@@ -244,7 +287,15 @@ export async function validateStreamKey(
       return false;
     }
 
-    return true;
+    // Validate stream key belongs to the user in the database
+    const stream = await prisma.live_streams.findFirst({
+      where: {
+        streamKey,
+        artistId: userId,
+      },
+    });
+
+    return !!stream;
   } catch (error) {
     console.error('Stream key validation error:', error);
     return false;
@@ -270,16 +321,27 @@ export async function createStreamSession(
   streamDescription?: string
 ): Promise<StreamSession | null> {
   try {
-    // TODO: Implement database operations to create stream session
-    // This would create a new stream record in the database
-    
-    const streamId = crypto.randomUUID();
     const streamKey = crypto.randomUUID();
-    
+
+    // Create the stream record in the database
+    const dbStream = await prisma.live_streams.create({
+      data: {
+        id: crypto.randomUUID(),
+        artistId: userId,
+        title: streamTitle,
+        description: streamDescription || null,
+        streamKey,
+        status: 'SCHEDULED',
+        tierIds: '',
+        isPublic: false,
+        updatedAt: new Date(),
+      },
+    });
+
     const session: StreamSession = {
-      streamId,
+      streamId: dbStream.id,
       userId,
-      streamKey,
+      streamKey: dbStream.streamKey,
       mediaLiveChannelId: process.env.MEDIALIVE_CHANNEL_ID || '',
       status: 'idle',
       viewerCount: 0,
@@ -298,8 +360,32 @@ export async function updateStreamStatus(
   status: StreamSession['status']
 ): Promise<boolean> {
   try {
-    // TODO: Implement database update for stream status
-    console.log(`Updating stream ${streamId} status to ${status}`);
+    // Map session status to database status and set appropriate timestamps
+    const statusMap: Record<StreamSession['status'], string> = {
+      idle: 'SCHEDULED',
+      starting: 'SCHEDULED',
+      running: 'LIVE',
+      stopping: 'ENDED',
+      stopped: 'ENDED',
+    };
+
+    const updateData: Record<string, any> = {
+      status: statusMap[status] || status,
+    };
+
+    if (status === 'running') {
+      updateData.startedAt = new Date();
+    }
+    if (status === 'stopped' || status === 'stopping') {
+      updateData.endedAt = new Date();
+    }
+
+    await prisma.live_streams.update({
+      where: { id: streamId },
+      data: updateData,
+    });
+
+    console.log(`Updated stream ${streamId} status to ${status}`);
     return true;
   } catch (error) {
     console.error('Error updating stream status:', error);
@@ -310,8 +396,23 @@ export async function updateStreamStatus(
 // Get active streams for a user
 export async function getUserActiveStreams(userId: string): Promise<StreamSession[]> {
   try {
-    // TODO: Implement database query for user's active streams
-    return [];
+    const activeStreams = await prisma.live_streams.findMany({
+      where: {
+        artistId: userId,
+        status: { in: ['LIVE', 'SCHEDULED'] },
+      },
+    });
+
+    return activeStreams.map((stream: any) => ({
+      streamId: stream.id,
+      userId: stream.artistId,
+      streamKey: stream.streamKey,
+      mediaLiveChannelId: process.env.MEDIALIVE_CHANNEL_ID || '',
+      status: stream.status === 'LIVE' ? 'running' as const : 'idle' as const,
+      startedAt: stream.startedAt || undefined,
+      endedAt: stream.endedAt || undefined,
+      viewerCount: stream.totalViewers || 0,
+    }));
   } catch (error) {
     console.error('Error getting user active streams:', error);
     return [];
@@ -332,14 +433,32 @@ export interface StreamMetrics {
 // Get stream metrics
 export async function getStreamMetrics(streamId: string): Promise<StreamMetrics | null> {
   try {
-    // TODO: Implement metrics collection from CloudWatch and database
+    const stream = await prisma.live_streams.findUnique({
+      where: { id: streamId },
+    });
+
+    if (!stream) {
+      return null;
+    }
+
+    const chatMessages = await prisma.stream_chat_messages.count({
+      where: { streamId },
+    });
+
+    // Calculate duration in seconds from startedAt to endedAt (or now if still live)
+    let duration = 0;
+    if (stream.startedAt) {
+      const endTime = stream.endedAt || new Date();
+      duration = Math.floor((endTime.getTime() - stream.startedAt.getTime()) / 1000);
+    }
+
     return {
       streamId,
-      viewerCount: 0,
-      peakViewers: 0,
-      totalViews: 0,
-      duration: 0,
-      chatMessages: 0,
+      viewerCount: stream.totalViewers || 0,
+      peakViewers: stream.peakViewers || 0,
+      totalViews: stream.totalViewers || 0,
+      duration,
+      chatMessages,
       likes: 0,
     };
   } catch (error) {

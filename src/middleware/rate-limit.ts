@@ -284,7 +284,7 @@ export class AdvancedRateLimiter {
       ip,
       method: request.method,
       url: request.url,
-      userAgent: request.headers.get('user-agent'),
+      userAgent: request.headers.get('user-agent') ?? undefined,
       strategy: this.config.strategy,
       limit: this.config.maxRequests,
       windowMs: this.config.windowMs,
@@ -318,7 +318,7 @@ export class AdvancedRateLimiter {
         ip,
         violations: newCount,
         endpoint: request.nextUrl.pathname,
-        userAgent: request.headers.get('user-agent'),
+        userAgent: request.headers.get('user-agent') ?? undefined,
       });
     }
   }

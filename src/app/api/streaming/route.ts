@@ -2,17 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { 
-  MediaLiveClient, 
-  StartChannelCommand, 
-  StopChannelCommand,
-  CreateChannelCommand,
-  DeleteChannelCommand 
-} from '@aws-sdk/client-medialive';
-
-const mediaLive = new MediaLiveClient({ 
-  region: process.env.AWS_REGION || 'us-east-1' 
-});
+import { v4 as uuidv4 } from 'uuid';
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,7 +11,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: { id: session.user.id },
       select: { id: true, role: true }
     });
@@ -36,47 +26,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Stream title required' }, { status: 400 });
     }
 
+    // Generate stream key for WebRTC signaling
+    const streamKey = `${uuidv4()}`;
+
     // Create stream record
-    const stream = await prisma.liveStream.create({
+    const stream = await prisma.live_streams.create({
       data: {
+        id: uuidv4(),
         title: title.trim(),
         description: description?.trim(),
-        category,
-        streamerId: user.id,
+        artistId: user.id,
         status: 'SCHEDULED',
-        settings: {
-          enableChat: true,
-          enableDonations: true,
-          quality: ['480p', '720p', '1080p']
-        }
-      }
-    });
-
-    // Generate RTMP credentials
-    const streamKey = `${stream.id}_${Date.now()}`;
-    const rtmpUrl = `rtmp://medialive-input.${process.env.AWS_REGION}.amazonaws.com/live`;
-
-    // Update stream with RTMP details
-    await prisma.liveStream.update({
-      where: { id: stream.id },
-      data: {
-        rtmpUrl,
         streamKey,
-        settings: {
-          ...stream.settings,
-          rtmpUrl,
-          streamKey
-        }
+        tierIds: '[]',
+        updatedAt: new Date(),
       }
     });
 
     return NextResponse.json({
       streamId: stream.id,
       title: stream.title,
-      rtmpUrl,
       streamKey,
       status: 'SCHEDULED',
-      playbackUrl: `https://${process.env.CLOUDFRONT_STREAMING_DOMAIN}/${stream.id}/playlist.m3u8`
+      signalingUrl: process.env.NEXT_PUBLIC_WEBSOCKET_URL || '/api/socket',
     });
 
   } catch (error) {
@@ -90,22 +62,20 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') || 'LIVE';
 
-    const streams = await prisma.liveStream.findMany({
+    const streams = await prisma.live_streams.findMany({
       where: { status },
       include: {
-        streamer: {
+        users: {
           select: {
             id: true,
-            userName: true,
             displayName: true,
             avatar: true,
-            isVerified: true
           }
         },
         _count: {
           select: {
-            viewers: true,
-            chatMessages: true
+            stream_viewers: true,
+            stream_chat_messages: true
           }
         }
       },

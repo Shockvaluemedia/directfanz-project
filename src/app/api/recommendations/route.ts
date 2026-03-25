@@ -110,9 +110,9 @@ async function getUserProfile(userId: string) {
       subscriptions: {
         where: { status: 'ACTIVE' },
         include: {
-          tier: {
+          tiers: {
             include: {
-              artist: {
+              users: {
                 select: {
                   id: true,
                   displayName: true,
@@ -142,18 +142,18 @@ async function getUserProfile(userId: string) {
   if (!user) return null;
 
   // Analyze user preferences
-  const subscribedArtists = user.subscriptions.map(sub => sub.tiers.artist);
-  const contentTypes = user.comments.map(comment => comment.content.type);
+  const subscribedArtists = user.subscriptions.map((sub: any) => sub.tiers.users);
+  const contentTypes = user.comments.map((comment: any) => comment.content.type);
   const engagedArtists = Array.from(
-    new Set(user.comments.map(comment => comment.content.artistId))
+    new Set(user.comments.map((comment: any) => comment.content.artistId))
   );
   const averageSpending =
-    user.subscriptions.reduce((sum, sub) => sum + parseFloat(sub.amount.toString()), 0) /
+    user.subscriptions.reduce((sum: number, sub: any) => sum + parseFloat(sub.amount.toString()), 0) /
     Math.max(user.subscriptions.length, 1);
 
   // Extract content preferences from comments and subscriptions
   const favoriteContentTypes = getMostFrequent(contentTypes);
-  const allTags = user.comments.flatMap(comment => comment.content.tags);
+  const allTags = user.comments.flatMap((comment: any) => comment.content.tags);
   const favoriteTags = getMostFrequent(allTags);
 
   return {
@@ -200,7 +200,7 @@ async function getArtistRecommendations(userId: string, userProfile: any, params
       },
       content: {
         where: {
-          isPublic: true,
+          visibility: 'PUBLIC',
           ...(params.contentTypes && { type: { in: params.contentTypes } }),
         },
         orderBy: { createdAt: 'desc' },
@@ -226,7 +226,7 @@ async function getArtistRecommendations(userId: string, userProfile: any, params
     take: params.type === 'artists' ? params.limit : Math.ceil(params.limit / 3),
   });
 
-  return artistRecommendations.map(artist => ({
+  return artistRecommendations.map((artist: any) => ({
     id: artist.id,
     displayName: artist.displayName,
     bio: artist.bio,
@@ -250,7 +250,7 @@ async function getContentRecommendations(userId: string, userProfile: any, param
 
   const contentRecommendations = await prisma.content.findMany({
     where: {
-      isPublic: true,
+      visibility: 'PUBLIC',
       artistId: { notIn: excludeArtistIds },
       ...(params.contentTypes && { type: { in: params.contentTypes } }),
       ...(userProfile.favoriteContentTypes.length > 0 && {
@@ -264,7 +264,7 @@ async function getContentRecommendations(userId: string, userProfile: any, param
       }),
     },
     include: {
-      artist: {
+      users: {
         select: {
           id: true,
           displayName: true,
@@ -293,12 +293,11 @@ async function getContentRecommendations(userId: string, userProfile: any, param
     },
     orderBy: [
       { createdAt: 'desc' }, // Newest first
-      { comments: { _count: 'desc' } }, // Then most discussed
     ],
     take: params.type === 'content' ? params.limit : Math.ceil(params.limit / 3),
   });
 
-  return contentRecommendations.map(content => ({
+  return contentRecommendations.map((content: any) => ({
     id: content.id,
     title: content.title,
     description: content.description,
@@ -307,7 +306,7 @@ async function getContentRecommendations(userId: string, userProfile: any, param
     duration: content.duration,
     tags: content.tags,
     createdAt: content.createdAt,
-    artist: content.artist,
+    artist: content.users,
     requiredTier: content.tiers[0] || null,
     commentCount: content._count.comments,
     recommendationScore: calculateContentScore(content, userProfile),
@@ -335,7 +334,7 @@ async function getTierRecommendations(userId: string, userProfile: any, params: 
       },
     },
     include: {
-      artist: {
+      users: {
         select: {
           id: true,
           displayName: true,
@@ -345,7 +344,7 @@ async function getTierRecommendations(userId: string, userProfile: any, params: 
       },
       content: {
         where: {
-          isPublic: true,
+          visibility: 'PUBLIC',
           ...(params.contentTypes && { type: { in: params.contentTypes } }),
         },
         select: {
@@ -366,13 +365,13 @@ async function getTierRecommendations(userId: string, userProfile: any, params: 
     take: params.type === 'tiers' ? params.limit : Math.ceil(params.limit / 3),
   });
 
-  return tierRecommendations.map(tier => ({
+  return tierRecommendations.map((tier: any) => ({
     id: tier.id,
     name: tier.name,
     description: tier.description,
     minimumPrice: tier.minimumPrice,
     subscriberCount: tier.subscriberCount,
-    artist: tier.artist,
+    artist: tier.users,
     sampleContent: tier.content,
     recommendationScore: calculateTierScore(tier, userProfile),
     valueProposition: calculateValueProposition(tier, userProfile.averageSpending),
@@ -391,7 +390,7 @@ function calculateArtistScore(artist: any, userProfile: any): number {
 
   // Tag similarity (simplified)
   const artistTags = extractTagsFromBio(artist.bio || '');
-  const commonTags = artistTags.filter(tag => userProfile.favoriteTags.includes(tag));
+  const commonTags = artistTags.filter((tag: string) => userProfile.favoriteTags.includes(tag));
   score += commonTags.length * 2;
 
   return Math.round(score * 10) / 10;
@@ -450,7 +449,7 @@ function getRecommendationReasons(artist: any, userProfile: any): string[] {
   }
 
   const artistTags = extractTagsFromBio(artist.bio || '');
-  const commonTags = artistTags.filter(tag => userProfile.favoriteTags.includes(tag));
+  const commonTags = artistTags.filter((tag: string) => userProfile.favoriteTags.includes(tag));
   if (commonTags.length > 0) {
     reasons.push(`Shares interests in: ${commonTags.slice(0, 2).join(', ')}`);
   }

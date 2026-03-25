@@ -47,7 +47,7 @@ const SEVERITY_MAP = {
 const DEFAULT_CONFIG: MonitoringConfig = {
   enabled: process.env.NODE_ENV === 'production' || process.env.ENABLE_ERROR_MONITORING === 'true',
   environment: process.env.NODE_ENV || 'development',
-  release: process.env.APP_VERSION || process.env.VERCEL_GIT_COMMIT_SHA,
+  release: process.env.APP_VERSION || process.env.GIT_COMMIT_SHA,
 };
 
 // Initialize monitoring service
@@ -59,13 +59,10 @@ export function initializeErrorMonitoring(config: Partial<MonitoringConfig> = {}
     return;
   }
 
-  // Initialize Sentry if DSN is provided
-  if (process.env.SENTRY_DSN) {
-    logger.info('Sentry error monitoring enabled', {
-      environment: finalConfig.environment,
-      release: finalConfig.release,
-    });
-  }
+  logger.info('Error monitoring initialized', {
+    environment: finalConfig.environment,
+    release: finalConfig.release,
+  });
 }
 
 // Set user context for monitoring
@@ -107,7 +104,7 @@ export function reportError(
         message: error.message,
         code: error.code,
         stack: error.stack,
-        level: context?.level || SEVERITY_MAP[error.code] || 'error',
+        level: context?.level || (SEVERITY_MAP as Record<string, string>)[error.code] || 'error',
         fingerprint: [error.code, error.message],
       };
     } else if ('code' in error && 'source' in error) {
@@ -178,7 +175,7 @@ export async function checkMonitoringHealth(): Promise<{
 }> {
   const services: Record<string, boolean> = {
     logging: true, // Always available
-    sentry: !!process.env.SENTRY_DSN,
+    cloudwatch: !!process.env.AWS_REGION,
   };
 
   const healthy = Object.values(services).some(status => status);

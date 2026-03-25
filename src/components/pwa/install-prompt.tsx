@@ -39,6 +39,7 @@ export function InstallPrompt({
 
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [isInstallable, isInstalled, autoShow]);
 
   const handleInstall = async () => {

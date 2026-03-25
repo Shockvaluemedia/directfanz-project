@@ -11,7 +11,7 @@ import type {
   SubscriptionWithTier,
   PaginatedResponse,
 } from '../types/database';
-import type { User, Artist, Tier, Content, Subscription, Comment } from '@prisma/client';
+import type { users as User, artists as Artist, tiers as Tier, content as Content, subscriptions as Subscription, comments as Comment } from '@prisma/client';
 import {
   CACHE_KEYS,
   CACHE_TTL,
@@ -64,17 +64,20 @@ export async function createUser(data: {
   const user = await prisma.users.create({
     data: {
       ...data,
+      id: data.email.replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now(),
+      updatedAt: new Date(),
       artists:
         data.role === UserRole.ARTIST
           ? {
               create: {
+                id: `artist_${Date.now()}`,
                 isStripeOnboarded: false,
                 totalEarnings: 0,
                 totalSubscribers: 0,
               },
             }
           : undefined,
-    },
+    } as any,
     include: {
       artists: true,
     },
@@ -108,7 +111,7 @@ export async function getArtistById(id: string): Promise<ArtistWithUser | null> 
       if (!artist || !artist.artists) return null;
 
       return {
-        ...users.artists,
+        ...artist.artists,
         totalEarnings: Number(artist.artists.totalEarnings),
         user: artist,
       } as ArtistWithUser;
@@ -158,7 +161,7 @@ export async function getArtists(
       const data = artists
         .filter(artist => artist.artists)
         .map(artist => ({
-          ...users.artists!,
+          ...artist.artists!,
           totalEarnings: Number(artist.artists!.totalEarnings),
           user: artist,
         })) as ArtistWithUser[];
@@ -253,7 +256,11 @@ export async function createTier(data: {
   await validateTierCreation(data.artistId, data.name, data.minimumPrice);
 
   const tier = await prisma.tiers.create({
-    data,
+    data: {
+      ...data,
+      id: `tier_${Date.now()}`,
+      updatedAt: new Date(),
+    },
     include: {
       _count: {
         select: {
@@ -268,7 +275,7 @@ export async function createTier(data: {
   const result = {
     ...tier,
     minimumPrice: Number(tier.minimumPrice),
-    subscriberCount: tier._count.subscriptions,
+    subscriberCount: (tier as any)._count?.subscriptions ?? 0,
   };
 
   // Cache the new tier
@@ -515,7 +522,7 @@ export async function getContentByArtistId(
       }));
 
       return {
-        data: transformedContent as ContentWithTiers[],
+        data: transformedContent as unknown as ContentWithTiers[],
         pagination: {
           page,
           limit,
@@ -549,11 +556,13 @@ export async function createContent(data: {
   const content = await prisma.content.create({
     data: {
       ...contentData,
+      id: `content_${Date.now()}`,
+      updatedAt: new Date(),
       tags: JSON.stringify(contentData.tags), // Convert array to JSON string for storage
       tiers: {
         connect: tierIds.map(id => ({ id })),
       },
-    },
+    } as any,
   });
 
   // Invalidate related caches
@@ -625,7 +634,11 @@ export async function createSubscription(data: {
   currentPeriodEnd: Date;
 }): Promise<Subscription> {
   const subscription = await prisma.subscriptions.create({
-    data,
+    data: {
+      ...data,
+      id: `sub_${Date.now()}`,
+      updatedAt: new Date(),
+    } as any,
   });
 
   // Invalidate related caches
@@ -695,7 +708,11 @@ export async function createComment(data: {
   text: string;
 }): Promise<Comment> {
   return await prisma.comments.create({
-    data,
+    data: {
+      ...data,
+      id: `comment_${Date.now()}`,
+      updatedAt: new Date(),
+    } as any,
   });
 }
 
@@ -780,7 +797,15 @@ export async function getArtistAnalytics(artistId: string) {
         totalSubscribers,
         monthlyEarnings: Number(monthlyEarnings._sum.amount || 0),
         monthlySubscribers,
-        churnRate: 0, // TODO: Calculate churn rate
+        churnRate: totalSubscribers > 0
+          ? await prisma.subscriptions.count({
+              where: {
+                artistId,
+                status: 'CANCELED',
+                updatedAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
+              },
+            }).then(canceled => (canceled / totalSubscribers) * 100)
+          : 0,
         topTiers,
       };
     },
@@ -796,7 +821,7 @@ export async function checkUserAccess(userId: string, contentId: string): Promis
   });
 
   if (!content) return false;
-  if (content.isPublic) return true;
+  if (content.visibility === 'PUBLIC') return true;
   if (content.artistId === userId) return true;
 
   // Check if user has subscription to any of the content's tiers

@@ -17,13 +17,13 @@ jest.mock('../prisma', () => ({
       findMany: jest.fn(),
       count: jest.fn(),
     },
-    subscription: {
+    subscriptions: {
       findMany: jest.fn(),
       findFirst: jest.fn(),
       count: jest.fn(),
       aggregate: jest.fn(),
     },
-    tier: {
+    tiers: {
       findMany: jest.fn(),
     },
   },
@@ -94,25 +94,25 @@ describe('Content Access Control', () => {
         id: 'content-1',
         artistId: 'artist-1',
         visibility: 'PRIVATE',
-        tiers: [{ id: 'tier-1', minimumPrice: 10, isActive: true }],
+        tiers: [
+          {
+            id: 'tier-1',
+            minimumPrice: 10,
+            isActive: true,
+            subscriptions: [
+              {
+                id: 'sub-1',
+                tierId: 'tier-1',
+                amount: 15,
+                status: SubscriptionStatus.ACTIVE,
+              },
+            ],
+          },
+        ],
         artist: { id: 'artist-1', role: UserRole.ARTIST },
       };
 
-      const mockSubscriptions = [
-        {
-          id: 'sub-1',
-          fanId: 'user-1',
-          artistId: 'artist-1',
-          tierId: 'tier-1',
-          amount: 15,
-          status: SubscriptionStatus.ACTIVE,
-          currentPeriodEnd: new Date(Date.now() + 86400000), // Tomorrow
-          tier: { id: 'tier-1', minimumPrice: 10, isActive: true },
-        },
-      ];
-
       (prisma.content.findUnique as jest.Mock).mockResolvedValue(mockContent as any);
-      (prisma.subscriptions.findMany as jest.Mock).mockResolvedValue(mockSubscriptions as any);
 
       const result = await checkContentAccess('user-1', 'content-1');
 
@@ -131,12 +131,11 @@ describe('Content Access Control', () => {
         id: 'content-1',
         artistId: 'artist-1',
         visibility: 'PRIVATE',
-        tiers: [{ id: 'tier-1', minimumPrice: 10, isActive: true }],
+        tiers: [{ id: 'tier-1', minimumPrice: 10, isActive: true, subscriptions: [] }],
         artist: { id: 'artist-1', role: UserRole.ARTIST },
       };
 
       (prisma.content.findUnique as jest.Mock).mockResolvedValue(mockContent as any);
-      (prisma.subscriptions.findMany as jest.Mock).mockResolvedValue([]);
 
       const result = await checkContentAccess('user-1', 'content-1');
 
@@ -282,7 +281,7 @@ describe('Content Access Control', () => {
       const mockSubscriptions = [
         {
           tierId: 'tier-1',
-          tier: { id: 'tier-1', name: 'Basic' },
+          tiers: { id: 'tier-1', name: 'Basic' },
         },
       ];
 

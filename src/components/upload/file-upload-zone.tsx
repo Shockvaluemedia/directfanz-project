@@ -78,6 +78,7 @@ export function FileUploadZone({
       id: generateFileId(),
       progress: 0,
       status: 'pending' as const,
+      preview: undefined as string | undefined,
     });
 
     // Generate preview for images

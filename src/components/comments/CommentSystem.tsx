@@ -594,10 +594,8 @@ export function CommentSystem({ contentId, contentOwnerId, className }: CommentS
                 {(session?.user?.id === comment.user.id ||
                   session?.user?.id === contentOwnerId) && (
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant='ghost' size='sm' className='h-6 w-6 p-0'>
+                    <DropdownMenuTrigger className='h-6 w-6 p-0 inline-flex items-center justify-center rounded-md text-sm font-medium hover:bg-gray-100 border-0 shadow-none bg-transparent'>
                         <MoreHorizontal className='h-3 w-3' />
-                      </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent>
                       {session?.user?.id === comment.user.id && (
@@ -717,7 +715,7 @@ export function CommentSystem({ contentId, contentOwnerId, className }: CommentS
           <div className='space-y-3 mb-6'>
             <div className='flex space-x-3'>
               <Avatar className='w-8 h-8'>
-                <AvatarImage src={session.user.image} />
+                <AvatarImage src={session.user.image ?? undefined} />
                 <AvatarFallback>{session.user.name?.charAt(0).toUpperCase()}</AvatarFallback>
               </Avatar>
               <div className='flex-grow'>

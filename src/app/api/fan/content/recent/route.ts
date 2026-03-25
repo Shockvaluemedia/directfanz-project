@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
         select: {
           artistId: true,
           tierId: true,
-          tier: {
+          tiers: {
             select: {
               id: true,
               name: true,
@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
         },
         take: limit,
         include: {
-          artist: {
+          users: {
             select: {
               id: true,
               displayName: true,

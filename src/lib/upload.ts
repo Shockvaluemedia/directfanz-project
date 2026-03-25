@@ -1,34 +1,9 @@
-import {
-  S3Client,
-  PutObjectCommand,
-  DeleteObjectCommand,
-  GetObjectCommand,
-} from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import sharp from 'sharp';
-import ffmpeg from 'fluent-ffmpeg';
-import ffmpegStatic from 'ffmpeg-static';
 import { lookup as mimeTypeLookup } from 'mime-types';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { ContentType } from '@/lib/types/enums';
-
-// Set ffmpeg binary path
-if (ffmpegStatic) {
-  ffmpeg.setFfmpegPath(ffmpegStatic);
-}
-
-// Configure AWS S3 client
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION || 'us-east-1',
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-  },
-});
-
-const BUCKET_NAME = process.env.AWS_S3_BUCKET_NAME!;
-const CDN_DOMAIN = process.env.AWS_CLOUDFRONT_DOMAIN || process.env.AWS_S3_BUCKET_NAME;
+import { uploadFile as s3Upload, deleteFile as s3Delete } from '@/lib/s3';
 
 // File upload configuration
 const MAX_FILE_SIZES = {
@@ -102,7 +77,7 @@ export class FileUploader {
   }
 
   /**
-   * Generate unique file key for S3
+   * Generate unique file key
    */
   static generateFileKey(userId: string, contentType: ContentType, fileName: string): string {
     const ext = path.extname(fileName);
@@ -113,25 +88,15 @@ export class FileUploader {
   }
 
   /**
-   * Upload file to S3
+   * Upload buffer to S3
    */
-  static async uploadToS3(
+  static async uploadToBlob(
     buffer: Buffer,
     key: string,
     contentType: string,
-    onProgress?: (progress: UploadProgress) => void
   ): Promise<string> {
-    const command = new PutObjectCommand({
-      Bucket: BUCKET_NAME,
-      Key: key,
-      Body: buffer,
-      ContentType: contentType,
-      CacheControl: 'max-age=31536000', // 1 year cache
-    });
-
     try {
-      await s3Client.send(command);
-      return `https://${CDN_DOMAIN}/${key}`;
+      return await s3Upload(key, buffer, contentType);
     } catch (error) {
       console.error('S3 upload error:', error);
       throw new Error('Failed to upload file to storage');
@@ -141,35 +106,13 @@ export class FileUploader {
   /**
    * Delete file from S3
    */
-  static async deleteFromS3(key: string): Promise<void> {
-    const command = new DeleteObjectCommand({
-      Bucket: BUCKET_NAME,
-      Key: key,
-    });
-
+  static async deleteFromBlob(url: string): Promise<void> {
     try {
-      await s3Client.send(command);
+      await s3Delete(url);
     } catch (error) {
       console.error('S3 delete error:', error);
       throw new Error('Failed to delete file from storage');
     }
-  }
-
-  /**
-   * Generate presigned URL for direct upload
-   */
-  static async generatePresignedUploadUrl(
-    key: string,
-    contentType: string,
-    expiresIn: number = 3600 // 1 hour
-  ): Promise<string> {
-    const command = new PutObjectCommand({
-      Bucket: BUCKET_NAME,
-      Key: key,
-      ContentType: contentType,
-    });
-
-    return await getSignedUrl(s3Client, command, { expiresIn });
   }
 
   /**
@@ -185,14 +128,11 @@ export class FileUploader {
     height: number;
     fileSize: number;
   }> {
-    // Get image metadata
     const metadata = await sharp(buffer).metadata();
 
     // Optimize main image
     const optimizedBuffer = await sharp(buffer)
       .jpeg({ quality: 85, progressive: true })
-      .png({ quality: 85, progressive: true })
-      .webp({ quality: 85 })
       .toBuffer();
 
     // Generate thumbnail
@@ -201,12 +141,10 @@ export class FileUploader {
       .jpeg({ quality: 80 })
       .toBuffer();
 
-    // Upload main image
-    const url = await this.uploadToS3(optimizedBuffer, key, 'image/jpeg');
+    const url = await this.uploadToBlob(optimizedBuffer, key, 'image/jpeg');
 
-    // Upload thumbnail
     const thumbnailKey = key.replace(/\.[^/.]+$/, '-thumb.jpg');
-    const thumbnailUrl = await this.uploadToS3(thumbnailBuffer, thumbnailKey, 'image/jpeg');
+    const thumbnailUrl = await this.uploadToBlob(thumbnailBuffer, thumbnailKey, 'image/jpeg');
 
     return {
       url,
@@ -218,168 +156,31 @@ export class FileUploader {
   }
 
   /**
-   * Process and upload audio
+   * Upload audio file (no server-side transcoding — Vercel serverless has no ffmpeg)
    */
   static async processAudio(
     buffer: Buffer,
     key: string,
-    fileName: string
   ): Promise<{
     url: string;
-    thumbnailUrl?: string;
-    duration: number;
     fileSize: number;
   }> {
-    return new Promise((resolve, reject) => {
-      // Create temporary file path for processing
-      const tempPath = `/tmp/${uuidv4()}-${fileName}`;
-      const outputPath = `/tmp/${uuidv4()}-processed.mp3`;
-
-      // Write buffer to temp file
-      require('fs').writeFileSync(tempPath, buffer);
-
-      // Process audio with ffmpeg
-      ffmpeg(tempPath)
-        .audioCodec('mp3')
-        .audioBitrate(128)
-        .on('end', async () => {
-          try {
-            // Read processed file
-            const processedBuffer = require('fs').readFileSync(outputPath);
-
-            // Upload to S3
-            const url = await this.uploadToS3(processedBuffer, key, 'audio/mpeg');
-
-            // Get audio duration
-            ffmpeg.ffprobe(tempPath, async (err, metadata) => {
-              if (err) {
-                reject(new Error('Failed to get audio metadata'));
-                return;
-              }
-
-              const duration = metadata.format.duration || 0;
-
-              // Cleanup temp files
-              require('fs').unlinkSync(tempPath);
-              require('fs').unlinkSync(outputPath);
-
-              resolve({
-                url,
-                duration,
-                fileSize: processedBuffer.length,
-              });
-            });
-          } catch (error) {
-            reject(error);
-          }
-        })
-        .on('error', err => {
-          // Cleanup on error
-          try {
-            require('fs').unlinkSync(tempPath);
-            if (require('fs').existsSync(outputPath)) {
-              require('fs').unlinkSync(outputPath);
-            }
-          } catch {}
-          reject(new Error(`Audio processing failed: ${err.message}`));
-        })
-        .save(outputPath);
-    });
+    const url = await this.uploadToBlob(buffer, key, 'audio/mpeg');
+    return { url, fileSize: buffer.length };
   }
 
   /**
-   * Process and upload video
+   * Upload video file (no server-side transcoding — Vercel serverless has no ffmpeg)
    */
   static async processVideo(
     buffer: Buffer,
     key: string,
-    fileName: string
   ): Promise<{
     url: string;
-    thumbnailUrl: string;
-    duration: number;
     fileSize: number;
-    width: number;
-    height: number;
   }> {
-    return new Promise((resolve, reject) => {
-      const tempPath = `/tmp/${uuidv4()}-${fileName}`;
-      const outputPath = `/tmp/${uuidv4()}-processed.mp4`;
-      const thumbnailPath = `/tmp/${uuidv4()}-thumb.jpg`;
-
-      // Write buffer to temp file
-      require('fs').writeFileSync(tempPath, buffer);
-
-      // Process video with ffmpeg
-      ffmpeg(tempPath)
-        .videoCodec('libx264')
-        .audioCodec('aac')
-        .size('1280x720')
-        .videoBitrate(2000)
-        .audioBitrate(128)
-        .on('end', async () => {
-          try {
-            // Read processed file
-            const processedBuffer = require('fs').readFileSync(outputPath);
-            const thumbnailBuffer = require('fs').readFileSync(thumbnailPath);
-
-            // Upload video to S3
-            const url = await this.uploadToS3(processedBuffer, key, 'video/mp4');
-
-            // Upload thumbnail
-            const thumbnailKey = key.replace(/\.[^/.]+$/, '-thumb.jpg');
-            const thumbnailUrl = await this.uploadToS3(thumbnailBuffer, thumbnailKey, 'image/jpeg');
-
-            // Get video metadata
-            ffmpeg.ffprobe(tempPath, async (err, metadata) => {
-              if (err) {
-                reject(new Error('Failed to get video metadata'));
-                return;
-              }
-
-              const videoStream = metadata.streams.find(s => s.codec_type === 'video');
-              const duration = metadata.format.duration || 0;
-              const width = videoStream?.width || 0;
-              const height = videoStream?.height || 0;
-
-              // Cleanup temp files
-              [tempPath, outputPath, thumbnailPath].forEach(path => {
-                try {
-                  require('fs').unlinkSync(path);
-                } catch {}
-              });
-
-              resolve({
-                url,
-                thumbnailUrl,
-                duration,
-                fileSize: processedBuffer.length,
-                width,
-                height,
-              });
-            });
-          } catch (error) {
-            reject(error);
-          }
-        })
-        .on('error', err => {
-          // Cleanup on error
-          [tempPath, outputPath, thumbnailPath].forEach(path => {
-            try {
-              if (require('fs').existsSync(path)) {
-                require('fs').unlinkSync(path);
-              }
-            } catch {}
-          });
-          reject(new Error(`Video processing failed: ${err.message}`));
-        })
-        .screenshot({
-          timestamps: ['10%'],
-          filename: path.basename(thumbnailPath),
-          folder: path.dirname(thumbnailPath),
-        })
-        .save(outputPath);
-    });
+    const url = await this.uploadToBlob(buffer, key, 'video/mp4');
+    return { url, fileSize: buffer.length };
   }
 
   /**
@@ -388,9 +189,7 @@ export class FileUploader {
   static async uploadFile(
     file: File,
     userId: string,
-    onProgress?: (progress: UploadProgress) => void
   ): Promise<FileUploadResult> {
-    // Get content type and validate
     const contentType = this.getContentType(file);
     const validation = this.validateFile(file, contentType);
 
@@ -398,16 +197,12 @@ export class FileUploader {
       throw new Error(validation.error);
     }
 
-    // Generate unique key
     const key = this.generateFileKey(userId, contentType, file.name);
-
-    // Convert file to buffer
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Process based on content type
     switch (contentType) {
-      case ContentType.IMAGE:
+      case ContentType.IMAGE: {
         const imageResult = await this.processImage(buffer, key);
         return {
           fileUrl: imageResult.url,
@@ -417,31 +212,28 @@ export class FileUploader {
           width: imageResult.width,
           height: imageResult.height,
         };
+      }
 
-      case ContentType.AUDIO:
-        const audioResult = await this.processAudio(buffer, key, file.name);
+      case ContentType.AUDIO: {
+        const audioResult = await this.processAudio(buffer, key);
         return {
           fileUrl: audioResult.url,
-          thumbnailUrl: audioResult.thumbnailUrl,
           fileSize: audioResult.fileSize,
-          duration: audioResult.duration,
           format: path.extname(file.name).substring(1),
         };
+      }
 
-      case ContentType.VIDEO:
-        const videoResult = await this.processVideo(buffer, key, file.name);
+      case ContentType.VIDEO: {
+        const videoResult = await this.processVideo(buffer, key);
         return {
           fileUrl: videoResult.url,
-          thumbnailUrl: videoResult.thumbnailUrl,
           fileSize: videoResult.fileSize,
-          duration: videoResult.duration,
           format: path.extname(file.name).substring(1),
-          width: videoResult.width,
-          height: videoResult.height,
         };
+      }
 
-      case ContentType.DOCUMENT:
-        const docUrl = await this.uploadToS3(
+      case ContentType.DOCUMENT: {
+        const docUrl = await this.uploadToBlob(
           buffer,
           key,
           mimeTypeLookup(file.name) || 'application/octet-stream'
@@ -451,6 +243,7 @@ export class FileUploader {
           fileSize: buffer.length,
           format: path.extname(file.name).substring(1),
         };
+      }
 
       default:
         throw new Error('Unsupported content type');

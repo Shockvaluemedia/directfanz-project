@@ -25,7 +25,6 @@ import {
   Lock,
   Users,
   Clock,
-  DragHandleDots2Icon,
   GripVertical,
 } from 'lucide-react';
 import {
@@ -347,14 +346,8 @@ export function PlaylistManager({
 
               {session?.user?.id === playlist.user.id && (
                 <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant='ghost'
-                      size='sm'
-                      className='opacity-0 group-hover:opacity-100 transition-opacity'
-                    >
+                  <DropdownMenuTrigger className='opacity-0 group-hover:opacity-100 transition-opacity'>
                       <MoreHorizontal className='h-4 w-4' />
-                    </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent>
                     <DropdownMenuItem onClick={() => setEditingPlaylist(playlist)}>
@@ -533,11 +526,11 @@ export function PlaylistManager({
             <div className='flex-1 overflow-y-auto'>
               <DragDropContext onDragEnd={onDragEnd}>
                 <Droppable droppableId='playlist-items'>
-                  {provided => (
+                  {(provided: any) => (
                     <div {...provided.droppableProps} ref={provided.innerRef} className='space-y-2'>
                       {selectedPlaylist.items.map((item, index) => (
                         <Draggable key={item.id} draggableId={item.id} index={index}>
-                          {(provided, snapshot) => (
+                          {(provided: any, snapshot: any) => (
                             <div
                               ref={provided.innerRef}
                               {...provided.draggableProps}

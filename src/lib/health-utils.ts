@@ -1,8 +1,7 @@
 /**
- * Optimized health check utilities for serverless and ECS environments
+ * Optimized health check utilities for serverless environments
  */
 import { PrismaClient } from '@prisma/client';
-import { createClient } from 'redis';
 import { checkDatabaseConnection } from './prisma';
 import { checkPgBouncerHealth, shouldUsePgBouncer } from './pgbouncer-config';
 import { logger } from './logger';
@@ -29,8 +28,7 @@ export const getHealthCheckPrisma = () => {
 };
 
 /**
- * Perform a comprehensive database health check for RDS
- * Uses the enhanced database connection from prisma.ts
+ * Perform a comprehensive database health check
  */
 export const checkDatabaseHealth = async (): Promise<{ 
   status: 'ok' | 'error'; 
@@ -72,32 +70,30 @@ export const checkDatabaseHealth = async (): Promise<{
 };
 
 /**
- * Perform a comprehensive Redis health check for ElastiCache
- * Uses the enhanced ElastiCache client from redis.ts
+ * Perform a comprehensive Redis health check
  */
-export const checkRedisHealth = async (): Promise<{ 
-  status: 'ok' | 'error'; 
-  latency: number; 
+export const checkRedisHealth = async (): Promise<{
+  status: 'ok' | 'error';
+  latency: number;
   message?: string;
   details?: any;
 }> => {
   const startTime = Date.now();
-  
+
   try {
-    // Use the enhanced ElastiCache health check
-    const { checkElastiCacheHealth } = await import('./redis');
-    const healthResult = await checkElastiCacheHealth();
-    
+    const { checkRedisHealth: checkRedis } = await import('./redis');
+    const healthResult = await checkRedis();
+
     return {
       status: healthResult.status === 'healthy' ? 'ok' : 'error',
       latency: healthResult.latency,
-      message: healthResult.status === 'healthy' ? undefined : 'ElastiCache health check failed',
+      message: healthResult.status === 'healthy' ? undefined : 'Redis health check failed',
       details: healthResult.details,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown Redis error';
     logger.error('Redis health check failed', { error: message });
-    
+
     return {
       status: 'error',
       latency: Date.now() - startTime,
@@ -106,7 +102,6 @@ export const checkRedisHealth = async (): Promise<{
         : 'Redis connection failed',
       details: {
         error: message,
-        isElastiCache: process.env.REDIS_URL?.includes('cache.amazonaws.com') || false,
       },
     };
   }

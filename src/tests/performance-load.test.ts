@@ -7,10 +7,6 @@ import { NextRequest } from 'next/server';
 import { POST as optimizeHandler } from '../app/api/content/optimize/route';
 import { contentOptimizer } from '../lib/content-optimization';
 
-// Define mock variables before jest.mock calls to avoid hoisting issues
-const mockS3Send = jest.fn();
-const mockUploadDone = jest.fn();
-
 const mockSharp = {
   metadata: jest.fn().mockResolvedValue({ width: 1920, height: 1080, format: 'jpeg', size: 1048576 }),
   resize: jest.fn().mockReturnThis(),
@@ -26,70 +22,57 @@ jest.mock('../lib/content-optimization');
 jest.mock('../lib/media-processing');
 jest.mock('sharp', () => jest.fn(() => mockSharp));
 
-jest.mock('@aws-sdk/client-s3', () => ({
-  S3Client: jest.fn(() => ({
-    send: jest.fn()
-  })),
-  GetObjectCommand: jest.fn(),
-  PutObjectCommand: jest.fn(),
+jest.mock('@/lib/s3', () => ({
+  put: jest.fn().mockResolvedValue({ url: 'https://mock-s3.amazonaws.com/test-file', pathname: 'test-file' }),
+  del: jest.fn().mockResolvedValue(undefined),
+  head: jest.fn().mockResolvedValue({ url: 'https://mock-s3.amazonaws.com/test-file', size: 12345, uploadedAt: new Date() }),
+  list: jest.fn().mockResolvedValue({ blobs: [], cursor: undefined, hasMore: false }),
 }));
 
-jest.mock('@aws-sdk/lib-storage', () => ({
-  Upload: jest.fn(() => ({
-    done: jest.fn()
-  }))
+// Mock next-auth to return an authenticated ARTIST session
+jest.mock('next-auth', () => ({
+  getServerSession: jest.fn().mockResolvedValue({
+    user: { id: 'artist-123', role: 'ARTIST', email: 'artist@test.com' }
+  })
 }));
 
 // Mock content optimizer
 const mockContentOptimizer = contentOptimizer as jest.Mocked<typeof contentOptimizer>;
 
+// Helper to create a JSON POST request
+function createJsonRequest(body: any): NextRequest {
+  return new NextRequest('http://localhost:3000/api/content/optimize', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+}
+
 describe('Performance & Load Testing', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    
-    // Setup default mocks
-    // Setup AWS mocks
-    const { S3Client } = require('@aws-sdk/client-s3');
-    const { Upload } = require('@aws-sdk/lib-storage');
-    const mockS3Instance = new S3Client();
-    const mockUploadInstance = new Upload({} as any);
-    
-    (mockS3Instance.send as jest.Mock).mockResolvedValue({
-      Body: {
-        transformToBuffer: jest.fn().mockResolvedValue(Buffer.from('file-content')),
-      }
+
+    // Re-setup auth mock after clearAllMocks
+    const { getServerSession } = require('next-auth');
+    (getServerSession as jest.Mock).mockResolvedValue({
+      user: { id: 'artist-123', role: 'ARTIST', email: 'artist@test.com' }
     });
-    
-    (mockUploadInstance.done as jest.Mock).mockResolvedValue({
-      Location: 'https://mock-bucket.s3.amazonaws.com/optimized/test.webp'
-    });
+
+    // Setup Vercel Blob mocks
+    const blob = require('@/lib/s3');
+    (blob.put as jest.Mock).mockResolvedValue({ url: 'https://mock-s3.amazonaws.com/test-file', pathname: 'test-file' });
+    (blob.del as jest.Mock).mockResolvedValue(undefined);
+    (blob.head as jest.Mock).mockResolvedValue({ url: 'https://mock-s3.amazonaws.com/test-file', size: 12345, uploadedAt: new Date() });
+    (blob.list as jest.Mock).mockResolvedValue({ blobs: [], cursor: undefined, hasMore: false });
   });
 
   describe('Large File Processing', () => {
     test('should handle very large image files efficiently', async () => {
       // Simulate a 50MB image
       const largeImageSize = 50 * 1024 * 1024;
-      
-      mockSharp.metadata.mockResolvedValue({ 
-        width: 8000, 
-        height: 6000, 
-        format: 'jpeg', 
-        size: largeImageSize 
-      });
-
-      mockContentOptimizer.analyzeContent = jest.fn().mockResolvedValue({
-        dimensions: { width: 8000, height: 6000 },
-        complexity: 'high' as const,
-        colorComplexity: 'full' as const,
-        noiseLevel: 'moderate' as const,
-        hasText: false,
-        hasFaces: false,
-        dominantColors: [],
-        recommendedStrategy: 'aggressive'
-      });
 
       const startTime = Date.now();
-      
+
       mockContentOptimizer.optimizeContent = jest.fn().mockImplementation(async () => {
         // Simulate processing time for large file
         await new Promise(resolve => setTimeout(resolve, 200));
@@ -110,14 +93,10 @@ describe('Performance & Load Testing', () => {
         };
       });
 
-      const formData = new FormData();
-      const largeFile = new File(['large image content'], 'large-image.jpg', { type: 'image/jpeg' });
-      formData.append('file', largeFile);
-      formData.append('strategy', 'auto');
-
-      const request = new NextRequest('http://localhost:3000/api/content/optimize', {
-        method: 'POST',
-        body: formData
+      const request = createJsonRequest({
+        filePath: 'large-image.jpg',
+        contentType: 'IMAGE',
+        strategy: 'auto'
       });
 
       const response = await optimizeHandler(request);
@@ -155,14 +134,10 @@ describe('Performance & Load Testing', () => {
       });
 
       const requests = Array.from({ length: fileCount }, (_, i) => {
-        const formData = new FormData();
-        const file = new File(['large content'], `large-${i}.jpg`, { type: 'image/jpeg' });
-        formData.append('file', file);
-        formData.append('strategy', 'balanced');
-
-        return new NextRequest('http://localhost:3000/api/content/optimize', {
-          method: 'POST',
-          body: formData
+        return createJsonRequest({
+          filePath: `large-${i}.jpg`,
+          contentType: 'IMAGE',
+          strategy: 'balanced'
         });
       });
 
@@ -187,19 +162,6 @@ describe('Performance & Load Testing', () => {
 
     test('should handle video files with long processing times', async () => {
       const videoSize = 100 * 1024 * 1024; // 100MB video
-      
-      mockContentOptimizer.analyzeContent = jest.fn().mockResolvedValue({
-        dimensions: { width: 1920, height: 1080 },
-        complexity: 'high' as const,
-        colorComplexity: 'full' as const,
-        noiseLevel: 'moderate' as const,
-        hasText: false,
-        hasFaces: false,
-        dominantColors: [],
-        duration: 300, // 5 minutes
-        bitrate: 5000000,
-        recommendedStrategy: 'streaming'
-      });
 
       mockContentOptimizer.optimizeContent = jest.fn().mockImplementation(async () => {
         // Simulate long video processing
@@ -237,14 +199,10 @@ describe('Performance & Load Testing', () => {
         };
       });
 
-      const formData = new FormData();
-      const videoFile = new File(['video content'], 'long-video.mp4', { type: 'video/mp4' });
-      formData.append('file', videoFile);
-      formData.append('strategy', 'streaming');
-
-      const request = new NextRequest('http://localhost:3000/api/content/optimize', {
-        method: 'POST',
-        body: formData
+      const request = createJsonRequest({
+        filePath: 'long-video.mp4',
+        contentType: 'VIDEO',
+        strategy: 'streaming'
       });
 
       const startTime = Date.now();
@@ -285,14 +243,10 @@ describe('Performance & Load Testing', () => {
       });
 
       const requests = Array.from({ length: concurrentCount }, (_, i) => {
-        const formData = new FormData();
-        const file = new File(['content'], `concurrent-${i}.jpg`, { type: 'image/jpeg' });
-        formData.append('file', file);
-        formData.append('strategy', 'balanced');
-
-        return new NextRequest('http://localhost:3000/api/content/optimize', {
-          method: 'POST',
-          body: formData
+        return createJsonRequest({
+          filePath: `concurrent-${i}.jpg`,
+          contentType: 'IMAGE',
+          strategy: 'balanced'
         });
       });
 
@@ -319,11 +273,11 @@ describe('Performance & Load Testing', () => {
 
     test('should handle mixed content types under load', async () => {
       const contentTypes = [
-        { name: 'image1.jpg', type: 'image/jpeg', contentType: 'IMAGE' },
-        { name: 'image2.png', type: 'image/png', contentType: 'IMAGE' },
-        { name: 'video1.mp4', type: 'video/mp4', contentType: 'VIDEO' },
-        { name: 'audio1.mp3', type: 'audio/mpeg', contentType: 'AUDIO' },
-        { name: 'image3.webp', type: 'image/webp', contentType: 'IMAGE' },
+        { name: 'image1.jpg', contentType: 'IMAGE' },
+        { name: 'image2.png', contentType: 'IMAGE' },
+        { name: 'video1.mp4', contentType: 'VIDEO' },
+        { name: 'audio1.mp3', contentType: 'AUDIO' },
+        { name: 'image3.webp', contentType: 'IMAGE' },
       ];
 
       mockContentOptimizer.optimizeContent = jest.fn().mockImplementation(async () => {
@@ -346,17 +300,13 @@ describe('Performance & Load Testing', () => {
       });
 
       // Create multiple instances of each content type
-      const requests = [];
+      const requests: NextRequest[] = [];
       for (let i = 0; i < 4; i++) {
         for (const content of contentTypes) {
-          const formData = new FormData();
-          const file = new File(['content'], `${i}-${content.name}`, { type: content.type });
-          formData.append('file', file);
-          formData.append('strategy', 'auto');
-
-          requests.push(new NextRequest('http://localhost:3000/api/content/optimize', {
-            method: 'POST',
-            body: formData
+          requests.push(createJsonRequest({
+            filePath: `${i}-${content.name}`,
+            contentType: content.contentType,
+            strategy: 'auto'
           }));
         }
       }
@@ -406,14 +356,10 @@ describe('Performance & Load Testing', () => {
 
       for (let wave = 0; wave < wavesCount; wave++) {
         const requests = Array.from({ length: requestsPerWave }, (_, i) => {
-          const formData = new FormData();
-          const file = new File(['content'], `wave-${wave}-file-${i}.jpg`, { type: 'image/jpeg' });
-          formData.append('file', file);
-          formData.append('strategy', 'balanced');
-
-          return new NextRequest('http://localhost:3000/api/content/optimize', {
-            method: 'POST',
-            body: formData
+          return createJsonRequest({
+            filePath: `wave-${wave}-file-${i}.jpg`,
+            contentType: 'IMAGE',
+            strategy: 'balanced'
           });
         });
 
@@ -507,14 +453,10 @@ describe('Performance & Load Testing', () => {
         });
 
         const requests = Array.from({ length: resultsPerStrategy }, (_, i) => {
-          const formData = new FormData();
-          const file = new File(['content'], `${strategy}-${i}.jpg`, { type: 'image/jpeg' });
-          formData.append('file', file);
-          formData.append('strategy', strategy);
-
-          return new NextRequest('http://localhost:3000/api/content/optimize', {
-            method: 'POST',
-            body: formData
+          return createJsonRequest({
+            filePath: `${strategy}-${i}.jpg`,
+            contentType: 'IMAGE',
+            strategy: strategy
           });
         });
 
@@ -547,9 +489,9 @@ describe('Performance & Load Testing', () => {
       const batchTimes: number[] = [];
 
       for (const batchSize of batchSizes) {
-        mockContentOptimizer.optimizeContent = jest.fn().mockImplementation(async () => {
+        mockContentOptimizer.batchOptimize = jest.fn().mockImplementation(async (files: any[]) => {
           await new Promise(resolve => setTimeout(resolve, 100));
-          return {
+          return files.map(() => ({
             originalSize: 1048576,
             optimizedSize: 524288,
             sizeReduction: 50,
@@ -563,24 +505,18 @@ describe('Performance & Load Testing', () => {
               url: '/optimized/batch.webp',
               optimizations: ['format_conversion']
             }]
-          };
+          }));
         });
 
         const batchRequest = {
           files: Array.from({ length: batchSize }, (_, i) => ({
-            path: `https://test-bucket.s3.amazonaws.com/uploads/batch-${i}.jpg`,
-            type: 'IMAGE' as const,
-            options: { strategy: 'balanced' }
-          }))
+            filePath: `https://mock-s3.amazonaws.com/uploads/batch-${i}.jpg`,
+            contentType: 'IMAGE' as const,
+          })),
+          strategy: 'balanced'
         };
 
-        const request = new NextRequest('http://localhost:3000/api/content/optimize', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(batchRequest)
-        });
+        const request = createJsonRequest(batchRequest);
 
         const batchStartTime = Date.now();
         const response = await optimizeHandler(request);
@@ -626,24 +562,20 @@ describe('Performance & Load Testing', () => {
       });
 
       const requests = Array.from({ length: extremeCount }, (_, i) => {
-        const formData = new FormData();
-        const file = new File(['content'], `extreme-${i}.jpg`, { type: 'image/jpeg' });
-        formData.append('file', file);
-        formData.append('strategy', 'balanced');
-
-        return new NextRequest('http://localhost:3000/api/content/optimize', {
-          method: 'POST',
-          body: formData
+        return createJsonRequest({
+          filePath: `extreme-${i}.jpg`,
+          contentType: 'IMAGE',
+          strategy: 'balanced'
         });
       });
 
       const startTime = Date.now();
-      
+
       // Use Promise.allSettled to handle any potential failures gracefully
       const results = await Promise.allSettled(
         requests.map(request => optimizeHandler(request))
       );
-      
+
       const totalTime = Date.now() - startTime;
 
       // Count successes and failures

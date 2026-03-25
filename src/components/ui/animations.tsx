@@ -214,6 +214,7 @@ export function Typewriter({ text, speed = 100, className, onComplete }: Typewri
     } else if (onComplete) {
       onComplete();
     }
+    return undefined;
   }, [currentIndex, text, speed, onComplete]);
 
   return (

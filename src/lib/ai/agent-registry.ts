@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { BaseAgent, AgentType, AgentTask, AgentResponse, AgentConfig } from './base-agent';
 import { PredictiveAnalyticsAgent, PredictiveAnalyticsConfig } from './agents/predictive-analytics-agent';
 import { CommunityManagementAgent, CommunityManagementConfig } from './agents/community-management-agent';

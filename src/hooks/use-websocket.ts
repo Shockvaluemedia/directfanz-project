@@ -348,6 +348,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
       const interval = setInterval(updatePresence, 30000); // Every 30 seconds
       return () => clearInterval(interval);
     }
+    return undefined;
   }, [connectionStatus, updatePresence]);
 
   // Cleanup on unmount

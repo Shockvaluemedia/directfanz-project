@@ -15,7 +15,7 @@ import {
   Share,
   Crown,
   Verified,
-  Fire,
+  Flame,
   Sparkles,
   Volume2,
   VolumeX,

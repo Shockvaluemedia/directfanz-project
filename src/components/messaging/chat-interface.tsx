@@ -75,6 +75,7 @@ export function ChatInterface({ conversation, className }: ChatInterfaceProps) {
         leaveConversation(conversation.conversationId);
       };
     }
+    return undefined;
   }, [conversation, joinConversation, leaveConversation, getConversationHistory]);
 
   // Mark messages as read when conversation is viewed

@@ -24,18 +24,8 @@ const createContentSchema = z.object({
 });
 
 const listQuerySchema = z.object({
-  page: z
-    .string()
-    .regex(/^\d+$/)
-    .transform(Number)
-    .refine(n => n > 0, 'Page must be positive')
-    .default('1'),
-  limit: z
-    .string()
-    .regex(/^\d+$/)
-    .transform(Number)
-    .refine(n => n > 0 && n <= 100, 'Limit must be between 1 and 100')
-    .default('20'),
+  page: z.coerce.number().int().positive('Page must be positive').default(1),
+  limit: z.coerce.number().int().min(1).max(100, 'Limit must be between 1 and 100').default(20),
   type: z.enum(['AUDIO', 'VIDEO', 'IMAGE', 'DOCUMENT']).optional(),
   visibility: z.enum(['PUBLIC', 'PRIVATE', 'TIER_LOCKED']).optional(),
   search: z.string().min(1).optional(),
@@ -56,7 +46,7 @@ export const GET = withAuthenticatedApiHandler(
         search: searchParams.get('search') || undefined,
       },
       context
-    );
+    ) as { page: number; limit: number; type?: string; visibility?: string; search?: string };
 
     const skip = (query.page - 1) * query.limit;
 
@@ -146,10 +136,10 @@ export const GET = withAuthenticatedApiHandler(
     ]);
 
     // Format response data
-    const formattedContent = content.map(item => ({
+    const formattedContent = content.map((item: any) => ({
       ...item,
       tags: JSON.parse(item.tags || '[]'),
-      commentCount: item._count.comments,
+      commentCount: item._count?.comments ?? 0,
       _count: undefined,
     }));
 
@@ -220,18 +210,23 @@ export const POST = withAuthenticatedApiHandler(
     // Create content record
     const newContent = await prisma.content.create({
       data: {
+        id: crypto.randomUUID(),
         title: validatedData.title,
         description: validatedData.description,
         visibility: validatedData.visibility,
         tags: JSON.stringify(validatedData.tags || []),
         artistId: userId,
         type: 'DOCUMENT', // Default type - would be determined by file upload
+        fileUrl: '', // Placeholder - set during file upload
+        fileSize: 0, // Placeholder - set during file upload
+        format: 'unknown', // Placeholder - set during file upload
+        updatedAt: new Date(),
         ...(validatedData.tierIds && {
           tiers: {
-            connect: validatedData.tierIds.map(id => ({ id })),
+            connect: validatedData.tierIds.map((id: string) => ({ id })),
           },
         }),
-      },
+      } as any,
       include: {
         users: {
           select: {
@@ -256,10 +251,11 @@ export const POST = withAuthenticatedApiHandler(
     });
 
     // Format response
+    const contentResult = newContent as any;
     const formattedContent = {
-      ...newContent,
-      tags: JSON.parse(newContent.tags || '[]'),
-      commentCount: newContent._count.comments,
+      ...contentResult,
+      tags: JSON.parse(contentResult.tags || '[]'),
+      commentCount: contentResult._count?.comments ?? 0,
       _count: undefined,
     };
 

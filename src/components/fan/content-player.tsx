@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { LazyMediaPlaylist, preloadMediaComponents } from '@/components/ui/lazy-media-components';
 import type { MediaItem } from '@/components/ui/media-playlist';
-import { Content } from '@prisma/client';
+import { content as Content } from '@prisma/client';
 
 // Extended content type that includes artist info and ensures metadata access
 type ContentWithArtist = Content & {

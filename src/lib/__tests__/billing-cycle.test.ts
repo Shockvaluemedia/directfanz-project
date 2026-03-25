@@ -1,13 +1,14 @@
 // Mock dependencies first
 jest.mock('@/lib/prisma', () => ({
   prisma: {
-    subscription: {
+    subscriptions: {
       findMany: jest.fn(),
+      findUnique: jest.fn(),
       update: jest.fn(),
       count: jest.fn(),
       aggregate: jest.fn(),
     },
-    paymentFailure: {
+    payment_failures: {
       findMany: jest.fn(),
       update: jest.fn(),
       count: jest.fn(),
@@ -67,13 +68,13 @@ describe('Billing Cycle Functions', () => {
           id: 'sub1',
           stripeSubscriptionId: 'stripe_sub1',
           fan: { id: 'fan1' },
-          tier: { users: { id: 'artist1' } },
+          tier: { artist: { id: 'artist1' } },
         },
         {
           id: 'sub2',
           stripeSubscriptionId: 'stripe_sub2',
           fan: { id: 'fan2' },
-          tier: { users: { id: 'artist2' } },
+          tier: { artist: { id: 'artist2' } },
         },
       ];
 
@@ -100,7 +101,7 @@ describe('Billing Cycle Functions', () => {
         },
       };
 
-      mockPrisma.subscription.findMany.mockResolvedValue(mockSubscriptions as any);
+      mockPrisma.subscriptions.findMany.mockResolvedValue(mockSubscriptions as any);
       mockStripe.invoices.retrieveUpcoming
         .mockResolvedValueOnce(mockUpcomingInvoice1 as any)
         .mockResolvedValueOnce(mockUpcomingInvoice2 as any);
@@ -138,7 +139,7 @@ describe('Billing Cycle Functions', () => {
         },
       ];
 
-      mockPrisma.subscription.findMany.mockResolvedValue(mockSubscriptions as any);
+      mockPrisma.subscriptions.findMany.mockResolvedValue(mockSubscriptions as any);
       mockStripe.invoices.retrieveUpcoming
         .mockRejectedValueOnce(new Error('Invoice not found'))
         .mockResolvedValueOnce({
@@ -171,11 +172,11 @@ describe('Billing Cycle Functions', () => {
         {
           id: 'sub1',
           stripeSubscriptionId: 'stripe_sub1',
-          fan: {
+          users: {
             email: 'fan1@example.com',
             notificationPreferences: { billing: true },
           },
-          tier: {
+          tiers: {
             name: 'Premium',
             artist: { displayName: 'Test Artist' },
           },
@@ -189,9 +190,9 @@ describe('Billing Cycle Functions', () => {
         status: 'active',
       };
 
-      mockPrisma.subscription.findMany.mockResolvedValue(mockSubscriptions as any);
+      mockPrisma.subscriptions.findMany.mockResolvedValue(mockSubscriptions as any);
       mockStripe.subscriptions.retrieve.mockResolvedValue(mockStripeSubscription as any);
-      mockPrisma.subscription.update.mockResolvedValue({} as any);
+      mockPrisma.subscriptions.update.mockResolvedValue({} as any);
       mockSendEmail.mockResolvedValue(undefined);
 
       const result = await processBillingRenewals();
@@ -201,7 +202,7 @@ describe('Billing Cycle Functions', () => {
       expect(result[0].subscriptionId).toBe('sub1');
       expect(result[0].amount).toBe(10.0);
 
-      expect(mockPrisma.subscription.update).toHaveBeenCalledWith({
+      expect(mockPrisma.subscriptions.update).toHaveBeenCalledWith({
         where: { id: 'sub1' },
         data: {
           currentPeriodStart: new Date(1640995200 * 1000),
@@ -233,11 +234,11 @@ describe('Billing Cycle Functions', () => {
         {
           id: 'sub1',
           stripeSubscriptionId: 'stripe_sub1',
-          fan: {
+          users: {
             email: 'fan1@example.com',
             notificationPreferences: { billing: false },
           },
-          tier: {
+          tiers: {
             name: 'Premium',
             artist: { displayName: 'Test Artist' },
           },
@@ -251,9 +252,9 @@ describe('Billing Cycle Functions', () => {
         status: 'active',
       };
 
-      mockPrisma.subscription.findMany.mockResolvedValue(mockSubscriptions as any);
+      mockPrisma.subscriptions.findMany.mockResolvedValue(mockSubscriptions as any);
       mockStripe.subscriptions.retrieve.mockResolvedValue(mockStripeSubscription as any);
-      mockPrisma.subscription.update.mockResolvedValue({} as any);
+      mockPrisma.subscriptions.update.mockResolvedValue({} as any);
 
       await processBillingRenewals();
 
@@ -290,7 +291,7 @@ describe('Billing Cycle Functions', () => {
       mockPrisma.$queryRaw.mockResolvedValue(mockFailures as any);
       mockStripe.invoices.retrieve.mockResolvedValue(mockInvoice as any);
       mockPrisma.$executeRaw.mockResolvedValue(1);
-      mockPrisma.subscription.update.mockResolvedValue({} as any);
+      mockPrisma.subscriptions.update.mockResolvedValue({} as any);
 
       const result = await processFailedPaymentRetries();
 
@@ -304,7 +305,7 @@ describe('Billing Cycle Functions', () => {
       expect(sqlTemplate.join('')).toContain('UPDATE "payment_failures"');
       expect(mockPrisma.$executeRaw.mock.calls[0][2]).toBe('failure1');
 
-      expect(mockPrisma.subscription.update).toHaveBeenCalledWith({
+      expect(mockPrisma.subscriptions.update).toHaveBeenCalledWith({
         where: { id: 'sub1' },
         data: { status: 'ACTIVE' },
       });
@@ -340,7 +341,7 @@ describe('Billing Cycle Functions', () => {
       mockPrisma.$queryRaw.mockResolvedValue(mockFailures as any);
       mockStripe.invoices.retrieve.mockResolvedValue(mockInvoice as any);
       mockStripe.subscriptions.cancel.mockResolvedValue({} as any);
-      mockPrisma.subscription.update.mockResolvedValue({} as any);
+      mockPrisma.subscriptions.update.mockResolvedValue({} as any);
       mockSendEmail.mockResolvedValue(undefined);
 
       const result = await processFailedPaymentRetries();
@@ -350,7 +351,7 @@ describe('Billing Cycle Functions', () => {
       expect(result[0].metadata?.reason).toBe('payment_failure');
 
       expect(mockStripe.subscriptions.cancel).toHaveBeenCalledWith('stripe_sub1');
-      expect(mockPrisma.subscription.update).toHaveBeenCalledWith({
+      expect(mockPrisma.subscriptions.update).toHaveBeenCalledWith({
         where: { id: 'sub1' },
         data: { status: 'CANCELED' },
       });
@@ -423,11 +424,11 @@ describe('Billing Cycle Functions', () => {
           id: 'sub1',
           currentPeriodEnd: renewalDate,
           amount: new Decimal(10.0),
-          fan: {
+          users: {
             email: 'fan1@example.com',
             notificationPreferences: { billing: true },
           },
-          tier: {
+          tiers: {
             name: 'Premium',
             artist: { displayName: 'Test Artist' },
           },
@@ -436,18 +437,18 @@ describe('Billing Cycle Functions', () => {
           id: 'sub2',
           currentPeriodEnd: renewalDate,
           amount: new Decimal(15.0),
-          fan: {
+          users: {
             email: 'fan2@example.com',
             notificationPreferences: { billing: false }, // Disabled
           },
-          tier: {
+          tiers: {
             name: 'VIP',
             artist: { displayName: 'Test Artist' },
           },
         },
       ];
 
-      mockPrisma.subscription.findMany.mockResolvedValue(mockSubscriptions as any);
+      mockPrisma.subscriptions.findMany.mockResolvedValue(mockSubscriptions as any);
       mockSendEmail.mockResolvedValue(undefined);
 
       const result = await sendBillingReminders();
@@ -470,14 +471,14 @@ describe('Billing Cycle Functions', () => {
       jest.useFakeTimers();
       jest.setSystemTime(new Date('2022-01-29T12:00:00Z'));
 
-      mockPrisma.subscription.count
+      mockPrisma.subscriptions.count
         .mockResolvedValueOnce(100) // Active subscriptions
         .mockResolvedValueOnce(15); // Upcoming renewals
 
       // Mock $queryRaw for payment failures count
       mockPrisma.$queryRaw.mockResolvedValue([{ count: '5' }]);
 
-      mockPrisma.subscription.aggregate.mockResolvedValue({
+      mockPrisma.subscriptions.aggregate.mockResolvedValue({
         _sum: { amount: new Decimal(2500.0) },
       } as any);
 
@@ -497,12 +498,12 @@ describe('Billing Cycle Functions', () => {
       jest.useFakeTimers();
       jest.setSystemTime(new Date('2022-01-29T12:00:00Z'));
 
-      mockPrisma.subscription.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
+      mockPrisma.subscriptions.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
 
       // Mock $queryRaw for payment failures count
       mockPrisma.$queryRaw.mockResolvedValue([{ count: '0' }]);
 
-      mockPrisma.subscription.aggregate.mockResolvedValue({
+      mockPrisma.subscriptions.aggregate.mockResolvedValue({
         _sum: { amount: null },
       } as any);
 

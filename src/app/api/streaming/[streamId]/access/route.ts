@@ -5,7 +5,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { streamId: string } }
 ) {
-  return withFanStreaming(request, async (req) => {
+  return withFanStreaming<any>(request, async (req) => {
     try {
       const { streamId } = params;
 

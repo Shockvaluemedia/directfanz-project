@@ -7,7 +7,7 @@ import { prisma } from '@/lib/prisma';
 jest.mock('next-auth');
 jest.mock('@/lib/prisma', () => ({
   prisma: {
-    user: {
+    users: {
       findUnique: jest.fn(),
       findMany: jest.fn(),
       count: jest.fn(),
@@ -41,7 +41,7 @@ describe('/api/fan/artists', () => {
         expires: '2024-01-01',
       });
 
-      mockPrisma.user.findUnique.mockResolvedValue({
+      mockPrisma.users.findUnique.mockResolvedValue({
         id: 'user-1',
         email: 'test@example.com',
         role: 'ARTIST',
@@ -67,7 +67,7 @@ describe('/api/fan/artists', () => {
         expires: '2024-01-01',
       });
 
-      mockPrisma.user.findUnique.mockResolvedValue({
+      mockPrisma.users.findUnique.mockResolvedValue({
         id: 'fan-1',
         email: 'fan@example.com',
         role: 'FAN',
@@ -112,8 +112,8 @@ describe('/api/fan/artists', () => {
         },
       ];
 
-      mockPrisma.user.findMany.mockResolvedValue(mockArtists);
-      mockPrisma.user.count.mockResolvedValue(1);
+      mockPrisma.users.findMany.mockResolvedValue(mockArtists);
+      mockPrisma.users.count.mockResolvedValue(1);
 
       const request = new NextRequest('http://localhost:3000/api/fan/artists');
       const response = await GET(request);
@@ -132,7 +132,7 @@ describe('/api/fan/artists', () => {
         expires: '2024-01-01',
       });
 
-      mockPrisma.user.findUnique.mockResolvedValue({
+      mockPrisma.users.findUnique.mockResolvedValue({
         id: 'fan-1',
         email: 'fan@example.com',
         role: 'FAN',
@@ -144,14 +144,14 @@ describe('/api/fan/artists', () => {
         updatedAt: new Date(),
       });
 
-      mockPrisma.user.findMany.mockResolvedValue([]);
-      mockPrisma.user.count.mockResolvedValue(0);
+      mockPrisma.users.findMany.mockResolvedValue([]);
+      mockPrisma.users.count.mockResolvedValue(0);
 
       const request = new NextRequest('http://localhost:3000/api/fan/artists?search=rock');
       const response = await GET(request);
 
       expect(response.status).toBe(200);
-      expect(mockPrisma.user.findMany).toHaveBeenCalledWith(
+      expect(mockPrisma.users.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             OR: [
@@ -179,7 +179,7 @@ describe('/api/fan/artists', () => {
         expires: '2024-01-01',
       });
 
-      mockPrisma.user.findUnique.mockResolvedValue({
+      mockPrisma.users.findUnique.mockResolvedValue({
         id: 'fan-1',
         email: 'fan@example.com',
         role: 'FAN',
@@ -191,14 +191,14 @@ describe('/api/fan/artists', () => {
         updatedAt: new Date(),
       });
 
-      mockPrisma.user.findMany.mockResolvedValue([]);
-      mockPrisma.user.count.mockResolvedValue(0);
+      mockPrisma.users.findMany.mockResolvedValue([]);
+      mockPrisma.users.count.mockResolvedValue(0);
 
       const request = new NextRequest('http://localhost:3000/api/fan/artists?limit=10&offset=20');
       const response = await GET(request);
 
       expect(response.status).toBe(200);
-      expect(mockPrisma.user.findMany).toHaveBeenCalledWith(
+      expect(mockPrisma.users.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           skip: 20,
           take: 10,
@@ -212,7 +212,7 @@ describe('/api/fan/artists', () => {
         expires: '2024-01-01',
       });
 
-      mockPrisma.user.findUnique.mockResolvedValue({
+      mockPrisma.users.findUnique.mockResolvedValue({
         id: 'fan-1',
         email: 'fan@example.com',
         role: 'FAN',

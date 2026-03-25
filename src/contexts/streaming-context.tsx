@@ -209,7 +209,7 @@ export function StreamingProvider({ children, userId, userInfo }: StreamingProvi
 
     newSocket.on('ice-candidate', (candidate: RTCIceCandidateInit) => {
       if (peer) {
-        peer.signal(candidate);
+        peer.signal(candidate as unknown as string);
       }
     });
 

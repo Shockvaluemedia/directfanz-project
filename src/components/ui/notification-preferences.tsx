@@ -2,11 +2,16 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { NotificationPreferences } from '@/lib/notifications';
+
+interface SimpleNotificationPreferences {
+  newContent: boolean;
+  comments: boolean;
+  subscriptionUpdates: boolean;
+}
 
 export default function NotificationPreferencesComponent() {
   const { data: session } = useSession();
-  const [preferences, setPreferences] = useState<NotificationPreferences>({
+  const [preferences, setPreferences] = useState<SimpleNotificationPreferences>({
     newContent: true,
     comments: true,
     subscriptionUpdates: true,
@@ -76,7 +81,7 @@ export default function NotificationPreferencesComponent() {
   };
 
   // Handle checkbox change
-  const handleCheckboxChange = (key: keyof NotificationPreferences) => {
+  const handleCheckboxChange = (key: keyof SimpleNotificationPreferences) => {
     setPreferences({
       ...preferences,
       [key]: !preferences[key],

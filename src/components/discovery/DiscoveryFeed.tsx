@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   TrendingUp,
-  Fire,
+  Flame,
   Star,
   Eye,
   Clock,
@@ -410,7 +410,7 @@ export function DiscoveryFeed({
             )}
             {content.isTrending && (
               <span className="px-2 py-1 text-xs font-bold bg-orange-500 text-white rounded-full flex items-center">
-                <Fire className="w-3 h-3 mr-1" />
+                <Flame className="w-3 h-3 mr-1" />
                 TRENDING
               </span>
             )}
@@ -578,7 +578,7 @@ export function DiscoveryFeed({
               {section.type === 'featured' && <Star className="w-5 h-5 text-indigo-600" />}
               {section.type === 'recommended' && <Target className="w-5 h-5 text-indigo-600" />}
               {section.type === 'recent' && <Clock className="w-5 h-5 text-indigo-600" />}
-              {section.type === 'popular' && <Fire className="w-5 h-5 text-indigo-600" />}
+              {section.type === 'popular' && <Flame className="w-5 h-5 text-indigo-600" />}
               {section.type === 'category' && <Tag className="w-5 h-5 text-indigo-600" />}
             </div>
             <div>

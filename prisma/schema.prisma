@@ -720,11 +720,13 @@ model users {
   email                                String                     @unique
   password                             String?
   role                                 String                     @default("FAN")
+  status                               String                     @default("ACTIVE")
   displayName                          String
   bio                                  String?
   avatar                               String?
   socialLinks                          Json?
   notificationPreferences              Json?
+  privacySettings                      Json?
   emailVerified                        DateTime?
   image                                String?
   createdAt                            DateTime                   @default(now())
@@ -740,6 +742,8 @@ model users {
   content                              content[]
   content_likes                        content_likes[]
   content_views                        content_views[]
+  following                            follows[]                  @relation("UserFollowing")
+  followers                            follows[]                  @relation("UserFollowers")
   live_streams                         live_streams[]
   messages_messages_recipientIdTousers messages[]                 @relation("messages_recipientIdTousers")
   messages_messages_senderIdTousers    messages[]                 @relation("messages_senderIdTousers")
@@ -759,12 +763,29 @@ model users {
   stream_viewers                       stream_viewers[]
   subscriptions                        subscriptions[]
   tiers                                tiers[]
+  gdpr_requests                        gdpr_requests[]
+  consent_records                      consent_records[]
+  age_verifications                    age_verifications?
 
   @@index([role, createdAt])
   @@index([lastSeenAt])
   @@index([emailVerified])
   @@index([displayName])
   @@index([role, lastSeenAt])
+  @@index([status])
+}
+
+model follows {
+  id         String   @id @default(cuid())
+  followerId String
+  followedId String
+  createdAt  DateTime @default(now())
+  follower   users    @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
+  followed   users    @relation("UserFollowers", fields: [followedId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followedId])
+  @@index([followerId])
+  @@index([followedId])
 }
 
 model verificationtokens {
@@ -809,6 +830,51 @@ model price_optimizations {
   @@index([artistId, createdAt])
   @@index([status, isActive])
   @@index([testStartDate, testEndDate])
+}
+
+model gdpr_requests {
+  id                String    @id @default(cuid())
+  userId            String
+  type              String
+  status            String    @default("PENDING")
+  requestDate       DateTime  @default(now())
+  completionDate    DateTime?
+  reason            String?
+  email             String
+  verificationToken String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  users             users     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([status, requestDate])
+}
+
+model consent_records {
+  id          String   @id @default(cuid())
+  userId      String
+  consentType String
+  granted     Boolean
+  timestamp   DateTime @default(now())
+  ipAddress   String?
+  userAgent   String?
+  source      String
+  version     String
+  users       users    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, consentType])
+}
+
+model age_verifications {
+  id                      String   @id @default(cuid())
+  userId                  String   @unique
+  dateOfBirth             DateTime
+  verificationMethod      String
+  verifiedAt              DateTime @default(now())
+  isMinor                 Boolean
+  parentalConsentRequired Boolean
+  parentalConsentGiven    Boolean?
+  users                   users    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model ai_agent_logs {

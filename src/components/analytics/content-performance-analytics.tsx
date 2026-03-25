@@ -400,8 +400,8 @@ export function ContentPerformanceAnalytics({ className }: ContentPerformanceAna
             { dataKey: 'totalViews', name: 'Views', color: '#6366f1' },
             { dataKey: 'avgEngagement', name: 'Engagement %', color: '#10b981' },
           ]}
-          formatTooltip={(value, name) => 
-            name === 'Engagement %' ? formatPercentage(value) : formatNumber(value)
+          formatTooltip={(value: any) =>
+            typeof value === 'number' ? formatNumber(value) : `${value}`
           }
         />
 

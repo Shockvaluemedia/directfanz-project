@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Redis } from 'ioredis';
+import Redis from 'ioredis';
 import { logger } from './logger';
 
 // Redis client for rate limiting
@@ -8,6 +8,32 @@ let redis: Redis | null = null;
 if (process.env.REDIS_URL) {
   redis = new Redis(process.env.REDIS_URL);
 }
+
+// In-memory fallback for rate limiting when Redis is unavailable
+const inMemoryStore = new Map<string, { count: number; expiresAt: number }>();
+
+function inMemoryIncr(key: string, windowMs: number): number {
+  const now = Date.now();
+  const entry = inMemoryStore.get(key);
+
+  if (!entry || entry.expiresAt <= now) {
+    inMemoryStore.set(key, { count: 1, expiresAt: now + windowMs });
+    return 1;
+  }
+
+  entry.count++;
+  return entry.count;
+}
+
+// Periodically clean expired entries
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of inMemoryStore) {
+    if (entry.expiresAt <= now) {
+      inMemoryStore.delete(key);
+    }
+  }
+}, 60_000);
 
 export interface RateLimitConfig {
   windowMs: number; // Time window in milliseconds
@@ -70,27 +96,30 @@ function generateKey(request: NextRequest, prefix: string): string {
 // Rate limiting middleware
 export function createRateLimiter(config: RateLimitConfig, prefix: string = 'default') {
   return async (request: NextRequest): Promise<NextResponse | null> => {
-    // Skip rate limiting if Redis is not available
-    if (!redis) {
-      logger.warn('Rate limiting skipped - Redis not available');
-      return null;
-    }
-
     try {
       const key = config.keyGenerator ? config.keyGenerator(request) : generateKey(request, prefix);
 
-      // Get current count
-      const current = await redis.incr(key);
+      let current: number;
+      let ttl: number = config.windowMs;
 
-      // Set expiration on first request
-      if (current === 1) {
-        await redis.pexpire(key, config.windowMs);
+      if (redis) {
+        // Use Redis for distributed rate limiting
+        current = await redis.incr(key);
+
+        if (current === 1) {
+          await redis.pexpire(key, config.windowMs);
+        }
+
+        if (current > config.maxRequests) {
+          ttl = await redis.pttl(key);
+        }
+      } else {
+        // In-memory fallback
+        current = inMemoryIncr(key, config.windowMs);
       }
 
       // Check if limit exceeded
       if (current > config.maxRequests) {
-        // Get TTL for Retry-After header
-        const ttl = await redis.pttl(key);
         const retryAfter = Math.ceil(ttl / 1000);
 
         logger.warn('Rate limit exceeded', {
@@ -98,7 +127,7 @@ export function createRateLimiter(config: RateLimitConfig, prefix: string = 'def
           current,
           limit: config.maxRequests,
           windowMs: config.windowMs,
-          userAgent: request.headers.get('user-agent'),
+          userAgent: request.headers.get('user-agent') ?? undefined,
         });
 
         return NextResponse.json(
@@ -210,10 +239,20 @@ export function createSlidingWindowRateLimiter(
   prefix: string = 'sliding'
 ) {
   return async (request: NextRequest): Promise<NextResponse | null> => {
-    if (!redis) return null;
-
     try {
       const key = generateKey(request, prefix);
+
+      if (!redis) {
+        // Fall back to simple in-memory rate limiting
+        const current = inMemoryIncr(key, config.windowMs);
+        if (current > config.maxRequests) {
+          return NextResponse.json(
+            { success: false, error: { type: 'RATE_LIMIT_ERROR', message: 'Too many requests', retryAfter: Math.ceil(config.windowMs / 1000) } },
+            { status: 429, headers: { 'Retry-After': Math.ceil(config.windowMs / 1000).toString() } }
+          );
+        }
+        return null;
+      }
       const now = Date.now();
       const windowStart = now - config.windowMs;
 

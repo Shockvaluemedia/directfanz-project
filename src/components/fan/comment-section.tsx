@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { Comment } from '@prisma/client';
+import { comments as Comment } from '@prisma/client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 

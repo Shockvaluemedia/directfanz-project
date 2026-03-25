@@ -35,16 +35,16 @@ export async function GET(request: NextRequest, { params }: { params: { streamId
         id: params.streamId,
       },
       include: {
-        artist: {
+        users: {
           select: {
             id: true,
             displayName: true,
             avatar: true,
           },
         },
-        viewers: {
+        stream_viewers: {
           include: {
-            viewer: {
+            users: {
               select: {
                 id: true,
                 displayName: true,
@@ -58,10 +58,10 @@ export async function GET(request: NextRequest, { params }: { params: { streamId
         },
         _count: {
           select: {
-            viewers: true,
-            chatMessages: true,
-            tips: true,
-            polls: true,
+            stream_viewers: true,
+            stream_chat_messages: true,
+            stream_tips: true,
+            stream_polls: true,
           },
         },
       },
@@ -92,12 +92,12 @@ export async function GET(request: NextRequest, { params }: { params: { streamId
       ...stream,
       tierIds: JSON.parse(stream.tierIds),
       streamKey: stream.artistId === session.user.id ? stream.streamKey : undefined,
-      currentViewers: stream.viewers,
+      currentViewers: stream.stream_viewers,
       stats: {
-        totalViewers: stream._count.viewers,
-        totalMessages: stream._count.chatMessages,
-        totalTips: stream._count.tips,
-        totalPolls: stream._count.polls,
+        totalViewers: stream._count.stream_viewers,
+        totalMessages: stream._count.stream_chat_messages,
+        totalTips: stream._count.stream_tips,
+        totalPolls: stream._count.stream_polls,
       },
     };
 

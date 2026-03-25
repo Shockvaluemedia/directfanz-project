@@ -11,7 +11,6 @@ import {
   BanknotesIcon,
   UserGroupIcon,
   CalendarIcon,
-  TrendingUpIcon,
   DocumentTextIcon,
   GlobeAltIcon,
   DevicePhoneMobileIcon,

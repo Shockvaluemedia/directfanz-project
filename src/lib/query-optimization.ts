@@ -358,7 +358,7 @@ export async function logQueryPerformance<T>(
     if (duration > 500) {
       logger.warn('Slow query detected', {
         queryName,
-        duration: `${duration}ms`,
+        durationMs: `${duration}ms`,
       });
     }
 
@@ -367,7 +367,7 @@ export async function logQueryPerformance<T>(
     const duration = Date.now() - startTime;
     logger.error('Query failed', {
       queryName,
-      duration: `${duration}ms`,
+      durationMs: `${duration}ms`,
       error: error instanceof Error ? error.message : String(error),
     });
     throw error;

@@ -66,7 +66,7 @@ export async function initializeStreamingServer() {
     return { server, socketServer };
     
   } catch (error) {
-    logger.error('Failed to initialize streaming server', error);
+    logger.error('Failed to initialize streaming server', { error: String(error) });
     throw error;
   }
 }

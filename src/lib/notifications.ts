@@ -1,5 +1,5 @@
 import sgMail from '@sendgrid/mail';
-import { Content, Subscription, Tier, User } from '@prisma/client';
+import { content, subscriptions, tiers, users } from '@prisma/client';
 import { prisma } from './prisma';
 import { logger } from './logger';
 
@@ -40,69 +40,11 @@ export interface NotificationData {
   expiresAt?: Date;
 }
 
-// Enhanced notification preferences
-export interface NotificationPreferences {
-  email: {
-    enabled: boolean;
-    subscriptions: boolean;
-    payments: boolean;
-    messages: boolean;
-    content: boolean;
-    comments: boolean;
-    marketing: boolean;
-    security: boolean;
-  };
-  push: {
-    enabled: boolean;
-    subscriptions: boolean;
-    payments: boolean;
-    messages: boolean;
-    content: boolean;
-    comments: boolean;
-    system: boolean;
-  };
-  inApp: {
-    enabled: boolean;
-    all: boolean;
-  };
-  sms: {
-    enabled: boolean;
-    security: boolean;
-    payments: boolean;
-  };
-}
-
-// Default notification preferences
-export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
-  email: {
-    enabled: true,
-    subscriptions: true,
-    payments: true,
-    messages: true,
-    content: false,
-    comments: true,
-    marketing: false,
-    security: true,
-  },
-  push: {
-    enabled: true,
-    subscriptions: true,
-    payments: true,
-    messages: true,
-    content: false,
-    comments: true,
-    system: true,
-  },
-  inApp: {
-    enabled: true,
-    all: true,
-  },
-  sms: {
-    enabled: false,
-    security: true,
-    payments: false,
-  },
-};
+// Re-export shared types (safe for client imports via notification-types.ts)
+export type { NotificationPreferences } from './notification-types';
+export { DEFAULT_NOTIFICATION_PREFERENCES } from './notification-types';
+import type { NotificationPreferences } from './notification-types';
+import { DEFAULT_NOTIFICATION_PREFERENCES } from './notification-types';
 
 /**
  * Send an email notification
@@ -142,7 +84,7 @@ export async function sendEmail({
 /**
  * Notify subscribers about new content
  */
-export async function notifyNewContent(content: Content, artistName: string) {
+export async function notifyNewContent(content: content, artistName: string) {
   // Get all tiers this content is available to
   const contentWithTiers = await prisma.content.findUnique({
     where: { id: content.id },
@@ -160,7 +102,7 @@ export async function notifyNewContent(content: Content, artistName: string) {
       status: 'ACTIVE',
     },
     include: {
-      fan: true,
+      users: true,
     },
   });
 
@@ -168,7 +110,7 @@ export async function notifyNewContent(content: Content, artistName: string) {
   for (const subscription of subscribers) {
     const preferences = getUserNotificationPreferences(subscription.users.id);
 
-    if ((await preferences).newContent) {
+    if ((await preferences).email.content) {
       await sendEmail({
         to: subscription.users.email,
         subject: `New content from ${artistName}: ${content.title}`,
@@ -344,7 +286,7 @@ class NotificationService {
   private async storeNotification(data: NotificationData): Promise<string> {
     try {
       // Try to store in notification table if it exists
-      const notification = await prisma.notification.create({
+      const notification = await (prisma as any).notification.create({
         data: {
           userId: data.userId,
           type: data.type,
@@ -452,7 +394,7 @@ class NotificationService {
   private async sendEnhancedEmail(notification: NotificationData): Promise<void> {
     const user = await prisma.users.findUnique({
       where: { id: notification.userId },
-      select: { email: true, name: true },
+      select: { email: true, displayName: true },
     });
 
     if (!user?.email) {
@@ -568,14 +510,14 @@ class NotificationService {
       if (unreadOnly) where.readAt = null;
 
       const [notifications, total, unreadCount] = await Promise.all([
-        prisma.notification.findMany({
+        (prisma as any).notification.findMany({
           where,
           orderBy: { createdAt: 'desc' },
           skip: offset,
           take: limit,
         }),
-        prisma.notification.count({ where }),
-        prisma.notification.count({
+        (prisma as any).notification.count({ where }),
+        (prisma as any).notification.count({
           where: { userId, readAt: null },
         }),
       ]);
@@ -590,7 +532,7 @@ class NotificationService {
   // Mark notification as read
   async markAsRead(notificationId: string, userId: string): Promise<void> {
     try {
-      await prisma.notification.updateMany({
+      await (prisma as any).notification.updateMany({
         where: { id: notificationId, userId },
         data: { readAt: new Date() },
       });
@@ -602,7 +544,7 @@ class NotificationService {
   // Mark all notifications as read
   async markAllAsRead(userId: string): Promise<void> {
     try {
-      await prisma.notification.updateMany({
+      await (prisma as any).notification.updateMany({
         where: { userId, readAt: null },
         data: { readAt: new Date() },
       });

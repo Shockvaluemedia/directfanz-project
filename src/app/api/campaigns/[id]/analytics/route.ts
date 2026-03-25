@@ -76,7 +76,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
     const submissionTrends = await prisma.challenge_submissions.findMany({
       where: {
-        challenge: {
+        challenges: {
           campaignId: campaignId,
         },
         submittedAt: {
@@ -101,7 +101,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     // Get top performers
     const topSubmissions = await prisma.challenge_submissions.findMany({
       where: {
-        challenge: {
+        challenges: {
           campaignId: campaignId,
         },
         status: 'APPROVED',
@@ -129,7 +129,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         totalParticipants: analyticsData.totalParticipants,
         totalSubmissions,
         totalChallenges: analyticsData._count.challenges,
-        totalRewards: analyticsData._count.rewards,
+        totalRewards: analyticsData._count.campaign_rewards,
         engagementRate:
           totalParticipations > 0 ? ((totalSubmissions / totalParticipations) * 100).toFixed(1) : 0,
         completionRate:

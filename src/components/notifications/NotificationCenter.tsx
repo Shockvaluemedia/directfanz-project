@@ -185,7 +185,7 @@ export function NotificationCenter({ isOpen, onClose }: NotificationCenterProps)
               {filter === 'all' ? 'Unread' : 'All'}
             </TouchButton>
 
-            <TouchButton variant='ghost' size='sm' onClick={onClose} leftIcon={<X size={16} />} />
+            <TouchButton variant='ghost' size='sm' onClick={onClose} leftIcon={<X size={16} />}>{''}</TouchButton>
           </div>
         </div>
 
@@ -362,6 +362,7 @@ export function NotificationBell() {
       const interval = setInterval(fetchUnreadCount, 30000);
       return () => clearInterval(interval);
     }
+    return undefined;
   }, [session]);
 
   return (

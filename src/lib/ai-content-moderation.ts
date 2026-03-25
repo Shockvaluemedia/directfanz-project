@@ -4,7 +4,7 @@ import { ContentType } from '@/lib/types/enums';
 import sharp from 'sharp';
 import ffmpeg from 'fluent-ffmpeg';
 
-const logger = new Logger('ai-content-moderation');
+const logger = new Logger();
 
 export interface ModerationResult {
   approved: boolean;
@@ -186,7 +186,7 @@ async function analyzeContent(
     analysis.metadata.estimatedAudience = estimateAudience(analysis);
     
   } catch (error) {
-    logger.warn('Content analysis partially failed', error);
+    logger.warn('Content analysis partially failed', { error: String(error) });
     // Continue with whatever analysis we could perform
   }
 
@@ -226,7 +226,7 @@ async function analyzeImage(buffer: Buffer): Promise<{
     };
     
   } catch (error) {
-    logger.warn('Image analysis failed', error);
+    logger.warn('Image analysis failed', { error: String(error) });
     return {
       dominantColors: [],
       objectsDetected: [],
@@ -249,7 +249,7 @@ async function extractTextFromImage(buffer: Buffer): Promise<string> {
     // For now, return empty string
     return '';
   } catch (error) {
-    logger.warn('Text extraction from image failed', error);
+    logger.warn('Text extraction from image failed', { error: String(error) });
     return '';
   }
 }
@@ -283,7 +283,7 @@ async function analyzeVideo(buffer: Buffer): Promise<{
     };
     
   } catch (error) {
-    logger.warn('Video analysis failed', error);
+    logger.warn('Video analysis failed', { error: String(error) });
     return {
       duration: 0,
       dimensions: { width: 0, height: 0 },
@@ -312,7 +312,7 @@ async function analyzeAudio(buffer: Buffer): Promise<{
     };
     
   } catch (error) {
-    logger.warn('Audio analysis failed', error);
+    logger.warn('Audio analysis failed', { error: String(error) });
     return {
       duration: 0,
       transcription: ''
@@ -333,7 +333,7 @@ async function extractTextFromDocument(buffer: Buffer): Promise<string> {
     return '';
     
   } catch (error) {
-    logger.warn('Document text extraction failed', error);
+    logger.warn('Document text extraction failed', { error: String(error) });
     return '';
   }
 }

@@ -1,15 +1,15 @@
 'use client';
 
 /**
- * Live Streaming Studio - AWS MediaLive Integration
+ * Live Streaming Studio - WebRTC Streaming
  *
  * Professional streaming studio with:
- * - AWS MediaLive RTMP streaming
+ * - WebRTC peer-to-peer streaming
  * - OBS/XSplit integration support
  * - Multi-bitrate transcoding (480p/720p/1080p)
  * - Real-time chat and donations
  * - Stream analytics and viewer metrics
- * - CloudFront CDN delivery
+ * - CDN delivery
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -145,9 +145,15 @@ export default function LiveStreamStudio() {
   const [donationMessage, setDonationMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  // Media state
+  const [isAudioEnabled, setIsAudioEnabled] = useState(true);
+  const [isVideoEnabled, setIsVideoEnabled] = useState(true);
+
   // Refs
   const chatEndRef = useRef<HTMLDivElement>(null);
   const streamStatsInterval = useRef<NodeJS.Timeout | null>(null);
+  const peerConnections = useRef<Map<string, RTCPeerConnection>>(new Map());
+  const streamRef = useRef<MediaStream | null>(null);
 
   // Initialize socket connection
   useEffect(() => {
@@ -225,7 +231,7 @@ export default function LiveStreamStudio() {
   const handleStreamEnded = useCallback((data: { streamId: string }) => {
     setActiveStream(prev => (prev ? { ...prev, status: 'ended' } : null));
     setIsStreaming(false);
-    toast.info('Stream ended');
+    toast('Stream ended');
   }, []);
 
   const handleViewerJoined = useCallback((data: { viewer: any; currentViewers: number }) => {
@@ -363,6 +369,21 @@ export default function LiveStreamStudio() {
       setIsLoading(false);
     }
   }, [streamConfig]);
+
+  const fetchStreamStats = useCallback(async () => {
+    if (!activeStream) return;
+    try {
+      const response = await fetch(`/api/streaming/${activeStream.id}/stats`);
+      if (response.ok) {
+        const stats = await response.json();
+        if (stats.bitrate !== undefined) setBitrate(stats.bitrate);
+        if (stats.fps !== undefined) setFps(stats.fps);
+        if (stats.health) setStreamHealth(stats.health);
+      }
+    } catch (error) {
+      console.error('Failed to fetch stream stats:', error);
+    }
+  }, [activeStream]);
 
   const startStream = useCallback(async () => {
     if (!activeStream) return;
@@ -580,7 +601,7 @@ export default function LiveStreamStudio() {
                       <div className='w-8 h-8 bg-white rounded-full animate-pulse' />
                     </div>
                     <h3 className='text-xl font-bold text-white mb-2'>Stream is Live!</h3>
-                    <p className='text-gray-300'>Broadcasting via RTMP to AWS MediaLive</p>
+                    <p className='text-gray-300'>Broadcasting via WebRTC</p>
                     <div className='mt-4 flex items-center justify-center gap-4 text-sm'>
                       <div className={`px-2 py-1 rounded ${
                         streamHealth === 'good' ? 'bg-green-600' :

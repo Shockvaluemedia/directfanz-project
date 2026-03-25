@@ -1,3 +1,6 @@
+// Unmock billing so we test the real implementation
+jest.unmock('@/lib/billing');
+
 // Mock dependencies first
 jest.mock('@/lib/prisma', () => ({
   prisma: {
@@ -377,10 +380,8 @@ describe('Billing Functions', () => {
         },
       };
 
-      // Override the global mock for this test
-      (mockStripe.invoices.retrieve as jest.Mock).mockImplementationOnce(() => {
-        return Promise.resolve(mockInvoice);
-      });
+      (mockStripe.invoices.retrieve as jest.Mock).mockReset();
+      (mockStripe.invoices.retrieve as jest.Mock).mockResolvedValue(mockInvoice);
 
       const result = await generateInvoiceData('in_test123');
 
@@ -409,7 +410,8 @@ describe('Billing Functions', () => {
         },
       };
 
-      mockStripe.invoices.retrieve.mockResolvedValue(mockInvoice as any);
+      (mockStripe.invoices.retrieve as jest.Mock).mockReset();
+      (mockStripe.invoices.retrieve as jest.Mock).mockResolvedValue(mockInvoice);
 
       const result = await generateInvoiceData('in_test123');
 
@@ -417,10 +419,8 @@ describe('Billing Functions', () => {
     });
 
     it('should throw error when invoice retrieval fails', async () => {
-      // Override the global mock to throw an error
-      (mockStripe.invoices.retrieve as jest.Mock).mockImplementationOnce(() => {
-        return Promise.reject(new Error('Invoice not found'));
-      });
+      (mockStripe.invoices.retrieve as jest.Mock).mockReset();
+      (mockStripe.invoices.retrieve as jest.Mock).mockRejectedValue(new Error('Invoice not found'));
 
       await expect(generateInvoiceData('nonexistent')).rejects.toThrow(
         'Failed to generate invoice data'

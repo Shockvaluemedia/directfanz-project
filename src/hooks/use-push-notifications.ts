@@ -13,7 +13,7 @@ export interface PushNotificationOptions {
   requireInteraction?: boolean;
   silent?: boolean;
   vibrate?: number[];
-  actions?: NotificationAction[];
+  actions?: Array<{ action: string; title: string; icon?: string }>;
 }
 
 export function usePushNotifications() {
@@ -68,7 +68,7 @@ export function usePushNotifications() {
     try {
       const sub = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as BufferSource,
       });
 
       setSubscription(sub);
@@ -108,14 +108,13 @@ export function usePushNotifications() {
         body: options.body,
         icon: options.icon || '/icons/icon-192x192.png',
         badge: options.badge || '/icons/badge-72x72.png',
-        image: options.image,
         tag: options.tag,
-        data: options.data,
+        data: { ...options.data, image: options.image },
         requireInteraction: options.requireInteraction || false,
         silent: options.silent || false,
         vibrate: options.vibrate || [200, 100, 200],
         actions: options.actions || [],
-      });
+      } as NotificationOptions);
     } catch (error) {
       console.error('Error showing notification:', error);
     }

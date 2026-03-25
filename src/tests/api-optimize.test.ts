@@ -70,8 +70,8 @@ jest.mock('../lib/content-optimization', () => {
   };
 });
 
-// Mock NextAuth
-jest.mock('next-auth/next', () => ({
+// Mock NextAuth - the route imports from 'next-auth', not 'next-auth/next'
+jest.mock('next-auth', () => ({
   getServerSession: jest.fn().mockResolvedValue({
     user: { id: '123', role: 'ARTIST' }
   })
@@ -79,7 +79,64 @@ jest.mock('next-auth/next', () => ({
 
 describe('/api/content/optimize', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
+
+    // Re-setup auth mock after clearAllMocks
+    const { getServerSession } = require('next-auth');
+    (getServerSession as jest.Mock).mockResolvedValue({
+      user: { id: '123', role: 'ARTIST' }
+    });
+
+    // Re-setup content optimizer mocks after clearAllMocks
+    const { contentOptimizer } = require('../lib/content-optimization');
+    contentOptimizer.analyzeContent.mockResolvedValue({
+      complexity: 'medium',
+      colorComplexity: 'full',
+      noiseLevel: 'moderate',
+      dimensions: { width: 1920, height: 1080 },
+      hasText: false,
+      hasFaces: false,
+      dominantColors: [],
+      recommendedStrategy: 'balanced'
+    });
+    contentOptimizer.optimizeContent.mockResolvedValue({
+      originalSize: 1000000,
+      optimizedSize: 750000,
+      sizeReduction: 25,
+      qualityScore: 85,
+      processingTime: 1500,
+      strategy: 'balanced',
+      outputs: [
+        {
+          quality: 'webp',
+          format: 'webp',
+          size: 750000,
+          url: 'https://example.com/optimized-file.webp',
+          optimizations: ['format_conversion', 'quality_adjustment']
+        }
+      ],
+      optimizedUrl: 'https://example.com/optimized-file.webp'
+    });
+    contentOptimizer.batchOptimize.mockResolvedValue([
+      {
+        originalSize: 1000000,
+        optimizedSize: 750000,
+        sizeReduction: 25,
+        qualityScore: 85,
+        processingTime: 1500,
+        strategy: 'balanced',
+        outputs: []
+      },
+      {
+        originalSize: 800000,
+        optimizedSize: 560000,
+        sizeReduction: 30,
+        qualityScore: 82,
+        processingTime: 1200,
+        strategy: 'balanced',
+        outputs: []
+      }
+    ]);
   });
 
   describe('GET /api/content/optimize', () => {
@@ -392,7 +449,7 @@ describe('/api/content/optimize', () => {
   describe('Authentication', () => {
     test('should require authentication for POST requests', async () => {
       // Mock getServerSession to return null (not authenticated)
-      const { getServerSession } = require('next-auth/next');
+      const { getServerSession } = require('next-auth');
       getServerSession.mockResolvedValueOnce(null);
 
       const requestBody = {
@@ -419,7 +476,7 @@ describe('/api/content/optimize', () => {
 
     test('should allow GET requests without authentication', async () => {
       // Mock getServerSession to return null for GET request
-      const { getServerSession } = require('next-auth/next');
+      const { getServerSession } = require('next-auth');
       getServerSession.mockResolvedValueOnce(null);
 
       const request = new NextRequest(
@@ -445,9 +502,9 @@ describe('/api/content/optimize', () => {
       const response = await POST(request);
       const data = await response.json();
 
-      expect(response.status).toBe(401); // Auth happens before JSON parsing
+      expect(response.status).toBe(400);
       expect(data.success).toBe(false);
-      expect(data.error).toContain('Unauthorized');
+      expect(data.error).toContain('Invalid JSON');
     });
 
     test('should handle missing content-type header', async () => {
@@ -463,8 +520,8 @@ describe('/api/content/optimize', () => {
       const response = await POST(request);
       const data = await response.json();
 
-      // Should still work as Next.js handles JSON parsing, but missing required fields
-      expect(response.status).toBe(200); // Request succeeds but with incomplete data
+      // Next.js can still parse JSON even without Content-Type header
+      expect(response.status).toBe(200);
       expect(data.success).toBe(true);
     });
 
@@ -492,7 +549,7 @@ describe('/api/content/optimize', () => {
 
       expect(response.status).toBe(400);
       expect(data.success).toBe(false);
-      expect(data.error).toContain('Too many files'); // Assuming we add this validation
+      expect(data.error).toContain('Too many files');
     });
   });
 });

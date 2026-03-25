@@ -19,10 +19,10 @@ export const SECURITY_CONSTANTS = {
     'default-src': ["'self'"],
     'script-src': ["'self'", "'unsafe-inline'", 'js.stripe.com', 'cdn.vercel-insights.com'],
     'style-src': ["'self'", "'unsafe-inline'"],
-    'img-src': ["'self'", 'data:', 'blob:', '*.amazonaws.com', '*.stripe.com'],
+    'img-src': ["'self'", 'data:', 'blob:', '*.stripe.com', '*.public.blob.vercel-storage.com'],
     'font-src': ["'self'"],
     'connect-src': ["'self'", 'api.stripe.com', '*.vercel-insights.com', '*.sentry.io'],
-    'media-src': ["'self'", 'blob:', '*.amazonaws.com'],
+    'media-src': ["'self'", 'blob:', '*.public.blob.vercel-storage.com'],
     'frame-src': ["'self'", 'js.stripe.com', 'hooks.stripe.com'],
   },
 };

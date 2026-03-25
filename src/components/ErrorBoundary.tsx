@@ -48,7 +48,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
     };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  override componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     // Enhanced error logging with structured data
     logger.error('React Error Boundary caught an error', {
       errorId: this.state.errorId,
@@ -61,7 +61,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 
     // Use our centralized error handler
     this.errorHandler(error, {
-      componentStack: errorInfo.componentStack,
+      componentStack: errorInfo.componentStack ?? '',
     });
 
     // Call custom error handler if provided
@@ -81,7 +81,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
     });
   };
 
-  render() {
+  override render() {
     if (this.state.hasError) {
       const FallbackComponent = this.props.fallback || DefaultErrorFallback;
       return (
@@ -269,7 +269,7 @@ export function withErrorBoundary<P extends object>(
 ) {
   const WrappedComponent = React.forwardRef<any, P>((props, ref) => (
     <ErrorBoundary {...errorBoundaryProps}>
-      <Component {...props} ref={ref} />
+      <Component {...(props as any)} ref={ref} />
     </ErrorBoundary>
   ));
 

@@ -17,7 +17,7 @@ import {
   Share2,
   MoreHorizontal,
   Filter,
-  Sort,
+  ArrowUpDown,
   Heart,
   Eye,
   X

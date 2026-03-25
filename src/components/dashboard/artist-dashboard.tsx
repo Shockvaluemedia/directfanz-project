@@ -50,39 +50,19 @@ interface RecentActivity {
 export default function ArtistDashboard() {
   const { data: session } = useSession();
 
-  // Fetch dashboard stats - temporarily disabled to avoid authentication errors
-  // TODO: Enable when API endpoints are implemented
-  const statsResponse = null;
-  const loadingStats = false;
-  const statsError = true; // Force fallback to demo data
-  
-  // Fetch recent activity - temporarily disabled to avoid authentication errors
-  // TODO: Enable when API endpoints are implemented  
-  const activityResponse = null;
-  const loadingActivity = false;
-  const activityError = true; // Force fallback to demo data
-  
-  // Uncomment below when API endpoints are ready:
-  // const { data: statsResponse, loading: loadingStats, error: statsError } = useApi<{ stats: DashboardStats }>(
-  //   '/api/artist/analytics?summary=true',
-  //   {
-  //     immediate: true,
-  //     onError: (error) => {
-  //       console.error('Artist analytics API error:', error);
-  //       console.log('Using fallback demo data for artist stats');
-  //     },
-  //   }
-  // );
+  // Fetch dashboard stats from live API with demo data fallback
+  const { data: statsResponse, loading: loadingStats, error: statsError } = useApi<{ stats: DashboardStats }>(
+    '/api/artist/analytics?summary=true',
+    {
+      immediate: true,
+    }
+  );
 
-  // const { data: activityResponse, loading: loadingActivity, error: activityError } = useApi<{
-  //   activities: RecentActivity[];
-  // }>('/api/artist/activity?limit=5', {
-  //   immediate: true,
-  //   onError: (error) => {
-  //     console.error('Artist activity API error:', error);
-  //     console.log('Using fallback demo data for artist activity');
-  //   },
-  // });
+  const { data: activityResponse, loading: loadingActivity, error: activityError } = useApi<{
+    activities: RecentActivity[];
+  }>('/api/artist/activity?limit=5', {
+    immediate: true,
+  });
 
   // Demo fallback data for stats
   const demoStats: DashboardStats = {

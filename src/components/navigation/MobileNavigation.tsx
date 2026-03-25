@@ -291,7 +291,7 @@ export function MobileBottomNavigation() {
   const isArtist = session?.user?.role === 'ARTIST';
   const isFan = session?.user?.role === 'FAN';
 
-  const isActive = (path: string) => pathname === path || pathname.startsWith(path);
+  const isActive = (path: string) => pathname === path || (pathname ?? '').startsWith(path);
 
   const bottomNavItems = [
     {

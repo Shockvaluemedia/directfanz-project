@@ -218,7 +218,7 @@ export class UnifiedMediaProcessor {
       const inputSize = await this.getFileSize(inputFile);
       const outputSizes = outputs.reduce(
         (acc, output) => {
-          acc[`${output.format}_${output.quality}`] = output.size;
+          acc[`${output.format}_${output.quality}`] = output.fileSize;
           return acc;
         },
         {} as Record<string, number>
@@ -431,7 +431,7 @@ export class UnifiedMediaProcessor {
 
     // Average quality score across all outputs
     const totalScore = outputs.reduce((sum, output) => {
-      return sum + (output.metadata?.qualityScore || 50);
+      return sum + ((output as any).metadata?.qualityScore || 50);
     }, 0);
 
     return totalScore / outputs.length;
@@ -482,7 +482,7 @@ export async function setupMediaProcessing(config?: {
 
   logger.info('Media processing system initialized');
 
-  return mediaProcessor;
+  return coreMediaProcessor;
 }
 
 // Export version and system info

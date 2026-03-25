@@ -11,7 +11,7 @@ export default function StaticBreadcrumbs() {
     return null;
   }
 
-  const segments = pathname.split('/').filter(Boolean);
+  const segments = (pathname ?? '').split('/').filter(Boolean);
   const breadcrumbs = [{ name: 'Home', href: '/' }];
 
   let currentPath = '';

@@ -1,0 +1,8 @@
+node_modules/
+.next/
+NahveeEvenMobile/
+src/mobile/
+src/lib/ai/
+src/app/api/ai/
+src/components/messaging/chat-interface-old.tsx
+src/app/messages/page-old.tsx

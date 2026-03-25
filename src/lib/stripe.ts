@@ -1,7 +1,7 @@
 import Stripe from 'stripe';
 
 // Initialize Stripe with defensive checks for build time
-const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder_for_build';
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || '';
 
 if (process.env.NODE_ENV === 'production' && !process.env.STRIPE_SECRET_KEY) {
   console.warn('STRIPE_SECRET_KEY is not set in production environment');

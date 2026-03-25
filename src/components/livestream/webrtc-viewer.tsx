@@ -253,7 +253,7 @@ export default function WebRTCViewer({
       remoteVideoRef.current.srcObject = null;
     }
 
-    toast.info('Stream ended: Broadcaster disconnected');
+    toast('Stream ended: Broadcaster disconnected');
   };
 
   const handleStreamEnded = () => {
@@ -265,7 +265,7 @@ export default function WebRTCViewer({
     }
 
     cleanup();
-    toast.info('Stream has ended');
+    toast('Stream has ended');
   };
 
   const attemptReconnect = () => {
@@ -291,7 +291,7 @@ export default function WebRTCViewer({
     const checkStats = async () => {
       try {
         const stats = await peerConnectionRef.current!.getStats();
-        let inboundRTP = null;
+        let inboundRTP: any = null;
 
         stats.forEach(report => {
           if (report.type === 'inbound-rtp' && report.kind === 'video') {

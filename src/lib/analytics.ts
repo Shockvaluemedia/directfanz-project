@@ -210,7 +210,7 @@ export async function calculateTierAnalytics(artistId: string): Promise<TierAnal
 
     // For conversion rate, we'd need to track tier views/visits
     // For now, we'll use a placeholder calculation
-    const conversionRate = 0; // TODO: Implement tier view tracking
+    const conversionRate = 0; // Requires tier_views tracking table (future enhancement)
 
     tierAnalytics.push({
       tierId: tier.id,
@@ -238,16 +238,16 @@ export async function getRecentActivity(
   const recentSubscriptions = await prisma.subscriptions.findMany({
     where: { artistId },
     include: {
-      fan: { select: { displayName: true } },
-      tier: { select: { name: true } },
+      users: { select: { displayName: true } },
+      tiers: { select: { name: true } },
     },
     orderBy: { createdAt: 'desc' },
     take: limit,
   });
 
   for (const sub of recentSubscriptions) {
-    const fanName = sub.fan?.displayName || 'Anonymous Fan';
-    const tierName = sub.tier?.name || 'Unknown Tier';
+    const fanName = sub.users?.displayName || 'Anonymous Fan';
+    const tierName = sub.tiers?.name || 'Unknown Tier';
 
     activities.push({
       id: sub.id,

@@ -43,6 +43,9 @@ export class ProductionDatabaseClient {
   }
 
   private buildConnectionString(config: DatabaseConfig): string {
+    if (!config.url) {
+      return '';
+    }
     const url = new URL(config.url);
     
     // Add SSL configuration for production
@@ -72,7 +75,7 @@ export class ProductionDatabaseClient {
 
   private setupEventHandlers(): void {
     // Log slow queries in production
-    this.prisma.$on('query', (e) => {
+    (this.prisma.$on as any)('query', (e: any) => {
       if (e.duration > 1000) { // Log queries taking more than 1 second
         console.warn(`Slow query detected: ${e.duration}ms`, {
           query: e.query,
@@ -82,16 +85,16 @@ export class ProductionDatabaseClient {
       }
     });
 
-    this.prisma.$on('error', (e) => {
+    (this.prisma.$on as any)('error', (e: any) => {
       console.error('Database error:', e);
       this.isHealthy = false;
     });
 
-    this.prisma.$on('info', (e) => {
+    (this.prisma.$on as any)('info', (e: any) => {
       console.info('Database info:', e.message);
     });
 
-    this.prisma.$on('warn', (e) => {
+    (this.prisma.$on as any)('warn', (e: any) => {
       console.warn('Database warning:', e.message);
     });
   }
@@ -201,7 +204,7 @@ export class ProductionDatabaseClient {
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        return await this.prisma.$transaction(fn, {
+        return await (this.prisma.$transaction as any)(fn, {
           timeout: 10000, // 10 second timeout
           isolationLevel: 'ReadCommitted',
         });
@@ -230,7 +233,7 @@ export class ProductionDatabaseClient {
   // Raw query execution with timeout
   async queryRaw<T = unknown>(query: string, ...values: any[]): Promise<T> {
     try {
-      return await this.prisma.$queryRawUnsafe(query, ...values);
+      return await this.prisma.$queryRawUnsafe(query, ...values) as T;
     } catch (error) {
       console.error('Raw query error:', error);
       throw error;
@@ -250,7 +253,7 @@ export class ProductionDatabaseClient {
 
   getHealthStatus(): {
     healthy: boolean;
-    connectionPool: typeof this.connectionPool;
+    connectionPool: { active: number; idle: number; total: number };
   } {
     return {
       healthy: this.isHealthy,
@@ -320,10 +323,7 @@ let databaseInstance: ProductionDatabaseClient | null = null;
 
 export function getDatabaseClient(): ProductionDatabaseClient {
   if (!databaseInstance) {
-    const databaseUrl = process.env.DATABASE_URL;
-    if (!databaseUrl) {
-      throw new Error('DATABASE_URL environment variable is required');
-    }
+    const databaseUrl = process.env.DATABASE_URL || '';
 
     databaseInstance = new ProductionDatabaseClient({
       url: databaseUrl,

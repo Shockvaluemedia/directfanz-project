@@ -187,10 +187,10 @@ export async function changeTier(
     const subscription = await prisma.subscriptions.findUnique({
       where: { id: subscriptionId },
       include: {
-        fan: true,
-        tier: {
+        users: true,
+        tiers: {
           include: {
-            artist: true,
+            users: true,
           },
         },
       },
@@ -208,7 +208,7 @@ export async function changeTier(
     const newTier = await prisma.tiers.findUnique({
       where: { id: newTierId },
       include: {
-        artist: true,
+        users: true,
       },
     });
 
@@ -328,19 +328,19 @@ export async function changeTier(
     });
 
     // Send notification if requested
-    if (options.sendNotification && subscription.fan?.email) {
+    if (options.sendNotification && subscription.users?.email) {
       await sendEmail({
-        to: subscription.fan.email!,
-        subject: `Subscription ${isUpgrade ? 'Upgraded' : 'Changed'} - ${newTier.artist?.displayName}`,
+        to: subscription.users.email!,
+        subject: `Subscription ${isUpgrade ? 'Upgraded' : 'Changed'} - ${newTier.users?.displayName}`,
         html: `
           <h1>Subscription ${isUpgrade ? 'Upgraded' : 'Changed'}</h1>
-          <p>Your subscription to ${subscription.tier.artist?.displayName}'s content has been changed from ${subscription.tier.name} tier to ${newTier.name} tier.</p>
+          <p>Your subscription to ${subscription.tiers.users?.displayName}'s content has been changed from ${subscription.tiers.name} tier to ${newTier.name} tier.</p>
           <p>New amount: $${newAmount.toFixed(2)}</p>
           ${proration.prorationAmount !== 0 ? `<p>Proration amount: $${proration.prorationAmount.toFixed(2)}</p>` : ''}
           <p>Next billing date: ${subscription.currentPeriodEnd.toLocaleDateString()}</p>
           <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions">Manage your subscriptions</a></p>
         `,
-        text: `Subscription ${isUpgrade ? 'Upgraded' : 'Changed'}\n\nYour subscription to ${subscription.tier.artist?.displayName}'s content has been changed from ${subscription.tier.name} tier to ${newTier.name} tier.\n\nNew amount: $${newAmount.toFixed(2)}\n${proration.prorationAmount !== 0 ? `Proration amount: $${proration.prorationAmount.toFixed(2)}\n` : ''}Next billing date: ${subscription.currentPeriodEnd.toLocaleDateString()}\n\nManage your subscriptions: ${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions`,
+        text: `Subscription ${isUpgrade ? 'Upgraded' : 'Changed'}\n\nYour subscription to ${subscription.tiers.users?.displayName}'s content has been changed from ${subscription.tiers.name} tier to ${newTier.name} tier.\n\nNew amount: $${newAmount.toFixed(2)}\n${proration.prorationAmount !== 0 ? `Proration amount: $${proration.prorationAmount.toFixed(2)}\n` : ''}Next billing date: ${subscription.currentPeriodEnd.toLocaleDateString()}\n\nManage your subscriptions: ${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions`,
       });
     }
 
@@ -452,10 +452,10 @@ export async function scheduleTierChange(
     const subscription = await prisma.subscriptions.findUnique({
       where: { id: subscriptionId },
       include: {
-        fan: true,
-        tier: {
+        users: true,
+        tiers: {
           include: {
-            artist: true,
+            users: true,
           },
         },
       },
@@ -473,7 +473,7 @@ export async function scheduleTierChange(
     const newTier = await prisma.tiers.findUnique({
       where: { id: newTierId },
       include: {
-        artist: true,
+        users: true,
       },
     });
 
@@ -563,13 +563,13 @@ export async function scheduleTierChange(
     `) as any[];
 
     // Send notification if requested
-    if (subscription.fan?.email) {
+    if (subscription.users?.email) {
       await sendEmail({
         to: subscription.users.email,
-        subject: `Subscription Change Scheduled - ${newTier.artist?.displayName}`,
+        subject: `Subscription Change Scheduled - ${newTier.users?.displayName}`,
         html: `
           <h1>Subscription Change Scheduled</h1>
-          <p>Your subscription to ${subscription.tiers.artist?.displayName}'s content will be changed from ${subscription.tiers.name} tier to ${newTier.name} tier on your next billing date.</p>
+          <p>Your subscription to ${subscription.tiers.users?.displayName}'s content will be changed from ${subscription.tiers.name} tier to ${newTier.name} tier on your next billing date.</p>
           <p>Current tier: ${subscription.tiers.name}</p>
           <p>New tier: ${newTier.name}</p>
           <p>Current amount: ${currentAmount.toFixed(2)}</p>
@@ -577,7 +577,7 @@ export async function scheduleTierChange(
           <p>Effective date: ${effectiveDate.toLocaleDateString()}</p>
           <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions">Manage your subscriptions</a></p>
         `,
-        text: `Subscription Change Scheduled\n\nYour subscription to ${subscription.tiers.artist?.displayName}'s content will be changed from ${subscription.tiers.name} tier to ${newTier.name} tier on your next billing date.\n\nCurrent tier: ${subscription.tiers.name}\nNew tier: ${newTier.name}\nCurrent amount: ${currentAmount.toFixed(2)}\nNew amount: ${newAmount.toFixed(2)}\nEffective date: ${effectiveDate.toLocaleDateString()}\n\nManage your subscriptions: ${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions`,
+        text: `Subscription Change Scheduled\n\nYour subscription to ${subscription.tiers.users?.displayName}'s content will be changed from ${subscription.tiers.name} tier to ${newTier.name} tier on your next billing date.\n\nCurrent tier: ${subscription.tiers.name}\nNew tier: ${newTier.name}\nCurrent amount: ${currentAmount.toFixed(2)}\nNew amount: ${newAmount.toFixed(2)}\nEffective date: ${effectiveDate.toLocaleDateString()}\n\nManage your subscriptions: ${process.env.NEXT_PUBLIC_APP_URL}/dashboard/fan/subscriptions`,
       });
     }
 

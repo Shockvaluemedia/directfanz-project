@@ -7,10 +7,10 @@ import { prisma } from '@/lib/prisma';
 jest.mock('next-auth');
 jest.mock('@/lib/prisma', () => ({
   prisma: {
-    user: {
+    users: {
       findUnique: jest.fn(),
     },
-    subscription: {
+    subscriptions: {
       findMany: jest.fn(),
     },
   },
@@ -42,7 +42,7 @@ describe('/api/fan/subscriptions', () => {
         expires: '2024-01-01',
       });
 
-      mockPrisma.user.findUnique.mockResolvedValue({
+      mockPrisma.users.findUnique.mockResolvedValue({
         id: 'user-1',
         email: 'test@example.com',
         role: 'ARTIST',
@@ -68,7 +68,7 @@ describe('/api/fan/subscriptions', () => {
         expires: '2024-01-01',
       });
 
-      mockPrisma.user.findUnique.mockResolvedValue({
+      mockPrisma.users.findUnique.mockResolvedValue({
         id: 'fan-1',
         email: 'fan@example.com',
         role: 'FAN',
@@ -93,12 +93,12 @@ describe('/api/fan/subscriptions', () => {
           currentPeriodEnd: new Date(),
           createdAt: new Date(),
           updatedAt: new Date(),
-          tier: {
+          tiers: {
             id: 'tier-1',
             name: 'Basic',
             description: 'Basic tier',
             minimumPrice: 5.0,
-            artist: {
+            artists: {
               id: 'artist-1',
               displayName: 'Test Artist',
               avatar: null,
@@ -107,7 +107,7 @@ describe('/api/fan/subscriptions', () => {
         },
       ];
 
-      mockPrisma.subscription.findMany.mockResolvedValue(mockSubscriptions);
+      mockPrisma.subscriptions.findMany.mockResolvedValue(mockSubscriptions);
 
       const request = new NextRequest('http://localhost:3000/api/fan/subscriptions');
       const response = await GET(request);
@@ -117,7 +117,7 @@ describe('/api/fan/subscriptions', () => {
       expect(data.success).toBe(true);
       expect(data.data.subscriptions).toHaveLength(1);
       expect(data.data.subscriptions[0].id).toBe('sub-1');
-      expect(data.data.subscriptions[0].users.displayName).toBe('Test Artist');
+      expect(data.data.subscriptions[0].artist.displayName).toBe('Test Artist');
     });
 
     it('should return empty array if fan has no subscriptions', async () => {
@@ -126,7 +126,7 @@ describe('/api/fan/subscriptions', () => {
         expires: '2024-01-01',
       });
 
-      mockPrisma.user.findUnique.mockResolvedValue({
+      mockPrisma.users.findUnique.mockResolvedValue({
         id: 'fan-1',
         email: 'fan@example.com',
         role: 'FAN',
@@ -138,7 +138,7 @@ describe('/api/fan/subscriptions', () => {
         updatedAt: new Date(),
       });
 
-      mockPrisma.subscription.findMany.mockResolvedValue([]);
+      mockPrisma.subscriptions.findMany.mockResolvedValue([]);
 
       const request = new NextRequest('http://localhost:3000/api/fan/subscriptions');
       const response = await GET(request);
@@ -155,7 +155,7 @@ describe('/api/fan/subscriptions', () => {
         expires: '2024-01-01',
       });
 
-      mockPrisma.user.findUnique.mockResolvedValue({
+      mockPrisma.users.findUnique.mockResolvedValue({
         id: 'fan-1',
         email: 'fan@example.com',
         role: 'FAN',
@@ -167,7 +167,7 @@ describe('/api/fan/subscriptions', () => {
         updatedAt: new Date(),
       });
 
-      mockPrisma.subscription.findMany.mockRejectedValue(new Error('Database error'));
+      mockPrisma.subscriptions.findMany.mockRejectedValue(new Error('Database error'));
 
       const request = new NextRequest('http://localhost:3000/api/fan/subscriptions');
       const response = await GET(request);

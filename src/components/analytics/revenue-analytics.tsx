@@ -283,8 +283,8 @@ export function RevenueAnalytics({ className }: RevenueAnalyticsProps) {
             { dataKey: 'revenue', name: 'Revenue', color: '#6366f1' },
             { dataKey: 'subscribers', name: 'Subscribers', color: '#10b981' },
           ]}
-          formatTooltip={(value, name) => 
-            name === 'Revenue' ? formatCurrency(value) : `${value} subscribers`
+          formatTooltip={(value: any) =>
+            typeof value === 'number' ? formatCurrency(value) : `${value}`
           }
         />
       </div>
