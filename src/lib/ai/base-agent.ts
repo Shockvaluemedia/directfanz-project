@@ -109,10 +109,10 @@ export enum AgentType {
 }
 
 // Base agent class that all AI agents extend
-export abstract class BaseAgent extends EventEmitter {
+export abstract class BaseAgent<TConfig extends AgentConfig = AgentConfig> extends EventEmitter {
   protected readonly id: string;
   protected readonly type: AgentType;
-  protected readonly config: AgentConfig;
+  protected readonly config: TConfig;
   protected status: AgentStatus;
   protected metrics: AgentMetrics;
   protected logger: Logger;
@@ -123,7 +123,7 @@ export abstract class BaseAgent extends EventEmitter {
   constructor(
     id: string,
     type: AgentType,
-    config: AgentConfig,
+    config: TConfig,
     logger?: Logger,
     db?: Database
   ) {

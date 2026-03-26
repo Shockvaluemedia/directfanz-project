@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { createCustomerPortalSession, createOrRetrieveCustomer } from '@/lib/stripe';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 const portalSchema = z.object({
   stripeAccountId: z.string(),
@@ -15,7 +16,7 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     const body = await request.json();
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user || user.role !== 'FAN') {
-      return NextResponse.json({ error: 'Only fans can access customer portal' }, { status: 403 });
+      return apiError('FORBIDDEN', 'Only fans can access customer portal');
     }
 
     // Create or retrieve customer
@@ -43,19 +44,16 @@ export async function POST(request: NextRequest) {
 
     const portalUrl = await createCustomerPortalSession(customerId, returnUrl, stripeAccountId);
 
-    return NextResponse.json({
+    return apiSuccess({
       portalUrl,
     });
   } catch (error) {
     logger.error('Create portal session error', {}, error as Error);
 
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Invalid request data', details: error.errors },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'Invalid request data', error.errors);
     }
 
-    return NextResponse.json({ error: 'Failed to create portal session' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Failed to create portal session');
   }
 }

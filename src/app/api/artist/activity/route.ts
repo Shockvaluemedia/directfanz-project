@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
@@ -6,16 +6,14 @@ export const runtime = 'nodejs';
 import { withApi } from '@/lib/api-auth';
 import { prisma } from '@/lib/database';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 export async function GET(request: NextRequest) {
   return withApi(request, async req => {
     try {
       // Verify user is an artist
       if (req.user.role !== 'ARTIST') {
-        return NextResponse.json(
-          { error: 'Access denied. Artist role required.' },
-          { status: 403 }
-        );
+        return apiError('FORBIDDEN', 'Access denied. Artist role required.');
       }
 
       const { searchParams } = new URL(request.url);
@@ -170,15 +168,12 @@ export async function GET(request: NextRequest) {
         activityCount: sortedActivities.length,
       });
 
-      return NextResponse.json({
-        success: true,
-        data: {
+      return apiSuccess({
           activities: sortedActivities,
-        },
-      });
+        });
     } catch (error) {
       logger.error('Get artist activity error', { userId: req.user?.id }, error as Error);
-      return NextResponse.json({ error: 'Failed to fetch activity data' }, { status: 500 });
+      return apiError('INTERNAL_ERROR', 'Failed to fetch activity data');
     }
   });
 }

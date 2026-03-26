@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { handleMediaConvertWebhook } from '@/lib/vod-service';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 /**
  * @deprecated This webhook handler is legacy and will be replaced
@@ -14,20 +15,14 @@ export async function POST(request: NextRequest) {
 
     if (!expectedSecret) {
       logger.error('MEDIACONVERT_WEBHOOK_SECRET is not configured');
-      return NextResponse.json(
-        { error: 'Webhook not configured' },
-        { status: 500 }
-      );
+      return apiError('INTERNAL_ERROR', 'Webhook not configured');
     }
 
     if (webhookSecret !== expectedSecret) {
       logger.warn('MediaConvert webhook unauthorized request', {
         hasSecret: !!webhookSecret,
       });
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     const body = await request.json();
@@ -36,22 +31,16 @@ export async function POST(request: NextRequest) {
     if (body.source === 'aws.mediaconvert') {
       await handleMediaConvertWebhook(body);
 
-      return NextResponse.json({
+      return apiSuccess({
         message: 'Webhook processed successfully',
         eventType: body['detail-type'],
         jobId: body.detail?.jobId,
       });
     }
 
-    return NextResponse.json(
-      { error: 'Unknown event source' },
-      { status: 400 }
-    );
+    return apiError('BAD_REQUEST', 'Unknown event source');
   } catch (error) {
     logger.error('MediaConvert webhook error', {}, error as Error);
-    return NextResponse.json(
-      { error: 'Webhook processing failed' },
-      { status: 500 }
-    );
+    return apiError('INTERNAL_ERROR', 'Webhook processing failed');
   }
 }

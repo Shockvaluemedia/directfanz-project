@@ -532,7 +532,7 @@ export async function getFanDashboardStatsOptimized(fanId: string): Promise<FanD
       WHERE s."fanId" = ${fanId} AND s.status = 'ACTIVE'
     ),
     streak_calculation AS (
-      SELECT 
+      SELECT
         -- Calculate consecutive months with active subscriptions
         COALESCE((
           SELECT COUNT(*)
@@ -547,16 +547,28 @@ export async function getFanDashboardStatsOptimized(fanId: string): Promise<FanD
               AND s.status = 'ACTIVE'
               AND DATE_TRUNC('month', s."createdAt") <= month_start
               AND (
-                s."canceledAt" IS NULL 
+                s."canceledAt" IS NULL
                 OR DATE_TRUNC('month', s."canceledAt") > month_start
               )
           )
         ), 0) as subscription_streak
+    ),
+    genre_stats AS (
+      SELECT TRIM(tag) as genre, COUNT(*) as cnt
+      FROM content c
+      JOIN subscriptions s ON c."artistId" = s."artistId"
+      CROSS JOIN LATERAL unnest(string_to_array(c.tags, ',')) AS tag
+      WHERE s."fanId" = ${fanId} AND s.status = 'ACTIVE'
+        AND TRIM(tag) != ''
+      GROUP BY TRIM(tag)
+      ORDER BY cnt DESC
+      LIMIT 5
     )
-    SELECT 
+    SELECT
       ss.*,
       cs.content_access_count,
-      sc.subscription_streak
+      sc.subscription_streak,
+      COALESCE((SELECT json_agg(genre) FROM genre_stats), '[]'::json) as favorite_genres
     FROM subscription_stats ss, content_stats cs, streak_calculation sc
   `;
 
@@ -569,7 +581,7 @@ export async function getFanDashboardStatsOptimized(fanId: string): Promise<FanD
     averageSubscriptionValue: Number(data?.average_subscription_value || 0),
     subscriptionStreak: Number(data?.subscription_streak || 0),
     contentAccessCount: Number(data?.content_access_count || 0),
-    favoriteGenres: [], // Genre tracking requires content tag aggregation — deferred to analytics pipeline
+    favoriteGenres: Array.isArray(data?.favorite_genres) ? data.favorite_genres : [],
     joinedDate: data?.joined_date || new Date(),
   };
 }

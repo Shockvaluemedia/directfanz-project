@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 const updateStreamSchema = z.object({
   title: z.string().min(1).max(200).optional(),
@@ -24,10 +25,7 @@ export async function GET(request: NextRequest, { params }: { params: { streamId
   try {
     session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { success: false, error: { message: 'Unauthorized' } },
-        { status: 401 }
-      );
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     const stream = await prisma.live_streams.findUnique({
@@ -68,10 +66,7 @@ export async function GET(request: NextRequest, { params }: { params: { streamId
     });
 
     if (!stream) {
-      return NextResponse.json(
-        { success: false, error: { message: 'Stream not found' } },
-        { status: 404 }
-      );
+      return apiError('NOT_FOUND', 'Stream not found');
     }
 
     // Check access permissions
@@ -81,10 +76,7 @@ export async function GET(request: NextRequest, { params }: { params: { streamId
       (await checkStreamAccess(session.user.id, stream));
 
     if (!canView) {
-      return NextResponse.json(
-        { success: false, error: { message: 'Access denied' } },
-        { status: 403 }
-      );
+      return apiError('FORBIDDEN', 'Access denied');
     }
 
     // Don't expose stream key to non-owners
@@ -101,10 +93,7 @@ export async function GET(request: NextRequest, { params }: { params: { streamId
       },
     };
 
-    return NextResponse.json({
-      success: true,
-      data: { stream: responseStream },
-    });
+    return apiSuccess({ stream: responseStream });
   } catch (error) {
     logger.error(
       'Failed to fetch livestream',
@@ -115,10 +104,7 @@ export async function GET(request: NextRequest, { params }: { params: { streamId
       error as Error
     );
 
-    return NextResponse.json(
-      { success: false, error: { message: 'Internal server error' } },
-      { status: 500 }
-    );
+    return apiError('INTERNAL_ERROR', 'Internal server error');
   }
 }
 
@@ -128,10 +114,7 @@ export async function PUT(request: NextRequest, { params }: { params: { streamId
   try {
     session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { success: false, error: { message: 'Unauthorized' } },
-        { status: 401 }
-      );
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     // Check if user owns this stream
@@ -143,10 +126,7 @@ export async function PUT(request: NextRequest, { params }: { params: { streamId
     });
 
     if (!existingStream) {
-      return NextResponse.json(
-        { success: false, error: { message: 'Stream not found or access denied' } },
-        { status: 404 }
-      );
+      return apiError('NOT_FOUND', 'Stream not found or access denied');
     }
 
     const body = await request.json();
@@ -163,10 +143,7 @@ export async function PUT(request: NextRequest, { params }: { params: { streamId
       });
 
       if (validTiers.length !== validatedData.tierIds.length) {
-        return NextResponse.json(
-          { success: false, error: { message: 'Invalid tier selection' } },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'Invalid tier selection');
       }
     }
 
@@ -209,21 +186,15 @@ export async function PUT(request: NextRequest, { params }: { params: { streamId
       changes: Object.keys(updateData),
     });
 
-    return NextResponse.json({
-      success: true,
-      data: {
+    return apiSuccess({
         stream: {
           ...updatedStream,
           tierIds: JSON.parse(updatedStream.tierIds),
         },
-      },
-    });
+      });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { success: false, error: { message: 'Invalid request data', details: error.errors } },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'Invalid request data', error.errors);
     }
 
     logger.error(
@@ -235,10 +206,7 @@ export async function PUT(request: NextRequest, { params }: { params: { streamId
       error as Error
     );
 
-    return NextResponse.json(
-      { success: false, error: { message: 'Internal server error' } },
-      { status: 500 }
-    );
+    return apiError('INTERNAL_ERROR', 'Internal server error');
   }
 }
 
@@ -248,10 +216,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { strea
   try {
     session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { success: false, error: { message: 'Unauthorized' } },
-        { status: 401 }
-      );
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     // Check if user owns this stream and it's not currently live
@@ -263,17 +228,11 @@ export async function DELETE(request: NextRequest, { params }: { params: { strea
     });
 
     if (!existingStream) {
-      return NextResponse.json(
-        { success: false, error: { message: 'Stream not found or access denied' } },
-        { status: 404 }
-      );
+      return apiError('NOT_FOUND', 'Stream not found or access denied');
     }
 
     if (existingStream.status === 'LIVE') {
-      return NextResponse.json(
-        { success: false, error: { message: 'Cannot delete a live stream' } },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'Cannot delete a live stream');
     }
 
     await prisma.live_streams.delete({
@@ -287,10 +246,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { strea
       artistId: session.user.id,
     });
 
-    return NextResponse.json({
-      success: true,
-      message: 'Stream deleted successfully',
-    });
+    return apiSuccess({ message: 'Stream deleted successfully' });
   } catch (error) {
     logger.error(
       'Failed to delete livestream',
@@ -301,10 +257,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { strea
       error as Error
     );
 
-    return NextResponse.json(
-      { success: false, error: { message: 'Internal server error' } },
-      { status: 500 }
-    );
+    return apiError('INTERNAL_ERROR', 'Internal server error');
   }
 }
 

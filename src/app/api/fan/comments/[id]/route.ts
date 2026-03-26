@@ -1,24 +1,25 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { updateCommentSchema } from '@/lib/validations';
 import { checkPermission } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 // GET /api/fan/comments/[id]
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession();
 
   if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return apiError('UNAUTHORIZED', 'Unauthorized');
   }
 
   try {
     // Check if user has permission to read comments
     const hasPermission = await checkPermission(session.user.id, 'fan:comments:read');
     if (!hasPermission) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      return apiError('FORBIDDEN', 'Forbidden');
     }
 
     const comment = await prisma.comments.findUnique({
@@ -35,13 +36,13 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     });
 
     if (!comment) {
-      return NextResponse.json({ error: 'Comment not found' }, { status: 404 });
+      return apiError('NOT_FOUND', 'Comment not found');
     }
 
-    return NextResponse.json({ comment });
+    return apiSuccess({ comment });
   } catch (error) {
     logger.error('Error fetching comment', {}, error as Error);
-    return NextResponse.json({ error: 'Failed to fetch comment' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Failed to fetch comment');
   }
 }
 
@@ -50,7 +51,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   const session = await getServerSession();
 
   if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return apiError('UNAUTHORIZED', 'Unauthorized');
   }
 
   try {
@@ -60,7 +61,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     });
 
     if (!comment) {
-      return NextResponse.json({ error: 'Comment not found' }, { status: 404 });
+      return apiError('NOT_FOUND', 'Comment not found');
     }
 
     // Check if user is the comment owner
@@ -68,7 +69,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       // Check if user has permission to update any comments (admin)
       const hasPermission = await checkPermission(session.user.id, 'fan:comments:update');
       if (!hasPermission) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        return apiError('FORBIDDEN', 'Forbidden');
       }
     }
 
@@ -94,14 +95,14 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       },
     });
 
-    return NextResponse.json({ comment: updatedComment });
+    return apiSuccess({ comment: updatedComment });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors }, { status: 400 });
+      return apiError('BAD_REQUEST', error.errors);
     }
 
     logger.error('Error updating comment', {}, error as Error);
-    return NextResponse.json({ error: 'Failed to update comment' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Failed to update comment');
   }
 }
 
@@ -110,7 +111,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
   const session = await getServerSession();
 
   if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return apiError('UNAUTHORIZED', 'Unauthorized');
   }
 
   try {
@@ -120,7 +121,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     });
 
     if (!comment) {
-      return NextResponse.json({ error: 'Comment not found' }, { status: 404 });
+      return apiError('NOT_FOUND', 'Comment not found');
     }
 
     // Check if user is the comment owner
@@ -128,7 +129,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       // Check if user has permission to delete any comments (admin)
       const hasPermission = await checkPermission(session.user.id, 'fan:comments:delete');
       if (!hasPermission) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        return apiError('FORBIDDEN', 'Forbidden');
       }
     }
 
@@ -137,9 +138,9 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       where: { id: params.id },
     });
 
-    return NextResponse.json({ success: true });
+    return apiSuccess({ success: true });
   } catch (error) {
     logger.error('Error deleting comment', {}, error as Error);
-    return NextResponse.json({ error: 'Failed to delete comment' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Failed to delete comment');
   }
 }

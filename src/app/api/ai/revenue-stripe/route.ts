@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { 
@@ -10,6 +10,7 @@ import {
 } from '@/lib/stripe-revenue-optimizer';
 import { createAgentTask, createAgentRegistry, DEFAULT_AGENT_CONFIGS } from '@/lib/ai';
 import { Logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 const logger = new Logger('ai-revenue-stripe-api');
 
@@ -30,16 +31,12 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
     
     if (!session) {
-      return NextResponse.json({ 
-        error: 'Authentication required' 
-      }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Authentication required');
     }
 
     // Only artists can access revenue optimization
     if (session.user.role !== 'ARTIST') {
-      return NextResponse.json({
-        error: 'Artist role required for revenue optimization'
-      }, { status: 403 });
+      return apiError('FORBIDDEN', 'Artist role required for revenue optimization');
     }
 
     const { searchParams } = new URL(request.url);
@@ -63,9 +60,7 @@ export async function GET(request: NextRequest) {
         
         const aiResponse = await agentRegistry.executeTask('revenue-optimizer-main', task);
         
-        return NextResponse.json({
-          success: true,
-          data: {
+        return apiSuccess({
             timestamp: new Date().toISOString(),
             revenue: revenueData,
             aiInsights: aiResponse.success ? aiResponse.data : null,
@@ -74,39 +69,31 @@ export async function GET(request: NextRequest) {
               ...generateRevenueGrowthRecommendations(revenueData)
             ],
             nextSteps: generateNextSteps(revenueData)
-          }
-        });
+          });
       }
 
       case 'monitoring': {
         // Monitor active pricing optimization tests
         const performanceData = await monitorOptimizationPerformance(artistId);
         
-        return NextResponse.json({
-          success: true,
-          data: {
+        return apiSuccess({
             timestamp: new Date().toISOString(),
             monitoring: performanceData,
             recommendations: generateMonitoringRecommendations(performanceData),
             alerts: generatePerformanceAlerts(performanceData)
-          }
-        });
+          });
       }
 
       default: {
-        return NextResponse.json({
-          error: 'Invalid action',
-          availableActions: ['analysis', 'monitoring']
-        }, { status: 400 });
+        return apiError('BAD_REQUEST', 'Invalid action',
+          availableActions: ['analysis', 'monitoring']);
       }
     }
 
   } catch (error) {
     logger.error('Revenue Stripe API Error', {}, error as Error);
-    return NextResponse.json({
-      error: 'Internal server error',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error');
   }
 }
 
@@ -115,30 +102,24 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
     
     if (!session) {
-      return NextResponse.json({ 
-        error: 'Authentication required' 
-      }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Authentication required');
     }
 
     if (session.user.role !== 'ARTIST') {
-      return NextResponse.json({
-        error: 'Artist role required for revenue optimization'
-      }, { status: 403 });
+      return apiError('FORBIDDEN', 'Artist role required for revenue optimization');
     }
 
     const body = await request.json();
     const { action, parameters = {}, testMode = true } = body;
 
     if (!action) {
-      return NextResponse.json({
-        error: 'Action is required',
+      return apiError('BAD_REQUEST', 'Action is required',
         availableActions: [
           'optimize_pricing',
           'create_bundle',
           'restructure_tiers',
           'implement_ai_recommendations'
-        ]
-      }, { status: 400 });
+        ]);
     }
 
     const artistId = session.user.id;
@@ -148,9 +129,7 @@ export async function POST(request: NextRequest) {
         const { priceId, optimizedAmount } = parameters;
         
         if (!priceId || !optimizedAmount) {
-          return NextResponse.json({
-            error: 'priceId and optimizedAmount are required for pricing optimization'
-          }, { status: 400 });
+          return apiError('BAD_REQUEST', 'priceId and optimizedAmount are required for pricing optimization');
         }
 
         const result = await implementPricingOptimization(
@@ -160,7 +139,7 @@ export async function POST(request: NextRequest) {
           testMode
         );
 
-        return NextResponse.json({
+        return apiSuccess({
           success: result.success,
           data: {
             action,
@@ -178,9 +157,7 @@ export async function POST(request: NextRequest) {
         const { bundleName, priceIds, discountPercent } = parameters;
         
         if (!bundleName || !priceIds || !discountPercent) {
-          return NextResponse.json({
-            error: 'bundleName, priceIds, and discountPercent are required'
-          }, { status: 400 });
+          return apiError('BAD_REQUEST', 'bundleName, priceIds, and discountPercent are required');
         }
 
         const result = await createOptimizedBundle(
@@ -190,7 +167,7 @@ export async function POST(request: NextRequest) {
           parseFloat(discountPercent)
         );
 
-        return NextResponse.json({
+        return apiSuccess({
           success: result.success,
           data: {
             action,
@@ -209,14 +186,12 @@ export async function POST(request: NextRequest) {
         const { tierRecommendations } = parameters;
         
         if (!tierRecommendations || !Array.isArray(tierRecommendations)) {
-          return NextResponse.json({
-            error: 'tierRecommendations array is required'
-          }, { status: 400 });
+          return apiError('BAD_REQUEST', 'tierRecommendations array is required');
         }
 
         const result = await restructureSubscriptionTiers(artistId, tierRecommendations);
 
-        return NextResponse.json({
+        return apiSuccess({
           success: result.success,
           data: {
             action,
@@ -247,10 +222,7 @@ export async function POST(request: NextRequest) {
         const aiResponse = await agentRegistry.executeTask('revenue-optimizer-main', task);
 
         if (!aiResponse.success) {
-          return NextResponse.json({
-            error: 'AI optimization failed',
-            details: aiResponse.error
-          }, { status: 500 });
+          return apiError('INTERNAL_ERROR', 'AI optimization failed', aiResponse.error);
         }
 
         // Simulate implementing the AI recommendations
@@ -267,9 +239,7 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        return NextResponse.json({
-          success: true,
-          data: {
+        return apiSuccess({
             action,
             aiRecommendations: aiResponse.data,
             implementedChanges,
@@ -280,29 +250,24 @@ export async function POST(request: NextRequest) {
               keyMetrics: ['conversion_rate', 'revenue_per_user', 'churn_rate'],
               checkpoints: ['Day 3', 'Day 7', 'Day 14']
             }
-          }
-        });
+          });
       }
 
       default: {
-        return NextResponse.json({
-          error: 'Unknown action',
+        return apiError('BAD_REQUEST', 'Unknown action',
           availableActions: [
             'optimize_pricing',
             'create_bundle', 
             'restructure_tiers',
             'implement_ai_recommendations'
-          ]
-        }, { status: 400 });
+          ]);
       }
     }
 
   } catch (error) {
     logger.error('Revenue Stripe POST API Error', {}, error as Error);
-    return NextResponse.json({
-      error: 'Revenue optimization failed',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Revenue optimization failed',
+      message: error instanceof Error ? error.message : 'Unknown error');
   }
 }
 

@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
 import { SubmissionContentType, SubmissionStatus } from '@/lib/types/enums';
+import { apiSuccess, apiCreated, apiError, apiValidationError } from '@/lib/api-response';
 
 // Validation schema for creating submissions
 const createSubmissionSchema = z.object({
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest, { params }: { params: { challeng
   try {
     session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     const { searchParams } = new URL(request.url);
@@ -46,7 +47,7 @@ export async function GET(request: NextRequest, { params }: { params: { challeng
     });
 
     if (!challenge) {
-      return NextResponse.json({ error: 'Challenge not found' }, { status: 404 });
+      return apiError('NOT_FOUND', 'Challenge not found');
     }
 
     // Check if user can view submissions
@@ -56,7 +57,7 @@ export async function GET(request: NextRequest, { params }: { params: { challeng
       challenge.status === 'ACTIVE';
 
     if (!canViewAll && !mySubmissions) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      return apiError('FORBIDDEN', 'Access denied');
     }
 
     // Build where clause
@@ -100,7 +101,7 @@ export async function GET(request: NextRequest, { params }: { params: { challeng
       metadata: submission.metadata ? JSON.parse(submission.metadata) : null,
     }));
 
-    return NextResponse.json({
+    return apiSuccess({
       challenge_submissions: submissionsWithParsedData,
       pagination: {
         page,
@@ -118,7 +119,7 @@ export async function GET(request: NextRequest, { params }: { params: { challeng
       },
       error as Error
     );
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Internal server error');
   }
 }
 
@@ -128,7 +129,7 @@ export async function POST(request: NextRequest, { params }: { params: { challen
   try {
     session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     // Get challenge and participation details
@@ -150,52 +151,37 @@ export async function POST(request: NextRequest, { params }: { params: { challen
     });
 
     if (!challengeWithParticipation) {
-      return NextResponse.json({ error: 'Challenge not found' }, { status: 404 });
+      return apiError('NOT_FOUND', 'Challenge not found');
     }
 
     const challenge = challengeWithParticipation;
     const participation = challenge.challenge_participations[0];
 
     if (!participation) {
-      return NextResponse.json(
-        {
-          error: 'You must join the challenge before submitting',
-        },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'You must join the challenge before submitting',);
     }
 
     if (participation.status !== 'ACTIVE') {
-      return NextResponse.json(
-        {
-          error: 'Your participation is not active',
-        },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'Your participation is not active',);
     }
 
     // Check if challenge and campaign are active
     if (challenge.status !== 'ACTIVE') {
-      return NextResponse.json({ error: 'Challenge is not active' }, { status: 400 });
+      return apiError('BAD_REQUEST', 'Challenge is not active');
     }
 
     if (challenge.campaigns.status !== 'ACTIVE') {
-      return NextResponse.json({ error: 'Campaign is not active' }, { status: 400 });
+      return apiError('BAD_REQUEST', 'Campaign is not active');
     }
 
     // Check if submission period is still open
     if (challenge.submissionDeadline && new Date() > challenge.submissionDeadline) {
-      return NextResponse.json({ error: 'Submission deadline has passed' }, { status: 400 });
+      return apiError('BAD_REQUEST', 'Submission deadline has passed');
     }
 
     // Check submission limits
     if (challenge.maxSubmissions && participation.challenge_submissions.length >= challenge.maxSubmissions) {
-      return NextResponse.json(
-        {
-          error: `Maximum ${challenge.maxSubmissions} submissions allowed per participant`,
-        },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', `Maximum ${challenge.maxSubmissions} submissions allowed per participant`,);
     }
 
     const body = await request.json();
@@ -204,12 +190,7 @@ export async function POST(request: NextRequest, { params }: { params: { challen
     // Check if content type is allowed
     const allowedTypes = JSON.parse(challenge.submissionTypes);
     if (!allowedTypes.includes(validatedData.contentType)) {
-      return NextResponse.json(
-        {
-          error: `Content type ${validatedData.contentType} is not allowed for this challenge`,
-        },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', `Content type ${validatedData.contentType} is not allowed for this challenge`,);
     }
 
     // Create submission
@@ -278,19 +259,13 @@ export async function POST(request: NextRequest, { params }: { params: { challen
       contentType: submission.contentType,
     });
 
-    return NextResponse.json(
-      {
+    return apiCreated({
         ...submission,
         metadata: submission.metadata ? JSON.parse(submission.metadata) : null,
-      },
-      { status: 201 }
-    );
+      });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
-        { status: 400 }
-      );
+      return apiValidationError(error.errors);
     }
 
     logger.error(
@@ -301,6 +276,6 @@ export async function POST(request: NextRequest, { params }: { params: { challen
       },
       error as Error
     );
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Internal server error');
   }
 }

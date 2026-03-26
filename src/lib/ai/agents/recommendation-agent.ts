@@ -1,4 +1,3 @@
-// @ts-nocheck — config property narrowing requires BaseAgent generic refactor
 import { BaseAgent, AgentType, AgentTask, AgentResponse, AgentConfig } from '../base-agent';
 import { Logger } from '@/lib/logger';
 import type { Database } from '../base-agent';
@@ -209,8 +208,7 @@ export interface DeviceInfo {
 }
 
 // Recommendation AI Agent for personalized content discovery
-export class RecommendationAgent extends BaseAgent {
-  private readonly config: RecommendationAgentConfig;
+export class RecommendationAgent extends BaseAgent<RecommendationAgentConfig> {
   private readonly userProfiles: Map<string, UserRecommendationProfile> = new Map();
   private readonly contentCache: Map<string, ContentItem[]> = new Map();
   private readonly collaborativeMatrix: Map<string, Map<string, number>> = new Map();
@@ -222,7 +220,6 @@ export class RecommendationAgent extends BaseAgent {
     db?: Database
   ) {
     super(id, AgentType.RECOMMENDATION, config, logger, db);
-    this.config = config;
   }
 
   public getCapabilities(): string[] {

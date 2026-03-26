@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
@@ -7,13 +7,14 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     // Get user and verify they are a fan
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!user || user.role !== 'FAN') {
-      return NextResponse.json({ error: 'Only fans can view subscriptions' }, { status: 403 });
+      return apiError('FORBIDDEN', 'Only fans can view subscriptions');
     }
 
     const { searchParams } = new URL(request.url);
@@ -70,14 +71,11 @@ export async function GET(request: NextRequest) {
       createdAt: sub.createdAt.toISOString(),
     }));
 
-    return NextResponse.json({
-      success: true,
-      data: {
+    return apiSuccess({
         subscriptions: formattedSubscriptions,
-      },
-    });
+      });
   } catch (error) {
     logger.error('Get subscriptions error', {}, error as Error);
-    return NextResponse.json({ error: 'Failed to fetch subscriptions' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Failed to fetch subscriptions');
   }
 }

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { z } from 'zod';
 
@@ -7,13 +7,14 @@ import { createCommentSchema } from '@/lib/validations';
 import { checkPermission } from '@/lib/rbac';
 import { notifyContentComment } from '@/lib/notifications';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiCreated, apiError } from '@/lib/api-response';
 
 // GET /api/fan/comments?contentId=xxx
 export async function GET(request: NextRequest) {
   const session = await getServerSession();
 
   if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return apiError('UNAUTHORIZED', 'Unauthorized');
   }
 
   // Get contentId from query params
@@ -21,21 +22,21 @@ export async function GET(request: NextRequest) {
   const contentId = searchParams.get('contentId');
 
   if (!contentId) {
-    return NextResponse.json({ error: 'Content ID is required' }, { status: 400 });
+    return apiError('BAD_REQUEST', 'Content ID is required');
   }
 
   try {
     // Check if user has permission to read comments
     const hasPermission = await checkPermission(session.user.id, 'fan:comments:read');
     if (!hasPermission) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      return apiError('FORBIDDEN', 'Forbidden');
     }
 
     const comments = await getCommentsByContentId(contentId);
-    return NextResponse.json({ comments });
+    return apiSuccess({ comments });
   } catch (error) {
     logger.error('Error fetching comments', {}, error as Error);
-    return NextResponse.json({ error: 'Failed to fetch comments' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Failed to fetch comments');
   }
 }
 
@@ -44,14 +45,14 @@ export async function POST(request: NextRequest) {
   const session = await getServerSession();
 
   if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return apiError('UNAUTHORIZED', 'Unauthorized');
   }
 
   try {
     // Check if user has permission to create comments
     const hasPermission = await checkPermission(session.user.id, 'fan:comments:create');
     if (!hasPermission) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      return apiError('FORBIDDEN', 'Forbidden');
     }
 
     const body = await request.json();
@@ -73,13 +74,13 @@ export async function POST(request: NextRequest) {
       session.user.name || 'A fan'
     );
 
-    return NextResponse.json({ comment }, { status: 201 });
+    return apiCreated({ comment });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors }, { status: 400 });
+      return apiError('BAD_REQUEST', error.errors);
     }
 
     logger.error('Error creating comment', {}, error as Error);
-    return NextResponse.json({ error: 'Failed to create comment' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Failed to create comment');
   }
 }

@@ -4,9 +4,10 @@
  * Implements Requirements 11.6
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { MigrationProgressTracker } from '@/lib/migration-progress-tracker';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,18 +17,12 @@ export async function GET(request: NextRequest) {
     const tracker = new MigrationProgressTracker(migrationId);
     const dashboard = await tracker.getDashboard();
 
-    return NextResponse.json({
-      success: true,
-      data: dashboard
-    });
+    return apiSuccess(dashboard);
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error('Failed to get migration dashboard', { error: errorMessage });
 
-    return NextResponse.json({
-      success: false,
-      error: errorMessage
-    }, { status: 500 });
+    return apiError('INTERNAL_ERROR', errorMessage);
   }
 }
 
@@ -37,10 +32,7 @@ export async function POST(request: NextRequest) {
     const { migrationId, action, ...params } = body;
 
     if (!migrationId) {
-      return NextResponse.json({
-        success: false,
-        error: 'Migration ID is required'
-      }, { status: 400 });
+      return apiError('BAD_REQUEST', 'Migration ID is required');
     }
 
     const tracker = new MigrationProgressTracker(migrationId);
@@ -64,23 +56,14 @@ export async function POST(request: NextRequest) {
         break;
       
       default:
-        return NextResponse.json({
-          success: false,
-          error: `Unknown action: ${action}`
-        }, { status: 400 });
+        return apiError('BAD_REQUEST', `Unknown action: ${action}`);
     }
 
-    return NextResponse.json({
-      success: true,
-      message: `Action ${action} completed successfully`
-    });
+    return apiSuccess({ message: `Action ${action} completed successfully` });
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error('Failed to execute migration dashboard action', { error: errorMessage });
 
-    return NextResponse.json({
-      success: false,
-      error: errorMessage
-    }, { status: 500 });
+    return apiError('INTERNAL_ERROR', errorMessage);
   }
 }

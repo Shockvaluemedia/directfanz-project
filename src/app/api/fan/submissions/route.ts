@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { safeParseURL } from '@/lib/api-utils';
 
 // Force dynamic rendering for this route
@@ -8,6 +8,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 // GET /api/fan/submissions - Get fan's campaign submissions
 export async function GET(request: NextRequest) {
@@ -16,11 +17,11 @@ export async function GET(request: NextRequest) {
     session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     if (session.user.role !== 'FAN') {
-      return NextResponse.json({ error: 'Only fans can access this endpoint' }, { status: 403 });
+      return apiError('FORBIDDEN', 'Only fans can access this endpoint');
     }
 
     const { searchParams } = new URL(request.url);
@@ -86,9 +87,9 @@ export async function GET(request: NextRequest) {
       thumbnailUrl: submission.thumbnailUrl,
     }));
 
-    return NextResponse.json({ challenge_submissions: transformedSubmissions });
+    return apiSuccess({ challenge_submissions: transformedSubmissions });
   } catch (error) {
     logger.error('Error fetching fan submissions', { userId: session?.user?.id }, error as Error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Internal server error');
   }
 }

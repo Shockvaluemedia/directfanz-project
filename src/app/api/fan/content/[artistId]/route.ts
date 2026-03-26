@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getUserAccessibleContent, getContentAccessSummary } from '@/lib/content-access';
 import { UserRole } from '@/types/database';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 // Get accessible content for a specific artist
 export async function GET(request: NextRequest, { params }: { params: { artistId: string } }) {
@@ -11,7 +12,7 @@ export async function GET(request: NextRequest, { params }: { params: { artistId
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Authentication required');
     }
 
     const { searchParams } = new URL(request.url);
@@ -24,10 +25,7 @@ export async function GET(request: NextRequest, { params }: { params: { artistId
     if (summary) {
       const accessSummary = await getContentAccessSummary(session.user.id, params.artistId);
 
-      return NextResponse.json({
-        success: true,
-        data: accessSummary,
-      });
+      return apiSuccess(accessSummary);
     }
 
     // Get accessible content
@@ -37,12 +35,9 @@ export async function GET(request: NextRequest, { params }: { params: { artistId
       type,
     });
 
-    return NextResponse.json({
-      success: true,
-      data: result,
-    });
+    return apiSuccess(result);
   } catch (error) {
     logger.error('Fan content access error', {}, error as Error);
-    return NextResponse.json({ error: 'Failed to fetch accessible content' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Failed to fetch accessible content');
   }
 }

@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { withArtistApi } from '@/lib/api-auth';
 import { getTiersByArtistId, createTier } from '@/lib/database';
 import { createTierSchema } from '@/lib/validations';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiCreated, apiError } from '@/lib/api-response';
 
 // GET /api/artist/tiers - Get all tiers for the authenticated artist
 export async function GET(request: NextRequest) {
@@ -11,19 +12,10 @@ export async function GET(request: NextRequest) {
     try {
       const tiers = await getTiersByArtistId(req.user.id);
 
-      return NextResponse.json({
-        success: true,
-        data: tiers,
-      });
+      return apiSuccess(tiers);
     } catch (error) {
       logger.error('Error fetching artist tiers', {}, error as Error);
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Failed to fetch tiers',
-        },
-        { status: 500 }
-      );
+      return apiError('INTERNAL_ERROR', 'Failed to fetch tiers');
     }
   });
 }
@@ -44,13 +36,7 @@ export async function POST(request: NextRequest) {
       );
 
       if (duplicateName) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'A tier with this name already exists',
-          },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'A tier with this name already exists');
       }
 
       // Create the tier
@@ -61,33 +47,14 @@ export async function POST(request: NextRequest) {
         minimumPrice: validatedData.minimumPrice,
       });
 
-      return NextResponse.json(
-        {
-          success: true,
-          data: newTier,
-        },
-        { status: 201 }
-      );
+      return apiCreated(newTier);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'Validation failed',
-            details: error.errors,
-          },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'Validation failed');
       }
 
       logger.error('Error creating tier', {}, error as Error);
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Failed to create tier',
-        },
-        { status: 500 }
-      );
+      return apiError('INTERNAL_ERROR', 'Failed to create tier');
     }
   });
 }

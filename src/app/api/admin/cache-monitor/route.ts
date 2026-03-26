@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { subscriptionCache } from '@/lib/subscription-cache';
@@ -6,6 +6,7 @@ import { CachedAnalytics } from '@/lib/analytics-cached';
 import { cacheJobManager } from '@/lib/cache-jobs';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 /**
  * Admin API for monitoring cache performance and system health
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     // Verify admin access
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!user || user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Access denied. Admin role required.' }, { status: 403 });
+      return apiError('FORBIDDEN', 'Access denied. Admin role required.');
     }
 
     const { searchParams } = new URL(request.url);
@@ -64,9 +65,7 @@ export async function GET(request: NextRequest) {
     // Calculate cache efficiency insights
     const insights = generateCacheInsights(cacheMetrics, jobStatus);
 
-    return NextResponse.json({
-      success: true,
-      timestamp: new Date().toISOString(),
+    return apiSuccess({ timestamp: new Date().toISOString(),
       data: {
         // Cache health and metrics
         cache: {
@@ -98,11 +97,10 @@ export async function GET(request: NextRequest) {
 
         // Quick actions available
         actions: ['performance-test', 'cache-warming', 'cache-invalidation', 'job-trigger'],
-      },
-    });
+      } });
   } catch (error) {
     logger.error('Cache monitor API error', {}, error as Error);
-    return NextResponse.json({ error: 'Failed to fetch cache monitoring data' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Failed to fetch cache monitoring data');
   }
 }
 
@@ -121,12 +119,7 @@ async function handlePerformanceTest(artistId: string) {
     `;
 
     if (testArtist.length === 0) {
-      return NextResponse.json(
-        {
-          error: 'No artists with subscription data found for testing',
-        },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'No artists with subscription data found for testing',);
     }
 
     artistId = testArtist[0].id;
@@ -135,23 +128,14 @@ async function handlePerformanceTest(artistId: string) {
   try {
     const performance = await CachedAnalytics.comparePerformance(artistId);
 
-    return NextResponse.json({
-      success: true,
-      action: 'performance-test',
+    return apiSuccess({ action: 'performance-test',
       data: {
         artistId,
         ...performance,
         timestamp: new Date().toISOString(),
-      },
-    });
+      } });
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: 'Performance test failed',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 }
-    );
+    return apiError('INTERNAL_ERROR', 'Performance test failed', error instanceof Error ? error.message : 'Unknown error');
   }
 }
 
@@ -160,20 +144,11 @@ async function handleCacheWarming() {
   try {
     await cacheJobManager.triggerCacheWarming();
 
-    return NextResponse.json({
-      success: true,
-      action: 'cache-warming',
+    return apiSuccess({ action: 'cache-warming',
       message: 'Cache warming job triggered successfully',
-      timestamp: new Date().toISOString(),
-    });
+      timestamp: new Date().toISOString() });
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: 'Cache warming failed',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 }
-    );
+    return apiError('INTERNAL_ERROR', 'Cache warming failed', error instanceof Error ? error.message : 'Unknown error');
   }
 }
 
@@ -189,28 +164,14 @@ async function handleCacheInvalidation(artistId: string | null, scope: string) {
       // Global cache invalidation (be careful!)
       logger.warn('Global cache invalidation requested');
       // This would be implemented based on specific needs
-      return NextResponse.json(
-        {
-          error: 'Global cache invalidation not implemented for safety',
-        },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'Global cache invalidation not implemented for safety',);
     }
 
-    return NextResponse.json({
-      success: true,
-      action: 'cache-invalidation',
+    return apiSuccess({ action: 'cache-invalidation',
       message: `Cache invalidated for artist ${artistId}, scope: ${scope}`,
-      timestamp: new Date().toISOString(),
-    });
+      timestamp: new Date().toISOString() });
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: 'Cache invalidation failed',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 }
-    );
+    return apiError('INTERNAL_ERROR', 'Cache invalidation failed', error instanceof Error ? error.message : 'Unknown error');
   }
 }
 
@@ -225,28 +186,14 @@ async function handleJobTrigger(jobType: string | null) {
         await cacheJobManager.triggerMaintenance();
         break;
       default:
-        return NextResponse.json(
-          {
-            error: 'Invalid job type. Use "warming" or "maintenance"',
-          },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'Invalid job type. Use "warming" or "maintenance"',);
     }
 
-    return NextResponse.json({
-      success: true,
-      action: 'job-trigger',
+    return apiSuccess({ action: 'job-trigger',
       message: `${jobType} job triggered successfully`,
-      timestamp: new Date().toISOString(),
-    });
+      timestamp: new Date().toISOString() });
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: 'Job trigger failed',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 }
-    );
+    return apiError('INTERNAL_ERROR', 'Job trigger failed', error instanceof Error ? error.message : 'Unknown error');
   }
 }
 
@@ -456,7 +403,7 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     // Verify admin access
@@ -466,7 +413,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user || user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Access denied. Admin role required.' }, { status: 403 });
+      return apiError('FORBIDDEN', 'Access denied. Admin role required.');
     }
 
     const body = await request.json();
@@ -480,21 +427,13 @@ export async function POST(request: NextRequest) {
         cacheJobManager.updateMaintenanceConfig(config);
         break;
       default:
-        return NextResponse.json(
-          {
-            error: 'Invalid action',
-          },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'Invalid action',);
     }
 
-    return NextResponse.json({
-      success: true,
-      message: 'Configuration updated successfully',
-      timestamp: new Date().toISOString(),
-    });
+    return apiSuccess({ message: 'Configuration updated successfully',
+      timestamp: new Date().toISOString() });
   } catch (error) {
     logger.error('Cache monitor configuration error', {}, error as Error);
-    return NextResponse.json({ error: 'Failed to update configuration' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Failed to update configuration');
   }
 }

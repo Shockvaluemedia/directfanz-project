@@ -1,15 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     // Get user and verify they are a fan
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     });
 
     if (!user || user.role !== 'FAN') {
-      return NextResponse.json({ error: 'Only fans can view artist profiles' }, { status: 403 });
+      return apiError('FORBIDDEN', 'Only fans can view artist profiles');
     }
 
     // Get artist details with tiers and content
@@ -70,14 +71,11 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     });
 
     if (!artist) {
-      return NextResponse.json({ error: 'Artist not found' }, { status: 404 });
+      return apiError('NOT_FOUND', 'Artist not found');
     }
 
     if (!artist.artists?.isStripeOnboarded) {
-      return NextResponse.json(
-        { error: 'Artist is not accepting subscriptions yet' },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'Artist is not accepting subscriptions yet');
     }
 
     // Check if fan has any existing subscriptions to this artist
@@ -101,12 +99,12 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       },
     });
 
-    return NextResponse.json({
+    return apiSuccess({
       artist,
       existingSubscriptions,
     });
   } catch (error) {
     logger.error('Get artist error', {}, error as Error);
-    return NextResponse.json({ error: 'Failed to fetch artist' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Failed to fetch artist');
   }
 }

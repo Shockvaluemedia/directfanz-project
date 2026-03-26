@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { generateSecureToken } from '@/lib/security';
 import { logger } from '@/lib/logger';
 import crypto from 'crypto';
+import { apiSuccess, apiCreated, apiError } from '@/lib/api-response';
 
 // Validation schemas
 const createStreamSchema = z.object({
@@ -48,10 +49,7 @@ export async function GET(request: NextRequest) {
 
     // If requesting user's own streams, require authentication
     if (myStreamsOnly && !session?.user?.id) {
-      return NextResponse.json(
-        { success: false, error: { message: 'Unauthorized' } },
-        { status: 401 }
-      );
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     const where: any = {};
@@ -139,9 +137,7 @@ export async function GET(request: NextRequest) {
     const total = await prisma.live_streams.count({ where });
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
 
-    return NextResponse.json({
-      success: true,
-      data: {
+    return apiSuccess({
         streams: streams.map(stream => {
           const startedAt = stream.startedAt ? new Date(stream.startedAt).getTime() : 0;
           const endedAt = stream.endedAt ? new Date(stream.endedAt).getTime() : Date.now();
@@ -186,16 +182,13 @@ export async function GET(request: NextRequest) {
           offset,
           hasMore: offset + limit < total,
         },
-      },
-    });
+      });
   } catch (error) {
     logger.error('Failed to fetch livestreams', { userId: session?.user?.id }, error as Error);
     
     // Check if it's a missing table error
     if (error instanceof Error && error.message.includes('does not exist')) {
-      return NextResponse.json({
-        success: true,
-        data: {
+      return apiSuccess({
           streams: [],
           pagination: {
             total: 0,
@@ -204,14 +197,10 @@ export async function GET(request: NextRequest) {
             hasMore: false,
           },
         },
-        message: 'Streaming feature is being set up. Check back soon!'
-      });
+        message: 'Streaming feature is being set up. Check back soon!');
     }
     
-    return NextResponse.json(
-      { success: false, error: { message: 'Internal server error' } },
-      { status: 500 }
-    );
+    return apiError('INTERNAL_ERROR', 'Internal server error');
   }
 }
 
@@ -221,10 +210,7 @@ export async function POST(request: NextRequest) {
   try {
     session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { success: false, error: { message: 'Unauthorized' } },
-        { status: 401 }
-      );
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     // Check if user is an artist
@@ -236,10 +222,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!artist) {
-      return NextResponse.json(
-        { success: false, error: { message: 'Only artists can create streams' } },
-        { status: 403 }
-      );
+      return apiError('FORBIDDEN', 'Only artists can create streams');
     }
 
     const body = await request.json();
@@ -259,10 +242,7 @@ export async function POST(request: NextRequest) {
       });
 
       if (validTiers.length !== validatedData.tierIds.length) {
-        return NextResponse.json(
-          { success: false, error: { message: 'Invalid tier selection' } },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'Invalid tier selection');
       }
     }
 
@@ -292,24 +272,15 @@ export async function POST(request: NextRequest) {
       isPublic: stream.isPublic,
     });
 
-    return NextResponse.json(
-      {
-        success: true,
-        data: {
+    return apiCreated({
           stream: {
             ...stream,
             tierIds: JSON.parse(stream.tierIds),
           },
-        },
-      },
-      { status: 201 }
-    );
+        });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { success: false, error: { message: 'Invalid request data', details: error.errors } },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'Invalid request data', error.errors);
     }
 
     logger.error('Failed to create livestream', { userId: session?.user?.id }, error as Error);
@@ -322,9 +293,6 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    return NextResponse.json(
-      { success: false, error: { message: 'Internal server error' } },
-      { status: 500 }
-    );
+    return apiError('INTERNAL_ERROR', 'Internal server error');
   }
 }

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { AIOrchestrator } from './orchestrator';
 import { EventBus } from './event-bus';
 import { ConversationalAgent, ConversationalAgentConfig } from './agents/conversational-agent';

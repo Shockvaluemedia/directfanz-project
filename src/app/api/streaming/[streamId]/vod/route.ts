@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { withStreamManagement } from '@/lib/streaming-auth';
 import { prisma } from '@/lib/prisma';
 import { createVodJob, getVodUrl } from '@/lib/vod-service';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 export async function POST(
   request: NextRequest,
@@ -15,10 +16,7 @@ export async function POST(
       const { recordingKey, title, description } = body;
 
       if (!streamId || !recordingKey) {
-        return NextResponse.json(
-          { error: 'Stream ID and recording key are required' },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'Stream ID and recording key are required');
       }
 
       // Verify the stream exists and belongs to the user
@@ -28,7 +26,7 @@ export async function POST(
       });
 
       if (!stream) {
-        return NextResponse.json({ error: 'Stream not found' }, { status: 404 });
+        return apiError('NOT_FOUND', 'Stream not found');
       }
 
       // Submit MediaConvert job
@@ -45,7 +43,7 @@ export async function POST(
         userId: req.user.id,
       });
 
-      return NextResponse.json({
+      return apiSuccess({
         vodId: job.jobId,
         status: job.status,
         title: title || `VOD from ${stream.title}`,
@@ -54,10 +52,7 @@ export async function POST(
       });
     } catch (error) {
       logger.error('VOD conversion error', {}, error as Error);
-      return NextResponse.json(
-        { error: 'Failed to start VOD conversion' },
-        { status: 500 }
-      );
+      return apiError('INTERNAL_ERROR', 'Failed to start VOD conversion');
     }
   });
 }
@@ -71,10 +66,7 @@ export async function GET(
       const { streamId } = params;
 
       if (!streamId) {
-        return NextResponse.json(
-          { error: 'Stream ID is required' },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'Stream ID is required');
       }
 
       // Get all VOD recordings for this stream
@@ -99,7 +91,7 @@ export async function GET(
       // Also get the playback URL for the latest ready recording
       const playbackUrl = await getVodUrl(streamId);
 
-      return NextResponse.json({
+      return apiSuccess({
         streamId,
         vodRecords,
         totalCount: vodRecords.length,
@@ -107,10 +99,7 @@ export async function GET(
       });
     } catch (error) {
       logger.error('VOD retrieval error', {}, error as Error);
-      return NextResponse.json(
-        { error: 'Failed to retrieve VOD records' },
-        { status: 500 }
-      );
+      return apiError('INTERNAL_ERROR', 'Failed to retrieve VOD records');
     }
   });
 }

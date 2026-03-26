@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { safeParseURL } from '@/lib/api-utils';
 
 // Force dynamic rendering for this route
@@ -7,13 +7,14 @@ export const runtime = 'nodejs';
 import { withApi } from '@/lib/api-auth';
 import { prisma } from '@/lib/database';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 export async function GET(request: NextRequest) {
   return withApi(request, async req => {
     try {
       // Verify user is a fan
       if (req.user.role !== 'FAN') {
-        return NextResponse.json({ error: 'Access denied. Fan role required.' }, { status: 403 });
+        return apiError('FORBIDDEN', 'Access denied. Fan role required.');
       }
 
       // Get fan statistics
@@ -99,15 +100,12 @@ export async function GET(request: NextRequest) {
         stats,
       });
 
-      return NextResponse.json({
-        success: true,
-        data: {
+      return apiSuccess({
           stats,
-        },
-      });
+        });
     } catch (error) {
       logger.error('Get fan stats error', { userId: req.user?.id }, error as Error);
-      return NextResponse.json({ error: 'Failed to fetch fan statistics' }, { status: 500 });
+      return apiError('INTERNAL_ERROR', 'Failed to fetch fan statistics');
     }
   });
 }

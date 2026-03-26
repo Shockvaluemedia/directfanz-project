@@ -1,4 +1,3 @@
-// @ts-nocheck — config property narrowing requires BaseAgent generic refactor
 import { BaseAgent, AgentType, AgentTask, AgentResponse, AgentConfig } from '../base-agent';
 import { Logger } from '@/lib/logger';
 import type { Database } from '../base-agent';
@@ -419,8 +418,7 @@ export interface AlertThresholds {
 }
 
 // Admin and Operations AI Agent for platform management and operational efficiency
-export class AdminOperationsAgent extends BaseAgent {
-  private readonly config: AdminOperationsConfig;
+export class AdminOperationsAgent extends BaseAgent<AdminOperationsConfig> {
   private readonly systemHealth: Map<string, SystemHealth> = new Map();
   private readonly optimizations: Map<string, ResourceOptimization> = new Map();
   private readonly alerts: Map<string, SystemAlert> = new Map();
@@ -433,7 +431,6 @@ export class AdminOperationsAgent extends BaseAgent {
     db?: Database
   ) {
     super(id, AgentType.ADMIN_OPERATIONS, config, logger, db);
-    this.config = config;
   }
 
   public getCapabilities(): string[] {

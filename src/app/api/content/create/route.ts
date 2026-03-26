@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { nanoid } from 'nanoid';
 import crypto from 'crypto';
+import { apiSuccess } from '@/lib/api-response';
 
 const createContentSchema = z.object({
   title: z.string().min(1, 'Title is required').max(255, 'Title too long'),
@@ -76,9 +77,7 @@ export async function POST(request: NextRequest) {
       type: content.type,
     });
 
-    return NextResponse.json({
-      success: true,
-      data: {
+    return apiSuccess({
         id: content.id,
         title: content.title,
         type: content.type,
@@ -86,8 +85,7 @@ export async function POST(request: NextRequest) {
         thumbnailUrl: content.thumbnailUrl,
         visibility: content.visibility,
         createdAt: content.createdAt,
-      },
-    });
+      });
 
   } catch (error) {
     const context = {

@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError, apiValidationError } from '@/lib/api-response';
 
 const changeRoleSchema = z.object({
   userId: z.string().min(1, 'User ID is required'),
@@ -17,7 +18,7 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id || session.user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Unauthorized — admin access required' }, { status: 403 });
+      return apiError('FORBIDDEN', 'Unauthorized — admin access required');
     }
 
     const body = await request.json();
@@ -25,10 +26,7 @@ export async function POST(request: NextRequest) {
 
     // Prevent admin from changing their own role
     if (userId === session.user.id) {
-      return NextResponse.json(
-        { error: 'Cannot change your own role' },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'Cannot change your own role');
     }
 
     // Verify target user exists
@@ -38,7 +36,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!targetUser) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      return apiError('NOT_FOUND', 'User not found');
     }
 
     const previousRole = targetUser.role;
@@ -66,20 +64,14 @@ export async function POST(request: NextRequest) {
       newRole: role,
     });
 
-    return NextResponse.json({
-      success: true,
-      message: `User role updated from ${previousRole} to ${role}`,
-      user: updatedUser,
-    });
+    return apiSuccess({ message: `User role updated from ${previousRole} to ${role}`,
+      user: updatedUser });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
-        { status: 400 }
-      );
+      return apiValidationError(error.errors);
     }
 
     logger.error('Failed to change user role', {}, error as Error);
-    return NextResponse.json({ error: 'Failed to change user role' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Failed to change user role');
   }
 }

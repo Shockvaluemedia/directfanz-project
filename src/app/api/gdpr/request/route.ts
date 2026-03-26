@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { GDPRComplianceService } from '@/lib/legal-compliance';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 const gdprRequestSchema = z.object({
   type: z.enum(['DATA_EXPORT', 'DATA_DELETION', 'DATA_PORTABILITY', 'DATA_RECTIFICATION'], {
@@ -20,27 +21,14 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id || !session?.user?.email) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized. You must be logged in to submit a GDPR request.' },
-        { status: 401 }
-      );
+      return apiError('UNAUTHORIZED', 'Unauthorized. You must be logged in to submit a GDPR request.');
     }
 
     const body = await request.json();
     const parsed = gdprRequestSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Validation failed',
-          details: parsed.error.errors.map(e => ({
-            field: e.path.join('.'),
-            message: e.message,
-          })),
-        },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'Validation failed');
     }
 
     const { type, reason } = parsed.data;
@@ -53,26 +41,17 @@ export async function POST(request: NextRequest) {
     );
 
     if (result.success) {
-      return NextResponse.json({
-        success: true,
-        requestId: result.requestId,
+      return apiSuccess({ requestId: result.requestId,
         message:
-          'Your GDPR request has been submitted. A verification email has been sent to your email address. Please verify to proceed.',
-      });
+          'Your GDPR request has been submitted. A verification email has been sent to your email address. Please verify to proceed.' });
     }
 
-    return NextResponse.json({ success: false, error: result.error }, { status: 500 });
+    return apiError('INTERNAL_ERROR', result.error);
   } catch (error) {
     if (error instanceof SyntaxError) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid JSON in request body' },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'Invalid JSON in request body');
     }
     logger.error('GDPR request submission error', {}, error as Error);
-    return NextResponse.json(
-      { success: false, error: 'An internal error occurred while submitting your GDPR request' },
-      { status: 500 }
-    );
+    return apiError('INTERNAL_ERROR', 'An internal error occurred while submitting your GDPR request');
   }
 }

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
@@ -7,6 +7,7 @@ import { withApi } from '@/lib/api-auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 const searchSchema = z.object({
   query: z.string().max(100).default(''),
@@ -38,28 +39,25 @@ export async function GET(request: NextRequest) {
       // --- Suggestions mode ---
       if (isSuggestions && query) {
         const suggestions = await getSuggestions(query, limit);
-        return NextResponse.json({ success: true, suggestions });
+        return apiSuccess({ suggestions });
       }
 
       // --- Trending mode ---
       if (isTrending) {
         const trending = await getTrending(searchParams.get('category') || undefined, limit);
-        return NextResponse.json({ success: true, trending });
+        return apiSuccess({ trending });
       }
 
       // --- Featured mode ---
       if (isFeatured) {
         const results = await getFeatured(limit);
-        return NextResponse.json({ success: true, results });
+        return apiSuccess({ results });
       }
 
       // --- Regular search ---
       if (!query) {
-        return NextResponse.json({
-          success: true,
-          data: { artists: [], content: [], total: 0, query: '' },
-          pagination: { limit, offset: 0, total: 0, hasNext: false },
-        });
+        return apiSuccess({ artists: [], content: [], total: 0, query: '' },
+          pagination: { limit, offset: 0, total: 0, hasNext: false });
       }
 
       const params: SearchParams = searchSchema.parse({
@@ -201,9 +199,7 @@ export async function GET(request: NextRequest) {
         resultsCount: results.artists.length + results.content.length,
       });
 
-      return NextResponse.json({
-        success: true,
-        results: [...results.artists, ...results.content],
+      return apiSuccess({ results: [...results.artists, ...results.content],
         data: results,
         total: results.total,
         hasMore: params.offset + params.limit < results.total,
@@ -213,18 +209,14 @@ export async function GET(request: NextRequest) {
           offset: params.offset,
           total: results.total,
           hasNext: params.offset + params.limit < results.total,
-        },
-      });
+        } });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return NextResponse.json(
-          { error: 'Invalid search parameters', details: error.errors },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'Invalid search parameters', error.errors);
       }
 
       logger.error('Search endpoint error', {}, error as Error);
-      return NextResponse.json({ error: 'Failed to perform search' }, { status: 500 });
+      return apiError('INTERNAL_ERROR', 'Failed to perform search');
     }
   });
 }

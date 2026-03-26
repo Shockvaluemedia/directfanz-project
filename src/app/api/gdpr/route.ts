@@ -1,15 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { GDPRComplianceService } from '@/lib/legal-compliance';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id || !session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     const body = await request.json();
@@ -17,10 +18,7 @@ export async function POST(request: NextRequest) {
 
     const validTypes = ['DATA_EXPORT', 'DATA_DELETION', 'DATA_PORTABILITY', 'DATA_RECTIFICATION'];
     if (!type || !validTypes.includes(type)) {
-      return NextResponse.json(
-        { error: 'Invalid request type. Must be one of: ' + validTypes.join(', ') },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'Invalid request type. Must be one of: ' + validTypes.join(', '));
     }
 
     const result = await GDPRComplianceService.submitRequest(
@@ -31,17 +29,14 @@ export async function POST(request: NextRequest) {
     );
 
     if (result.success) {
-      return NextResponse.json({
-        success: true,
-        requestId: result.requestId,
-        message: 'A verification email has been sent. Please check your email to confirm this request.',
-      });
+      return apiSuccess({ requestId: result.requestId,
+        message: 'A verification email has been sent. Please check your email to confirm this request.' });
     }
 
-    return NextResponse.json({ error: result.error }, { status: 500 });
+    return apiError('INTERNAL_ERROR', result.error);
   } catch (error) {
     logger.error('GDPR request error', {}, error as Error);
-    return NextResponse.json({ error: 'Failed to submit GDPR request' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Failed to submit GDPR request');
   }
 }
 
@@ -55,25 +50,22 @@ export async function GET(request: NextRequest) {
       const result = await GDPRComplianceService.verifyAndProcessRequest(requestId, token);
 
       if (result.success) {
-        return NextResponse.json({
-          success: true,
-          message: 'Your request has been processed successfully.',
-        });
+        return apiSuccess({ message: 'Your request has been processed successfully.' });
       }
 
-      return NextResponse.json({ error: result.error }, { status: 400 });
+      return apiError('BAD_REQUEST', result.error);
     }
 
     // Get user's GDPR request history
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     const userData = await GDPRComplianceService.exportUserData(session.user.id);
-    return NextResponse.json({ data: userData });
+    return apiSuccess({ data: userData });
   } catch (error) {
     logger.error('GDPR request error', {}, error as Error);
-    return NextResponse.json({ error: 'Failed to process request' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Failed to process request');
   }
 }

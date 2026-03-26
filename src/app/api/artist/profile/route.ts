@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
@@ -6,6 +6,7 @@ export const runtime = 'nodejs';
 import { withArtistApi } from '@/lib/api-auth';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 export async function GET(request: NextRequest) {
   return withArtistApi(request, async req => {
@@ -28,12 +29,10 @@ export async function GET(request: NextRequest) {
       });
 
       if (!artist) {
-        return NextResponse.json({ error: 'Artist profile not found' }, { status: 404 });
+        return apiError('NOT_FOUND', 'Artist profile not found');
       }
 
-      return NextResponse.json({
-        success: true,
-        data: {
+      return apiSuccess({
           id: artist.id,
           email: artist.email,
           displayName: artist.displayName,
@@ -48,11 +47,10 @@ export async function GET(request: NextRequest) {
             totalSubscribers: artist.artists?.totalSubscribers || 0,
             totalEarnings: artist.artists?.totalEarnings || 0,
           },
-        },
-      });
+        });
     } catch (error) {
       logger.error('Artist profile fetch error', {}, error as Error);
-      return NextResponse.json({ error: 'Failed to fetch artist profile' }, { status: 500 });
+      return apiError('INTERNAL_ERROR', 'Failed to fetch artist profile');
     }
   });
 }
@@ -76,14 +74,11 @@ export async function PUT(request: NextRequest) {
         },
       });
 
-      return NextResponse.json({
-        success: true,
-        message: 'Artist profile updated successfully',
-        data: updatedArtist,
-      });
+      return apiSuccess({ message: 'Artist profile updated successfully',
+        data: updatedArtist });
     } catch (error) {
       logger.error('Artist profile update error', {}, error as Error);
-      return NextResponse.json({ error: 'Failed to update artist profile' }, { status: 500 });
+      return apiError('INTERNAL_ERROR', 'Failed to update artist profile');
     }
   });
 }

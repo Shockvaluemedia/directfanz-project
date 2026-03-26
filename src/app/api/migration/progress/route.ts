@@ -4,9 +4,10 @@
  * Implements Requirements 11.6
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { MigrationProgressTracker } from '@/lib/migration-progress-tracker';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,18 +17,12 @@ export async function GET(request: NextRequest) {
     const tracker = new MigrationProgressTracker(migrationId);
     const overview = await tracker.getOverview();
 
-    return NextResponse.json({
-      success: true,
-      data: overview
-    });
+    return apiSuccess(overview);
   } catch (error: unknown) {
     const errMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Failed to get migration progress', { error: errMessage });
 
-    return NextResponse.json({
-      success: false,
-      error: errMessage
-    }, { status: 500 });
+    return apiError('INTERNAL_ERROR', errMessage);
   }
 }
 
@@ -38,10 +33,7 @@ export async function POST(request: NextRequest) {
     const { migrationId, action, phaseId, subTaskId, ...params } = body;
 
     if (!migrationId) {
-      return NextResponse.json({
-        success: false,
-        error: 'Migration ID is required'
-      }, { status: 400 });
+      return apiError('BAD_REQUEST', 'Migration ID is required');
     }
 
     const tracker = new MigrationProgressTracker(migrationId);
@@ -53,95 +45,65 @@ export async function POST(request: NextRequest) {
       
       case 'start_phase':
         if (!phaseId) {
-          return NextResponse.json({
-            success: false,
-            error: 'Phase ID is required for start_phase action'
-          }, { status: 400 });
+          return apiError('BAD_REQUEST', 'Phase ID is required for start_phase action');
         }
         await tracker.startPhase(phaseId);
         break;
       
       case 'update_phase_progress':
         if (!phaseId || params.progress === undefined) {
-          return NextResponse.json({
-            success: false,
-            error: 'Phase ID and progress are required for update_phase_progress action'
-          }, { status: 400 });
+          return apiError('BAD_REQUEST', 'Phase ID and progress are required for update_phase_progress action');
         }
         await tracker.updatePhaseProgress(phaseId, params.progress, params.metadata);
         break;
       
       case 'complete_phase':
         if (!phaseId) {
-          return NextResponse.json({
-            success: false,
-            error: 'Phase ID is required for complete_phase action'
-          }, { status: 400 });
+          return apiError('BAD_REQUEST', 'Phase ID is required for complete_phase action');
         }
         await tracker.completePhase(phaseId, params.metadata);
         break;
       
       case 'fail_phase':
         if (!phaseId || !params.error) {
-          return NextResponse.json({
-            success: false,
-            error: 'Phase ID and error message are required for fail_phase action'
-          }, { status: 400 });
+          return apiError('BAD_REQUEST', 'Phase ID and error message are required for fail_phase action');
         }
         await tracker.failPhase(phaseId, params.error, params.metadata);
         break;
       
       case 'start_subtask':
         if (!phaseId || !subTaskId) {
-          return NextResponse.json({
-            success: false,
-            error: 'Phase ID and SubTask ID are required for start_subtask action'
-          }, { status: 400 });
+          return apiError('BAD_REQUEST', 'Phase ID and SubTask ID are required for start_subtask action');
         }
         await tracker.startSubTask(phaseId, subTaskId);
         break;
       
       case 'update_subtask_progress':
         if (!phaseId || !subTaskId || params.progress === undefined) {
-          return NextResponse.json({
-            success: false,
-            error: 'Phase ID, SubTask ID, and progress are required for update_subtask_progress action'
-          }, { status: 400 });
+          return apiError('BAD_REQUEST', 'Phase ID);
         }
         await tracker.updateSubTaskProgress(phaseId, subTaskId, params.progress, params.metadata);
         break;
       
       case 'complete_subtask':
         if (!phaseId || !subTaskId) {
-          return NextResponse.json({
-            success: false,
-            error: 'Phase ID and SubTask ID are required for complete_subtask action'
-          }, { status: 400 });
+          return apiError('BAD_REQUEST', 'Phase ID and SubTask ID are required for complete_subtask action');
         }
         await tracker.completeSubTask(phaseId, subTaskId, params.metadata);
         break;
       
       case 'fail_subtask':
         if (!phaseId || !subTaskId || !params.error) {
-          return NextResponse.json({
-            success: false,
-            error: 'Phase ID, SubTask ID, and error message are required for fail_subtask action'
-          }, { status: 400 });
+          return apiError('BAD_REQUEST', 'Phase ID);
         }
         await tracker.failSubTask(phaseId, subTaskId, params.error, params.metadata);
         break;
       
       default:
-        return NextResponse.json({
-          success: false,
-          error: `Unknown action: ${action}`
-        }, { status: 400 });
+        return apiError('BAD_REQUEST', `Unknown action: ${action}`);
     }
 
-    return NextResponse.json({
-      success: true,
-      message: `Action ${action} completed successfully`
-    });
+    return apiSuccess({ message: `Action ${action} completed successfully` });
   } catch (error: unknown) {
     const errMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Failed to execute migration progress action', {
@@ -150,10 +112,7 @@ export async function POST(request: NextRequest) {
       migrationId: body?.migrationId
     });
 
-    return NextResponse.json({
-      success: false,
-      error: errMessage
-    }, { status: 500 });
+    return apiError('INTERNAL_ERROR', errMessage);
   }
 }
 
@@ -163,35 +122,23 @@ export async function PUT(request: NextRequest) {
     const { migrationId, estimateCompletion } = body;
 
     if (!migrationId) {
-      return NextResponse.json({
-        success: false,
-        error: 'Migration ID is required'
-      }, { status: 400 });
+      return apiError('BAD_REQUEST', 'Migration ID is required');
     }
 
     const tracker = new MigrationProgressTracker(migrationId);
 
     if (estimateCompletion) {
       const estimatedCompletion = await tracker.estimateCompletion();
-      return NextResponse.json({
-        success: true,
-        data: {
+      return apiSuccess({
           estimatedCompletion
-        }
-      });
+        });
     }
 
-    return NextResponse.json({
-      success: false,
-      error: 'No valid operation specified'
-    }, { status: 400 });
+    return apiError('BAD_REQUEST', 'No valid operation specified');
   } catch (error: unknown) {
     const errMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Failed to execute migration progress operation', { error: errMessage });
 
-    return NextResponse.json({
-      success: false,
-      error: errMessage
-    }, { status: 500 });
+    return apiError('INTERNAL_ERROR', errMessage);
   }
 }

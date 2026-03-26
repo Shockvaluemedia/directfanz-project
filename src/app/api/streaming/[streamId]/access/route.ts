@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { withFanStreaming, generateStreamAccessUrl, checkStreamAccess } from '@/lib/streaming-auth';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 export async function GET(
   request: NextRequest,
@@ -11,10 +12,7 @@ export async function GET(
       const { streamId } = params;
 
       if (!streamId) {
-        return NextResponse.json(
-          { error: 'Stream ID is required' },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'Stream ID is required');
       }
 
       // Check if user can access this stream
@@ -26,10 +24,7 @@ export async function GET(
       });
 
       if (!canAccess) {
-        return NextResponse.json(
-          { error: 'Access denied to this stream' },
-          { status: 403 }
-        );
+        return apiError('FORBIDDEN', 'Access denied to this stream');
       }
 
       // Generate signed access URL
@@ -41,13 +36,10 @@ export async function GET(
       );
 
       if (!accessUrl) {
-        return NextResponse.json(
-          { error: 'Failed to generate stream access URL' },
-          { status: 500 }
-        );
+        return apiError('INTERNAL_ERROR', 'Failed to generate stream access URL');
       }
 
-      return NextResponse.json({
+      return apiSuccess({
         streamId,
         accessUrl,
         expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(), // 1 hour from now
@@ -56,10 +48,7 @@ export async function GET(
       });
     } catch (error) {
       logger.error('Stream access error', {}, error as Error);
-      return NextResponse.json(
-        { error: 'Failed to get stream access' },
-        { status: 500 }
-      );
+      return apiError('INTERNAL_ERROR', 'Failed to get stream access');
     }
   });
 }

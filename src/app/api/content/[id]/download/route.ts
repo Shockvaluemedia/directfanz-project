@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { withContentAccess } from '@/middleware/content-access';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 // Download content with access control
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       });
 
       if (!content) {
-        return NextResponse.json({ error: 'Content not found' }, { status: 404 });
+        return apiError('NOT_FOUND', 'Content not found');
       }
 
       // Vercel Blob URLs are directly accessible — redirect to the file
@@ -34,17 +35,14 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
       await logDownloadActivity(req.userId, params.id);
 
-      return NextResponse.json({
-        success: true,
-        data: {
+      return apiSuccess({
           downloadUrl: content.fileUrl,
           filename,
           fileSize: content.fileSize,
-        },
-      });
+        });
     } catch (error) {
       logger.error('Content download error', {}, error as Error);
-      return NextResponse.json({ error: 'Download failed' }, { status: 500 });
+      return apiError('INTERNAL_ERROR', 'Download failed');
     }
   });
 }

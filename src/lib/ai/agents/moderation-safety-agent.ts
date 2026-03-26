@@ -1,4 +1,3 @@
-// @ts-nocheck — config property narrowing requires BaseAgent generic refactor
 import { BaseAgent, AgentType, AgentTask, AgentResponse, AgentConfig } from '../base-agent';
 import { Logger } from '@/lib/logger';
 import type { Database } from '../base-agent';
@@ -242,8 +241,7 @@ export interface ModerationSafetyConfig extends AgentConfig {
 }
 
 // Moderation and Safety AI Agent for content moderation and fraud detection
-export class ModerationSafetyAgent extends BaseAgent {
-  private readonly config: ModerationSafetyConfig;
+export class ModerationSafetyAgent extends BaseAgent<ModerationSafetyConfig> {
   private readonly moderationQueue: Map<string, ModerationResult> = new Map();
   private readonly userProfiles: Map<string, UserSafetyProfile> = new Map();
   private readonly fraudCases: Map<string, FraudDetection> = new Map();
@@ -255,7 +253,6 @@ export class ModerationSafetyAgent extends BaseAgent {
     db?: Database
   ) {
     super(id, AgentType.MODERATION_SAFETY, config, logger, db);
-    this.config = config;
   }
 
   public getCapabilities(): string[] {

@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { contentOptimizer } from '@/lib/content-optimization';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 const optimizeRequestSchema = z.object({
   filePath: z.string().min(1, 'File path is required'),
@@ -35,20 +36,14 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id || session.user.role !== 'ARTIST') {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized access' },
-        { status: 401 }
-      );
+      return apiError('UNAUTHORIZED', 'Unauthorized access');
     }
 
     let body;
     try {
       body = await request.json();
     } catch (jsonError) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid JSON body' },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'Invalid JSON body');
     }
 
     const { searchParams } = new URL(request.url);
@@ -79,9 +74,7 @@ export async function POST(request: NextRequest) {
         }
       );
 
-      return NextResponse.json({
-        success: true,
-        data: {
+      return apiSuccess({
           results,
           summary: {
             totalFiles: validatedData.files.length,
@@ -91,8 +84,7 @@ export async function POST(request: NextRequest) {
             averageQualityScore: results.length > 0 ? results.reduce((sum, r) => sum + r.qualityScore, 0) / results.length : 0,
             totalProcessingTime: results.reduce((sum, r) => sum + r.processingTime, 0),
           },
-        },
-      });
+        });
     } else {
       // Single file optimization
       const validatedData = optimizeRequestSchema.parse(body);
@@ -111,10 +103,7 @@ export async function POST(request: NextRequest) {
         }
       );
 
-      return NextResponse.json({
-        success: true,
-        data: result,
-      });
+      return apiSuccess(result);
     }
   } catch (error) {
     logger.error('Content optimization error', {}, error as Error);
@@ -152,23 +141,14 @@ export async function POST(request: NextRequest) {
         }
       }
       
-      return NextResponse.json(
-        { success: false, error: errorMessage },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', errorMessage);
     }
 
     if (error instanceof Error) {
-      return NextResponse.json(
-        { success: false, error: error.message },
-        { status: 500 }
-      );
+      return apiError('INTERNAL_ERROR', error.message);
     }
 
-    return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
-    );
+    return apiError('INTERNAL_ERROR', 'Internal server error');
   }
 }
 
@@ -182,16 +162,13 @@ export async function GET(request: NextRequest) {
       // Return available optimization strategies (public endpoint)
       const { OPTIMIZATION_STRATEGIES } = await import('@/lib/content-optimization');
       
-      return NextResponse.json({
-        success: true,
-        data: {
+      return apiSuccess({
           strategies: Object.entries(OPTIMIZATION_STRATEGIES).map(([key, strategy]) => ({
             key,
             name: strategy.name,
             description: strategy.description,
           })),
-        },
-      });
+        });
     }
 
     if (action === 'analyze') {
@@ -199,20 +176,14 @@ export async function GET(request: NextRequest) {
       const session = await getServerSession(authOptions);
       
       if (!session?.user?.id) {
-        return NextResponse.json(
-          { success: false, error: 'Unauthorized access' },
-          { status: 401 }
-        );
+        return apiError('UNAUTHORIZED', 'Unauthorized access');
       }
 
       const filePath = searchParams.get('filePath');
       const contentType = searchParams.get('contentType');
 
       if (!filePath || !contentType) {
-        return NextResponse.json(
-          { success: false, error: 'Missing required parameters: filePath and contentType' },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'Missing required parameters: filePath and contentType');
       }
 
       const analysis = await contentOptimizer.analyzeContent(
@@ -220,29 +191,20 @@ export async function GET(request: NextRequest) {
         contentType as any
       );
 
-      return NextResponse.json({
-        success: true,
-        data: {
+      return apiSuccess({
           analysis,
           recommendations: {
             strategy: analysis.recommendedStrategy,
             estimatedSizeReduction: getEstimatedSizeReduction(analysis),
             estimatedQualityScore: getEstimatedQualityScore(analysis),
           },
-        },
-      });
+        });
     }
 
-    return NextResponse.json(
-      { success: false, error: 'Invalid action parameter' },
-      { status: 400 }
-    );
+    return apiError('BAD_REQUEST', 'Invalid action parameter');
   } catch (error) {
     logger.error('Content optimization GET error', {}, error as Error);
-    return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
-    );
+    return apiError('INTERNAL_ERROR', 'Internal server error');
   }
 }
 

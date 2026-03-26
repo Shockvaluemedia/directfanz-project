@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
 import { CampaignType, CampaignStatus, CampaignMetric } from '@/lib/types/enums';
+import { apiSuccess, apiCreated, apiError, apiValidationError } from '@/lib/api-response';
 
 const listQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
@@ -99,25 +100,19 @@ export async function GET(request: NextRequest) {
       prisma.campaigns.count({ where }),
     ]);
 
-    return NextResponse.json({
-      success: true,
-      campaigns: campaigns.map(c => ({
+    return apiSuccess({ campaigns: campaigns.map(c => ({
         ...c,
         tags: c.tags ? JSON.parse(c.tags) : [],
       })),
       total,
       page: query.page,
-      totalPages: Math.ceil(total / query.limit),
-    });
+      totalPages: Math.ceil(total / query.limit) });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
-        { status: 400 }
-      );
+      return apiValidationError(error.errors);
     }
     logger.error('Error listing campaigns', {}, error as Error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Internal server error');
   }
 }
 
@@ -127,12 +122,12 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     // Only artists and admins can create campaigns
     if (!['ARTIST', 'ADMIN'].includes(session.user.role)) {
-      return NextResponse.json({ error: 'Only artists can create campaigns' }, { status: 403 });
+      return apiError('FORBIDDEN', 'Only artists can create campaigns');
     }
 
     const body = await request.json();
@@ -143,7 +138,7 @@ export async function POST(request: NextRequest) {
     const endDate = new Date(data.endDate);
 
     if (endDate <= startDate) {
-      return NextResponse.json({ error: 'End date must be after start date' }, { status: 400 });
+      return apiError('BAD_REQUEST', 'End date must be after start date');
     }
 
     const campaign = await prisma.campaigns.create({
@@ -185,21 +180,15 @@ export async function POST(request: NextRequest) {
       title: data.title,
     });
 
-    return NextResponse.json({
-      success: true,
-      campaign: {
+    return apiCreated({ campaign: {
         ...campaign,
         tags: campaign.tags ? JSON.parse(campaign.tags) : [],
-      },
-    }, { status: 201 });
+      } });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
-        { status: 400 }
-      );
+      return apiValidationError(error.errors);
     }
     logger.error('Error creating campaign', {}, error as Error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Internal server error');
   }
 }

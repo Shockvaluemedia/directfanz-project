@@ -1,8 +1,8 @@
-import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { captureMessage } from '@/lib/sentry';
 import { redis } from '@/lib/redis';
+import { apiSuccess } from '@/lib/api-response';
 
 // Force this route to be dynamic
 export const dynamic = 'force-dynamic';
@@ -114,19 +114,11 @@ export async function GET() {
     logger.warn('Cron health check failed', { checks, latency: totalLatency });
   }
 
-  return NextResponse.json(
-    {
+  return apiSuccess({
       status: isHealthy ? 'healthy' : 'unhealthy',
       timestamp: new Date().toISOString(),
       checks,
       metrics,
       latency: totalLatency,
-    },
-    {
-      status: isHealthy ? 200 : 503,
-      headers: {
-        'Cache-Control': 'no-store, max-age=0',
-      },
-    }
-  );
+    });
 }

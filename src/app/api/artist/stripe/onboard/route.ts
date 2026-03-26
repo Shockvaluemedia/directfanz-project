@@ -1,16 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { createStripeConnectAccount, createAccountLink } from '@/lib/stripe';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     // Verify user is an artist
@@ -20,12 +21,12 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user || user.role !== 'ARTIST') {
-      return NextResponse.json({ error: 'Only artists can onboard with Stripe' }, { status: 403 });
+      return apiError('FORBIDDEN', 'Only artists can onboard with Stripe');
     }
 
     // Check if artist already has a Stripe account
     if (user.artists?.stripeAccountId) {
-      return NextResponse.json({ error: 'Artist already has a Stripe account' }, { status: 400 });
+      return apiError('BAD_REQUEST', 'Artist already has a Stripe account');
     }
 
     // Create Stripe Connect account
@@ -52,12 +53,12 @@ export async function POST(request: NextRequest) {
 
     const onboardingUrl = await createAccountLink(stripeAccountId, refreshUrl, returnUrl);
 
-    return NextResponse.json({
+    return apiSuccess({
       onboardingUrl,
       stripeAccountId,
     });
   } catch (error) {
     logger.error('Stripe onboarding error', {}, error as Error);
-    return NextResponse.json({ error: 'Failed to start Stripe onboarding' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Failed to start Stripe onboarding');
   }
 }

@@ -1,53 +1,39 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { validateFileUpload, SUPPORTED_FILE_TYPES } from '@/lib/s3';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id || session.user.role !== 'ARTIST') {
-      return NextResponse.json(
-        { error: { code: 'UNAUTHORIZED', message: 'Artist authentication required' } },
-        { status: 401 }
-      );
+      return apiError('UNAUTHORIZED', { code: 'UNAUTHORIZED', message: 'Artist authentication required' });
     }
 
     // Check if local storage is enabled
     if (process.env.USE_LOCAL_STORAGE !== 'true') {
-      return NextResponse.json(
-        { error: { code: 'NOT_AVAILABLE', message: 'Local upload not available in this environment' } },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', { code: 'NOT_AVAILABLE', message: 'Local upload not available in this environment' });
     }
 
     const formData = await request.formData();
     const file = formData.get('file') as File;
 
     if (!file) {
-      return NextResponse.json(
-        { error: { code: 'MISSING_FILE', message: 'No file provided' } },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', { code: 'MISSING_FILE', message: 'No file provided' });
     }
 
     // Validate file
     const validationErrors = validateFileUpload(file.name, file.type, file.size);
     if (validationErrors.length > 0) {
-      return NextResponse.json(
-        {
-          error: {
+      return apiError('BAD_REQUEST', {
             code: 'VALIDATION_ERROR',
-            message: 'File validation failed',
-            details: validationErrors,
-          },
-        },
-        { status: 400 }
-      );
+            message: 'File validation failed', validationErrors,
+          });
     }
 
     // Create upload directory structure
@@ -79,28 +65,20 @@ export async function POST(request: NextRequest) {
       savedPath: filePath,
     });
 
-    return NextResponse.json({
-      success: true,
-      data: {
+    return apiSuccess({
         fileUrl,
         fileName: file.name,
         fileSize: file.size,
         fileType: file.type,
         category: fileTypeInfo?.category,
         savedAt: new Date().toISOString(),
-      },
-    });
+      });
   } catch (error) {
     logger.error('Local file upload error', {}, error as Error);
     
-    return NextResponse.json(
-      { 
-        error: { 
+    return apiError('INTERNAL_ERROR', { 
           code: 'UPLOAD_ERROR', 
           message: error instanceof Error ? error.message : 'Failed to upload file' 
-        } 
-      },
-      { status: 500 }
-    );
+        });
   }
 }

@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { withApi } from '@/lib/api-auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import crypto from 'crypto';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 const trackViewSchema = z.object({
   contentId: z.string().cuid(),
@@ -40,7 +41,7 @@ export async function POST(request: NextRequest) {
       });
 
       if (!content) {
-        return NextResponse.json({ error: 'Content not found' }, { status: 404 });
+        return apiError('NOT_FOUND', 'Content not found');
       }
 
       // Check access permissions
@@ -63,12 +64,12 @@ export async function POST(request: NextRequest) {
       }
 
       if (!hasAccess) {
-        return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+        return apiError('FORBIDDEN', 'Access denied');
       }
 
       // Don't track views for artists viewing their own content
       if (req.user.role === 'ARTIST' && content.artistId === req.user.id) {
-        return NextResponse.json({ success: true, tracked: false });
+        return apiSuccess({ tracked: false });
       }
 
       // Check if we already have a view record for this user/content today
@@ -143,20 +144,14 @@ export async function POST(request: NextRequest) {
         percentage,
       });
 
-      return NextResponse.json({ success: true, tracked: true });
+      return apiSuccess({ tracked: true });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return NextResponse.json(
-          {
-            error: 'Invalid tracking data',
-            details: error.errors,
-          },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'Invalid tracking data', error.errors);
       }
 
       logger.error('Analytics tracking error', { userId: req.user?.id }, error as Error);
-      return NextResponse.json({ error: 'Failed to track view' }, { status: 500 });
+      return apiError('INTERNAL_ERROR', 'Failed to track view');
     }
   });
 }
@@ -175,10 +170,7 @@ export async function GET(request: NextRequest) {
 
       // Only allow artists to view analytics for their own content
       if (req.user.role !== 'ARTIST') {
-        return NextResponse.json(
-          { error: 'Only artists can view content analytics' },
-          { status: 403 }
-        );
+        return apiError('FORBIDDEN', 'Only artists can view content analytics');
       }
 
       // Build date filter
@@ -321,9 +313,7 @@ export async function GET(request: NextRequest) {
             )
           : 0;
 
-      return NextResponse.json({
-        success: true,
-        data: {
+      return apiSuccess({
           overview: {
             totalViews: contentStats._sum.totalViews || 0,
             uniqueViews: contentStats._sum.uniqueViews || 0,
@@ -351,21 +341,14 @@ export async function GET(request: NextRequest) {
             start: dateFilter.gte?.toISOString(),
             end: dateFilter.lte?.toISOString(),
           },
-        },
-      });
+        });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return NextResponse.json(
-          {
-            error: 'Invalid query parameters',
-            details: error.errors,
-          },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'Invalid query parameters', error.errors);
       }
 
       logger.error('Analytics fetch error', { userId: req.user?.id }, error as Error);
-      return NextResponse.json({ error: 'Failed to fetch analytics' }, { status: 500 });
+      return apiError('INTERNAL_ERROR', 'Failed to fetch analytics');
     }
   });
 }

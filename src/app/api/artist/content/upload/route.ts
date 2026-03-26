@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { generatePresignedUrl, validateFileUpload } from '@/lib/s3';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 const uploadRequestSchema = z.object({
   fileName: z.string().min(1, 'File name is required'),
@@ -16,10 +17,7 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id || session.user.role !== 'ARTIST') {
-      return NextResponse.json(
-        { error: { code: 'UNAUTHORIZED', message: 'Artist authentication required' } },
-        { status: 401 }
-      );
+      return apiError('UNAUTHORIZED', { code: 'UNAUTHORIZED', message: 'Artist authentication required' });
     }
 
     const body = await request.json();
@@ -30,16 +28,10 @@ export async function POST(request: NextRequest) {
     // Validate file upload parameters
     const validationErrors = validateFileUpload(fileName, fileType, fileSize);
     if (validationErrors.length > 0) {
-      return NextResponse.json(
-        {
-          error: {
+      return apiError('BAD_REQUEST', {
             code: 'VALIDATION_ERROR',
-            message: 'File validation failed',
-            details: { errors: validationErrors },
-          },
-        },
-        { status: 400 }
-      );
+            message: 'File validation failed', { errors: validationErrors },
+          });
     }
 
     // Generate presigned URL
@@ -50,36 +42,21 @@ export async function POST(request: NextRequest) {
       artistId: session.user.id,
     });
 
-    return NextResponse.json({
-      success: true,
-      data: presignedUrlData,
-    });
+    return apiSuccess(presignedUrlData);
   } catch (error) {
     logger.error('Upload URL generation error', {}, error as Error);
 
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        {
-          error: {
+      return apiError('BAD_REQUEST', {
             code: 'VALIDATION_ERROR',
-            message: 'Invalid request data',
-            details: { errors: error.errors },
-          },
-        },
-        { status: 400 }
-      );
+            message: 'Invalid request data', { errors: error.errors },
+          });
     }
 
     if (error instanceof Error) {
-      return NextResponse.json(
-        { error: { code: 'UPLOAD_ERROR', message: error.message } },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', { code: 'UPLOAD_ERROR', message: error.message });
     }
 
-    return NextResponse.json(
-      { error: { code: 'INTERNAL_ERROR', message: 'Failed to generate upload URL' } },
-      { status: 500 }
-    );
+    return apiError('INTERNAL_ERROR', { code: 'INTERNAL_ERROR', message: 'Failed to generate upload URL' });
   }
 }

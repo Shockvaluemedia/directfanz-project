@@ -1,8 +1,8 @@
-import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,10 +10,7 @@ export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return NextResponse.json(
-        { success: false, error: { message: 'Unauthorized' } },
-        { status: 401 }
-      );
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     const userId = (session.user as Record<string, unknown>).id as string;
@@ -56,22 +53,16 @@ export async function GET() {
       }),
     ]);
 
-    return NextResponse.json({
-      success: true,
-      data: {
+    return apiSuccess({
         totalStreams,
         liveStreams,
         totalViewers,
         totalTips: totalTips._sum.amount || 0,
         totalMessages,
         recentStreams,
-      },
-    });
+      });
   } catch (error) {
     logger.error('Failed to fetch streaming stats', {}, error as Error);
-    return NextResponse.json(
-      { success: false, error: { message: 'Internal server error' } },
-      { status: 500 }
-    );
+    return apiError('INTERNAL_ERROR', 'Internal server error');
   }
 }

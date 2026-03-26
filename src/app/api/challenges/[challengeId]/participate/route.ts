@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiCreated, apiError } from '@/lib/api-response';
 
 // POST /api/challenges/[challengeId]/participate - Join a challenge
 export async function POST(request: NextRequest, { params }: { params: { challengeId: string } }) {
@@ -10,7 +11,7 @@ export async function POST(request: NextRequest, { params }: { params: { challen
   try {
     session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     // Get challenge details and check if it exists
@@ -34,34 +35,31 @@ export async function POST(request: NextRequest, { params }: { params: { challen
     });
 
     if (!challenge) {
-      return NextResponse.json({ error: 'Challenge not found' }, { status: 404 });
+      return apiError('NOT_FOUND', 'Challenge not found');
     }
 
     // Check if challenge and campaign are active
     if (challenge.status !== 'ACTIVE') {
-      return NextResponse.json({ error: 'Challenge is not active' }, { status: 400 });
+      return apiError('BAD_REQUEST', 'Challenge is not active');
     }
 
     if (challenge.campaigns.status !== 'ACTIVE') {
-      return NextResponse.json({ error: 'Campaign is not active' }, { status: 400 });
+      return apiError('BAD_REQUEST', 'Campaign is not active');
     }
 
     // Check if challenge has started (if it has a start date)
     if (challenge.startDate && new Date() < challenge.startDate) {
-      return NextResponse.json({ error: 'Challenge has not started yet' }, { status: 400 });
+      return apiError('BAD_REQUEST', 'Challenge has not started yet');
     }
 
     // Check if challenge has ended
     if (challenge.endDate && new Date() > challenge.endDate) {
-      return NextResponse.json({ error: 'Challenge has ended' }, { status: 400 });
+      return apiError('BAD_REQUEST', 'Challenge has ended');
     }
 
     // Check participation limits
     if (challenge.maxParticipants && challenge.participantCount >= challenge.maxParticipants) {
-      return NextResponse.json(
-        { error: 'Challenge has reached maximum participants' },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'Challenge has reached maximum participants');
     }
 
     // Check if user is already participating
@@ -76,10 +74,7 @@ export async function POST(request: NextRequest, { params }: { params: { challen
 
     if (existingParticipation) {
       if (existingParticipation.status === 'ACTIVE') {
-        return NextResponse.json(
-          { error: 'Already participating in this challenge' },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'Already participating in this challenge');
       } else {
         // Reactivate participation if it was withdrawn
         const updatedParticipation = await prisma.challenge_participations.update({
@@ -101,7 +96,7 @@ export async function POST(request: NextRequest, { params }: { params: { challen
           participationId: updatedParticipation.id,
         });
 
-        return NextResponse.json(updatedParticipation);
+        return apiSuccess(updatedParticipation);
       }
     }
 
@@ -174,7 +169,7 @@ export async function POST(request: NextRequest, { params }: { params: { challen
       challengeType: challenge.type,
     });
 
-    return NextResponse.json(participation, { status: 201 });
+    return apiCreated(participation);
   } catch (error) {
     logger.error(
       'Error joining challenge',
@@ -184,7 +179,7 @@ export async function POST(request: NextRequest, { params }: { params: { challen
       },
       error as Error
     );
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Internal server error');
   }
 }
 
@@ -197,7 +192,7 @@ export async function DELETE(
   try {
     session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     // Find participation
@@ -223,21 +218,16 @@ export async function DELETE(
     });
 
     if (!participation) {
-      return NextResponse.json({ error: 'Not participating in this challenge' }, { status: 404 });
+      return apiError('NOT_FOUND', 'Not participating in this challenge');
     }
 
     if (participation.status !== 'ACTIVE') {
-      return NextResponse.json({ error: 'Participation is not active' }, { status: 400 });
+      return apiError('BAD_REQUEST', 'Participation is not active');
     }
 
     // Don't allow leaving if user has submissions (to maintain leaderboard integrity)
     if (participation.challenge_submissions.length > 0) {
-      return NextResponse.json(
-        {
-          error: 'Cannot leave challenge after making submissions. You can withdraw instead.',
-        },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'Cannot leave challenge after making submissions. You can withdraw instead.',);
     }
 
     // Remove participation
@@ -279,7 +269,7 @@ export async function DELETE(
       participationId: participation.id,
     });
 
-    return NextResponse.json({ message: 'Successfully left challenge' });
+    return apiSuccess({ message: 'Successfully left challenge' });
   } catch (error) {
     logger.error(
       'Error leaving challenge',
@@ -289,6 +279,6 @@ export async function DELETE(
       },
       error as Error
     );
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Internal server error');
   }
 }

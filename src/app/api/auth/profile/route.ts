@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
@@ -6,35 +6,26 @@ export const runtime = 'nodejs';
 import { getCurrentUser, updateUserProfile, updateProfileSchema } from '@/lib/auth-utils';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError, apiValidationError } from '@/lib/api-response';
 
 export async function GET() {
   try {
     const user = await getCurrentUser();
 
     if (!user) {
-      return NextResponse.json(
-        {
-          error: 'Authentication required',
-        },
-        { status: 401 }
-      );
+      return apiError('UNAUTHORIZED', 'Authentication required',);
     }
 
     // Return user profile without password
     const { password, ...userProfile } = user;
 
-    return NextResponse.json({
+    return apiSuccess({
       user: userProfile,
     });
   } catch (error) {
     logger.error('Profile fetch error', {}, error as Error);
 
-    return NextResponse.json(
-      {
-        error: 'Internal server error',
-      },
-      { status: 500 }
-    );
+    return apiError('INTERNAL_ERROR', 'Internal server error',);
   }
 }
 
@@ -43,12 +34,7 @@ export async function PUT(request: NextRequest) {
     const user = await getCurrentUser();
 
     if (!user) {
-      return NextResponse.json(
-        {
-          error: 'Authentication required',
-        },
-        { status: 401 }
-      );
+      return apiError('UNAUTHORIZED', 'Authentication required',);
     }
 
     const body = await request.json();
@@ -62,7 +48,7 @@ export async function PUT(request: NextRequest) {
     // Return updated user data (without password)
     const { password, ...userProfile } = updatedUser;
 
-    return NextResponse.json({
+    return apiSuccess({
       message: 'Profile updated successfully',
       user: userProfile,
     });
@@ -70,29 +56,13 @@ export async function PUT(request: NextRequest) {
     logger.error('Profile update error', {}, error as Error);
 
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        {
-          error: 'Validation error',
-          details: error.errors,
-        },
-        { status: 400 }
-      );
+      return apiValidationError(error.errors);
     }
 
     if (error instanceof Error) {
-      return NextResponse.json(
-        {
-          error: error.message,
-        },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', error.message,);
     }
 
-    return NextResponse.json(
-      {
-        error: 'Internal server error',
-      },
-      { status: 500 }
-    );
+    return apiError('INTERNAL_ERROR', 'Internal server error',);
   }
 }

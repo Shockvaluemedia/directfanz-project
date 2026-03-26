@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
@@ -6,6 +6,7 @@ export const runtime = 'nodejs';
 import { withApi } from '@/lib/api-auth';
 import { prisma } from '@/lib/database';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 export async function GET(request: NextRequest) {
   return withApi(request, async req => {
@@ -25,10 +26,7 @@ export async function GET(request: NextRequest) {
       `) as Array<{ participantId: string; lastMessageTime: Date }>;
 
       if (conversations.length === 0) {
-        return NextResponse.json({
-          success: true,
-          data: { conversations: [] },
-        });
+        return apiSuccess({ conversations: [] });
       }
 
       const participantIds = conversations.map(c => c.participantId);
@@ -122,15 +120,12 @@ export async function GET(request: NextRequest) {
         conversationCount: validConversations.length,
       });
 
-      return NextResponse.json({
-        success: true,
-        data: {
+      return apiSuccess({
           conversations: validConversations,
-        },
-      });
+        });
     } catch (error) {
       logger.error('Get conversations error', { userId: req.user?.id }, error as Error);
-      return NextResponse.json({ error: 'Failed to fetch conversations' }, { status: 500 });
+      return apiError('INTERNAL_ERROR', 'Failed to fetch conversations');
     }
   });
 }

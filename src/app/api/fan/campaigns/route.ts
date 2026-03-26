@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
@@ -7,6 +7,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 // GET /api/fan/campaigns - Get campaigns the fan is participating in
 export async function GET(request: NextRequest) {
@@ -15,11 +16,11 @@ export async function GET(request: NextRequest) {
     session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     if (session.user.role !== 'FAN') {
-      return NextResponse.json({ error: 'Only fans can access this endpoint' }, { status: 403 });
+      return apiError('FORBIDDEN', 'Only fans can access this endpoint');
     }
 
     const { searchParams } = new URL(request.url);
@@ -103,9 +104,9 @@ export async function GET(request: NextRequest) {
       challenge_submissions: participation.challenge_submissions,
     }));
 
-    return NextResponse.json({ campaigns });
+    return apiSuccess({ campaigns });
   } catch (error) {
     logger.error('Error fetching fan campaigns', { userId: session?.user?.id }, error as Error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Internal server error');
   }
 }

@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { GDPRComplianceService } from '@/lib/legal-compliance';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
+import { apiError } from '@/lib/api-response';
 
 const exportQuerySchema = z.object({
   format: z.enum(['json', 'csv']).optional().default('json'),
@@ -15,10 +16,7 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized. You must be logged in to export your data.' },
-        { status: 401 }
-      );
+      return apiError('UNAUTHORIZED', 'Unauthorized. You must be logged in to export your data.');
     }
 
     const url = new URL(request.url);
@@ -26,17 +24,7 @@ export async function GET(request: NextRequest) {
 
     const parsed = exportQuerySchema.safeParse({ format: formatParam });
     if (!parsed.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Validation failed',
-          details: parsed.error.errors.map(e => ({
-            field: e.path.join('.'),
-            message: e.message,
-          })),
-        },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'Validation failed');
     }
 
     const { format } = parsed.data;
@@ -49,10 +37,7 @@ export async function GET(request: NextRequest) {
     );
 
     if (!processingCheck.allowed) {
-      return NextResponse.json(
-        { success: false, error: processingCheck.reason || 'Data processing not allowed' },
-        { status: 403 }
-      );
+      return apiError('FORBIDDEN', processingCheck.reason || 'Data processing not allowed');
     }
 
     const userData = await GDPRComplianceService.exportUserData(session.user.id);
@@ -154,10 +139,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     logger.error('GDPR data export error', {}, error as Error);
-    return NextResponse.json(
-      { success: false, error: 'An internal error occurred while exporting your data' },
-      { status: 500 }
-    );
+    return apiError('INTERNAL_ERROR', 'An internal error occurred while exporting your data');
   }
 }
 

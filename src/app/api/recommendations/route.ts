@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
@@ -7,6 +7,7 @@ import { withApi } from '@/lib/api-auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 const recommendationSchema = z.object({
   type: z.enum(['artists', 'content', 'tiers', 'mixed']).default('mixed'),
@@ -67,9 +68,7 @@ export async function GET(request: NextRequest) {
         tierCount: recommendations.tiers.length,
       });
 
-      return NextResponse.json({
-        success: true,
-        data: recommendations,
+      return apiSuccess(recommendations,
         metadata: {
           generatedAt: new Date().toISOString(),
           algorithm: recommendations.algorithm,
@@ -84,21 +83,14 @@ export async function GET(request: NextRequest) {
                 favoriteGenres: [],
                 priceRange: 0,
               },
-        },
-      });
+        });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return NextResponse.json(
-          {
-            error: 'Invalid parameters',
-            details: error.errors,
-          },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'Invalid parameters', error.errors);
       }
 
       logger.error('Recommendations endpoint error', { userId: req.user?.id }, error as Error);
-      return NextResponse.json({ error: 'Failed to generate recommendations' }, { status: 500 });
+      return apiError('INTERNAL_ERROR', 'Failed to generate recommendations');
     }
   });
 }

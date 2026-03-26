@@ -1,16 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { retryPayment, getPaymentFailures, getArtistPaymentFailures } from '@/lib/payment-retry';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     const url = new URL(request.url);
@@ -27,28 +28,25 @@ export async function GET(request: NextRequest) {
       });
 
       if (!subscription) {
-        return NextResponse.json({ error: 'Subscription not found' }, { status: 404 });
+        return apiError('NOT_FOUND', 'Subscription not found');
       }
 
       const failures = await getPaymentFailures(subscriptionId);
-      return NextResponse.json({ failures });
+      return apiSuccess({ failures });
     } else if (artistId) {
       // Verify artist ownership
       if (session.user.id !== artistId) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+        return apiError('FORBIDDEN', 'Unauthorized');
       }
 
       const failures = await getArtistPaymentFailures(artistId);
-      return NextResponse.json({ failures });
+      return apiSuccess({ failures });
     } else {
-      return NextResponse.json(
-        { error: 'Missing subscriptionId or artistId parameter' },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'Missing subscriptionId or artistId parameter');
     }
   } catch (error) {
     logger.error('Error retrieving payment failures', {}, error as Error);
-    return NextResponse.json({ error: 'Failed to retrieve payment failures' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Failed to retrieve payment failures');
   }
 }
 
@@ -57,14 +55,14 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     const body = await request.json();
     const { paymentFailureId } = body;
 
     if (!paymentFailureId) {
-      return NextResponse.json({ error: 'Missing paymentFailureId parameter' }, { status: 400 });
+      return apiError('BAD_REQUEST', 'Missing paymentFailureId parameter');
     }
 
     // Get payment failure and verify ownership
@@ -76,7 +74,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!failure) {
-      return NextResponse.json({ error: 'Payment failure not found' }, { status: 404 });
+      return apiError('NOT_FOUND', 'Payment failure not found');
     }
 
     // Verify ownership
@@ -84,12 +82,12 @@ export async function POST(request: NextRequest) {
       failure.subscriptions.fanId !== session.user.id &&
       failure.subscriptions.artistId !== session.user.id
     ) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+      return apiError('FORBIDDEN', 'Unauthorized');
     }
 
     const result = await retryPayment(paymentFailureId);
 
-    return NextResponse.json({
+    return apiSuccess({
       success: result.success,
       resolved: result.resolved,
       nextRetryAt: result.nextRetryAt,
@@ -102,6 +100,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     logger.error('Error retrying payment', {}, error as Error);
-    return NextResponse.json({ error: 'Failed to retry payment' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Failed to retry payment');
   }
 }

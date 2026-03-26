@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { createAgentTask, createAgentRegistry, DEFAULT_AGENT_CONFIGS } from '@/lib/ai';
 import { Logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 const logger = new Logger('ai-revenue-api');
 
@@ -23,9 +24,7 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
     
     if (!session) {
-      return NextResponse.json({ 
-        error: 'Authentication required' 
-      }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Authentication required');
     }
 
     const { searchParams } = new URL(request.url);
@@ -34,10 +33,8 @@ export async function GET(request: NextRequest) {
     const timeframe = searchParams.get('timeframe') || 'monthly';
 
     if (!artistId) {
-      return NextResponse.json({
-        error: 'Artist ID is required',
-        usage: '/api/ai/revenue?artistId=123&type=pricing&timeframe=quarterly'
-      }, { status: 400 });
+      return apiError('BAD_REQUEST', 'Artist ID is required',
+        usage: '/api/ai/revenue?artistId=123&type=pricing&timeframe=quarterly');
     }
 
     const agentRegistry = await getRegistry();
@@ -103,9 +100,7 @@ export async function GET(request: NextRequest) {
         const pricingResult = await agentRegistry.executeTask(agentId, pricingTask);
         results.push(pricingResult);
 
-        return NextResponse.json({
-          success: true,
-          data: {
+        return apiSuccess({
             artistId,
             timeframe,
             timestamp: new Date().toISOString(),
@@ -123,23 +118,17 @@ export async function GET(request: NextRequest) {
             tasksExecuted: tasks.length + 1,
             successfulTasks: results.filter(r => r.success).length,
             totalProcessingTime: results.reduce((sum, r) => sum + (r.metrics?.processingTime || 0), 0),
-          }
-        });
+          });
     }
 
     const response = await agentRegistry.executeTask(agentId, task);
 
     if (!response.success) {
-      return NextResponse.json({
-        error: 'Revenue optimization failed',
-        details: response.error,
-        suggestion: 'Check agent status or try different parameters'
-      }, { status: 500 });
+      return apiError('INTERNAL_ERROR', 'Revenue optimization failed', response.error,
+        suggestion: 'Check agent status or try different parameters');
     }
 
-    return NextResponse.json({
-      success: true,
-      data: {
+    return apiSuccess({
         artistId,
         analysisType,
         timeframe,
@@ -148,15 +137,12 @@ export async function GET(request: NextRequest) {
         insights: await generateSingleRevenueInsight(response.data, analysisType),
         actionItems: await generateActionItems(response.data, analysisType),
       },
-      metrics: response.metrics
-    });
+      metrics: response.metrics);
 
   } catch (error) {
     logger.error('Revenue API Error', {}, error as Error);
-    return NextResponse.json({
-      error: 'Internal server error',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error');
   }
 }
 
@@ -165,9 +151,7 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
     
     if (!session) {
-      return NextResponse.json({ 
-        error: 'Authentication required' 
-      }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Authentication required');
     }
 
     const body = await request.json();
@@ -179,11 +163,9 @@ export async function POST(request: NextRequest) {
     } = body;
 
     if (!artistId || !optimizationType) {
-      return NextResponse.json({
-        error: 'Missing required parameters',
+      return apiError('BAD_REQUEST', 'Missing required parameters',
         required: ['artistId', 'optimizationType'],
-        optional: ['parameters', 'testMode']
-      }, { status: 400 });
+        optional: ['parameters', 'testMode']);
     }
 
     const agentRegistry = await getRegistry();
@@ -241,16 +223,14 @@ export async function POST(request: NextRequest) {
         break;
 
       default:
-        return NextResponse.json({
-          error: 'Unknown optimization type',
+        return apiError('BAD_REQUEST', 'Unknown optimization type',
           availableTypes: [
             'dynamic_pricing',
             'bundle_optimization',
             'tier_restructure',
             'fraud_prevention',
             'customer_lifetime_value'
-          ]
-        }, { status: 400 });
+          ]);
     }
 
     const response = await agentRegistry.executeTask(agentId, task);
@@ -274,7 +254,7 @@ export async function POST(request: NextRequest) {
       monitoring: 'Active monitoring enabled for 48 hours',
     };
 
-    return NextResponse.json({
+    return apiSuccess({
       success: response.success,
       data: {
         artistId,
@@ -294,10 +274,8 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     logger.error('Revenue POST API Error', {}, error as Error);
-    return NextResponse.json({
-      error: 'Revenue optimization failed',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Revenue optimization failed',
+      message: error instanceof Error ? error.message : 'Unknown error');
   }
 }
 

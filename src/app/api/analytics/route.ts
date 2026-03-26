@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
@@ -6,6 +6,7 @@ import { validateRequest } from '@/lib/security/validation';
 import { applyRateLimit } from '@/lib/security/middleware';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 const analyticsQuerySchema = z.object({
   timeRange: z.enum(['7d', '30d', '90d', '1y']).optional().default('30d'),
@@ -176,12 +177,12 @@ export async function GET(request: NextRequest) {
   try {
     const rateLimitResult = await applyRateLimit(request);
     if (!rateLimitResult.success) {
-      return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+      return apiError('RATE_LIMITED', 'Too many requests');
     }
 
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     const { searchParams } = new URL(request.url);
@@ -196,7 +197,7 @@ export async function GET(request: NextRequest) {
 
     const targetUserId = userId || session.user.id;
     if (targetUserId !== session.user.id && session.user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      return apiError('FORBIDDEN', 'Access denied');
     }
 
     const endDate = new Date();
@@ -210,9 +211,7 @@ export async function GET(request: NextRequest) {
       calculateDemographics(targetUserId, startDate),
     ]);
 
-    return NextResponse.json({
-      success: true,
-      data: {
+    return apiSuccess({
         revenue,
         subscribers,
         content,
@@ -223,14 +222,13 @@ export async function GET(request: NextRequest) {
       dateRange: {
         start: startDate.toISOString(),
         end: endDate.toISOString(),
-      },
-    });
+      });
   } catch (error) {
     logger.error('Analytics API error', {}, error as Error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Internal server error');
   }
 }
 
 export async function POST(_request: NextRequest) {
-  return NextResponse.json({ error: 'Method not implemented' }, { status: 501 });
+  return apiError('NOT_IMPLEMENTED', 'Method not implemented');
 }

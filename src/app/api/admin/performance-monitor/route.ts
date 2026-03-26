@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { subscriptionPerformanceMonitor } from '@/lib/subscription-performance-monitor';
 import { subscriptionCache } from '@/lib/subscription-cache';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 /**
  * Performance Monitoring API for Subscription Queries
@@ -16,7 +17,7 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     // Verify admin access
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!user || user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Access denied. Admin role required.' }, { status: 403 });
+      return apiError('FORBIDDEN', 'Access denied. Admin role required.');
     }
 
     const { searchParams } = new URL(request.url);
@@ -40,12 +41,7 @@ export async function GET(request: NextRequest) {
     switch (action) {
       case 'query-analysis':
         if (!operation) {
-          return NextResponse.json(
-            {
-              error: 'Operation parameter required for query analysis',
-            },
-            { status: 400 }
-          );
+          return apiError('BAD_REQUEST', 'Operation parameter required for query analysis',);
         }
         return await handleQueryAnalysis(operation, timeRangeMs);
 
@@ -66,10 +62,7 @@ export async function GET(request: NextRequest) {
     }
   } catch (error) {
     logger.error('Performance monitor API error', {}, error as Error);
-    return NextResponse.json(
-      { error: 'Failed to fetch performance monitoring data' },
-      { status: 500 }
-    );
+    return apiError('INTERNAL_ERROR', 'Failed to fetch performance monitoring data');
   }
 }
 
@@ -87,9 +80,7 @@ async function handleOverview(timeRangeMs: number) {
   // Calculate system health score
   const healthScore = calculateSystemHealthScore(performanceStats, recentAlerts, cacheHealth);
 
-  return NextResponse.json({
-    success: true,
-    timestamp: new Date().toISOString(),
+  return apiSuccess({ timestamp: new Date().toISOString(),
     data: {
       overview: {
         healthScore,
@@ -120,39 +111,32 @@ async function handleOverview(timeRangeMs: number) {
       },
       topOperations,
       recommendations: generateRecommendations(performanceStats, recentAlerts),
-    },
-  });
+    } });
 }
 
 // Handle detailed query analysis for specific operation
 async function handleQueryAnalysis(operation: string, timeRangeMs: number) {
   const analysis = subscriptionPerformanceMonitor.getQueryAnalysis(operation, timeRangeMs);
 
-  return NextResponse.json({
-    success: true,
-    timestamp: new Date().toISOString(),
+  return apiSuccess({ timestamp: new Date().toISOString(),
     data: {
       operation,
       analysis,
       timeRange: formatTimeRange(timeRangeMs),
-    },
-  });
+    } });
 }
 
 // Handle performance data export
 async function handleExportData(timeRangeMs: number) {
   const exportData = subscriptionPerformanceMonitor.exportData(timeRangeMs);
 
-  return NextResponse.json({
-    success: true,
-    timestamp: new Date().toISOString(),
+  return apiSuccess({ timestamp: new Date().toISOString(),
     data: exportData,
     downloadInfo: {
       filename: `performance-data-${new Date().toISOString().split('T')[0]}.json`,
       size: JSON.stringify(exportData).length,
       recordCount: exportData.metrics.length,
-    },
-  });
+    } });
 }
 
 // Handle alerts retrieval
@@ -172,16 +156,13 @@ async function handleGetAlerts(timeRangeMs: number) {
     {} as Record<string, Record<string, number>>
   );
 
-  return NextResponse.json({
-    success: true,
-    timestamp: new Date().toISOString(),
+  return apiSuccess({ timestamp: new Date().toISOString(),
     data: {
       alerts: alerts.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()),
       summary: alertSummary,
       total: alerts.length,
       timeRange: formatTimeRange(timeRangeMs),
-    },
-  });
+    } });
 }
 
 // Handle cleanup of old data
@@ -189,11 +170,8 @@ async function handleCleanup() {
   const olderThanMs = 7 * 24 * 60 * 60 * 1000; // 7 days
   subscriptionPerformanceMonitor.cleanup(olderThanMs);
 
-  return NextResponse.json({
-    success: true,
-    message: 'Performance monitoring data cleanup completed',
-    timestamp: new Date().toISOString(),
-  });
+  return apiSuccess({ message: 'Performance monitoring data cleanup completed',
+    timestamp: new Date().toISOString() });
 }
 
 // Handle performance test
@@ -211,12 +189,7 @@ async function handleTestPerformance() {
     `;
 
     if (testArtist.length === 0) {
-      return NextResponse.json(
-        {
-          error: 'No artists with subscription data found for testing',
-        },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'No artists with subscription data found for testing',);
     }
 
     const artistId = testArtist[0].id;
@@ -245,23 +218,14 @@ async function handleTestPerformance() {
 
     const duration = Date.now() - startTime;
 
-    return NextResponse.json({
-      success: true,
-      message: 'Performance test completed',
+    return apiSuccess({ message: 'Performance test completed',
       data: {
         artistId,
         duration,
         timestamp: new Date().toISOString(),
-      },
-    });
+      } });
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: 'Performance test failed',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 }
-    );
+    return apiError('INTERNAL_ERROR', 'Performance test failed', error instanceof Error ? error.message : 'Unknown error');
   }
 }
 
@@ -391,7 +355,7 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     const user = await prisma.users.findUnique({
@@ -400,7 +364,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user || user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Access denied. Admin role required.' }, { status: 403 });
+      return apiError('FORBIDDEN', 'Access denied. Admin role required.');
     }
 
     const body = await request.json();
@@ -409,34 +373,20 @@ export async function POST(request: NextRequest) {
     switch (action) {
       case 'reset-metrics':
         subscriptionPerformanceMonitor.resetMetrics();
-        return NextResponse.json({
-          success: true,
-          message: 'Performance metrics reset successfully',
-        });
+        return apiSuccess({ message: 'Performance metrics reset successfully' });
 
       case 'update-thresholds':
         if (!config || typeof config !== 'object') {
-          return NextResponse.json(
-            { error: 'Config object is required for threshold update' },
-            { status: 400 }
-          );
+          return apiError('BAD_REQUEST', 'Config object is required for threshold update');
         }
         subscriptionPerformanceMonitor.updateThresholds(config);
-        return NextResponse.json({
-          success: true,
-          message: 'Performance thresholds updated successfully',
-        });
+        return apiSuccess({ message: 'Performance thresholds updated successfully' });
 
       default:
-        return NextResponse.json(
-          {
-            error: 'Invalid action',
-          },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'Invalid action',);
     }
   } catch (error) {
     logger.error('Performance monitor configuration error', {}, error as Error);
-    return NextResponse.json({ error: 'Failed to update configuration' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Failed to update configuration');
   }
 }

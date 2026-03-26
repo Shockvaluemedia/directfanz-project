@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import crypto from 'crypto';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 const forgotPasswordSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -14,7 +15,7 @@ export async function POST(request: NextRequest) {
     const { email } = forgotPasswordSchema.parse(body);
 
     // Always return success to prevent email enumeration attacks
-    const successResponse = NextResponse.json({
+    const successResponse = apiSuccess({
       message: "If an account with that email exists, we've sent a password reset link",
     });
 
@@ -68,16 +69,10 @@ export async function POST(request: NextRequest) {
     return successResponse;
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Invalid email address' },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'Invalid email address');
     }
 
     logger.error('Forgot password error', {}, error as Error);
-    return NextResponse.json(
-      { error: 'Failed to process password reset request' },
-      { status: 500 }
-    );
+    return apiError('INTERNAL_ERROR', 'Failed to process password reset request');
   }
 }

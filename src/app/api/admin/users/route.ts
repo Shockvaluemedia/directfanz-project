@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { withAdminApi } from '@/lib/api-auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 const userFilterSchema = z.object({
   role: z.enum(['ARTIST', 'FAN']).optional(),
@@ -115,9 +116,7 @@ export async function GET(request: NextRequest) {
         filters: params,
       });
 
-      return NextResponse.json({
-        success: true,
-        data: formattedUsers,
+      return apiSuccess(formattedUsers,
         pagination: {
           limit: params.limit,
           offset: params.offset,
@@ -126,21 +125,14 @@ export async function GET(request: NextRequest) {
         },
         stats: {
           total: totalCount,
-        },
-      });
+        });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return NextResponse.json(
-          {
-            error: 'Invalid parameters',
-            details: error.errors,
-          },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'Invalid parameters', error.errors);
       }
 
       logger.error('Admin users endpoint error', { adminUserId: req.user?.id }, error as Error);
-      return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
+      return apiError('INTERNAL_ERROR', 'Failed to fetch users');
     }
   });
 }
@@ -152,7 +144,7 @@ export async function POST(request: NextRequest) {
       const { userId, action, ...updateData } = body;
 
       if (!userId) {
-        return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+        return apiError('BAD_REQUEST', 'User ID is required');
       }
 
       let result;
@@ -206,27 +198,18 @@ export async function POST(request: NextRequest) {
       }
 
       if (!result) {
-        return NextResponse.json({ error: 'User not found' }, { status: 404 });
+        return apiError('NOT_FOUND', 'User not found');
       }
 
-      return NextResponse.json({
-        success: true,
-        message: `User ${action || 'updated'} successfully`,
-        data: result,
-      });
+      return apiSuccess({ message: `User ${action || 'updated'} successfully`,
+        data: result });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return NextResponse.json(
-          {
-            error: 'Invalid update data',
-            details: error.errors,
-          },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'Invalid update data', error.errors);
       }
 
       logger.error('Admin user update error', { adminUserId: req.user?.id }, error as Error);
-      return NextResponse.json({ error: 'Failed to update user' }, { status: 500 });
+      return apiError('INTERNAL_ERROR', 'Failed to update user');
     }
   });
 }

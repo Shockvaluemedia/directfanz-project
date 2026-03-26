@@ -1,4 +1,3 @@
-// @ts-nocheck — config property narrowing requires BaseAgent generic refactor
 import { BaseAgent, AgentType, AgentTask, AgentResponse, AgentConfig } from '../base-agent';
 import { Logger } from '@/lib/logger';
 import type { Database } from '../base-agent';
@@ -144,8 +143,7 @@ export interface PolicyRule {
 }
 
 // Content Moderation AI Agent for platform safety
-export class ContentModerationAgent extends BaseAgent {
-  private readonly config: ContentModerationConfig;
+export class ContentModerationAgent extends BaseAgent<ContentModerationConfig> {
   private readonly appealQueue: Map<string, ModerationAppeal> = new Map();
   private readonly moderationHistory: Map<string, ModerationResult[]> = new Map();
 
@@ -156,7 +154,6 @@ export class ContentModerationAgent extends BaseAgent {
     db?: Database
   ) {
     super(id, AgentType.CONTENT_MODERATION, config, logger, db);
-    this.config = config;
   }
 
   public getCapabilities(): string[] {

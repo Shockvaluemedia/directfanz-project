@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { notificationService } from '@/lib/notifications';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 // GET /api/notifications - Fetch user notifications
 export async function GET(request: NextRequest) {
@@ -10,7 +11,7 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     const { searchParams } = new URL(request.url);
@@ -33,10 +34,10 @@ export async function GET(request: NextRequest) {
       count: result.notifications.length,
     });
 
-    return NextResponse.json(result);
+    return apiSuccess(result);
   } catch (error) {
     logger.error('Failed to fetch notifications', {}, error as Error);
-    return NextResponse.json({ error: 'Failed to fetch notifications' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Failed to fetch notifications');
   }
 }
 
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     const body = await request.json();
@@ -54,10 +55,7 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields
     if (!type || !title || !message) {
-      return NextResponse.json(
-        { error: 'Missing required fields: type, title, message' },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'Missing required fields: type, title, message');
     }
 
     // Send notification
@@ -79,12 +77,12 @@ export async function POST(request: NextRequest) {
       type,
     });
 
-    return NextResponse.json({
+    return apiSuccess({
       id: notificationId,
       message: 'Notification sent successfully',
     });
   } catch (error) {
     logger.error('Failed to create notification', {}, error as Error);
-    return NextResponse.json({ error: 'Failed to create notification' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Failed to create notification');
   }
 }

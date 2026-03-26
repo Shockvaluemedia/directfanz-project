@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
@@ -15,13 +15,14 @@ import {
 } from '@/lib/analytics';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     // Verify user is an artist
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!user || user.role !== 'ARTIST') {
-      return NextResponse.json({ error: 'Access denied. Artist role required.' }, { status: 403 });
+      return apiError('FORBIDDEN', 'Access denied. Artist role required.');
     }
 
     const { searchParams } = new URL(request.url);
@@ -113,9 +114,7 @@ export async function GET(request: NextRequest) {
           ? Math.min(100, Math.round((activeSubscribers / totalSubscribers) * 100))
           : 0;
 
-      return NextResponse.json({
-        success: true,
-        data: {
+      return apiSuccess({
           stats: {
             totalSubscribers,
             monthlyRevenue: subscriptionStats.monthlyRevenue,
@@ -124,33 +123,23 @@ export async function GET(request: NextRequest) {
             unreadMessages: unreadMessages,
             pendingNotifications: 0, // TODO: implement notifications system
           },
-        },
-      });
+        });
     }
 
     // Handle specific analytics types
     if (type === 'daily') {
       const dailySummary = await getDailyEarningsSummary(session.user.id);
-      return NextResponse.json({
-        success: true,
-        data: dailySummary,
-      });
+      return apiSuccess(dailySummary);
     }
 
     if (type === 'tiers') {
       const tierData = await getSubscriberCountPerTier(session.user.id);
-      return NextResponse.json({
-        success: true,
-        data: tierData,
-      });
+      return apiSuccess(tierData);
     }
 
     if (type === 'churn') {
       const churnData = await getChurnAnalysis(session.user.id);
-      return NextResponse.json({
-        success: true,
-        data: churnData,
-      });
+      return apiSuccess(churnData);
     }
 
     // If period parameters are provided, return time-series data
@@ -187,25 +176,19 @@ export async function GET(request: NextRequest) {
         getSubscriberGrowthForPeriod(session.user.id, start, end),
       ]);
 
-      return NextResponse.json({
-        success: true,
-        data: {
+      return apiSuccess({
           earnings: earningsData,
           subscribers: subscriberData,
           period: { start, end },
-        },
-      });
+        });
     }
 
     // Return comprehensive analytics
     const analytics = await getArtistAnalytics(session.user.id);
 
-    return NextResponse.json({
-      success: true,
-      data: analytics,
-    });
+    return apiSuccess(analytics);
   } catch (error) {
     logger.error('Analytics API error', {}, error as Error);
-    return NextResponse.json({ error: 'Failed to fetch analytics data' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Failed to fetch analytics data');
   }
 }

@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 // This endpoint provides RTMP server information for OBS
 // In a full production setup, you'd run a separate RTMP server (like nginx-rtmp)
@@ -11,10 +12,7 @@ export async function GET(request: NextRequest) {
     const streamKey = searchParams.get('streamKey');
     
     if (!streamKey) {
-      return NextResponse.json(
-        { success: false, error: 'Stream key required' },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'Stream key required');
     }
 
     // In production, you would:
@@ -55,14 +53,11 @@ export async function GET(request: NextRequest) {
 
     logger.info('RTMP configuration requested', { streamKey });
 
-    return NextResponse.json(rtmpConfig);
+    return apiSuccess(rtmpConfig);
     
   } catch (error) {
     logger.error('Failed to get RTMP configuration', error as Error);
-    return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
-    );
+    return apiError('INTERNAL_ERROR', 'Internal server error');
   }
 }
 
@@ -90,19 +85,13 @@ export async function POST(request: NextRequest) {
         break;
         
       default:
-        return NextResponse.json(
-          { success: false, error: 'Unknown action' },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'Unknown action');
     }
 
-    return NextResponse.json({ success: true });
+    return apiSuccess({ success: true });
     
   } catch (error) {
     logger.error('Failed to handle RTMP event', error as Error);
-    return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
-    );
+    return apiError('INTERNAL_ERROR', 'Internal server error');
   }
 }

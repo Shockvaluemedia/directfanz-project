@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 // @ts-ignore - multer lacks type declarations
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
 import { processFile } from '@/lib/file-upload';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 // Configure multer for file uploads
 const upload = multer({
@@ -48,10 +49,7 @@ export async function POST(request: NextRequest) {
     const files = formData.getAll('files') as File[];
     
     if (!files || files.length === 0) {
-      return NextResponse.json(
-        { error: 'No files provided' },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'No files provided');
     }
 
     const uploadResults = [];
@@ -130,26 +128,17 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      files: uploadResults
-    });
+    return apiSuccess({ files: uploadResults });
 
   } catch (error) {
     logger.error('Upload error', {}, error as Error);
-    return NextResponse.json(
-      { 
-        error: 'Upload failed',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    );
+    return apiError('INTERNAL_ERROR', 'Upload failed', error instanceof Error ? error.message : 'Unknown error');
   }
 }
 
 // Handle file size limit errors
 export async function GET() {
-  return NextResponse.json({ 
+  return apiSuccess({ 
     message: 'File upload endpoint. Use POST to upload files.',
     limits: {
       maxFileSize: '100MB',

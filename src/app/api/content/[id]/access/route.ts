@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { checkContentAccess, generateAccessToken } from '@/lib/content-access';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 // Generate access token for content
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
@@ -11,7 +12,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Authentication required');
     }
 
     const contentId = params.id;
@@ -26,14 +27,8 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         invalid_tier: 'Your subscription tier does not include this content',
       };
 
-      return NextResponse.json(
-        {
-          error:
-            errorMessages[accessResult.reason as keyof typeof errorMessages] || 'Access denied',
-          reason: accessResult.reason,
-        },
-        { status: 403 }
-      );
+      return apiError('FORBIDDEN', errorMessages[accessResult.reason as keyof typeof errorMessages] || 'Access denied',
+          reason: accessResult.reason,);
     }
 
     // Generate access token
@@ -52,18 +47,15 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       },
     });
 
-    return NextResponse.json({
-      success: true,
-      data: {
+    return apiSuccess({
         accessToken,
         content,
         expiresIn: 3600, // 1 hour
         accessReason: accessResult.reason,
-      },
-    });
+      });
   } catch (error) {
     logger.error('Access token generation error', {}, error as Error);
-    return NextResponse.json({ error: 'Failed to generate access token' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Failed to generate access token');
   }
 }
 
@@ -73,7 +65,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Authentication required');
     }
 
     const contentId = params.id;
@@ -99,17 +91,14 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       },
     });
 
-    return NextResponse.json({
-      success: true,
-      data: {
+    return apiSuccess({
         hasAccess: accessResult.hasAccess,
         reason: accessResult.reason,
         content,
         subscription: accessResult.subscription,
-      },
-    });
+      });
   } catch (error) {
     logger.error('Content access check error', {}, error as Error);
-    return NextResponse.json({ error: 'Failed to check content access' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Failed to check content access');
   }
 }

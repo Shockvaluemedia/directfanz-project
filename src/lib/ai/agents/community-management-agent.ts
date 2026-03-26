@@ -1,4 +1,3 @@
-// @ts-nocheck — config property narrowing requires BaseAgent generic refactor
 import { BaseAgent, AgentType, AgentTask, AgentResponse, AgentConfig } from '../base-agent';
 import { Logger } from '@/lib/logger';
 import type { Database } from '../base-agent';
@@ -225,8 +224,7 @@ export interface CommunityManagementConfig extends AgentConfig {
 }
 
 // Community Management AI Agent for fan engagement optimization
-export class CommunityManagementAgent extends BaseAgent {
-  private readonly config: CommunityManagementConfig;
+export class CommunityManagementAgent extends BaseAgent<CommunityManagementConfig> {
   private readonly activeEvents: Map<string, CommunityEvent> = new Map();
   private readonly activeChallenges: Map<string, FanChallenge> = new Map();
   private readonly loyaltyPrograms: Map<string, LoyaltyProgram> = new Map();
@@ -239,7 +237,6 @@ export class CommunityManagementAgent extends BaseAgent {
     db?: Database
   ) {
     super(id, AgentType.COMMUNITY_MANAGEMENT, config, logger, db);
-    this.config = config;
   }
 
   public getCapabilities(): string[] {

@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { withApi } from '@/lib/api-auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { FileUploader, ContentType } from '@/lib/upload';
 import { LocalFileUploader } from '@/lib/local-storage';
+import { apiSuccess, apiError } from '@/lib/api-response';
 // AI content moderation - stub until AI module is fully configured
 interface ModerationResult {
   approved: boolean;
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
     try {
       // Check if user is an artist
       if (req.user.role !== 'ARTIST') {
-        return NextResponse.json({ error: 'Only artists can upload content' }, { status: 403 });
+        return apiError('FORBIDDEN', 'Only artists can upload content');
       }
 
       // Parse multipart form data
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest) {
       const file = formData.get('file') as File;
 
       if (!file) {
-        return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+        return apiError('BAD_REQUEST', 'No file provided');
       }
 
       // Parse metadata
@@ -69,10 +70,7 @@ export async function POST(request: NextRequest) {
         });
 
         if (userTiers.length !== validatedData.tierIds.length) {
-          return NextResponse.json(
-            { error: 'One or more specified tiers do not exist or are not owned by you' },
-            { status: 400 }
-          );
+          return apiError('BAD_REQUEST', 'One or more specified tiers do not exist or are not owned by you');
         }
       }
 
@@ -124,17 +122,7 @@ export async function POST(request: NextRequest) {
             riskLevel: moderationResult.riskLevel
           });
           
-          return NextResponse.json({
-            success: false,
-            error: 'Content moderation failed',
-            moderation: {
-              approved: moderationResult.approved,
-              riskLevel: moderationResult.riskLevel,
-              flags: moderationResult.flags,
-              recommendations: moderationResult.recommendations
-            },
-            message: 'Content did not pass AI moderation checks. Please review and try again.'
-          }, { status: 400 });
+          return apiError('BAD_REQUEST', 'Content moderation failed');
         }
       } else {
         logger.info('AI moderation skipped (admin override)', {
@@ -261,30 +249,16 @@ export async function POST(request: NextRequest) {
             : 'Content uploaded and approved by AI moderation')
         : 'Content uploaded successfully';
 
-      return NextResponse.json({
-        success: true,
-        message,
-        data: responseData,
-      });
+      return apiSuccess({ message,
+        data: responseData });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return NextResponse.json(
-          {
-            error: 'Invalid upload data',
-            details: error.errors,
-          },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'Invalid upload data', error.errors);
       }
 
       logger.error('Content upload error', { userId: req.user?.id }, error as Error);
 
-      return NextResponse.json(
-        {
-          error: error instanceof Error ? error.message : 'Failed to upload content',
-        },
-        { status: 500 }
-      );
+      return apiError('INTERNAL_ERROR', error instanceof Error ? error.message : 'Failed to upload content',);
     }
   });
 }
@@ -294,24 +268,19 @@ export async function PUT(request: NextRequest) {
   return withApi(request, async req => {
     try {
       if (req.user.role !== 'ARTIST') {
-        return NextResponse.json({ error: 'Only artists can upload content' }, { status: 403 });
+        return apiError('FORBIDDEN', 'Only artists can upload content');
       }
 
       const body = await request.json();
       const { fileName, contentType, fileSize } = body;
 
       if (!fileName || !contentType || !fileSize) {
-        return NextResponse.json(
-          { error: 'fileName, contentType, and fileSize are required' },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'fileName, contentType, and fileSize are required');
       }
 
       // For local storage, we don't use presigned URLs
       if (USE_LOCAL_STORAGE) {
-        return NextResponse.json({
-          error: 'Presigned URLs not supported with local storage. Use direct upload via POST /api/content/upload'
-        }, { status: 400 });
+        return apiError('BAD_REQUEST', 'Presigned URLs not supported with local storage. Use direct upload via POST /api/content/upload');
       }
 
       // Validate file type and size
@@ -320,25 +289,22 @@ export async function PUT(request: NextRequest) {
       const validation = FileUploader.validateFile(file, detectedContentType);
 
       if (!validation.isValid) {
-        return NextResponse.json({ error: validation.error }, { status: 400 });
+        return apiError('BAD_REQUEST', validation.error);
       }
 
       // Generate unique key and presigned URL
       const key = FileUploader.generateFileKey(req.user.id, detectedContentType, fileName);
       const uploadUrl = `/api/upload?key=${encodeURIComponent(key)}`; // Direct upload endpoint
 
-      return NextResponse.json({
-        success: true,
-        data: {
+      return apiSuccess({
           uploadUrl,
           key,
           contentType: detectedContentType,
-        },
-      });
+        });
     } catch (error) {
       logger.error('Presigned URL generation error', { userId: req.user?.id }, error as Error);
 
-      return NextResponse.json({ error: 'Failed to generate upload URL' }, { status: 500 });
+      return apiError('INTERNAL_ERROR', 'Failed to generate upload URL');
     }
   });
 }

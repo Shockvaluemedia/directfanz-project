@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { generatePresignedUrl, validateFileUpload } from '@/lib/s3';
 import { UnauthorizedError, ValidationError } from '@/lib/api-error-handler';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 const presignedUrlSchema = z.object({
   fileName: z.string().min(1, 'File name is required').max(255, 'File name too long'),
@@ -67,36 +68,21 @@ export async function POST(request: NextRequest) {
       key: uploadInfo.key,
     });
 
-    return NextResponse.json({
-      success: true,
-      data: uploadInfo,
-    });
+    return apiSuccess(uploadInfo);
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Invalid request data', details: error.errors },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'Invalid request data', error.errors);
     }
 
     if (error instanceof UnauthorizedError) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: 401 }
-      );
+      return apiError('UNAUTHORIZED', error.message);
     }
 
     if (error instanceof ValidationError) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', error.message);
     }
 
     const message = error instanceof Error ? error.message : 'Internal server error';
-    return NextResponse.json(
-      { error: message },
-      { status: 500 }
-    );
+    return apiError('INTERNAL_ERROR', message);
   }
 }

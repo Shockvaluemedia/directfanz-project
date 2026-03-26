@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { withApi } from '@/lib/api-auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { sendNotification } from '@/lib/notifications';
+import { apiSuccess, apiError } from '@/lib/api-response';
 // WebSocket instance - optional, only available when running with custom server
 const webSocketInstance: {
   emitToConversation: (...args: unknown[]) => void;
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest) {
       });
 
       if (!recipient) {
-        return NextResponse.json({ error: 'Recipient not found' }, { status: 404 });
+        return apiError('NOT_FOUND', 'Recipient not found');
       }
 
       // Business logic: Only allow fan-to-artist messaging for now
@@ -54,10 +55,7 @@ export async function POST(request: NextRequest) {
         });
 
         if (!hasActiveSubscription && recipient.role === 'ARTIST') {
-          return NextResponse.json(
-            { error: 'You must be subscribed to message this artist' },
-            { status: 403 }
-          );
+          return apiError('FORBIDDEN', 'You must be subscribed to message this artist');
         }
       }
 
@@ -122,9 +120,7 @@ export async function POST(request: NextRequest) {
         messageType: type,
       });
 
-      return NextResponse.json({
-        success: true,
-        message: 'Message sent successfully',
+      return apiSuccess({ message: 'Message sent successfully',
         data: {
           id: message.id,
           senderId: message.senderId,
@@ -135,21 +131,14 @@ export async function POST(request: NextRequest) {
           createdAt: message.createdAt,
           readAt: message.readAt,
           sender: message.users_messages_senderIdTousers,
-        },
-      });
+        } });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return NextResponse.json(
-          {
-            error: 'Invalid message data',
-            details: error.errors,
-          },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'Invalid message data', error.errors);
       }
 
       logger.error('Send message error', { userId: req.user?.id }, error as Error);
-      return NextResponse.json({ error: 'Failed to send message' }, { status: 500 });
+      return apiError('INTERNAL_ERROR', 'Failed to send message');
     }
   });
 }
@@ -173,7 +162,7 @@ export async function GET(request: NextRequest) {
       });
 
       if (!otherUser) {
-        return NextResponse.json({ error: 'User not found' }, { status: 404 });
+        return apiError('NOT_FOUND', 'User not found');
       }
 
       // Get messages from database
@@ -264,9 +253,7 @@ export async function GET(request: NextRequest) {
         },
       });
 
-      return NextResponse.json({
-        success: true,
-        data: {
+      return apiSuccess({
           messages: messages.reverse(), // Most recent first
           conversation: {
             id: `${req.user.id}_${params.conversationWith}`,
@@ -286,21 +273,14 @@ export async function GET(request: NextRequest) {
           limit: params.limit,
           offset: params.offset,
           hasMore: messages.length === params.limit, // If we got exactly limit, there might be more
-        },
-      });
+        });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return NextResponse.json(
-          {
-            error: 'Invalid parameters',
-            details: error.errors,
-          },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'Invalid parameters', error.errors);
       }
 
       logger.error('Get messages error', { userId: req.user?.id }, error as Error);
-      return NextResponse.json({ error: 'Failed to retrieve messages' }, { status: 500 });
+      return apiError('INTERNAL_ERROR', 'Failed to retrieve messages');
     }
   });
 }

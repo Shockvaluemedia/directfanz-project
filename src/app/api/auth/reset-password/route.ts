@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
+import { apiSuccess, apiError, apiValidationError } from '@/lib/api-response';
 
 const resetPasswordSchema = z.object({
   token: z.string().min(1, 'Reset token is required'),
@@ -33,10 +34,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!storedToken) {
-      return NextResponse.json(
-        { error: 'Invalid or expired password reset token' },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'Invalid or expired password reset token');
     }
 
     // Extract user ID from identifier
@@ -63,21 +61,15 @@ export async function POST(request: NextRequest) {
 
     logger.info('Password reset successful', { userId });
 
-    return NextResponse.json({
+    return apiSuccess({
       message: 'Password reset successfully. Please sign in with your new password.',
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
-        { status: 400 }
-      );
+      return apiValidationError(error.errors);
     }
 
     logger.error('Reset password error', {}, error as Error);
-    return NextResponse.json(
-      { error: 'Failed to reset password' },
-      { status: 500 }
-    );
+    return apiError('INTERNAL_ERROR', 'Failed to reset password');
   }
 }

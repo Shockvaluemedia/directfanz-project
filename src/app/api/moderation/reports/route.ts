@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { withApi, withAdminApi } from '@/lib/api-auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { sendEmail } from '@/lib/notifications';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 // Note: This would require adding Report model to schema.prisma
 // This is a placeholder implementation that would require schema updates
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest) {
       }
 
       if (!target) {
-        return NextResponse.json({ error: 'Target not found' }, { status: 404 });
+        return apiError('NOT_FOUND', 'Target not found');
       }
 
       // Check for duplicate reports from same user
@@ -91,7 +92,7 @@ export async function POST(request: NextRequest) {
       });
 
       if (existingReport) {
-        return NextResponse.json({ error: 'You have already reported this item' }, { status: 409 });
+        return apiError('CONFLICT', 'You have already reported this item');
       }
 
       // Create the report in the database
@@ -134,28 +135,19 @@ export async function POST(request: NextRequest) {
         reason,
       });
 
-      return NextResponse.json({
-        success: true,
-        message: 'Report submitted successfully. We will review it within 24 hours.',
+      return apiSuccess({ message: 'Report submitted successfully. We will review it within 24 hours.',
         data: {
           reportId: report.id,
           status: report.status,
           estimatedReviewTime: '24 hours',
-        },
-      });
+        } });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return NextResponse.json(
-          {
-            error: 'Invalid report data',
-            details: error.errors,
-          },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'Invalid report data', error.errors);
       }
 
       logger.error('Submit report error', { userId: req.user?.id }, error as Error);
-      return NextResponse.json({ error: 'Failed to submit report' }, { status: 500 });
+      return apiError('INTERNAL_ERROR', 'Failed to submit report');
     }
   });
 }
@@ -242,9 +234,7 @@ export async function GET(request: NextRequest) {
         reviewer: report.users_reports_reviewedByTousers,
       }));
 
-      return NextResponse.json({
-        success: true,
-        data: {
+      return apiSuccess({
           reports: formattedReports,
           stats: {
             total: totalCount,
@@ -260,11 +250,10 @@ export async function GET(request: NextRequest) {
           offset,
           total: totalCount,
           hasNext: offset + limit < totalCount,
-        },
-      });
+        });
     } catch (error) {
       logger.error('Get reports error', { adminId: req.user?.id }, error as Error);
-      return NextResponse.json({ error: 'Failed to fetch reports' }, { status: 500 });
+      return apiError('INTERNAL_ERROR', 'Failed to fetch reports');
     }
   });
 }
@@ -313,24 +302,15 @@ export async function PUT(request: NextRequest) {
         action,
       });
 
-      return NextResponse.json({
-        success: true,
-        message: 'Report updated successfully',
-        data: report,
-      });
+      return apiSuccess({ message: 'Report updated successfully',
+        data: report });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return NextResponse.json(
-          {
-            error: 'Invalid update data',
-            details: error.errors,
-          },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'Invalid update data', error.errors);
       }
 
       logger.error('Update report error', { adminId: req.user?.id }, error as Error);
-      return NextResponse.json({ error: 'Failed to update report' }, { status: 500 });
+      return apiError('INTERNAL_ERROR', 'Failed to update report');
     }
   });
 }

@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { syncInvoices } from '@/lib/billing';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 /**
  * Endpoint to sync invoices from Stripe to the local database
@@ -14,14 +15,14 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     const body = await request.json();
     const { subscriptionId } = body;
 
     if (!subscriptionId) {
-      return NextResponse.json({ error: 'Missing subscriptionId parameter' }, { status: 400 });
+      return apiError('BAD_REQUEST', 'Missing subscriptionId parameter');
     }
 
     // Get subscription and verify ownership
@@ -33,18 +34,18 @@ export async function POST(request: NextRequest) {
     });
 
     if (!subscription) {
-      return NextResponse.json({ error: 'Subscription not found' }, { status: 404 });
+      return apiError('NOT_FOUND', 'Subscription not found');
     }
 
     // Sync invoices from Stripe
     const result = await syncInvoices(subscriptionId);
 
-    return NextResponse.json({
+    return apiSuccess({
       message: 'Invoices synced successfully',
       result,
     });
   } catch (error) {
     logger.error('Error syncing invoices', {}, error as Error);
-    return NextResponse.json({ error: 'Failed to sync invoices' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Failed to sync invoices');
   }
 }

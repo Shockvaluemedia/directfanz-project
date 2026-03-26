@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { withAdminApi } from '@/lib/api-auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { safeParseURL } from '@/lib/api-utils';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
@@ -231,25 +232,16 @@ export async function GET(request: NextRequest) {
         metrics: params.metrics,
       });
 
-      return NextResponse.json({
-        success: true,
-        data: analytics,
+      return apiSuccess(analytics,
         period: params.period,
-        generatedAt: new Date().toISOString(),
-      });
+        generatedAt: new Date().toISOString());
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return NextResponse.json(
-          {
-            error: 'Invalid parameters',
-            details: error.errors,
-          },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'Invalid parameters', error.errors);
       }
 
       logger.error('Admin analytics endpoint error', { adminUserId: req.user?.id }, error as Error);
-      return NextResponse.json({ error: 'Failed to fetch analytics' }, { status: 500 });
+      return apiError('INTERNAL_ERROR', 'Failed to fetch analytics');
     }
   });
 }

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
@@ -9,13 +9,14 @@ import {
   sendInvoiceNotification,
   processInvoicePayment,
 } from '@/lib/invoice';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     const invoice = await getInvoiceById(params.id);
@@ -29,18 +30,18 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     });
 
     if (!subscription) {
-      return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
+      return apiError('NOT_FOUND', 'Invoice not found');
     }
 
-    return NextResponse.json({ invoice });
+    return apiSuccess({ invoice });
   } catch (error) {
     logger.error(`Error retrieving invoice ${params.id}`, {}, error as Error);
 
     if (error instanceof Error && error.message === 'Invoice not found') {
-      return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
+      return apiError('NOT_FOUND', 'Invoice not found');
     }
 
-    return NextResponse.json({ error: 'Failed to retrieve invoice' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Failed to retrieve invoice');
   }
 }
 
@@ -49,14 +50,14 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     const body = await request.json();
     const { action } = body;
 
     if (!action) {
-      return NextResponse.json({ error: 'Missing action parameter' }, { status: 400 });
+      return apiError('BAD_REQUEST', 'Missing action parameter');
     }
 
     // Get invoice and verify ownership
@@ -70,27 +71,24 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     });
 
     if (!subscription) {
-      return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
+      return apiError('NOT_FOUND', 'Invoice not found');
     }
 
     switch (action) {
       case 'send-notification':
         await sendInvoiceNotification(params.id);
-        return NextResponse.json({
+        return apiSuccess({
           message: 'Invoice notification sent successfully',
         });
 
       case 'process-payment':
         // Only fans can process payments
         if (subscription.fanId !== session.user.id) {
-          return NextResponse.json(
-            { error: 'Only the subscriber can process payments' },
-            { status: 403 }
-          );
+          return apiError('FORBIDDEN', 'Only the subscriber can process payments');
         }
 
         const result = await processInvoicePayment(params.id);
-        return NextResponse.json({
+        return apiSuccess({
           message: result.alreadyPaid
             ? 'Invoice was already paid'
             : 'Payment processed successfully',
@@ -98,15 +96,15 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         });
 
       default:
-        return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+        return apiError('BAD_REQUEST', 'Invalid action');
     }
   } catch (error) {
     logger.error(`Error processing invoice action for ${params.id}`, {}, error as Error);
 
     if (error instanceof Error && error.message === 'Invoice not found') {
-      return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
+      return apiError('NOT_FOUND', 'Invoice not found');
     }
 
-    return NextResponse.json({ error: 'Failed to process invoice action' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Failed to process invoice action');
   }
 }

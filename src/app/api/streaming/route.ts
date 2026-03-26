@@ -1,15 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     const user = await prisma.users.findUnique({
@@ -18,13 +19,13 @@ export async function POST(request: NextRequest) {
     });
 
     if (user?.role !== 'ARTIST') {
-      return NextResponse.json({ error: 'Only artists can create streams' }, { status: 403 });
+      return apiError('FORBIDDEN', 'Only artists can create streams');
     }
 
     const { title, description, category = 'Music' } = await request.json();
 
     if (!title?.trim()) {
-      return NextResponse.json({ error: 'Stream title required' }, { status: 400 });
+      return apiError('BAD_REQUEST', 'Stream title required');
     }
 
     // Generate stream key for WebRTC signaling
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    return NextResponse.json({
+    return apiSuccess({
       streamId: stream.id,
       title: stream.title,
       streamKey,
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     logger.error('Stream creation error', {}, error as Error);
-    return NextResponse.json({ error: 'Failed to create stream' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Failed to create stream');
   }
 }
 
@@ -84,10 +85,10 @@ export async function GET(request: NextRequest) {
       take: 20
     });
 
-    return NextResponse.json({ streams });
+    return apiSuccess({ streams });
 
   } catch (error) {
     logger.error('Stream fetch error', {}, error as Error);
-    return NextResponse.json({ error: 'Failed to fetch streams' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Failed to fetch streams');
   }
 }

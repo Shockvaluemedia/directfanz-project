@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 // GET /api/challenges/[challengeId]/leaderboard - Get challenge leaderboard
 export async function GET(request: NextRequest, { params }: { params: { challengeId: string } }) {
@@ -10,7 +11,7 @@ export async function GET(request: NextRequest, { params }: { params: { challeng
   try {
     session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     const { searchParams } = new URL(request.url);
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest, { params }: { params: { challeng
     });
 
     if (!challenge) {
-      return NextResponse.json({ error: 'Challenge not found' }, { status: 404 });
+      return apiError('NOT_FOUND', 'Challenge not found');
     }
 
     // Check access permissions
@@ -44,7 +45,7 @@ export async function GET(request: NextRequest, { params }: { params: { challeng
       challenge.status === 'COMPLETED';
 
     if (!canView) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      return apiError('FORBIDDEN', 'Access denied');
     }
 
     // Get main leaderboard
@@ -119,7 +120,7 @@ export async function GET(request: NextRequest, { params }: { params: { challeng
       },
     });
 
-    return NextResponse.json({
+    return apiSuccess({
       challenge: {
         id: challenge.id,
         title: challenge.title,
@@ -150,7 +151,7 @@ export async function GET(request: NextRequest, { params }: { params: { challeng
       },
       error as Error
     );
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Internal server error');
   }
 }
 
@@ -160,7 +161,7 @@ export async function POST(request: NextRequest, { params }: { params: { challen
   try {
     session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     // Check if user is the challenge owner or admin
@@ -174,11 +175,11 @@ export async function POST(request: NextRequest, { params }: { params: { challen
     });
 
     if (!challenge) {
-      return NextResponse.json({ error: 'Challenge not found' }, { status: 404 });
+      return apiError('NOT_FOUND', 'Challenge not found');
     }
 
     if (challenge.campaigns.artistId !== session.user.id && session.user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      return apiError('FORBIDDEN', 'Access denied');
     }
 
     // Recalculate leaderboard
@@ -190,7 +191,7 @@ export async function POST(request: NextRequest, { params }: { params: { challen
       updatedEntries: updatedLeaderboard.length,
     });
 
-    return NextResponse.json({
+    return apiSuccess({
       message: 'Leaderboard recalculated successfully',
       updatedEntries: updatedLeaderboard.length,
     });
@@ -203,7 +204,7 @@ export async function POST(request: NextRequest, { params }: { params: { challen
       },
       error as Error
     );
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Internal server error');
   }
 }
 

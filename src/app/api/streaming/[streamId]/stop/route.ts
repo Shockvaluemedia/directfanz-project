@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { withStreamManagement, updateStreamStatus } from '@/lib/streaming-auth';
 import { triggerStreamEvent } from '@/lib/pusher';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 export async function POST(
   request: NextRequest,
@@ -13,20 +14,14 @@ export async function POST(
       const { streamId } = params;
 
       if (!streamId) {
-        return NextResponse.json(
-          { error: 'Stream ID is required' },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'Stream ID is required');
       }
 
       // Update stream status and set endedAt timestamp
       const updated = await updateStreamStatus(streamId, 'stopped');
 
       if (!updated) {
-        return NextResponse.json(
-          { error: 'Failed to stop stream' },
-          { status: 500 }
-        );
+        return apiError('INTERNAL_ERROR', 'Failed to stop stream');
       }
 
       const endedAt = new Date();
@@ -49,7 +44,7 @@ export async function POST(
         endedAt: endedAt.toISOString(),
       });
 
-      return NextResponse.json({
+      return apiSuccess({
         streamId,
         status: 'ENDED',
         message: 'Stream has ended',
@@ -57,10 +52,7 @@ export async function POST(
       });
     } catch (error) {
       logger.error('Stream stop error', {}, error as Error);
-      return NextResponse.json(
-        { error: 'Failed to stop stream' },
-        { status: 500 }
-      );
+      return apiError('INTERNAL_ERROR', 'Failed to stop stream');
     }
   });
 }

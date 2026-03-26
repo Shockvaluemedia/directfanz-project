@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { GDPRComplianceService } from '@/lib/legal-compliance';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 const consentPostSchema = z.object({
   categories: z
@@ -23,27 +24,14 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized. You must be logged in to manage consent.' },
-        { status: 401 }
-      );
+      return apiError('UNAUTHORIZED', 'Unauthorized. You must be logged in to manage consent.');
     }
 
     const body = await request.json();
     const parsed = consentPostSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Validation failed',
-          details: parsed.error.errors.map(e => ({
-            field: e.path.join('.'),
-            message: e.message,
-          })),
-        },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'Validation failed');
     }
 
     const { categories, source } = parsed.data;
@@ -66,23 +54,14 @@ export async function POST(request: NextRequest) {
       consentIds.push(consentId);
     }
 
-    return NextResponse.json({
-      success: true,
-      consentIds,
-      message: 'Consent preferences have been recorded successfully.',
-    });
+    return apiSuccess({ consentIds,
+      message: 'Consent preferences have been recorded successfully.' });
   } catch (error) {
     if (error instanceof SyntaxError) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid JSON in request body' },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'Invalid JSON in request body');
     }
     logger.error('Consent recording error', {}, error as Error);
-    return NextResponse.json(
-      { success: false, error: 'An internal error occurred while recording consent' },
-      { status: 500 }
-    );
+    return apiError('INTERNAL_ERROR', 'An internal error occurred while recording consent');
   }
 }
 
@@ -92,10 +71,7 @@ export async function GET() {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized. You must be logged in to view consent records.' },
-        { status: 401 }
-      );
+      return apiError('UNAUTHORIZED', 'Unauthorized. You must be logged in to view consent records.');
     }
 
     const consents = await GDPRComplianceService.getUserConsents(session.user.id);
@@ -107,16 +83,10 @@ export async function GET() {
       consentSummary[category] = hasConsent;
     }
 
-    return NextResponse.json({
-      success: true,
-      consents,
-      summary: consentSummary,
-    });
+    return apiSuccess({ consents,
+      summary: consentSummary });
   } catch (error) {
     logger.error('Get consents error', {}, error as Error);
-    return NextResponse.json(
-      { success: false, error: 'An internal error occurred while retrieving consent records' },
-      { status: 500 }
-    );
+    return apiError('INTERNAL_ERROR', 'An internal error occurred while retrieving consent records');
   }
 }

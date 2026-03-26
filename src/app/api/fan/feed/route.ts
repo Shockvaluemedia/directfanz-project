@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 interface ContentWithRelations {
   id: string;
@@ -36,10 +37,7 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions) as any;
 
     if (!session?.user?.id || session.user.role !== 'FAN') {
-      return NextResponse.json(
-        { error: { code: 'UNAUTHORIZED', message: 'Fan authentication required' } },
-        { status: 401 }
-      );
+      return apiError('UNAUTHORIZED', { code: 'UNAUTHORIZED', message: 'Fan authentication required' });
     }
 
     const { searchParams } = new URL(request.url);
@@ -284,9 +282,7 @@ export async function GET(request: NextRequest) {
       })
     );
 
-    return NextResponse.json({
-      success: true,
-      data: {
+    return apiSuccess({
         content: contentWithEngagement,
         pagination: {
           page,
@@ -294,13 +290,9 @@ export async function GET(request: NextRequest) {
           total,
           pages: Math.ceil(total / limit),
         },
-      },
-    });
+      });
   } catch (error) {
     logger.error('Feed error', {}, error as Error);
-    return NextResponse.json(
-      { error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch content feed' } },
-      { status: 500 }
-    );
+    return apiError('INTERNAL_ERROR', { code: 'INTERNAL_ERROR', message: 'Failed to fetch content feed' });
   }
 }

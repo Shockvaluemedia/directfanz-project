@@ -1,4 +1,3 @@
-// @ts-nocheck — config property narrowing requires BaseAgent generic refactor
 import { BaseAgent, AgentType, AgentTask, AgentResponse, AgentConfig } from '../base-agent';
 import { Logger } from '@/lib/logger';
 import type { Database } from '../base-agent';
@@ -217,8 +216,7 @@ export interface PredictiveAnalyticsConfig extends AgentConfig {
 }
 
 // Predictive Analytics AI Agent for forecasting and business intelligence
-export class PredictiveAnalyticsAgent extends BaseAgent {
-  private readonly config: PredictiveAnalyticsConfig;
+export class PredictiveAnalyticsAgent extends BaseAgent<PredictiveAnalyticsConfig> {
   private readonly forecastCache: Map<string, RevenueForecast> = new Map();
   private readonly churnPredictions: Map<string, ChurnAnalysis> = new Map();
   private readonly contentPredictions: Map<string, PerformancePrediction> = new Map();
@@ -231,7 +229,6 @@ export class PredictiveAnalyticsAgent extends BaseAgent {
     db?: Database
   ) {
     super(id, AgentType.PREDICTIVE_ANALYTICS, config, logger, db);
-    this.config = config;
   }
 
   public getCapabilities(): string[] {

@@ -1,4 +1,3 @@
-// @ts-nocheck — barrel file + factory class; agent config types need full alignment
 // Core AI Agent System
 export { BaseAgent, AgentType, AgentStatus, type AgentConfig, type AgentContext, type AgentTask, type AgentResponse, type AgentMetrics } from './base-agent';
 

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
@@ -9,6 +9,7 @@ import { prisma } from '@/lib/prisma';
 import { safeParseURL } from '@/lib/api-utils';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 const searchSchema = z.object({
   search: z.string().optional(),
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     // Get user and verify they are a fan
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!user || user.role !== 'FAN') {
-      return NextResponse.json({ error: 'Only fans can discover artists' }, { status: 403 });
+      return apiError('FORBIDDEN', 'Only fans can discover artists');
     }
 
     const url = safeParseURL(request);
@@ -128,7 +129,7 @@ export async function GET(request: NextRequest) {
       where: whereClause,
     });
 
-    return NextResponse.json({
+    return apiSuccess({
       artists,
       pagination: {
         total: totalCount,
@@ -141,12 +142,9 @@ export async function GET(request: NextRequest) {
     logger.error('Get artists error', {}, error as Error);
 
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Invalid request parameters', details: error.errors },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'Invalid request parameters', error.errors);
     }
 
-    return NextResponse.json({ error: 'Failed to fetch artists' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Failed to fetch artists');
   }
 }

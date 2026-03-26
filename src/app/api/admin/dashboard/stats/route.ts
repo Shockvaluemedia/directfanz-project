@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
@@ -8,13 +8,14 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 export async function GET(_request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     // Verify user is an admin
@@ -26,7 +27,7 @@ export async function GET(_request: NextRequest) {
     const isAdmin = user?.role === 'ADMIN' || user?.email === 'admin@directfan.com';
     
     if (!isAdmin) {
-      return NextResponse.json({ error: 'Access denied. Admin role required.' }, { status: 403 });
+      return apiError('FORBIDDEN', 'Access denied. Admin role required.');
     }
 
     // Calculate date ranges for analytics
@@ -198,16 +199,13 @@ export async function GET(_request: NextRequest) {
       stats,
     });
 
-    return NextResponse.json({
-      success: true,
-      data: {
+    return apiSuccess({
         stats,
         recentActivity: formattedActivity,
-      },
-    });
+      });
     
   } catch (error) {
     logger.error('Admin dashboard stats error', {}, error as Error);
-    return NextResponse.json({ error: 'Failed to fetch admin dashboard stats' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Failed to fetch admin dashboard stats');
   }
 }
