@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { syncInvoices } from '@/lib/billing';
+import { logger } from '@/lib/logger';
 
 /**
  * Endpoint to sync invoices from Stripe to the local database
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
       result,
     });
   } catch (error) {
-    console.error('Error syncing invoices:', error);
+    logger.error('Error syncing invoices', {}, error as Error);
     return NextResponse.json({ error: 'Failed to sync invoices' }, { status: 500 });
   }
 }

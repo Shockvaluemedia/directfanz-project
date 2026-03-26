@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { generatePresignedUrl, validateFileUpload } from '@/lib/s3';
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
 
 const uploadRequestSchema = z.object({
   fileName: z.string().min(1, 'File name is required'),
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest) {
       data: presignedUrlData,
     });
   } catch (error) {
-    console.error('Upload URL generation error:', error);
+    logger.error('Upload URL generation error', {}, error as Error);
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(

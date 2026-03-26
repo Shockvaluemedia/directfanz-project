@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { stripe } from '@/lib/stripe';
 import { generateInvoiceData } from '@/lib/billing';
 import { randomUUID } from 'crypto';
+import { logger } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -49,7 +50,7 @@ export async function GET(request: NextRequest) {
         const invoiceData = await generateInvoiceData(invoice.id);
         invoices.push(invoiceData);
       } catch (error) {
-        console.error(`Error generating invoice data for ${invoice.id}:`, error);
+        logger.error(`Error generating invoice data for ${invoice.id}`, {}, error as Error);
         // Continue with other invoices
       }
     }
@@ -59,7 +60,7 @@ export async function GET(request: NextRequest) {
       hasMore: stripeInvoices.has_more,
     });
   } catch (error) {
-    console.error('Error retrieving invoices:', error);
+    logger.error('Error retrieving invoices', {}, error as Error);
     return NextResponse.json({ error: 'Failed to retrieve invoices' }, { status: 500 });
   }
 }
@@ -133,7 +134,7 @@ export async function POST(request: NextRequest) {
       invoice,
     });
   } catch (error) {
-    console.error('Error storing invoice:', error);
+    logger.error('Error storing invoice', {}, error as Error);
     return NextResponse.json({ error: 'Failed to store invoice' }, { status: 500 });
   }
 }

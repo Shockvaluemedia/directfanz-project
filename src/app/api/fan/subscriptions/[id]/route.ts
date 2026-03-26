@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { stripe } from '@/lib/stripe';
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
 
 const updateSubscriptionSchema = z.object({
   amount: z.number().min(0.01).optional(),
@@ -43,7 +44,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
     return NextResponse.json({ subscription });
   } catch (error) {
-    console.error('Get subscription error:', error);
+    logger.error('Get subscription error', {}, error as Error);
     return NextResponse.json({ error: 'Failed to fetch subscription' }, { status: 500 });
   }
 }
@@ -119,7 +120,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
           amount,
         });
       } catch (stripeError) {
-        console.error('Stripe update error:', stripeError);
+        logger.error('Stripe update error', {}, stripeError as Error);
         return NextResponse.json(
           { error: 'Failed to update subscription with payment provider' },
           { status: 500 }
@@ -129,7 +130,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     return NextResponse.json({ message: 'No changes made' });
   } catch (error) {
-    console.error('Update subscription error:', error);
+    logger.error('Update subscription error', {}, error as Error);
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -180,14 +181,14 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
         message: 'Subscription canceled successfully',
       });
     } catch (stripeError) {
-      console.error('Stripe cancellation error:', stripeError);
+      logger.error('Stripe cancellation error', {}, stripeError as Error);
       return NextResponse.json(
         { error: 'Failed to cancel subscription with payment provider' },
         { status: 500 }
       );
     }
   } catch (error) {
-    console.error('Cancel subscription error:', error);
+    logger.error('Cancel subscription error', {}, error as Error);
     return NextResponse.json({ error: 'Failed to cancel subscription' }, { status: 500 });
   }
 }

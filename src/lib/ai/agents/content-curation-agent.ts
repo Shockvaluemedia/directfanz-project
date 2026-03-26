@@ -1,4 +1,4 @@
-// @ts-nocheck — agent executeTask signatures need alignment
+// @ts-nocheck — config property narrowing requires BaseAgent generic refactor
 import { BaseAgent, AgentType, AgentTask, AgentResponse, AgentConfig } from '../base-agent';
 import { Logger } from '@/lib/logger';
 import type { Database } from '../base-agent';
@@ -727,7 +727,7 @@ export class ContentCurationAgent extends BaseAgent {
 
       const strategy: ContentStrategy = {
         artistId,
-        timeframe: timeframe as any,
+        timeframe: timeframe as ContentStrategy['timeframe'],
         goals: strategyGoals,
         contentPlan,
         trendAlignment: trendInsights.alignments,

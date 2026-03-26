@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withArtistStreaming, createStreamSession } from '@/lib/streaming-auth';
+import { logger } from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   return withArtistStreaming<any>(request, async (req) => {
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
         streamKey: streamSession.streamKey, // Only return to stream owner
       });
     } catch (error) {
-      console.error('Stream creation error:', error);
+      logger.error('Stream creation error', {}, error as Error);
       return NextResponse.json(
         { error: 'Failed to create stream' },
         { status: 500 }

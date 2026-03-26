@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { GDPRComplianceService } from '@/lib/legal-compliance';
+import { logger } from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ error: result.error }, { status: 500 });
   } catch (error) {
-    console.error('GDPR request error:', error);
+    logger.error('GDPR request error', {}, error as Error);
     return NextResponse.json({ error: 'Failed to submit GDPR request' }, { status: 500 });
   }
 }
@@ -72,7 +73,7 @@ export async function GET(request: NextRequest) {
     const userData = await GDPRComplianceService.exportUserData(session.user.id);
     return NextResponse.json({ data: userData });
   } catch (error) {
-    console.error('GDPR request error:', error);
+    logger.error('GDPR request error', {}, error as Error);
     return NextResponse.json({ error: 'Failed to process request' }, { status: 500 });
   }
 }

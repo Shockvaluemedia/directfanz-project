@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { retryPayment, getPaymentFailures, getArtistPaymentFailures } from '@/lib/payment-retry';
+import { logger } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -46,7 +47,7 @@ export async function GET(request: NextRequest) {
       );
     }
   } catch (error) {
-    console.error('Error retrieving payment failures:', error);
+    logger.error('Error retrieving payment failures', {}, error as Error);
     return NextResponse.json({ error: 'Failed to retrieve payment failures' }, { status: 500 });
   }
 }
@@ -100,7 +101,7 @@ export async function POST(request: NextRequest) {
           : 'Payment retry failed, will try again later',
     });
   } catch (error) {
-    console.error('Error retrying payment:', error);
+    logger.error('Error retrying payment', {}, error as Error);
     return NextResponse.json({ error: 'Failed to retry payment' }, { status: 500 });
   }
 }

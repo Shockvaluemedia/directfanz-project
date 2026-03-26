@@ -1,4 +1,4 @@
-// @ts-nocheck — agent executeTask signatures need alignment
+// @ts-nocheck — config property narrowing requires BaseAgent generic refactor
 import { BaseAgent, AgentType, AgentTask, AgentResponse, AgentConfig } from '../base-agent';
 import { Logger } from '@/lib/logger';
 import type { Database } from '../base-agent';
@@ -334,7 +334,7 @@ export class RecommendationAgent extends BaseAgent {
       const reasoning: RecommendationReasoning = {
         primaryFactors: this.getPrimaryFactors(userProfile, context),
         userSegment: this.getUserSegment(userProfile),
-        strategy: strategy.name as any,
+        strategy: strategy.name as RecommendationReasoning['strategy'],
         confidence: strategy.confidence,
         alternatives: strategy.alternatives,
       };

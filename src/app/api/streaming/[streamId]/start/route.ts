@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withStreamManagement, updateStreamStatus } from '@/lib/streaming-auth';
 import { triggerStreamEvent } from '@/lib/pusher';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 
 export async function POST(
   request: NextRequest,
@@ -47,7 +48,7 @@ export async function POST(
         startedAt: new Date().toISOString(),
       });
     } catch (error) {
-      console.error('Stream start error:', error);
+      logger.error('Stream start error', {}, error as Error);
       return NextResponse.json(
         { error: 'Failed to start stream' },
         { status: 500 }

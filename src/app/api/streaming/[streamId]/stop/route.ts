@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withStreamManagement, updateStreamStatus } from '@/lib/streaming-auth';
 import { triggerStreamEvent } from '@/lib/pusher';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 
 export async function POST(
   request: NextRequest,
@@ -55,7 +56,7 @@ export async function POST(
         endedAt: endedAt.toISOString(),
       });
     } catch (error) {
-      console.error('Stream stop error:', error);
+      logger.error('Stream stop error', {}, error as Error);
       return NextResponse.json(
         { error: 'Failed to stop stream' },
         { status: 500 }

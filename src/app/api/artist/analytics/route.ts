@@ -14,6 +14,7 @@ import {
   getChurnAnalysis,
 } from '@/lib/analytics';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -204,7 +205,7 @@ export async function GET(request: NextRequest) {
       data: analytics,
     });
   } catch (error) {
-    console.error('Analytics API error:', error);
+    logger.error('Analytics API error', {}, error as Error);
     return NextResponse.json({ error: 'Failed to fetch analytics data' }, { status: 500 });
   }
 }

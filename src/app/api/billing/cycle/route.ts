@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 import {
   getBillingCycleInfo,
   getUpcomingInvoices,
@@ -88,7 +89,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Invalid action parameter' }, { status: 400 });
     }
   } catch (error) {
-    console.error('Billing cycle error:', error);
+    logger.error('Billing cycle error', {}, error as Error);
     return NextResponse.json({ error: 'Failed to process billing cycle request' }, { status: 500 });
   }
 }
@@ -153,7 +154,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
   } catch (error) {
-    console.error('Billing cycle process error:', error);
+    logger.error('Billing cycle process error', {}, error as Error);
     return NextResponse.json({ error: 'Failed to process billing cycle action' }, { status: 500 });
   }
 }

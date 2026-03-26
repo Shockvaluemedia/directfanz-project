@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { GDPRComplianceService } from '@/lib/legal-compliance';
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
 
 const gdprRequestSchema = z.object({
   type: z.enum(['DATA_EXPORT', 'DATA_DELETION', 'DATA_PORTABILITY', 'DATA_RECTIFICATION'], {
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    console.error('GDPR request submission error:', error);
+    logger.error('GDPR request submission error', {}, error as Error);
     return NextResponse.json(
       { success: false, error: 'An internal error occurred while submitting your GDPR request' },
       { status: 500 }

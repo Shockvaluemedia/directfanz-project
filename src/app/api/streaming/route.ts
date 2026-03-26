@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { v4 as uuidv4 } from 'uuid';
+import { logger } from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Stream creation error:', error);
+    logger.error('Stream creation error', {}, error as Error);
     return NextResponse.json({ error: 'Failed to create stream' }, { status: 500 });
   }
 }
@@ -86,7 +87,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ streams });
 
   } catch (error) {
-    console.error('Stream fetch error:', error);
+    logger.error('Stream fetch error', {}, error as Error);
     return NextResponse.json({ error: 'Failed to fetch streams' }, { status: 500 });
   }
 }

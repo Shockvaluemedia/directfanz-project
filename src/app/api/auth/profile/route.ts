@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 import { getCurrentUser, updateUserProfile, updateProfileSchema } from '@/lib/auth-utils';
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
 
 export async function GET() {
   try {
@@ -26,7 +27,7 @@ export async function GET() {
       user: userProfile,
     });
   } catch (error) {
-    console.error('Profile fetch error:', error);
+    logger.error('Profile fetch error', {}, error as Error);
 
     return NextResponse.json(
       {
@@ -66,7 +67,7 @@ export async function PUT(request: NextRequest) {
       user: userProfile,
     });
   } catch (error) {
-    console.error('Profile update error:', error);
+    logger.error('Profile update error', {}, error as Error);
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(

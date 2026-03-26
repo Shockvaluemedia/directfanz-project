@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getUserAccessibleContent, getContentAccessSummary } from '@/lib/content-access';
 import { UserRole } from '@/types/database';
+import { logger } from '@/lib/logger';
 
 // Get accessible content for a specific artist
 export async function GET(request: NextRequest, { params }: { params: { artistId: string } }) {
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest, { params }: { params: { artistId
       data: result,
     });
   } catch (error) {
-    console.error('Fan content access error:', error);
+    logger.error('Fan content access error', {}, error as Error);
     return NextResponse.json({ error: 'Failed to fetch accessible content' }, { status: 500 });
   }
 }

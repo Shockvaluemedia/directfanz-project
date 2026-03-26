@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { updateCommentSchema } from '@/lib/validations';
 import { checkPermission } from '@/lib/rbac';
+import { logger } from '@/lib/logger';
 
 // GET /api/fan/comments/[id]
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
     return NextResponse.json({ comment });
   } catch (error) {
-    console.error('Error fetching comment:', error);
+    logger.error('Error fetching comment', {}, error as Error);
     return NextResponse.json({ error: 'Failed to fetch comment' }, { status: 500 });
   }
 }
@@ -99,7 +100,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: error.errors }, { status: 400 });
     }
 
-    console.error('Error updating comment:', error);
+    logger.error('Error updating comment', {}, error as Error);
     return NextResponse.json({ error: 'Failed to update comment' }, { status: 500 });
   }
 }
@@ -138,7 +139,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting comment:', error);
+    logger.error('Error deleting comment', {}, error as Error);
     return NextResponse.json({ error: 'Failed to delete comment' }, { status: 500 });
   }
 }

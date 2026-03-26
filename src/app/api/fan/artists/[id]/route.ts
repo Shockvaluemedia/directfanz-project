@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -105,7 +106,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       existingSubscriptions,
     });
   } catch (error) {
-    console.error('Get artist error:', error);
+    logger.error('Get artist error', {}, error as Error);
     return NextResponse.json({ error: 'Failed to fetch artist' }, { status: 500 });
   }
 }

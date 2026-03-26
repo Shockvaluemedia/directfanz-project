@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Local file upload error:', error);
+    logger.error('Local file upload error', {}, error as Error);
     
     return NextResponse.json(
       { 

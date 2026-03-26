@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { contentOptimizer } from '@/lib/content-optimization';
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
 
 const optimizeRequestSchema = z.object({
   filePath: z.string().min(1, 'File path is required'),
@@ -73,7 +74,7 @@ export async function POST(request: NextRequest) {
           strategy: validatedData.strategy,
           onProgress: (completed, total) => {
             // In a real implementation, you might want to emit progress via WebSocket
-            console.log(`Batch optimization progress: ${completed}/${total}`);
+            logger.info(`Batch optimization progress: ${completed}/${total}`);
           },
         }
       );
@@ -116,7 +117,7 @@ export async function POST(request: NextRequest) {
       });
     }
   } catch (error) {
-    console.error('Content optimization error:', error);
+    logger.error('Content optimization error', {}, error as Error);
 
     if (error instanceof z.ZodError) {
       let errorMessage = 'Validation error';
@@ -237,7 +238,7 @@ export async function GET(request: NextRequest) {
       { status: 400 }
     );
   } catch (error) {
-    console.error('Content optimization GET error:', error);
+    logger.error('Content optimization GET error', {}, error as Error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

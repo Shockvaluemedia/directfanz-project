@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 
 export async function POST(
   request: NextRequest,
@@ -77,7 +78,7 @@ export async function POST(
     }
 
   } catch (error) {
-    console.error('Stream action error:', error);
+    logger.error('Stream action error', {}, error as Error);
     return NextResponse.json({ error: 'Stream action failed' }, { status: 500 });
   }
 }
@@ -155,7 +156,7 @@ export async function GET(
     });
 
   } catch (error) {
-    console.error('Stream fetch error:', error);
+    logger.error('Stream fetch error', {}, error as Error);
     return NextResponse.json({ error: 'Failed to fetch stream' }, { status: 500 });
   }
 }

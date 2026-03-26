@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withFanStreaming, generateStreamAccessUrl, checkStreamAccess } from '@/lib/streaming-auth';
+import { logger } from '@/lib/logger';
 
 export async function GET(
   request: NextRequest,
@@ -54,7 +55,7 @@ export async function GET(
         quality: 'adaptive',
       });
     } catch (error) {
-      console.error('Stream access error:', error);
+      logger.error('Stream access error', {}, error as Error);
       return NextResponse.json(
         { error: 'Failed to get stream access' },
         { status: 500 }

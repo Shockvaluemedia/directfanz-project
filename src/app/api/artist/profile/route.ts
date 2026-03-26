@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 import { withArtistApi } from '@/lib/api-auth';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   return withArtistApi(request, async req => {
@@ -50,7 +51,7 @@ export async function GET(request: NextRequest) {
         },
       });
     } catch (error) {
-      console.error('Artist profile fetch error:', error);
+      logger.error('Artist profile fetch error', {}, error as Error);
       return NextResponse.json({ error: 'Failed to fetch artist profile' }, { status: 500 });
     }
   });
@@ -81,7 +82,7 @@ export async function PUT(request: NextRequest) {
         data: updatedArtist,
       });
     } catch (error) {
-      console.error('Artist profile update error:', error);
+      logger.error('Artist profile update error', {}, error as Error);
       return NextResponse.json({ error: 'Failed to update artist profile' }, { status: 500 });
     }
   });

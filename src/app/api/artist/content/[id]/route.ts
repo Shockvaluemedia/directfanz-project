@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { deleteFile, extractKeyFromUrl } from '@/lib/s3';
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
 
 const updateContentSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title too long').optional(),
@@ -52,7 +53,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       data: content,
     });
   } catch (error) {
-    console.error('Content fetch error:', error);
+    logger.error('Content fetch error', {}, error as Error);
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch content' } },
       { status: 500 }
@@ -146,7 +147,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       data: updatedContent,
     });
   } catch (error) {
-    console.error('Content update error:', error);
+    logger.error('Content update error', {}, error as Error);
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -205,7 +206,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
         await deleteFile(thumbnailKey);
       }
     } catch (s3Error) {
-      console.error('S3 deletion error:', s3Error);
+      logger.error('S3 deletion error', {}, s3Error as Error);
       // Continue with database deletion even if S3 deletion fails
     }
 
@@ -219,7 +220,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       message: 'Content deleted successfully',
     });
   } catch (error) {
-    console.error('Content deletion error:', error);
+    logger.error('Content deletion error', {}, error as Error);
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: 'Failed to delete content' } },
       { status: 500 }

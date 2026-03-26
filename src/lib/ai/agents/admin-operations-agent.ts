@@ -1,4 +1,4 @@
-// @ts-nocheck — agent executeTask signatures need alignment
+// @ts-nocheck — config property narrowing requires BaseAgent generic refactor
 import { BaseAgent, AgentType, AgentTask, AgentResponse, AgentConfig } from '../base-agent';
 import { Logger } from '@/lib/logger';
 import type { Database } from '../base-agent';
@@ -624,7 +624,7 @@ export class AdminOperationsAgent extends BaseAgent {
         );
 
         const optimization: ResourceOptimization = {
-          resourceType: type as any,
+          resourceType: type as ResourceOptimization['resourceType'],
           currentUsage,
           optimizedUsage: await this.calculateOptimizedUsage(currentUsage, recommendations),
           potentialSavings,
@@ -679,7 +679,7 @@ export class AdminOperationsAgent extends BaseAgent {
       // Record the action
       const actionRecord: AdminAction = {
         id: `action_${Date.now()}`,
-        type: action as any,
+        type: action as AdminAction['type'],
         targetId: criteria.targetId || 'bulk',
         targetType: criteria.targetType || 'user',
         reason: parameters.reason || 'Admin operation',
@@ -843,7 +843,7 @@ export class AdminOperationsAgent extends BaseAgent {
 
     return componentList.map(component => ({
       name: component,
-      type: component as any,
+      type: component as ComponentHealth['type'],
       status: Math.random() > 0.1 ? 'healthy' : 'warning',
       responseTime: Math.random() * 100 + 50,
       errorRate: Math.random() * 0.05,

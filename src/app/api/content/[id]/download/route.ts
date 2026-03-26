@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withContentAccess } from '@/middleware/content-access';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 
 // Download content with access control
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         },
       });
     } catch (error) {
-      console.error('Content download error:', error);
+      logger.error('Content download error', {}, error as Error);
       return NextResponse.json({ error: 'Download failed' }, { status: 500 });
     }
   });
@@ -50,10 +51,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
 async function logDownloadActivity(userId: string, contentId: string) {
   try {
-    console.log(
-      `Download: User ${userId} downloaded content ${contentId} at ${new Date().toISOString()}`
-    );
+    logger.info(`Download: User ${userId} downloaded content ${contentId} at ${new Date().toISOString()}`);
   } catch (error) {
-    console.error('Download logging error:', error);
+    logger.error('Download logging error', {}, error as Error);
   }
 }

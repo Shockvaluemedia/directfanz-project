@@ -11,6 +11,7 @@ import {
 } from '@/lib/api-error-handler';
 import { AppError, ErrorCode } from '@/lib/errors';
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email format').min(1, 'Email is required'),
@@ -49,7 +50,7 @@ export const POST = withApiHandler(
             email,
           },
         });
-      } catch (err: unknown) { console.warn('Failed to track login failure:', err); }
+      } catch (err: unknown) { logger.warn('Failed to track login failure', { error: String(err) }); }
 
       throw new AppError(
         ErrorCode.UNAUTHORIZED,
@@ -85,7 +86,7 @@ export const POST = withApiHandler(
             email,
           },
         });
-      } catch (err: unknown) { console.warn('Failed to track login failure:', err); }
+      } catch (err: unknown) { logger.warn('Failed to track login failure', { error: String(err) }); }
 
       throw new AppError(
         ErrorCode.UNAUTHORIZED,
@@ -125,7 +126,7 @@ export const POST = withApiHandler(
           platform: 'desktop',
         }
       )
-    ]).catch(err => console.warn('Failed to track login success:', err));
+    ]).catch(err => logger.warn('Failed to track login success', { error: String(err) }));
 
     // Return success data (wrapper handles response structure)
     const { password: _, ...userWithoutPassword } = user;

@@ -4,6 +4,7 @@ import { updateTier, deleteTier, getTiersByArtistId } from '@/lib/database';
 import { updateTierSchema } from '@/lib/validations';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
 
 interface RouteParams {
   params: {
@@ -40,7 +41,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         },
       });
     } catch (error) {
-      console.error('Error fetching tier:', error);
+      logger.error('Error fetching tier', {}, error as Error);
       return NextResponse.json(
         {
           success: false,
@@ -117,7 +118,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         );
       }
 
-      console.error('Error updating tier:', error);
+      logger.error('Error updating tier', {}, error as Error);
       return NextResponse.json(
         {
           success: false,
@@ -169,7 +170,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         );
       }
 
-      console.error('Error deleting tier:', error);
+      logger.error('Error deleting tier', {}, error as Error);
       return NextResponse.json(
         {
           success: false,

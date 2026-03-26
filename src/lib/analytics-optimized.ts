@@ -167,14 +167,21 @@ export async function calculateTierAnalyticsOptimized(artistId: string) {
       subscriber_count: bigint;
       monthly_revenue: number;
       average_amount: number;
+      content_views: bigint;
     }>
   >`
-    SELECT 
+    SELECT
       t.id as tier_id,
       t.name as tier_name,
-      COUNT(s.id) as subscriber_count,
+      COUNT(DISTINCT s.id) as subscriber_count,
       COALESCE(SUM(CASE WHEN s.status = 'ACTIVE' THEN s.amount ELSE 0 END), 0) as monthly_revenue,
-      COALESCE(AVG(CASE WHEN s.status = 'ACTIVE' THEN s.amount ELSE NULL END), 0) as average_amount
+      COALESCE(AVG(CASE WHEN s.status = 'ACTIVE' THEN s.amount ELSE NULL END), 0) as average_amount,
+      COALESCE((
+        SELECT SUM(c."totalViews")
+        FROM content c
+        JOIN "_TierContent" tc ON tc."A" = c.id
+        WHERE tc."B" = t.id
+      ), 0) as content_views
     FROM tiers t
     LEFT JOIN subscriptions s ON t.id = s."tierId"
     WHERE t."artistId" = ${artistId}
@@ -182,14 +189,19 @@ export async function calculateTierAnalyticsOptimized(artistId: string) {
     ORDER BY monthly_revenue DESC
   `;
 
-  return tierAnalytics.map(tier => ({
-    tierId: tier.tier_id,
-    tierName: tier.tier_name,
-    subscriberCount: Number(tier.subscriber_count),
-    monthlyRevenue: Number(tier.monthly_revenue),
-    averageAmount: Number(tier.average_amount),
-    conversionRate: 0, // TODO: Implement tier view tracking
-  }));
+  return tierAnalytics.map(tier => {
+    const views = Number(tier.content_views);
+    const subs = Number(tier.subscriber_count);
+    return {
+      tierId: tier.tier_id,
+      tierName: tier.tier_name,
+      subscriberCount: subs,
+      monthlyRevenue: Number(tier.monthly_revenue),
+      averageAmount: Number(tier.average_amount),
+      contentViews: views,
+      conversionRate: views > 0 ? (subs / views) * 100 : 0,
+    };
+  });
 }
 
 /**

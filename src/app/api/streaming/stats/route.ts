@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -67,7 +68,7 @@ export async function GET() {
       },
     });
   } catch (error) {
-    console.error('Failed to fetch streaming stats:', error);
+    logger.error('Failed to fetch streaming stats', {}, error as Error);
     return NextResponse.json(
       { success: false, error: { message: 'Internal server error' } },
       { status: 500 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withFanApi } from '@/lib/api-auth';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
@@ -61,7 +62,7 @@ export async function GET(request: NextRequest) {
         },
       });
     } catch (error) {
-      console.error('Fan profile fetch error:', error);
+      logger.error('Fan profile fetch error', {}, error as Error);
       return NextResponse.json({ error: 'Failed to fetch fan profile' }, { status: 500 });
     }
   });
@@ -89,7 +90,7 @@ export async function PUT(request: NextRequest) {
         data: updatedFan,
       });
     } catch (error) {
-      console.error('Fan profile update error:', error);
+      logger.error('Fan profile update error', {}, error as Error);
       return NextResponse.json({ error: 'Failed to update fan profile' }, { status: 500 });
     }
   });

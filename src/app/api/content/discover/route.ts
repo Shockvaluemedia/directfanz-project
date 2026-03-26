@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 import { prisma } from '@/lib/prisma';
 import { safeParseURL } from '@/lib/api-utils';
+import { logger } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -117,7 +118,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Error fetching discovery content:', error);
+    logger.error('Error fetching discovery content', {}, error as Error);
     return NextResponse.json({ error: 'Failed to fetch content' }, { status: 500 });
   }
 }

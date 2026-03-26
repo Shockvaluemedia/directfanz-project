@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import path from 'path';
 import fs from 'fs/promises';
 import { stat } from 'fs/promises';
+import { logger } from '@/lib/logger';
 
 export async function GET(
   request: NextRequest,
@@ -122,12 +123,12 @@ export async function GET(
       });
       
     } catch (error) {
-      console.error('Error serving file:', error);
+      logger.error('Error serving file', {}, error as Error);
       return new NextResponse('File not found', { status: 404 });
     }
     
   } catch (error) {
-    console.error('Error in file route:', error);
+    logger.error('Error in file route', {}, error as Error);
     return new NextResponse('Internal Server Error', { status: 500 });
   }
 }

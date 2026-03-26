@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 import {
   getInvoiceById,
   updateInvoice,
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
     return NextResponse.json({ invoice });
   } catch (error) {
-    console.error(`Error retrieving invoice ${params.id}:`, error);
+    logger.error(`Error retrieving invoice ${params.id}`, {}, error as Error);
 
     if (error instanceof Error && error.message === 'Invoice not found') {
       return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
@@ -100,7 +101,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
   } catch (error) {
-    console.error(`Error processing invoice action for ${params.id}:`, error);
+    logger.error(`Error processing invoice action for ${params.id}`, {}, error as Error);
 
     if (error instanceof Error && error.message === 'Invoice not found') {
       return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });

@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { GDPRComplianceService } from '@/lib/legal-compliance';
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
 
 const consentPostSchema = z.object({
   categories: z
@@ -77,7 +78,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    console.error('Consent recording error:', error);
+    logger.error('Consent recording error', {}, error as Error);
     return NextResponse.json(
       { success: false, error: 'An internal error occurred while recording consent' },
       { status: 500 }
@@ -112,7 +113,7 @@ export async function GET() {
       summary: consentSummary,
     });
   } catch (error) {
-    console.error('Get consents error:', error);
+    logger.error('Get consents error', {}, error as Error);
     return NextResponse.json(
       { success: false, error: 'An internal error occurred while retrieving consent records' },
       { status: 500 }

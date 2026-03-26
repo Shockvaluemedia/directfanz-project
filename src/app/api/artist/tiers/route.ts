@@ -3,6 +3,7 @@ import { withArtistApi } from '@/lib/api-auth';
 import { getTiersByArtistId, createTier } from '@/lib/database';
 import { createTierSchema } from '@/lib/validations';
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
 
 // GET /api/artist/tiers - Get all tiers for the authenticated artist
 export async function GET(request: NextRequest) {
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
         data: tiers,
       });
     } catch (error) {
-      console.error('Error fetching artist tiers:', error);
+      logger.error('Error fetching artist tiers', {}, error as Error);
       return NextResponse.json(
         {
           success: false,
@@ -79,7 +80,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      console.error('Error creating tier:', error);
+      logger.error('Error creating tier', {}, error as Error);
       return NextResponse.json(
         {
           success: false,

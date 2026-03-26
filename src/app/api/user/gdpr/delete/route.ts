@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('GDPR deletion request failed:', error);
+    logger.error('GDPR deletion request failed', {}, error as Error);
     return NextResponse.json(
       { success: false, error: { message: 'Internal server error' } },
       { status: 500 }
@@ -130,7 +130,7 @@ export async function DELETE(request: NextRequest) {
       message: 'Deletion request has been cancelled',
     });
   } catch (error) {
-    console.error('GDPR deletion cancel failed:', error);
+    logger.error('GDPR deletion cancel failed', {}, error as Error);
     return NextResponse.json(
       { success: false, error: { message: 'Internal server error' } },
       { status: 500 }

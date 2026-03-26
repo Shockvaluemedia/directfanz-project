@@ -9,6 +9,7 @@ import {
   createOrRetrieveCustomer,
 } from '@/lib/stripe';
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
 
 const createCheckoutSchema = z.object({
   tierId: z.string(),
@@ -122,7 +123,7 @@ export async function POST(request: NextRequest) {
       checkoutUrl,
     });
   } catch (error) {
-    console.error('Create checkout error:', error);
+    logger.error('Create checkout error', {}, error as Error);
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(

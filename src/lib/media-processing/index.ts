@@ -69,6 +69,41 @@ import {
 } from './core';
 import { logger } from '../logger';
 
+// In-memory job tracking store
+interface TrackedJob {
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
+  progress: number;
+  startTime: number;
+  endTime?: number;
+  outputs: ProcessingOutput[];
+  error?: string;
+  analytics?: {
+    processingTime?: number;
+    inputSize?: number;
+    outputSizes?: Record<string, number>;
+  };
+}
+
+const jobStore = new Map<string, TrackedJob>();
+
+function trackJob(jobId: string, data: Partial<TrackedJob>) {
+  const existing = jobStore.get(jobId);
+  jobStore.set(jobId, {
+    status: 'pending',
+    progress: 0,
+    startTime: Date.now(),
+    outputs: [],
+    ...existing,
+    ...data,
+  });
+  // Evict old entries (keep last 1000)
+  if (jobStore.size > 1000) {
+    const oldest = jobStore.keys().next().value;
+    if (oldest) jobStore.delete(oldest);
+  }
+}
+
+
 /**
  * Unified Media Processing API
  *
@@ -146,6 +181,7 @@ export class UnifiedMediaProcessor {
   }> {
     const startTime = Date.now();
     const jobId = `media_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    trackJob(jobId, { status: 'processing', startTime });
 
     logger.info('Starting unified media processing', {
       jobId,
@@ -240,6 +276,14 @@ export class UnifiedMediaProcessor {
         });
       }
 
+      trackJob(jobId, {
+        status: 'completed',
+        progress: 100,
+        endTime: Date.now(),
+        outputs,
+        analytics: { processingTime, inputSize, outputSizes },
+      });
+
       const result = {
         success: true,
         jobId,
@@ -272,6 +316,12 @@ export class UnifiedMediaProcessor {
         jobId,
         error,
         processingTime,
+      });
+
+      trackJob(jobId, {
+        status: 'failed',
+        endTime: Date.now(),
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
 
       // Track processing failure
@@ -316,13 +366,18 @@ export class UnifiedMediaProcessor {
       outputSizes?: Record<string, number>;
     };
   }> {
-    // For now, return a simple not found status
-    // This would be implemented with a proper job tracking system
+    const job = jobStore.get(jobId);
+    if (!job) {
+      return { status: 'failed', progress: 0, outputs: [], error: 'Job not found' };
+    }
     return {
-      status: 'failed',
-      progress: 0,
-      outputs: [],
-      error: 'Job tracking not implemented',
+      status: job.status,
+      progress: job.progress,
+      startTime: job.startTime,
+      endTime: job.endTime,
+      outputs: job.outputs,
+      error: job.error,
+      analytics: job.analytics,
     };
   }
 
@@ -330,9 +385,13 @@ export class UnifiedMediaProcessor {
    * Cancel processing job across all subsystems
    */
   async cancelJob(jobId: string): Promise<boolean> {
-    // Job cancellation not implemented yet
-    logger.warn('Job cancellation requested but not implemented', { jobId });
-    return false;
+    const job = jobStore.get(jobId);
+    if (!job || job.status === 'completed' || job.status === 'failed') {
+      return false;
+    }
+    trackJob(jobId, { status: 'cancelled', endTime: Date.now() });
+    logger.info('Job cancelled', { jobId });
+    return true;
   }
 
   /**
@@ -343,10 +402,15 @@ export class UnifiedMediaProcessor {
     audio: { active: number; pending: number; maxConcurrent: number };
     total: { active: number; pending: number };
   } {
-    // Return default queue status since queue management not implemented
+    // Count jobs by status from the tracking store
+    let videoActive = 0, videoPending = 0, audioActive = 0, audioPending = 0;
+    for (const job of jobStore.values()) {
+      if (job.status === 'processing') videoActive++;
+      if (job.status === 'pending') videoPending++;
+    }
     return {
-      video: { active: 0, pending: 0, maxConcurrent: 4 },
-      audio: { active: 0, pending: 0, maxConcurrent: 8 },
+      video: { active: videoActive, pending: videoPending, maxConcurrent: 4 },
+      audio: { active: audioActive, pending: audioPending, maxConcurrent: 8 },
       total: { active: 0, pending: 0 },
     };
   }

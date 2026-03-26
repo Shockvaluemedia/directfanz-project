@@ -304,7 +304,7 @@ export async function PUT(request: NextRequest) {
       }
 
       // Notify reporter of resolution (placeholder)
-      console.log('Would send notification to:', report.users_reports_reporterIdTousers.id, `Report ${status}`);
+      logger.info(`Would send notification to: ${report.users_reports_reporterIdTousers.id} Report ${status}`);
 
       logger.info('Report updated', {
         reportId,
@@ -345,7 +345,7 @@ async function notifyModerators(report: any) {
 
   for (const admin of admins) {
     // Placeholder notification - would send email/push notification
-    console.log('Would notify admin:', admin.id, 'New report:', report.id);
+    logger.info(`Would notify admin: ${admin.id} New report: ${report.id}`);
   }
 }
 

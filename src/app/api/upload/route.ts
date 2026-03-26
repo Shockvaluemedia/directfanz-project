@@ -4,6 +4,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
 import { processFile } from '@/lib/file-upload';
+import { logger } from '@/lib/logger';
 
 // Configure multer for file uploads
 const upload = multer({
@@ -120,7 +121,7 @@ export async function POST(request: NextRequest) {
         });
 
       } catch (fileError) {
-        console.error(`Error processing file ${file.name}:`, fileError);
+        logger.error(`Error processing file ${file.name}`, {}, fileError as Error);
         uploadResults.push({
           originalName: file.name,
           error: fileError instanceof Error ? fileError.message : 'Unknown error',
@@ -135,7 +136,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Upload error:', error);
+    logger.error('Upload error', {}, error as Error);
     return NextResponse.json(
       { 
         error: 'Upload failed',

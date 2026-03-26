@@ -9,6 +9,7 @@ import {
   TierChangeOptions,
 } from '@/lib/billing';
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
 
 const changeTierSchema = z.object({
   newTierId: z.string().min(1),
@@ -122,14 +123,14 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         });
       }
     } catch (error) {
-      console.error('Tier change error:', error);
+      logger.error('Tier change error', {}, error as Error);
       return NextResponse.json(
         { error: error instanceof Error ? error.message : 'Failed to change tier' },
         { status: 500 }
       );
     }
   } catch (error) {
-    console.error('Change tier error:', error);
+    logger.error('Change tier error', {}, error as Error);
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -217,7 +218,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       },
     });
   } catch (error) {
-    console.error('Get tier change preview error:', error);
+    logger.error('Get tier change preview error', {}, error as Error);
     return NextResponse.json({ error: 'Failed to get tier change preview' }, { status: 500 });
   }
 }

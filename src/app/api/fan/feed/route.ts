@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 
 interface ContentWithRelations {
   id: string;
@@ -296,7 +297,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Feed error:', error);
+    logger.error('Feed error', {}, error as Error);
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch content feed' } },
       { status: 500 }

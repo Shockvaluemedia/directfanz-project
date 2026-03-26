@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -99,7 +100,7 @@ export async function GET() {
       },
     });
   } catch (error) {
-    console.error('Failed to fetch settings:', error);
+    logger.error('Failed to fetch settings', {}, error as Error);
     return NextResponse.json(
       { success: false, error: { message: 'Internal server error' } },
       { status: 500 }
@@ -162,7 +163,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    console.error('Failed to update settings:', error);
+    logger.error('Failed to update settings', {}, error as Error);
     return NextResponse.json(
       { success: false, error: { message: 'Internal server error' } },
       { status: 500 }

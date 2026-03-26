@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 
 /**
  * Workflow Status API Endpoint
@@ -23,7 +24,7 @@ export async function GET() {
 
     return NextResponse.json(workflowStatus, { status: 200 });
   } catch (error) {
-    console.error('Workflow status error:', error);
+    logger.error('Workflow status error', {}, error as Error);
     
     return NextResponse.json(
       { 

@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { createCustomerPortalSession, createOrRetrieveCustomer } from '@/lib/stripe';
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
 
 const portalSchema = z.object({
   stripeAccountId: z.string(),
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
       portalUrl,
     });
   } catch (error) {
-    console.error('Create portal session error:', error);
+    logger.error('Create portal session error', {}, error as Error);
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(

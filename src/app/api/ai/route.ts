@@ -8,6 +8,7 @@ import {
   DEFAULT_AGENT_CONFIGS 
 } from '@/lib/ai';
 import { Logger } from '@/lib/logger';
+import { logger } from '@/lib/logger';
 
 // Global AI Agent Registry instance
 let globalRegistry: AgentRegistry | null = null;
@@ -114,7 +115,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('AI API Error:', error);
+    logger.error('AI API Error', {}, error as Error);
     return NextResponse.json({
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error'
@@ -169,7 +170,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('AI Task Execution Error:', error);
+    logger.error('AI Task Execution Error', {}, error as Error);
     return NextResponse.json({
       error: 'Task execution failed',
       message: error instanceof Error ? error.message : 'Unknown error'
@@ -240,7 +241,7 @@ export async function PUT(request: NextRequest) {
     }
 
   } catch (error) {
-    console.error('AI Registry Management Error:', error);
+    logger.error('AI Registry Management Error', {}, error as Error);
     return NextResponse.json({
       error: 'Registry management failed',
       message: error instanceof Error ? error.message : 'Unknown error'

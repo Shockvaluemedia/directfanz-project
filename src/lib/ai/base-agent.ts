@@ -105,6 +105,7 @@ export enum AgentType {
   REVENUE_OPTIMIZER = 'revenue_optimizer',
   CONTENT_CURATOR = 'content_curator',
   COMMUNITY_MANAGER = 'community_manager',
+  ADMIN_OPERATIONS = 'admin_operations',
 }
 
 // Base agent class that all AI agents extend

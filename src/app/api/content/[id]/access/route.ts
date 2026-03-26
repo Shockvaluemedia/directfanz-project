@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { checkContentAccess, generateAccessToken } from '@/lib/content-access';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 
 // Generate access token for content
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
@@ -61,7 +62,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       },
     });
   } catch (error) {
-    console.error('Access token generation error:', error);
+    logger.error('Access token generation error', {}, error as Error);
     return NextResponse.json({ error: 'Failed to generate access token' }, { status: 500 });
   }
 }
@@ -108,7 +109,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       },
     });
   } catch (error) {
-    console.error('Content access check error:', error);
+    logger.error('Content access check error', {}, error as Error);
     return NextResponse.json({ error: 'Failed to check content access' }, { status: 500 });
   }
 }

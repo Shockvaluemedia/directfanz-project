@@ -7,6 +7,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { checkAccountOnboardingStatus } from '@/lib/stripe';
+import { logger } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -50,7 +51,7 @@ export async function GET(request: NextRequest) {
       stripeAccountId: user.artists.stripeAccountId,
     });
   } catch (error) {
-    console.error('Stripe status check error:', error);
+    logger.error('Stripe status check error', {}, error as Error);
     return NextResponse.json({ error: 'Failed to check Stripe status' }, { status: 500 });
   }
 }

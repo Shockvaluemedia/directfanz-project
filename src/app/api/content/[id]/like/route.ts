@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withApi } from '@/lib/api-auth';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   return withApi(request, async req => {
@@ -89,7 +90,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         totalLikes: updatedContent.totalLikes,
       });
     } catch (error) {
-      console.error('Error liking content:', error);
+      logger.error('Error liking content', {}, error as Error);
       return NextResponse.json({ error: 'Failed to like content' }, { status: 500 });
     }
   });
@@ -142,7 +143,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
         totalLikes: updatedContent.totalLikes,
       });
     } catch (error) {
-      console.error('Error unliking content:', error);
+      logger.error('Error unliking content', {}, error as Error);
       return NextResponse.json({ error: 'Failed to unlike content' }, { status: 500 });
     }
   });

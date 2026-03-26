@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withStreamManagement, getStreamMetrics } from '@/lib/streaming-auth';
+import { logger } from '@/lib/logger';
 
 export async function GET(
   request: NextRequest,
@@ -39,7 +40,7 @@ export async function GET(
         lastUpdated: new Date().toISOString(),
       });
     } catch (error) {
-      console.error('Stream metrics error:', error);
+      logger.error('Stream metrics error', {}, error as Error);
       return NextResponse.json(
         { error: 'Failed to get stream metrics' },
         { status: 500 }

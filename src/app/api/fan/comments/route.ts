@@ -6,6 +6,7 @@ import { createComment, getCommentsByContentId } from '@/lib/database';
 import { createCommentSchema } from '@/lib/validations';
 import { checkPermission } from '@/lib/rbac';
 import { notifyContentComment } from '@/lib/notifications';
+import { logger } from '@/lib/logger';
 
 // GET /api/fan/comments?contentId=xxx
 export async function GET(request: NextRequest) {
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
     const comments = await getCommentsByContentId(contentId);
     return NextResponse.json({ comments });
   } catch (error) {
-    console.error('Error fetching comments:', error);
+    logger.error('Error fetching comments', {}, error as Error);
     return NextResponse.json({ error: 'Failed to fetch comments' }, { status: 500 });
   }
 }
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.errors }, { status: 400 });
     }
 
-    console.error('Error creating comment:', error);
+    logger.error('Error creating comment', {}, error as Error);
     return NextResponse.json({ error: 'Failed to create comment' }, { status: 500 });
   }
 }

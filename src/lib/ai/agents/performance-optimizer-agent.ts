@@ -1,4 +1,4 @@
-// @ts-nocheck — agent executeTask signatures need alignment
+// @ts-nocheck — config property narrowing requires BaseAgent generic refactor
 import { BaseAgent, AgentType, AgentTask, AgentResponse, AgentConfig } from '../base-agent';
 import { Logger } from '@/lib/logger';
 import type { Database } from '../base-agent';
@@ -457,7 +457,7 @@ export class PerformanceOptimizerAgent extends BaseAgent {
       const test: ABTest = {
         id: testId,
         name: testConfig.name,
-        type: testConfig.type as any,
+        type: testConfig.type as ABTest['type'],
         artistId: testConfig.artistId,
         status: 'draft',
         startDate: new Date(),

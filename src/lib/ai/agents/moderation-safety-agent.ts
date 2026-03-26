@@ -1,4 +1,4 @@
-// @ts-nocheck — agent executeTask signatures need alignment
+// @ts-nocheck — config property narrowing requires BaseAgent generic refactor
 import { BaseAgent, AgentType, AgentTask, AgentResponse, AgentConfig } from '../base-agent';
 import { Logger } from '@/lib/logger';
 import type { Database } from '../base-agent';
@@ -366,7 +366,7 @@ export class ModerationSafetyAgent extends BaseAgent {
       const result: ModerationResult = {
         id: `mod_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         contentId,
-        contentType: contentType as any,
+        contentType: contentType as ModerationResult['contentType'],
         status,
         confidence,
         violations,

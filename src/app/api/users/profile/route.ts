@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import { userProfileSchema, type UserProfileInput } from '@/lib/validations';
 import { apiHandler, apiSuccess, apiError, parseAndValidate, requireAuth } from '@/lib/api-utils';
+import { logger } from '@/lib/logger';
 
 // GET /api/users/profile - Get current user's profile
 export const GET = apiHandler(async (request: NextRequest) => {
@@ -48,7 +49,7 @@ export const GET = apiHandler(async (request: NextRequest) => {
 
     return apiSuccess(user);
   } catch (error) {
-    console.error('Get profile error:', error);
+    logger.error('Get profile error', {}, error as Error);
     return apiError('Failed to get profile', 500);
   }
 });
@@ -80,7 +81,7 @@ export const PUT = apiHandler(async (request: NextRequest) => {
 
     return apiSuccess(updatedUser, 'Profile updated successfully');
   } catch (error) {
-    console.error('Update profile error:', error);
+    logger.error('Update profile error', {}, error as Error);
     return apiError('Failed to update profile', 500);
   }
 });

@@ -8,6 +8,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { safeParseURL } from '@/lib/api-utils';
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
 
 const searchSchema = z.object({
   search: z.string().optional(),
@@ -137,7 +138,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Get artists error:', error);
+    logger.error('Get artists error', {}, error as Error);
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(

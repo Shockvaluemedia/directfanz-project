@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { z } from 'zod';
 
+import { logger } from '@/lib/logger';
 import {
   getUserNotificationPreferences,
   updateUserNotificationPreferences,
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
     const preferences = await getUserNotificationPreferences(session.user.id);
     return NextResponse.json({ preferences });
   } catch (error) {
-    console.error('Error fetching notification preferences:', error);
+    logger.error('Error fetching notification preferences', {}, error as Error);
     return NextResponse.json(
       { error: 'Failed to fetch notification preferences' },
       { status: 500 }
@@ -61,7 +62,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: error.errors }, { status: 400 });
     }
 
-    console.error('Error updating notification preferences:', error);
+    logger.error('Error updating notification preferences', {}, error as Error);
     return NextResponse.json(
       { error: 'Failed to update notification preferences' },
       { status: 500 }
