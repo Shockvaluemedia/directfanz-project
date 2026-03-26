@@ -326,11 +326,33 @@ export class ProductionAuthManager {
     }
   }
 
-  // Rate limiting utilities
+  // Rate limiting utilities — uses Redis sliding window
   async checkRateLimit(identifier: string, maxAttempts = 5, windowMs = 15 * 60 * 1000): Promise<boolean> {
-    // Implementation would use Redis for rate limiting
-    // This is a placeholder for the actual implementation
-    return true;
+    try {
+      const { getRedisClient } = await import('./redis');
+      const redis = getRedisClient();
+      if (!redis) return true; // Allow if Redis unavailable
+
+      const key = `ratelimit:${identifier}`;
+      const now = Date.now();
+      const windowStart = now - windowMs;
+
+      // Remove expired entries, add current, and count
+      const pipeline = redis.pipeline();
+      pipeline.zremrangebyscore(key, 0, windowStart);
+      pipeline.zadd(key, now, `${now}`);
+      pipeline.zcard(key);
+      pipeline.pexpire(key, windowMs);
+
+      const results = await pipeline.exec();
+      const count = (results?.[2]?.[1] as number) ?? 0;
+
+      return count <= maxAttempts;
+    } catch (error) {
+      // If Redis fails, allow the request (fail open)
+      console.error('Rate limit check failed:', error);
+      return true;
+    }
   }
 
   // Security headers middleware

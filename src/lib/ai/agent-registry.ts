@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { BaseAgent, AgentType, AgentTask, AgentResponse, AgentConfig } from './base-agent';
 import { PredictiveAnalyticsAgent, PredictiveAnalyticsConfig } from './agents/predictive-analytics-agent';
 import { CommunityManagementAgent, CommunityManagementConfig } from './agents/community-management-agent';
@@ -6,7 +5,7 @@ import { PerformanceOptimizerAgent, PerformanceOptimizerConfig } from './agents/
 import { ContentCurationAgent, ContentCurationConfig } from './agents/content-curation-agent';
 import { RevenueOptimizationAgent, RevenueOptimizationConfig } from './agents/revenue-optimization-agent';
 import { Logger } from '@/lib/logger';
-import type { Database } from '@/lib/database/types';
+import type { Database } from './base-agent';
 
 export interface AgentRegistration {
   id: string;
@@ -182,7 +181,7 @@ export class AgentRegistry {
   // Get all agents of a specific type
   public getAgentsByType<T extends BaseAgent>(type: AgentType): T[] {
     const agents: T[] = [];
-    for (const registration of this.agents.values()) {
+    for (const registration of Array.from(this.agents.values())) {
       if (registration.type === type && registration.status === 'active') {
         agents.push(registration.agent as T);
       }
@@ -208,7 +207,7 @@ export class AgentRegistry {
 
     try {
       // Execute the task
-      const response = await Promise.race([
+      const response = await Promise.race<AgentResponse>([
         registration.agent.executeTask(task),
         this.createTimeoutPromise(this.config.taskTimeout),
       ]);
@@ -228,8 +227,8 @@ export class AgentRegistry {
       this.logger.error(`Task execution failed for agent ${agentId}:`, error);
       
       // Retry if enabled
-      if (this.config.autoRetryFailedTasks && task.retryCount < this.config.maxRetryAttempts) {
-        task.retryCount++;
+      if (this.config.autoRetryFailedTasks && (task.retryCount ?? 0) < this.config.maxRetryAttempts) {
+        task.retryCount = (task.retryCount ?? 0) + 1;
         this.logger.info(`Retrying task for agent ${agentId} (attempt ${task.retryCount})`);
         return this.executeTask(agentId, task);
       }
@@ -464,7 +463,7 @@ export class AgentRegistry {
     }
 
     // Shutdown all agents
-    for (const registration of this.agents.values()) {
+    for (const registration of Array.from(this.agents.values())) {
       try {
         if ('shutdown' in registration.agent && typeof registration.agent.shutdown === 'function') {
           await registration.agent.shutdown();
@@ -498,7 +497,9 @@ export class AgentRegistry {
       payload: { ...step.payload, context: Object.fromEntries(context) },
       priority: 'medium',
       retryCount: step.retryCount,
-      timeout: step.timeout * 1000, // Convert to milliseconds
+      timeout: step.timeout * 1000,
+      context: { requestId: `coord_${Date.now()}`, timestamp: new Date() },
+      createdAt: new Date(),
     };
 
     // Execute the task
@@ -539,7 +540,7 @@ export class AgentRegistry {
     perf.successRate = successfulTasks / perf.tasksCompleted;
   }
 
-  private createTimeoutPromise<T>(timeoutSeconds: number): Promise<T> {
+  private createTimeoutPromise(timeoutSeconds: number): Promise<AgentResponse> {
     return new Promise((_, reject) => {
       setTimeout(() => reject(new Error(`Task timeout after ${timeoutSeconds} seconds`)), timeoutSeconds * 1000);
     });
@@ -547,7 +548,7 @@ export class AgentRegistry {
 
   private startHealthMonitoring(): void {
     this.healthCheckInterval = setInterval(() => {
-      for (const registration of this.agents.values()) {
+      for (const registration of Array.from(this.agents.values())) {
         try {
           // Check if agent is responsive
           if (registration.agent && 'healthCheck' in registration.agent) {
@@ -568,7 +569,7 @@ export class AgentRegistry {
   private startPerformanceTracking(): void {
     this.performanceTracker = setInterval(() => {
       // Calculate uptime and other performance metrics
-      for (const registration of this.agents.values()) {
+      for (const registration of Array.from(this.agents.values())) {
         // Simple uptime calculation based on status
         const uptime = registration.status === 'active' ? 100 : 0;
         registration.performance.uptime = (registration.performance.uptime * 0.9) + (uptime * 0.1); // Moving average
@@ -593,15 +594,22 @@ export function createAgentRegistry(
 
   // Register Predictive Analytics Agent
   const predictiveConfig: PredictiveAnalyticsConfig = {
-    enableRevenueForecasting: true,
-    enableChurnAnalysis: true,
+    name: 'Predictive Analytics Agent',
+    version: '1.0.0',
+    enableRevenueForecast: true,
+    enableChurnPrediction: true,
+    enableContentPrediction: true,
     enableTrendAnalysis: true,
-    enableCompetitorIntelligence: true,
+    enableSegmentation: true,
     forecastHorizon: 90,
-    confidence: 0.95,
     updateInterval: 24,
-    enableRealTimeAnalysis: true,
-    maxDataPoints: 10000,
+    confidenceThreshold: 0.95,
+    churnRiskThreshold: 0.7,
+    enableRealTimeUpdates: true,
+    historicalDataDays: 365,
+    modelRetrainingInterval: 7,
+    enableABTesting: true,
+    apiEndpoints: {},
   };
 
   registry.registerAgent(
@@ -612,17 +620,20 @@ export function createAgentRegistry(
 
   // Register Community Management Agent
   const communityConfig: CommunityManagementConfig = {
-    enableSentimentAnalysis: true,
-    enableEngagementOptimization: true,
-    enableEventManagement: true,
-    enableChallengeManagement: true,
+    name: 'Community Management Agent',
+    version: '1.0.0',
+    enableEventPlanning: true,
+    enableChallenges: true,
     enableLoyaltyPrograms: true,
-    responseTimeTarget: 300,
-    sentimentThreshold: 0.7,
-    engagementGoal: 0.15,
-    maxConcurrentEvents: 5,
-    enableRealTimeMonitoring: true,
-    autoModerationEnabled: true,
+    enableSentimentMonitoring: true,
+    enableAutoModeration: true,
+    enableEngagementBoosts: true,
+    maxEventsPerMonth: 5,
+    maxActiveChallenges: 3,
+    sentimentCheckInterval: 300,
+    engagementThreshold: 0.15,
+    autoResponseEnabled: true,
+    communityGuidelines: ['Be respectful', 'No spam', 'Follow content guidelines'],
   };
 
   registry.registerAgent(
@@ -633,6 +644,8 @@ export function createAgentRegistry(
 
   // Register Performance Optimizer Agent
   const performanceConfig: PerformanceOptimizerConfig = {
+    name: 'Performance Optimizer Agent',
+    version: '1.0.0',
     enableABTesting: true,
     enablePriceOptimization: true,
     enableContentOptimization: true,
@@ -657,6 +670,8 @@ export function createAgentRegistry(
 
   // Register Content Curation Agent
   const curationConfig: ContentCurationConfig = {
+    name: 'Content Curation Agent',
+    version: '1.0.0',
     enableAutoRecommendations: true,
     enableTrendAnalysis: true,
     enableContentScoring: true,
@@ -680,6 +695,8 @@ export function createAgentRegistry(
 
   // Register Revenue Optimization Agent
   const revenueConfig: RevenueOptimizationConfig = {
+    name: 'Revenue Optimization Agent',
+    version: '1.0.0',
     enablePriceOptimization: true,
     enableSegmentationAnalysis: true,
     enableCompetitorTracking: true,

@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { logger } from '@/lib/logger';
 
 interface SSEMessage {
   type: string;
@@ -118,7 +119,7 @@ export async function POST(request: NextRequest) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('SSE POST error:', error);
+    logger.error('SSE POST error', {}, error as Error);
     return new Response(JSON.stringify({ error: 'Invalid request' }), {
       status: 400,
       headers: { 'Content-Type': 'application/json' },
@@ -140,7 +141,7 @@ function broadcastToContent(contentId: string, message: any, excludeClientId?: s
         const sseMessage = `data: ${JSON.stringify(message)}\n\n`;
         controller.enqueue(new TextEncoder().encode(sseMessage));
       } catch (error) {
-        console.error('Error sending SSE message to client:', error);
+        logger.error('Error sending SSE message to client', {}, error as Error);
         // Remove dead connection
         connections.delete(clientId);
         subscribers.delete(clientId);
@@ -159,7 +160,7 @@ function broadcastToUser(userId: string, message: any) {
       const sseMessage = `data: ${JSON.stringify(message)}\n\n`;
       controller.enqueue(new TextEncoder().encode(sseMessage));
     } catch (error) {
-      console.error('Error sending SSE message to user:', error);
+      logger.error('Error sending SSE message to user', {}, error as Error);
       connections.delete(clientId);
     }
   }
@@ -173,7 +174,7 @@ function broadcastToAll(message: any, excludeClientId?: string) {
       const sseMessage = `data: ${JSON.stringify(message)}\n\n`;
       controller.enqueue(new TextEncoder().encode(sseMessage));
     } catch (error) {
-      console.error('Error broadcasting SSE message:', error);
+      logger.error('Error broadcasting SSE message', {}, error as Error);
       connections.delete(clientId);
     }
   });

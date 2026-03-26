@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 /**
  * Workflow Status API Endpoint
@@ -21,17 +22,10 @@ export async function GET() {
       message: 'DirectFanZ workflow integration test successful'
     };
 
-    return NextResponse.json(workflowStatus, { status: 200 });
+    return apiSuccess(workflowStatus);
   } catch (error) {
-    console.error('Workflow status error:', error);
+    logger.error('Workflow status error', {}, error as Error);
     
-    return NextResponse.json(
-      { 
-        status: 'error', 
-        message: 'Workflow status check failed',
-        timestamp: new Date().toISOString()
-      },
-      { status: 500 }
-    );
+    return apiError('INTERNAL_ERROR', 'Workflow status check failed');
   }
 }

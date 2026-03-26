@@ -1,5 +1,4 @@
-// @ts-nocheck
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { createAgentTask } from '@/lib/ai';
@@ -9,6 +8,7 @@ const logger = new Logger('ai-analytics-api');
 
 // Import the global registry function from the main AI route
 import { createAgentRegistry, DEFAULT_AGENT_CONFIGS } from '@/lib/ai';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 let registry: any = null;
 
@@ -27,9 +27,7 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
     
     if (!session) {
-      return NextResponse.json({ 
-        error: 'Authentication required' 
-      }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Authentication required');
     }
 
     const { searchParams } = new URL(request.url);
@@ -38,10 +36,8 @@ export async function GET(request: NextRequest) {
     const timeframe = searchParams.get('timeframe') || 'monthly';
 
     if (!artistId) {
-      return NextResponse.json({
-        error: 'Artist ID is required',
-        usage: '/api/ai/analytics?artistId=123&type=revenue&timeframe=quarterly'
-      }, { status: 400 });
+      return apiError('BAD_REQUEST', 'Artist ID is required', {
+        usage: '/api/ai/analytics?artistId=123&type=revenue&timeframe=quarterly' });
     }
 
     const agentRegistry = await getRegistry();
@@ -100,9 +96,7 @@ export async function GET(request: NextRequest) {
           tasks.map(t => agentRegistry.executeTask(agentId, t))
         );
 
-        return NextResponse.json({
-          success: true,
-          data: {
+        return apiSuccess({
             artistId,
             timeframe,
             timestamp: new Date().toISOString(),
@@ -114,44 +108,34 @@ export async function GET(request: NextRequest) {
             },
             insights: await generateInsights(results, artistId),
             recommendations: await generateRecommendations(results, artistId),
-          },
-          metrics: {
-            tasksExecuted: tasks.length,
-            successfulTasks: results.filter(r => r.success).length,
-            totalProcessingTime: results.reduce((sum, r) => sum + (r.metrics?.processingTime || 0), 0),
-          }
-        });
+            metrics: {
+              tasksExecuted: tasks.length,
+              successfulTasks: results.filter(r => r.success).length,
+              totalProcessingTime: results.reduce((sum, r) => sum + (r.metrics?.processingTime || 0), 0),
+            } });
     }
 
     const response = await agentRegistry.executeTask(agentId, task);
 
     if (!response.success) {
-      return NextResponse.json({
-        error: 'Analytics generation failed',
-        details: response.error,
-        suggestion: 'Try with different parameters or check agent status'
-      }, { status: 500 });
+      return apiError('INTERNAL_ERROR', 'Analytics generation failed', {
+        error: response.error,
+        suggestion: 'Try with different parameters or check agent status' });
     }
 
-    return NextResponse.json({
-      success: true,
-      data: {
+    return apiSuccess({
         artistId,
         analysisType,
         timeframe,
         timestamp: new Date().toISOString(),
         result: response.data,
         insights: await generateSingleInsight(response.data, analysisType),
-      },
-      metrics: response.metrics
-    });
+        metrics: response.metrics });
 
   } catch (error) {
-    logger.error('Analytics API Error:', error);
-    return NextResponse.json({
-      error: 'Internal server error',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    logger.error('Analytics API Error', {}, error as Error);
+    return apiError('INTERNAL_ERROR', 'Internal server error', {
+      message: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
 
@@ -160,9 +144,7 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
     
     if (!session) {
-      return NextResponse.json({ 
-        error: 'Authentication required' 
-      }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Authentication required');
     }
 
     const body = await request.json();
@@ -174,11 +156,9 @@ export async function POST(request: NextRequest) {
     } = body;
 
     if (!artistId || !analysisType) {
-      return NextResponse.json({
-        error: 'Missing required parameters',
+      return apiError('BAD_REQUEST', 'Missing required parameters', {
         required: ['artistId', 'analysisType'],
-        optional: ['parameters', 'customMetrics']
-      }, { status: 400 });
+        optional: ['parameters', 'customMetrics'] });
     }
 
     const agentRegistry = await getRegistry();
@@ -225,20 +205,18 @@ export async function POST(request: NextRequest) {
         break;
 
       default:
-        return NextResponse.json({
-          error: 'Unknown analysis type',
+        return apiError('BAD_REQUEST', 'Unknown analysis type', {
           availableTypes: [
             'custom_forecast',
-            'comparative_analysis', 
+            'comparative_analysis',
             'predictive_modeling',
             'market_intelligence'
-          ]
-        }, { status: 400 });
+          ] });
     }
 
     const response = await agentRegistry.executeTask(agentId, task);
 
-    return NextResponse.json({
+    return apiSuccess({
       success: response.success,
       data: {
         artistId,
@@ -255,11 +233,9 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    logger.error('Analytics POST API Error:', error);
-    return NextResponse.json({
-      error: 'Analysis execution failed',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    logger.error('Analytics POST API Error', {}, error as Error);
+    return apiError('INTERNAL_ERROR', 'Analysis execution failed', {
+      message: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
 

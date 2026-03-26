@@ -1,7 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { withStreamManagement, updateStreamStatus } from '@/lib/streaming-auth';
 import { triggerStreamEvent } from '@/lib/pusher';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 export async function POST(
   request: NextRequest,
@@ -12,20 +14,14 @@ export async function POST(
       const { streamId } = params;
 
       if (!streamId) {
-        return NextResponse.json(
-          { error: 'Stream ID is required' },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'Stream ID is required');
       }
 
       // Update stream status and set startedAt timestamp
       const updated = await updateStreamStatus(streamId, 'running');
 
       if (!updated) {
-        return NextResponse.json(
-          { error: 'Failed to start stream' },
-          { status: 500 }
-        );
+        return apiError('INTERNAL_ERROR', 'Failed to start stream');
       }
 
       // Update startedAt in database
@@ -40,18 +36,15 @@ export async function POST(
         startedAt: new Date().toISOString(),
       });
 
-      return NextResponse.json({
+      return apiSuccess({
         streamId,
         status: 'LIVE',
         message: 'Stream is live',
         startedAt: new Date().toISOString(),
       });
     } catch (error) {
-      console.error('Stream start error:', error);
-      return NextResponse.json(
-        { error: 'Failed to start stream' },
-        { status: 500 }
-      );
+      logger.error('Stream start error', {}, error as Error);
+      return apiError('INTERNAL_ERROR', 'Failed to start stream');
     }
   });
 }

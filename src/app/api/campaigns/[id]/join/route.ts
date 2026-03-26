@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiCreated, apiError } from '@/lib/api-response';
 
 // POST /api/campaigns/[id]/join - Join a campaign
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
@@ -11,12 +12,12 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     // Only fans can join campaigns
     if (session.user.role !== 'FAN') {
-      return NextResponse.json({ error: 'Only fans can join campaigns' }, { status: 403 });
+      return apiError('FORBIDDEN', 'Only fans can join campaigns');
     }
 
     // Check if campaign exists and is active
@@ -32,19 +33,19 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     });
 
     if (!campaign) {
-      return NextResponse.json({ error: 'Campaign not found' }, { status: 404 });
+      return apiError('NOT_FOUND', 'Campaign not found');
     }
 
     if (campaign.status !== 'ACTIVE') {
-      return NextResponse.json({ error: 'Campaign is not active' }, { status: 400 });
+      return apiError('BAD_REQUEST', 'Campaign is not active');
     }
 
     if (campaign.startDate > new Date()) {
-      return NextResponse.json({ error: 'Campaign has not started yet' }, { status: 400 });
+      return apiError('BAD_REQUEST', 'Campaign has not started yet');
     }
 
     if (campaign.endDate < new Date()) {
-      return NextResponse.json({ error: 'Campaign has ended' }, { status: 400 });
+      return apiError('BAD_REQUEST', 'Campaign has ended');
     }
 
     // Check if user has already joined any challenge in this campaign
@@ -58,21 +59,18 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     });
 
     if (existingParticipation) {
-      return NextResponse.json(
-        { error: 'Already participating in this campaign' },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'Already participating in this campaign');
     }
 
     // Check campaign participant limits
     if (campaign.maxParticipants && campaign.totalParticipants >= campaign.maxParticipants) {
-      return NextResponse.json({ error: 'Campaign is full' }, { status: 400 });
+      return apiError('BAD_REQUEST', 'Campaign is full');
     }
 
     // Get the main challenge to join (for now, join the first active challenge)
     const mainChallenge = campaign.challenges[0];
     if (!mainChallenge) {
-      return NextResponse.json({ error: 'No active challenges available' }, { status: 400 });
+      return apiError('BAD_REQUEST', 'No active challenges available');
     }
 
     // Check challenge participant limits
@@ -80,7 +78,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       mainChallenge.maxParticipants &&
       mainChallenge.participantCount >= mainChallenge.maxParticipants
     ) {
-      return NextResponse.json({ error: 'Challenge is full' }, { status: 400 });
+      return apiError('BAD_REQUEST', 'Challenge is full');
     }
 
     // Use transaction to ensure data consistency
@@ -117,15 +115,9 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       participationId: result.id,
     });
 
-    return NextResponse.json(
-      {
-        success: true,
-        participationId: result.id,
+    return apiCreated({ participationId: result.id,
         challengeId: mainChallenge.id,
-        message: 'Successfully joined campaign!',
-      },
-      { status: 201 }
-    );
+        message: 'Successfully joined campaign!' });
   } catch (error) {
     logger.error(
       'Error joining campaign',
@@ -136,7 +128,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       error as Error
     );
 
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Internal server error');
   }
 }
 
@@ -148,7 +140,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     // Find user's participation in this campaign
@@ -170,17 +162,12 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     });
 
     if (!participation) {
-      return NextResponse.json({ error: 'Not participating in this campaign' }, { status: 400 });
+      return apiError('BAD_REQUEST', 'Not participating in this campaign');
     }
 
     // Don't allow leaving if user has submissions
     if (participation.challenge_submissions.length > 0) {
-      return NextResponse.json(
-        {
-          error: 'Cannot leave campaign after submitting content',
-        },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'Cannot leave campaign after submitting content',);
     }
 
     // Use transaction to ensure data consistency
@@ -210,10 +197,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       participationId: participation.id,
     });
 
-    return NextResponse.json({
-      success: true,
-      message: 'Successfully left campaign',
-    });
+    return apiSuccess({ message: 'Successfully left campaign' });
   } catch (error) {
     logger.error(
       'Error leaving campaign',
@@ -224,6 +208,6 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       error as Error
     );
 
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Internal server error');
   }
 }

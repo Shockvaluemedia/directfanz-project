@@ -1,6 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { createUser, signUpSchema } from '@/lib/auth-utils';
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
+import { apiCreated, apiError, apiValidationError } from '@/lib/api-response';
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,40 +17,21 @@ export async function POST(request: NextRequest) {
     // Return user data (without password)
     const { password, ...userWithoutPassword } = user;
 
-    return NextResponse.json(
-      {
+    return apiCreated({
         message: 'User created successfully',
         user: userWithoutPassword,
-      },
-      { status: 201 }
-    );
+      });
   } catch (error) {
-    console.error('Signup error:', error);
+    logger.error('Signup error', {}, error as Error);
 
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        {
-          error: 'Validation error',
-          details: error.errors,
-        },
-        { status: 400 }
-      );
+      return apiValidationError(error.errors);
     }
 
     if (error instanceof Error) {
-      return NextResponse.json(
-        {
-          error: error.message,
-        },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', error.message,);
     }
 
-    return NextResponse.json(
-      {
-        error: 'Internal server error',
-      },
-      { status: 500 }
-    );
+    return apiError('INTERNAL_ERROR', 'Internal server error',);
   }
 }

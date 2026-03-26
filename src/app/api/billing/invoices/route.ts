@@ -1,17 +1,19 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { stripe } from '@/lib/stripe';
 import { generateInvoiceData } from '@/lib/billing';
 import { randomUUID } from 'crypto';
+import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     const url = new URL(request.url);
@@ -20,7 +22,7 @@ export async function GET(request: NextRequest) {
     const startingAfter = url.searchParams.get('startingAfter');
 
     if (!subscriptionId) {
-      return NextResponse.json({ error: 'Missing subscriptionId parameter' }, { status: 400 });
+      return apiError('BAD_REQUEST', 'Missing subscriptionId parameter');
     }
 
     // Get subscription and verify ownership
@@ -32,7 +34,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!subscription) {
-      return NextResponse.json({ error: 'Subscription not found' }, { status: 404 });
+      return apiError('NOT_FOUND', 'Subscription not found');
     }
 
     // Get invoices from Stripe
@@ -49,18 +51,18 @@ export async function GET(request: NextRequest) {
         const invoiceData = await generateInvoiceData(invoice.id);
         invoices.push(invoiceData);
       } catch (error) {
-        console.error(`Error generating invoice data for ${invoice.id}:`, error);
+        logger.error(`Error generating invoice data for ${invoice.id}`, {}, error as Error);
         // Continue with other invoices
       }
     }
 
-    return NextResponse.json({
+    return apiSuccess({
       invoices,
       hasMore: stripeInvoices.has_more,
     });
   } catch (error) {
-    console.error('Error retrieving invoices:', error);
-    return NextResponse.json({ error: 'Failed to retrieve invoices' }, { status: 500 });
+    logger.error('Error retrieving invoices', {}, error as Error);
+    return apiError('INTERNAL_ERROR', 'Failed to retrieve invoices');
   }
 }
 
@@ -69,14 +71,14 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     const body = await request.json();
     const { stripeInvoiceId } = body;
 
     if (!stripeInvoiceId) {
-      return NextResponse.json({ error: 'Missing stripeInvoiceId parameter' }, { status: 400 });
+      return apiError('BAD_REQUEST', 'Missing stripeInvoiceId parameter');
     }
 
     // Get invoice from Stripe
@@ -91,7 +93,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!subscription) {
-      return NextResponse.json({ error: 'Subscription not found' }, { status: 404 });
+      return apiError('NOT_FOUND', 'Subscription not found');
     }
 
     // Generate invoice data
@@ -128,12 +130,12 @@ export async function POST(request: NextRequest) {
       RETURNING "id"
     `;
 
-    return NextResponse.json({
+    return apiSuccess({
       message: 'Invoice stored successfully',
       invoice,
     });
   } catch (error) {
-    console.error('Error storing invoice:', error);
-    return NextResponse.json({ error: 'Failed to store invoice' }, { status: 500 });
+    logger.error('Error storing invoice', {}, error as Error);
+    return apiError('INTERNAL_ERROR', 'Failed to store invoice');
   }
 }

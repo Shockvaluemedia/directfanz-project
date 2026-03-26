@@ -1,5 +1,4 @@
-// @ts-nocheck
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { 
@@ -9,6 +8,8 @@ import {
   DEFAULT_AGENT_CONFIGS 
 } from '@/lib/ai';
 import { Logger } from '@/lib/logger';
+import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 // Global AI Agent Registry instance
 let globalRegistry: AgentRegistry | null = null;
@@ -31,9 +32,7 @@ export async function GET(request: NextRequest) {
     
     // Allow public access to basic agent info, but require auth for sensitive operations
     if (!session) {
-      return NextResponse.json({ 
-        error: 'Authentication required' 
-      }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Authentication required');
     }
 
     const registry = await getOrCreateRegistry();
@@ -54,7 +53,7 @@ export async function GET(request: NextRequest) {
         ]))
       : health;
 
-    return NextResponse.json({
+    return apiSuccess({
       status: 'active',
       timestamp: new Date().toISOString(),
       registry: {
@@ -115,11 +114,9 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('AI API Error:', error);
-    return NextResponse.json({
-      error: 'Internal server error',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    logger.error('AI API Error', {}, error as Error);
+    return apiError('INTERNAL_ERROR', 'Internal server error', {
+      message: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
 
@@ -128,9 +125,7 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
     
     if (!session) {
-      return NextResponse.json({ 
-        error: 'Authentication required' 
-      }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Authentication required');
     }
 
     const body = await request.json();
@@ -142,11 +137,9 @@ export async function POST(request: NextRequest) {
     } = body;
 
     if (!agent || !action) {
-      return NextResponse.json({
-        error: 'Missing required parameters',
+      return apiError('BAD_REQUEST', 'Missing required parameters', {
         required: ['agent', 'action'],
-        provided: { agent: !!agent, action: !!action }
-      }, { status: 400 });
+        provided: { agent: !!agent, action: !!action } });
     }
 
     const registry = await getOrCreateRegistry();
@@ -157,7 +150,7 @@ export async function POST(request: NextRequest) {
     // Execute the task
     const response = await registry.executeTask(agent, task);
 
-    return NextResponse.json({
+    return apiSuccess({
       success: response.success,
       data: response.data,
       metrics: response.metrics,
@@ -170,11 +163,9 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('AI Task Execution Error:', error);
-    return NextResponse.json({
-      error: 'Task execution failed',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    logger.error('AI Task Execution Error', {}, error as Error);
+    return apiError('INTERNAL_ERROR', 'Task execution failed', {
+      message: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
 
@@ -184,9 +175,7 @@ export async function PUT(request: NextRequest) {
     
     // Only allow admin users to manage the registry
     if (!session || !session.user?.email) {
-      return NextResponse.json({ 
-        error: 'Admin authentication required' 
-      }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Admin authentication required');
     }
 
     const body = await request.json();
@@ -198,10 +187,7 @@ export async function PUT(request: NextRequest) {
       case 'restart_registry':
         // In a production environment, you might want to implement proper restart logic
         globalRegistry = null; // Force recreation on next request
-        return NextResponse.json({ 
-          success: true, 
-          message: 'Registry restart initiated' 
-        });
+        return apiSuccess({ message: 'Registry restart initiated' });
 
       case 'execute_workflow':
         const { workflowType, artistId } = payload;
@@ -215,36 +201,27 @@ export async function PUT(request: NextRequest) {
             workflow = registry.createContentOptimizationWorkflow(artistId);
             break;
           default:
-            return NextResponse.json({
-              error: 'Unknown workflow type',
-              availableWorkflows: ['revenue_optimization', 'content_optimization']
-            }, { status: 400 });
+            return apiError('BAD_REQUEST', 'Unknown workflow type', {
+              availableWorkflows: ['revenue_optimization', 'content_optimization'] });
         }
 
         const workflowResult = await registry.executeCoordinatedTask(workflow);
         
-        return NextResponse.json({
-          success: true,
-          workflow: {
+        return apiSuccess({ workflow: {
             id: workflow.id,
             name: workflow.name,
             status: workflow.status,
             results: Object.fromEntries(workflowResult.entries()),
-          }
-        });
+          } });
 
       default:
-        return NextResponse.json({
-          error: 'Unknown action',
-          availableActions: ['restart_registry', 'execute_workflow']
-        }, { status: 400 });
+        return apiError('BAD_REQUEST', 'Unknown action', {
+          availableActions: ['restart_registry', 'execute_workflow'] });
     }
 
   } catch (error) {
-    console.error('AI Registry Management Error:', error);
-    return NextResponse.json({
-      error: 'Registry management failed',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    logger.error('AI Registry Management Error', {}, error as Error);
+    return apiError('INTERNAL_ERROR', 'Registry management failed', {
+      message: error instanceof Error ? error.message : 'Unknown error' });
   }
 }

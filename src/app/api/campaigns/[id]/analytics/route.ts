@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 // GET /api/campaigns/[id]/analytics - Get campaign analytics
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
@@ -11,7 +12,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     // Check if campaign exists and user has access
@@ -21,12 +22,12 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     });
 
     if (!campaign) {
-      return NextResponse.json({ error: 'Campaign not found' }, { status: 404 });
+      return apiError('NOT_FOUND', 'Campaign not found');
     }
 
     // Only campaign owner or admin can view analytics
     if (campaign.artistId !== session.user.id && session.user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      return apiError('FORBIDDEN', 'Access denied');
     }
 
     // Get campaign analytics from existing data
@@ -57,7 +58,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     });
 
     if (!analyticsData) {
-      return NextResponse.json({ error: 'Analytics data not found' }, { status: 404 });
+      return apiError('NOT_FOUND', 'Analytics data not found');
     }
 
     // Calculate key metrics
@@ -180,9 +181,9 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       },
     };
 
-    return NextResponse.json(analytics);
+    return apiSuccess(analytics);
   } catch (error) {
     logger.error('Error fetching campaign analytics', { campaignId: params.id }, error as Error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Internal server error');
   }
 }

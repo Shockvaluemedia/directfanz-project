@@ -1,7 +1,6 @@
-// @ts-nocheck
 import { BaseAgent, AgentType, AgentTask, AgentResponse, AgentConfig } from '../base-agent';
 import { Logger } from '@/lib/logger';
-import type { Database } from '@/lib/database/types';
+import type { Database } from '../base-agent';
 
 export interface SystemHealth {
   overall: 'healthy' | 'degraded' | 'critical' | 'maintenance';
@@ -419,8 +418,7 @@ export interface AlertThresholds {
 }
 
 // Admin and Operations AI Agent for platform management and operational efficiency
-export class AdminOperationsAgent extends BaseAgent {
-  private readonly config: AdminOperationsConfig;
+export class AdminOperationsAgent extends BaseAgent<AdminOperationsConfig> {
   private readonly systemHealth: Map<string, SystemHealth> = new Map();
   private readonly optimizations: Map<string, ResourceOptimization> = new Map();
   private readonly alerts: Map<string, SystemAlert> = new Map();
@@ -433,7 +431,6 @@ export class AdminOperationsAgent extends BaseAgent {
     db?: Database
   ) {
     super(id, AgentType.ADMIN_OPERATIONS, config, logger, db);
-    this.config = config;
   }
 
   public getCapabilities(): string[] {
@@ -624,7 +621,7 @@ export class AdminOperationsAgent extends BaseAgent {
         );
 
         const optimization: ResourceOptimization = {
-          resourceType: type as any,
+          resourceType: type as ResourceOptimization['resourceType'],
           currentUsage,
           optimizedUsage: await this.calculateOptimizedUsage(currentUsage, recommendations),
           potentialSavings,
@@ -679,7 +676,7 @@ export class AdminOperationsAgent extends BaseAgent {
       // Record the action
       const actionRecord: AdminAction = {
         id: `action_${Date.now()}`,
-        type: action as any,
+        type: action as AdminAction['type'],
         targetId: criteria.targetId || 'bulk',
         targetType: criteria.targetType || 'user',
         reason: parameters.reason || 'Admin operation',
@@ -843,7 +840,7 @@ export class AdminOperationsAgent extends BaseAgent {
 
     return componentList.map(component => ({
       name: component,
-      type: component as any,
+      type: component as ComponentHealth['type'],
       status: Math.random() > 0.1 ? 'healthy' : 'warning',
       responseTime: Math.random() * 100 + 50,
       errorRate: Math.random() * 0.05,

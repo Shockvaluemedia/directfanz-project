@@ -1,7 +1,6 @@
-// @ts-nocheck
 import { BaseAgent, AgentType, AgentTask, AgentResponse, AgentConfig } from '../base-agent';
 import { Logger } from '@/lib/logger';
-import type { Database } from '@/lib/database/types';
+import type { Database } from '../base-agent';
 
 export interface RevenueStream {
   id: string;
@@ -313,8 +312,7 @@ export interface RevenueOptimizationConfig extends AgentConfig {
 }
 
 // Revenue Optimization AI Agent for maximizing monetization and revenue
-export class RevenueOptimizationAgent extends BaseAgent {
-  private readonly config: RevenueOptimizationConfig;
+export class RevenueOptimizationAgent extends BaseAgent<RevenueOptimizationConfig> {
   private readonly revenueStreams: Map<string, RevenueStream> = new Map();
   private readonly pricingStrategies: Map<string, PricingStrategy> = new Map();
   private readonly opportunities: Map<string, MonetizationOpportunity> = new Map();
@@ -327,7 +325,6 @@ export class RevenueOptimizationAgent extends BaseAgent {
     db?: Database
   ) {
     super(id, AgentType.REVENUE_OPTIMIZER, config, logger, db);
-    this.config = config;
   }
 
   public getCapabilities(): string[] {

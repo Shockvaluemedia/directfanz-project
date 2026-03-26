@@ -1,7 +1,6 @@
-// @ts-nocheck
 import { BaseAgent, AgentType, AgentTask, AgentResponse, AgentConfig } from '../base-agent';
 import { Logger } from '@/lib/logger';
-import type { Database } from '@/lib/database/types';
+import type { Database } from '../base-agent';
 
 export interface CommunityEvent {
   id: string;
@@ -225,8 +224,7 @@ export interface CommunityManagementConfig extends AgentConfig {
 }
 
 // Community Management AI Agent for fan engagement optimization
-export class CommunityManagementAgent extends BaseAgent {
-  private readonly config: CommunityManagementConfig;
+export class CommunityManagementAgent extends BaseAgent<CommunityManagementConfig> {
   private readonly activeEvents: Map<string, CommunityEvent> = new Map();
   private readonly activeChallenges: Map<string, FanChallenge> = new Map();
   private readonly loyaltyPrograms: Map<string, LoyaltyProgram> = new Map();
@@ -239,7 +237,6 @@ export class CommunityManagementAgent extends BaseAgent {
     db?: Database
   ) {
     super(id, AgentType.COMMUNITY_MANAGEMENT, config, logger, db);
-    this.config = config;
   }
 
   public getCapabilities(): string[] {
@@ -292,7 +289,7 @@ export class CommunityManagementAgent extends BaseAgent {
         return this.manageLoyaltyProgram(task.payload.artistId, task.payload.action, task.payload.data);
       
       case 'analyze_sentiment':
-        return this.analyzeCommunittySentiment(task.payload.artistId, task.payload.period);
+        return this.analyzeCommunitySentiment(task.payload.artistId, task.payload.period);
       
       case 'generate_insights':
         return this.generateCommunityInsights(task.payload.artistId);
@@ -589,7 +586,7 @@ export class CommunityManagementAgent extends BaseAgent {
   }
 
   // Analyze community sentiment
-  public async analyzeCommunittySentiment(
+  public async analyzeCommunitySentiment(
     artistId: string,
     period: string = '7d'
   ): Promise<AgentResponse<SentimentAnalysis>> {

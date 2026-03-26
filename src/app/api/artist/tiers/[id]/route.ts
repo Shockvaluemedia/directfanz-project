@@ -1,9 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { withArtistApi } from '@/lib/api-auth';
 import { updateTier, deleteTier, getTiersByArtistId } from '@/lib/database';
 import { updateTierSchema } from '@/lib/validations';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 interface RouteParams {
   params: {
@@ -23,31 +25,16 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       });
 
       if (!tier) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'Tier not found',
-          },
-          { status: 404 }
-        );
+        return apiError('NOT_FOUND', 'Tier not found');
       }
 
-      return NextResponse.json({
-        success: true,
-        data: {
+      return apiSuccess({
           ...tier,
           minimumPrice: Number(tier.minimumPrice),
-        },
-      });
+        });
     } catch (error) {
-      console.error('Error fetching tier:', error);
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Failed to fetch tier',
-        },
-        { status: 500 }
-      );
+      logger.error('Error fetching tier', {}, error as Error);
+      return apiError('INTERNAL_ERROR', 'Failed to fetch tier');
     }
   });
 }
@@ -70,13 +57,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       });
 
       if (!existingTier) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'Tier not found',
-          },
-          { status: 404 }
-        );
+        return apiError('NOT_FOUND', 'Tier not found');
       }
 
       // Check for duplicate name if name is being updated
@@ -88,43 +69,21 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         );
 
         if (duplicateName) {
-          return NextResponse.json(
-            {
-              success: false,
-              error: 'A tier with this name already exists',
-            },
-            { status: 400 }
-          );
+          return apiError('BAD_REQUEST', 'A tier with this name already exists');
         }
       }
 
       // Update the tier
       const updatedTier = await updateTier(params.id, validatedData);
 
-      return NextResponse.json({
-        success: true,
-        data: updatedTier,
-      });
+      return apiSuccess(updatedTier);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'Validation failed',
-            details: error.errors,
-          },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'Validation failed');
       }
 
-      console.error('Error updating tier:', error);
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Failed to update tier',
-        },
-        { status: 500 }
-      );
+      logger.error('Error updating tier', {}, error as Error);
+      return apiError('INTERNAL_ERROR', 'Failed to update tier');
     }
   });
 }
@@ -142,41 +101,20 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       });
 
       if (!existingTier) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'Tier not found',
-          },
-          { status: 404 }
-        );
+        return apiError('NOT_FOUND', 'Tier not found');
       }
 
       // Attempt to delete the tier (this will throw an error if there are active subscriptions)
       await deleteTier(params.id);
 
-      return NextResponse.json({
-        success: true,
-        message: 'Tier deleted successfully',
-      });
+      return apiSuccess({ message: 'Tier deleted successfully' });
     } catch (error) {
       if (error instanceof Error && error.message.includes('active subscriptions')) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'Cannot delete tier with active subscriptions',
-          },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'Cannot delete tier with active subscriptions');
       }
 
-      console.error('Error deleting tier:', error);
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Failed to delete tier',
-        },
-        { status: 500 }
-      );
+      logger.error('Error deleting tier', {}, error as Error);
+      return apiError('INTERNAL_ERROR', 'Failed to delete tier');
     }
   });
 }

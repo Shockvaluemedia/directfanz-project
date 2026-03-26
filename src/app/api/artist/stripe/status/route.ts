@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
@@ -7,13 +7,15 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { checkAccountOnboardingStatus } from '@/lib/stripe';
+import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     // Get artist profile
@@ -23,11 +25,11 @@ export async function GET(request: NextRequest) {
     });
 
     if (!user || user.role !== 'ARTIST') {
-      return NextResponse.json({ error: 'Only artists can check Stripe status' }, { status: 403 });
+      return apiError('FORBIDDEN', 'Only artists can check Stripe status');
     }
 
     if (!user.artists?.stripeAccountId) {
-      return NextResponse.json({
+      return apiSuccess({
         isOnboarded: false,
         hasAccount: false,
       });
@@ -44,13 +46,13 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    return NextResponse.json({
+    return apiSuccess({
       isOnboarded,
       hasAccount: true,
       stripeAccountId: user.artists.stripeAccountId,
     });
   } catch (error) {
-    console.error('Stripe status check error:', error);
-    return NextResponse.json({ error: 'Failed to check Stripe status' }, { status: 500 });
+    logger.error('Stripe status check error', {}, error as Error);
+    return apiError('INTERNAL_ERROR', 'Failed to check Stripe status');
   }
 }

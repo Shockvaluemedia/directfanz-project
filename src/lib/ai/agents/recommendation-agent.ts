@@ -1,7 +1,6 @@
-// @ts-nocheck
 import { BaseAgent, AgentType, AgentTask, AgentResponse, AgentConfig } from '../base-agent';
 import { Logger } from '@/lib/logger';
-import type { Database } from '@/lib/database/types';
+import type { Database } from '../base-agent';
 
 export interface RecommendationContext {
   userId: string;
@@ -209,8 +208,7 @@ export interface DeviceInfo {
 }
 
 // Recommendation AI Agent for personalized content discovery
-export class RecommendationAgent extends BaseAgent {
-  private readonly config: RecommendationAgentConfig;
+export class RecommendationAgent extends BaseAgent<RecommendationAgentConfig> {
   private readonly userProfiles: Map<string, UserRecommendationProfile> = new Map();
   private readonly contentCache: Map<string, ContentItem[]> = new Map();
   private readonly collaborativeMatrix: Map<string, Map<string, number>> = new Map();
@@ -222,7 +220,6 @@ export class RecommendationAgent extends BaseAgent {
     db?: Database
   ) {
     super(id, AgentType.RECOMMENDATION, config, logger, db);
-    this.config = config;
   }
 
   public getCapabilities(): string[] {
@@ -334,7 +331,7 @@ export class RecommendationAgent extends BaseAgent {
       const reasoning: RecommendationReasoning = {
         primaryFactors: this.getPrimaryFactors(userProfile, context),
         userSegment: this.getUserSegment(userProfile),
-        strategy: strategy.name as any,
+        strategy: strategy.name as RecommendationReasoning['strategy'],
         confidence: strategy.confidence,
         alternatives: strategy.alternatives,
       };

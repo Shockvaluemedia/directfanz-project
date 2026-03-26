@@ -1,10 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 import { prisma } from '@/lib/prisma';
 import { safeParseURL } from '@/lib/api-utils';
+import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 export async function GET(request: NextRequest) {
   try {
@@ -107,7 +109,7 @@ export async function GET(request: NextRequest) {
       })),
     }));
 
-    return NextResponse.json({
+    return apiSuccess({
       content: transformedContent,
       pagination: {
         total,
@@ -117,7 +119,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Error fetching discovery content:', error);
-    return NextResponse.json({ error: 'Failed to fetch content' }, { status: 500 });
+    logger.error('Error fetching discovery content', {}, error as Error);
+    return apiError('INTERNAL_ERROR', 'Failed to fetch content');
   }
 }

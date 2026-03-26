@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiCreated, apiError } from '@/lib/api-response';
 
 const sendMessageSchema = z.object({
   message: z.string().min(1).max(500),
@@ -33,10 +34,7 @@ export async function GET(request: NextRequest, { params }: { params: { streamId
     });
 
     if (!stream) {
-      return NextResponse.json(
-        { success: false, error: { message: 'Stream not found' } },
-        { status: 404 }
-      );
+      return apiError('NOT_FOUND', 'Stream not found');
     }
 
     // Check access for non-public streams
@@ -45,10 +43,7 @@ export async function GET(request: NextRequest, { params }: { params: { streamId
         stream.artistId === session.user.id || (await checkStreamAccess(session.user.id, stream));
 
       if (!hasAccess) {
-        return NextResponse.json(
-          { success: false, error: { message: 'Access denied' } },
-          { status: 403 }
-        );
+        return apiError('FORBIDDEN', 'Access denied');
       }
     }
 
@@ -101,14 +96,11 @@ export async function GET(request: NextRequest, { params }: { params: { streamId
         : null,
     }));
 
-    return NextResponse.json({
-      success: true,
-      data: {
+    return apiSuccess({
         messages: formattedMessages,
         hasMore: messages.length === limit,
         cursor: messages.length > 0 ? messages[messages.length - 1].createdAt : null,
-      },
-    });
+      });
   } catch (error) {
     logger.error(
       'Failed to fetch chat messages',
@@ -119,10 +111,7 @@ export async function GET(request: NextRequest, { params }: { params: { streamId
       error as Error
     );
 
-    return NextResponse.json(
-      { success: false, error: { message: 'Internal server error' } },
-      { status: 500 }
-    );
+    return apiError('INTERNAL_ERROR', 'Internal server error');
   }
 }
 
@@ -147,17 +136,11 @@ export async function POST(request: NextRequest, { params }: { params: { streamI
     });
 
     if (!stream) {
-      return NextResponse.json(
-        { success: false, error: { message: 'Stream not found' } },
-        { status: 404 }
-      );
+      return apiError('NOT_FOUND', 'Stream not found');
     }
 
     if (stream.status !== 'LIVE') {
-      return NextResponse.json(
-        { success: false, error: { message: 'Stream is not live' } },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'Stream is not live');
     }
 
     // Check access for non-public streams
@@ -166,10 +149,7 @@ export async function POST(request: NextRequest, { params }: { params: { streamI
         stream.artistId === session.user.id || (await checkStreamAccess(session.user.id, stream));
 
       if (!hasAccess) {
-        return NextResponse.json(
-          { success: false, error: { message: 'Access denied' } },
-          { status: 403 }
-        );
+        return apiError('FORBIDDEN', 'Access denied');
       }
     }
 
@@ -196,10 +176,7 @@ export async function POST(request: NextRequest, { params }: { params: { streamI
 
       if (recentMessages >= 5) {
         // Max 5 messages per 30 seconds
-        return NextResponse.json(
-          { success: false, error: { message: 'Rate limit exceeded' } },
-          { status: 429 }
-        );
+        return apiError('RATE_LIMITED', 'Rate limit exceeded');
       }
     }
 
@@ -262,19 +239,10 @@ export async function POST(request: NextRequest, { params }: { params: { streamI
       senderName,
     });
 
-    return NextResponse.json(
-      {
-        success: true,
-        data: { message: formattedMessage },
-      },
-      { status: 201 }
-    );
+    return apiCreated({ message: formattedMessage });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { success: false, error: { message: 'Invalid message data', details: error.errors } },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'Invalid message data', error.errors);
     }
 
     logger.error(
@@ -286,10 +254,7 @@ export async function POST(request: NextRequest, { params }: { params: { streamI
       error as Error
     );
 
-    return NextResponse.json(
-      { success: false, error: { message: 'Internal server error' } },
-      { status: 500 }
-    );
+    return apiError('INTERNAL_ERROR', 'Internal server error');
   }
 }
 

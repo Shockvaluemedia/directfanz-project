@@ -1,12 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-production';
 import { getDatabaseClient } from '@/lib/database-production';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return apiError('UNAUTHORIZED', 'Unauthorized');
   }
 
   const { format = 'json' } = await request.json();
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
 
   processDataExport(session.user.id, exportRequest.id, format);
 
-  return NextResponse.json({
+  return apiSuccess({
     requestId: exportRequest.id,
     status: 'pending',
   });

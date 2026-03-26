@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,10 +10,7 @@ export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return NextResponse.json(
-        { success: false, error: { message: 'Unauthorized' } },
-        { status: 401 }
-      );
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     const userId = (session.user as Record<string, unknown>).id as string;
@@ -44,18 +42,12 @@ export async function GET() {
       },
     });
 
-    return NextResponse.json({
-      success: true,
-      data: {
+    return apiSuccess({
         consentHistory: consentRecords,
         gdprRequests,
-      },
-    });
+      });
   } catch (error) {
-    console.error('Failed to fetch consent history:', error);
-    return NextResponse.json(
-      { success: false, error: { message: 'Internal server error' } },
-      { status: 500 }
-    );
+    logger.error('Failed to fetch consent history', {}, error as Error);
+    return apiError('INTERNAL_ERROR', 'Internal server error');
   }
 }

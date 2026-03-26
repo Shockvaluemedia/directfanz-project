@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { withApi } from '@/lib/api-auth';
 import { prisma } from '@/lib/database';
 import { logger } from '@/lib/logger';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 const passwordChangeSchema = z
   .object({
@@ -34,30 +35,24 @@ export async function POST(request: NextRequest) {
       });
 
       if (!user) {
-        return NextResponse.json({ error: 'User not found' }, { status: 404 });
+        return apiError('NOT_FOUND', 'User not found');
       }
 
       // Check if user has a password (might be OAuth user)
       if (!user.password) {
-        return NextResponse.json(
-          { error: 'Password change not available for OAuth accounts' },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'Password change not available for OAuth accounts');
       }
 
       // Verify current password
       const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
       if (!isCurrentPasswordValid) {
-        return NextResponse.json({ error: 'Current password is incorrect' }, { status: 400 });
+        return apiError('BAD_REQUEST', 'Current password is incorrect');
       }
 
       // Check if new password is different from current
       const isSamePassword = await bcrypt.compare(newPassword, user.password);
       if (isSamePassword) {
-        return NextResponse.json(
-          { error: 'New password must be different from current password' },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'New password must be different from current password');
       }
 
       // Hash new password
@@ -77,23 +72,14 @@ export async function POST(request: NextRequest) {
         userId: req.user.id,
       });
 
-      return NextResponse.json({
-        success: true,
-        message: 'Password changed successfully',
-      });
+      return apiSuccess({ message: 'Password changed successfully' });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return NextResponse.json(
-          {
-            error: 'Invalid input',
-            details: error.errors,
-          },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'Invalid input', error.errors);
       }
 
       logger.error('Password change error', { userId: req.user?.id }, error as Error);
-      return NextResponse.json({ error: 'Failed to change password' }, { status: 500 });
+      return apiError('INTERNAL_ERROR', 'Failed to change password');
     }
   });
 }

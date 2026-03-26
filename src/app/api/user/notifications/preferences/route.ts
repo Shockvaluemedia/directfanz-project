@@ -1,12 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { z } from 'zod';
 
+import { logger } from '@/lib/logger';
 import {
   getUserNotificationPreferences,
   updateUserNotificationPreferences,
   NotificationPreferences,
 } from '@/lib/notifications';
+import { apiSuccess, apiError, apiValidationError } from '@/lib/api-response';
 
 // Validation schema for notification preferences
 const notificationPreferencesSchema = z.object({
@@ -20,18 +22,15 @@ export async function GET(request: NextRequest) {
   const session = await getServerSession();
 
   if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return apiError('UNAUTHORIZED', 'Unauthorized');
   }
 
   try {
     const preferences = await getUserNotificationPreferences(session.user.id);
-    return NextResponse.json({ preferences });
+    return apiSuccess({ preferences });
   } catch (error) {
-    console.error('Error fetching notification preferences:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch notification preferences' },
-      { status: 500 }
-    );
+    logger.error('Error fetching notification preferences', {}, error as Error);
+    return apiError('INTERNAL_ERROR', 'Failed to fetch notification preferences');
   }
 }
 
@@ -40,7 +39,7 @@ export async function PUT(request: NextRequest) {
   const session = await getServerSession();
 
   if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return apiError('UNAUTHORIZED', 'Unauthorized');
   }
 
   try {
@@ -55,16 +54,13 @@ export async function PUT(request: NextRequest) {
       validatedData as Partial<NotificationPreferences>
     );
 
-    return NextResponse.json({ preferences: updatedPreferences });
+    return apiSuccess({ preferences: updatedPreferences });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors }, { status: 400 });
+      return apiValidationError(error.errors);
     }
 
-    console.error('Error updating notification preferences:', error);
-    return NextResponse.json(
-      { error: 'Failed to update notification preferences' },
-      { status: 500 }
-    );
+    logger.error('Error updating notification preferences', {}, error as Error);
+    return apiError('INTERNAL_ERROR', 'Failed to update notification preferences');
   }
 }

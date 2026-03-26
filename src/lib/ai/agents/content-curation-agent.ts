@@ -1,7 +1,6 @@
-// @ts-nocheck
 import { BaseAgent, AgentType, AgentTask, AgentResponse, AgentConfig } from '../base-agent';
 import { Logger } from '@/lib/logger';
-import type { Database } from '@/lib/database/types';
+import type { Database } from '../base-agent';
 
 export interface ContentItem {
   id: string;
@@ -314,8 +313,7 @@ export interface ContentCurationConfig extends AgentConfig {
 }
 
 // Content Curation AI Agent for intelligent content recommendations and curation
-export class ContentCurationAgent extends BaseAgent {
-  private readonly config: ContentCurationConfig;
+export class ContentCurationAgent extends BaseAgent<ContentCurationConfig> {
   private readonly recommendations: Map<string, ContentRecommendation[]> = new Map();
   private readonly curations: Map<string, ContentCuration> = new Map();
   private readonly trends: Map<string, TrendAnalysis> = new Map();
@@ -328,7 +326,6 @@ export class ContentCurationAgent extends BaseAgent {
     db?: Database
   ) {
     super(id, AgentType.CONTENT_CURATOR, config, logger, db);
-    this.config = config;
   }
 
   public getCapabilities(): string[] {
@@ -727,7 +724,7 @@ export class ContentCurationAgent extends BaseAgent {
 
       const strategy: ContentStrategy = {
         artistId,
-        timeframe: timeframe as any,
+        timeframe: timeframe as ContentStrategy['timeframe'],
         goals: strategyGoals,
         contentPlan,
         trendAlignment: trendInsights.alignments,

@@ -1,26 +1,23 @@
 // @ts-nocheck — TODO: Fix Prisma relation names and type errors in admin moderation
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { getModerationStats } from '@/lib/ai-content-moderation';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     
     if (!session) {
-      return NextResponse.json({ 
-        error: 'Authentication required' 
-      }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Authentication required');
     }
 
     // Check admin permissions
     if (session.user.role !== 'ADMIN') {
-      return NextResponse.json({
-        error: 'Admin privileges required'
-      }, { status: 403 });
+      return apiError('FORBIDDEN', 'Admin privileges required');
     }
 
     const { searchParams } = new URL(request.url);
@@ -89,9 +86,7 @@ export async function GET(request: NextRequest) {
           }
         });
 
-        return NextResponse.json({
-          success: true,
-          data: {
+        return apiSuccess({
             content: contentWithModeration,
             pagination: {
               total: totalCount,
@@ -99,8 +94,7 @@ export async function GET(request: NextRequest) {
               offset,
               hasMore: offset + limit < totalCount
             }
-          }
-        });
+          });
       }
 
       case 'stats': {
@@ -123,9 +117,7 @@ export async function GET(request: NextRequest) {
 
         const [publishedCount, pendingCount, rejectedCount, recentCount] = dbStats;
 
-        return NextResponse.json({
-          success: true,
-          data: {
+        return apiSuccess({
             ...stats,
             database: {
               published: publishedCount,
@@ -139,8 +131,7 @@ export async function GET(request: NextRequest) {
               averageResponseTime: '2.3s',
               queueLength: pendingCount
             }
-          }
-        });
+          });
       }
 
       case 'history': {
@@ -200,32 +191,25 @@ export async function GET(request: NextRequest) {
           };
         });
 
-        return NextResponse.json({
-          success: true,
-          data: {
+        return apiSuccess({
             content: contentWithModeration,
             filters: {
               artistId,
               riskLevel
             }
-          }
-        });
+          });
       }
 
       default: {
-        return NextResponse.json({
-          error: 'Invalid action',
-          availableActions: ['pending', 'stats', 'history']
-        }, { status: 400 });
+        return apiError('BAD_REQUEST', 'Invalid action', {
+          availableActions: ['pending', 'stats', 'history'] });
       }
     }
 
   } catch (error) {
     logger.error('Admin moderation API error:', error);
-    return NextResponse.json({
-      error: 'Internal server error',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Internal server error', {
+      message: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
 
@@ -234,24 +218,18 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
     
     if (!session) {
-      return NextResponse.json({ 
-        error: 'Authentication required' 
-      }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Authentication required');
     }
 
     if (session.user.role !== 'ADMIN') {
-      return NextResponse.json({
-        error: 'Admin privileges required'
-      }, { status: 403 });
+      return apiError('FORBIDDEN', 'Admin privileges required');
     }
 
     const body = await request.json();
     const { action, contentIds, decision, reason, notify = false } = body;
 
     if (!action || !contentIds || !Array.isArray(contentIds)) {
-      return NextResponse.json({
-        error: 'Action and contentIds array are required'
-      }, { status: 400 });
+      return apiError('BAD_REQUEST', 'Action and contentIds array are required');
     }
 
     switch (action) {
@@ -277,23 +255,18 @@ export async function POST(request: NextRequest) {
           reason
         });
 
-        return NextResponse.json({
-          success: true,
-          data: {
+        return apiSuccess({
             action: 'approve',
             contentIds,
             updatedCount: updatedContent.count,
             message: `${updatedContent.count} content items approved and published`
-          }
-        });
+          });
       }
 
       case 'reject': {
         // Reject content
         if (!reason) {
-          return NextResponse.json({
-            error: 'Rejection reason is required'
-          }, { status: 400 });
+          return apiError('BAD_REQUEST', 'Rejection reason is required');
         }
 
         const updatedContent = await prisma.content.updateMany({
@@ -316,16 +289,13 @@ export async function POST(request: NextRequest) {
           reason
         });
 
-        return NextResponse.json({
-          success: true,
-          data: {
+        return apiSuccess({
             action: 'reject',
             contentIds,
             updatedCount: updatedContent.count,
             message: `${updatedContent.count} content items rejected`,
             reason
-          }
-        });
+          });
       }
 
       case 'flag': {
@@ -374,15 +344,12 @@ export async function POST(request: NextRequest) {
           reason: flagReason
         });
 
-        return NextResponse.json({
-          success: true,
-          data: {
+        return apiSuccess({
             action: 'flag',
             contentIds,
             flaggedCount: successCount,
             message: `${successCount} content items flagged for review`
-          }
-        });
+          });
       }
 
       case 'bulk_action': {
@@ -390,9 +357,7 @@ export async function POST(request: NextRequest) {
         const { actions } = body; // Array of {contentId, decision, reason}
         
         if (!actions || !Array.isArray(actions)) {
-          return NextResponse.json({
-            error: 'Actions array is required for bulk operations'
-          }, { status: 400 });
+          return apiError('BAD_REQUEST', 'Actions array is required for bulk operations');
         }
 
         const results = await Promise.all(
@@ -441,9 +406,7 @@ export async function POST(request: NextRequest) {
           failureCount: actions.length - successCount
         });
 
-        return NextResponse.json({
-          success: true,
-          data: {
+        return apiSuccess({
             action: 'bulk_action',
             results,
             summary: {
@@ -451,23 +414,18 @@ export async function POST(request: NextRequest) {
               successful: successCount,
               failed: actions.length - successCount
             }
-          }
-        });
+          });
       }
 
       default: {
-        return NextResponse.json({
-          error: 'Invalid action',
-          availableActions: ['approve', 'reject', 'flag', 'bulk_action']
-        }, { status: 400 });
+        return apiError('BAD_REQUEST', 'Invalid action', {
+          availableActions: ['approve', 'reject', 'flag', 'bulk_action'] });
       }
     }
 
   } catch (error) {
     logger.error('Admin moderation POST API error:', error);
-    return NextResponse.json({
-      error: 'Moderation action failed',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Moderation action failed', {
+      message: error instanceof Error ? error.message : 'Unknown error' });
   }
 }

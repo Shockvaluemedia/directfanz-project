@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { withStreamingAccess } from '@/middleware/content-access';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 
 // Stream content with access control
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       // Vercel Blob URLs are directly accessible — redirect to the blob URL
       return Response.redirect(content.fileUrl, 302);
     } catch (error) {
-      console.error('Content streaming error:', error);
+      logger.error('Content streaming error', {}, error as Error);
       return new Response('Streaming failed', { status: 500 });
     }
   });

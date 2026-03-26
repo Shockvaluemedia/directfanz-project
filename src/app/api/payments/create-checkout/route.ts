@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
@@ -9,6 +9,8 @@ import {
   createOrRetrieveCustomer,
 } from '@/lib/stripe';
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 const createCheckoutSchema = z.object({
   tierId: z.string(),
@@ -20,7 +22,7 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     const body = await request.json();
@@ -32,7 +34,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user || user.role !== 'FAN') {
-      return NextResponse.json({ error: 'Only fans can create subscriptions' }, { status: 403 });
+      return apiError('FORBIDDEN', 'Only fans can create subscriptions');
     }
 
     // Get tier and artist details
@@ -48,24 +50,21 @@ export async function POST(request: NextRequest) {
     });
 
     if (!tier) {
-      return NextResponse.json({ error: 'Tier not found' }, { status: 404 });
+      return apiError('NOT_FOUND', 'Tier not found');
     }
 
     if (!tier.isActive) {
-      return NextResponse.json({ error: 'Tier is not active' }, { status: 400 });
+      return apiError('BAD_REQUEST', 'Tier is not active');
     }
 
     // Validate minimum amount
     if (amount < parseFloat(tier.minimumPrice.toString())) {
-      return NextResponse.json({ error: 'Amount is below minimum price' }, { status: 400 });
+      return apiError('BAD_REQUEST', 'Amount is below minimum price');
     }
 
     // Check if artist is onboarded with Stripe
     if (!tier.users.artists?.stripeAccountId || !tier.users.artists.isStripeOnboarded) {
-      return NextResponse.json(
-        { error: 'Artist is not set up to receive payments' },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'Artist is not set up to receive payments');
     }
 
     // Check if fan already has a subscription to this tier
@@ -79,7 +78,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (existingSubscription && existingSubscription.status === 'ACTIVE') {
-      return NextResponse.json({ error: 'Already subscribed to this tier' }, { status: 400 });
+      return apiError('BAD_REQUEST', 'Already subscribed to this tier');
     }
 
     const stripeAccountId = tier.users.artists.stripeAccountId;
@@ -118,19 +117,16 @@ export async function POST(request: NextRequest) {
       metadata
     );
 
-    return NextResponse.json({
+    return apiSuccess({
       checkoutUrl,
     });
   } catch (error) {
-    console.error('Create checkout error:', error);
+    logger.error('Create checkout error', {}, error as Error);
 
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Invalid request data', details: error.errors },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'Invalid request data', error.errors);
     }
 
-    return NextResponse.json({ error: 'Failed to create checkout session' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Failed to create checkout session');
   }
 }

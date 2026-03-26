@@ -10,6 +10,7 @@ import {
   validateApiRequest
 } from '@/lib/api-error-handler';
 import { AppError, ErrorCode } from '@/lib/errors';
+import { logger } from '@/lib/logger';
 
 const createContentSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title too long'),
@@ -106,7 +107,7 @@ export const POST = withArtistApiHandler(
     // Send notifications to subscribers (async, don't await)
     if (tierIds.length > 0) {
       notifyNewContent(content, artist?.displayName || 'Artist').catch(error =>
-        console.error('Failed to send content notifications:', error)
+        logger.error('Failed to send content notifications', {}, error as Error)
       );
     }
 

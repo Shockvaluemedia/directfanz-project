@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 import {
   getBillingCycleInfo,
   getUpcomingInvoices,
@@ -13,13 +14,14 @@ import {
   getArtistBillingSummary,
   syncArtistInvoices,
 } from '@/lib/billing-cycle';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     const url = new URL(request.url);
@@ -29,7 +31,7 @@ export async function GET(request: NextRequest) {
     switch (action) {
       case 'info':
         if (!subscriptionId) {
-          return NextResponse.json({ error: 'Missing subscriptionId parameter' }, { status: 400 });
+          return apiError('BAD_REQUEST', 'Missing subscriptionId parameter');
         }
 
         // Verify subscription ownership
@@ -41,55 +43,46 @@ export async function GET(request: NextRequest) {
         });
 
         if (!subscription) {
-          return NextResponse.json({ error: 'Subscription not found' }, { status: 404 });
+          return apiError('NOT_FOUND', 'Subscription not found');
         }
 
         const billingInfo = await getBillingCycleInfo(subscriptionId);
-        return NextResponse.json({ billingInfo });
+        return apiSuccess({ billingInfo });
 
       case 'upcoming':
         // Only allow artists to see upcoming invoices for their subscriptions
         if (session.user.role !== 'ARTIST') {
-          return NextResponse.json(
-            { error: 'Only artists can view upcoming invoices' },
-            { status: 403 }
-          );
+          return apiError('FORBIDDEN', 'Only artists can view upcoming invoices');
         }
 
         const upcomingInvoices = await getUpcomingInvoices(session.user.id);
 
-        return NextResponse.json({ upcomingInvoices });
+        return apiSuccess({ upcomingInvoices });
 
       case 'stats':
         // Only allow artists to see billing stats
         if (session.user.role !== 'ARTIST') {
-          return NextResponse.json(
-            { error: 'Only artists can view billing statistics' },
-            { status: 403 }
-          );
+          return apiError('FORBIDDEN', 'Only artists can view billing statistics');
         }
 
         const stats = await getBillingCycleStats();
-        return NextResponse.json({ stats });
+        return apiSuccess({ stats });
 
       case 'summary':
         // Only allow artists to see billing summary
         if (session.user.role !== 'ARTIST') {
-          return NextResponse.json(
-            { error: 'Only artists can view billing summary' },
-            { status: 403 }
-          );
+          return apiError('FORBIDDEN', 'Only artists can view billing summary');
         }
 
         const summary = await getArtistBillingSummary(session.user.id);
-        return NextResponse.json({ summary });
+        return apiSuccess({ summary });
 
       default:
-        return NextResponse.json({ error: 'Invalid action parameter' }, { status: 400 });
+        return apiError('BAD_REQUEST', 'Invalid action parameter');
     }
   } catch (error) {
-    console.error('Billing cycle error:', error);
-    return NextResponse.json({ error: 'Failed to process billing cycle request' }, { status: 500 });
+    logger.error('Billing cycle error', {}, error as Error);
+    return apiError('INTERNAL_ERROR', 'Failed to process billing cycle request');
   }
 }
 
@@ -98,16 +91,13 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     // Only allow admin users to trigger billing processes
     // For now, we'll allow artists to trigger these for their own data
     if (session.user.role !== 'ARTIST') {
-      return NextResponse.json(
-        { error: 'Only artists can trigger billing processes' },
-        { status: 403 }
-      );
+      return apiError('FORBIDDEN', 'Only artists can trigger billing processes');
     }
 
     const body = await request.json();
@@ -116,44 +106,44 @@ export async function POST(request: NextRequest) {
     switch (action) {
       case 'process-renewals':
         const renewalEvents = await processBillingRenewals();
-        return NextResponse.json({
+        return apiSuccess({
           message: 'Billing renewals processed',
           events: renewalEvents,
         });
 
       case 'process-retries':
         const retryEvents = await processFailedPaymentRetries();
-        return NextResponse.json({
+        return apiSuccess({
           message: 'Payment retries processed',
           events: retryEvents,
         });
 
       case 'send-reminders':
         const reminderCount = await sendBillingReminders();
-        return NextResponse.json({
+        return apiSuccess({
           message: 'Billing reminders sent',
           count: reminderCount,
         });
 
       case 'process-scheduled-changes':
         const tierChangeEvents = await processScheduledTierChanges();
-        return NextResponse.json({
+        return apiSuccess({
           message: 'Scheduled tier changes processed',
           events: tierChangeEvents,
         });
 
       case 'sync-invoices':
         const syncResult = await syncArtistInvoices(session.user.id);
-        return NextResponse.json({
+        return apiSuccess({
           message: 'Artist invoices synced successfully',
           result: syncResult,
         });
 
       default:
-        return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+        return apiError('BAD_REQUEST', 'Invalid action');
     }
   } catch (error) {
-    console.error('Billing cycle process error:', error);
-    return NextResponse.json({ error: 'Failed to process billing cycle action' }, { status: 500 });
+    logger.error('Billing cycle process error', {}, error as Error);
+    return apiError('INTERNAL_ERROR', 'Failed to process billing cycle action');
   }
 }

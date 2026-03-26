@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { withApi } from '@/lib/api-auth';
 import { prisma } from '@/lib/database';
 import { logger } from '@/lib/logger';
 import { safeParseURL } from '@/lib/api-utils';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
@@ -13,7 +14,7 @@ export async function GET(request: NextRequest) {
     try {
       // Verify user is a fan
       if (req.user.role !== 'FAN') {
-        return NextResponse.json({ error: 'Access denied. Fan role required.' }, { status: 403 });
+        return apiError('FORBIDDEN', 'Access denied. Fan role required.');
       }
 
       const url = safeParseURL(request);
@@ -39,12 +40,9 @@ export async function GET(request: NextRequest) {
       });
 
       if (activeSubscriptions.length === 0) {
-        return NextResponse.json({
-          success: true,
-          data: {
+        return apiSuccess({
             content: [],
-          },
-        });
+          });
       }
 
       const subscribedArtistIds = activeSubscriptions.map(sub => sub.artistId);
@@ -111,15 +109,12 @@ export async function GET(request: NextRequest) {
         subscribedArtists: subscribedArtistIds.length,
       });
 
-      return NextResponse.json({
-        success: true,
-        data: {
+      return apiSuccess({
           content: formattedContent,
-        },
-      });
+        });
     } catch (error) {
       logger.error('Get fan content feed error', { userId: req.user?.id }, error as Error);
-      return NextResponse.json({ error: 'Failed to fetch content feed' }, { status: 500 });
+      return apiError('INTERNAL_ERROR', 'Failed to fetch content feed');
     }
   });
 }

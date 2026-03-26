@@ -1,7 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 export async function POST(
   request: NextRequest,
@@ -10,7 +12,7 @@ export async function POST(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     const { action } = await request.json();
@@ -22,17 +24,17 @@ export async function POST(
     });
 
     if (!stream) {
-      return NextResponse.json({ error: 'Stream not found' }, { status: 404 });
+      return apiError('NOT_FOUND', 'Stream not found');
     }
 
     if (stream.artistId !== session.user.id) {
-      return NextResponse.json({ error: 'Not authorized for this stream' }, { status: 403 });
+      return apiError('FORBIDDEN', 'Not authorized for this stream');
     }
 
     switch (action) {
       case 'start':
         if (stream.status !== 'SCHEDULED') {
-          return NextResponse.json({ error: 'Stream already started' }, { status: 400 });
+          return apiError('BAD_REQUEST', 'Stream already started');
         }
 
         await prisma.live_streams.update({
@@ -43,7 +45,7 @@ export async function POST(
           }
         });
 
-        return NextResponse.json({
+        return apiSuccess({
           status: 'LIVE',
           message: 'Stream started successfully',
           signalingUrl: process.env.NEXT_PUBLIC_WEBSOCKET_URL || '/api/socket',
@@ -51,7 +53,7 @@ export async function POST(
 
       case 'stop':
         if (stream.status !== 'LIVE') {
-          return NextResponse.json({ error: 'Stream not live' }, { status: 400 });
+          return apiError('BAD_REQUEST', 'Stream not live');
         }
 
         const endedStream = await prisma.live_streams.update({
@@ -66,19 +68,19 @@ export async function POST(
           ? endedStream.endedAt.getTime() - endedStream.startedAt.getTime()
           : 0;
 
-        return NextResponse.json({
+        return apiSuccess({
           status: 'ENDED',
           message: 'Stream ended successfully',
           duration
         });
 
       default:
-        return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+        return apiError('BAD_REQUEST', 'Invalid action');
     }
 
   } catch (error) {
-    console.error('Stream action error:', error);
-    return NextResponse.json({ error: 'Stream action failed' }, { status: 500 });
+    logger.error('Stream action error', {}, error as Error);
+    return apiError('INTERNAL_ERROR', 'Stream action failed');
   }
 }
 
@@ -134,10 +136,10 @@ export async function GET(
     });
 
     if (!stream) {
-      return NextResponse.json({ error: 'Stream not found' }, { status: 404 });
+      return apiError('NOT_FOUND', 'Stream not found');
     }
 
-    return NextResponse.json({
+    return apiSuccess({
       ...stream,
       signalingUrl: stream.status === 'LIVE'
         ? (process.env.NEXT_PUBLIC_WEBSOCKET_URL || '/api/socket')
@@ -155,7 +157,7 @@ export async function GET(
     });
 
   } catch (error) {
-    console.error('Stream fetch error:', error);
-    return NextResponse.json({ error: 'Failed to fetch stream' }, { status: 500 });
+    logger.error('Stream fetch error', {}, error as Error);
+    return apiError('INTERNAL_ERROR', 'Failed to fetch stream');
   }
 }

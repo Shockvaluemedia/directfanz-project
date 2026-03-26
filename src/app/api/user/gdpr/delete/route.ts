@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 const GRACE_PERIOD_DAYS = 30;
 
@@ -10,10 +11,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return NextResponse.json(
-        { success: false, error: { message: 'Unauthorized' } },
-        { status: 401 }
-      );
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     const userId = (session.user as Record<string, unknown>).id as string;
@@ -29,9 +27,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (existingRequest) {
-      return NextResponse.json({
-        success: true,
-        message: 'A deletion request is already pending',
+      return apiSuccess({ message: 'A deletion request is already pending',
         data: {
           requestId: existingRequest.id,
           status: existingRequest.status,
@@ -39,8 +35,7 @@ export async function POST(request: NextRequest) {
           scheduledDeletion: new Date(
             existingRequest.requestDate.getTime() + GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000
           ).toISOString(),
-        },
-      });
+        } });
     }
 
     // Create a new GDPR deletion request with grace period
@@ -65,21 +60,15 @@ export async function POST(request: NextRequest) {
       scheduledDeletion: scheduledDeletion.toISOString(),
     });
 
-    return NextResponse.json({
-      success: true,
-      message: `Account deletion scheduled. You have ${GRACE_PERIOD_DAYS} days to cancel this request.`,
+    return apiSuccess({ message: `Account deletion scheduled. You have ${GRACE_PERIOD_DAYS} days to cancel this request.`,
       data: {
         requestId: gdprRequest.id,
         scheduledDeletion: scheduledDeletion.toISOString(),
         gracePeriodDays: GRACE_PERIOD_DAYS,
-      },
-    });
+      } });
   } catch (error) {
-    console.error('GDPR deletion request failed:', error);
-    return NextResponse.json(
-      { success: false, error: { message: 'Internal server error' } },
-      { status: 500 }
-    );
+    logger.error('GDPR deletion request failed', {}, error as Error);
+    return apiError('INTERNAL_ERROR', 'Internal server error');
   }
 }
 
@@ -88,10 +77,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return NextResponse.json(
-        { success: false, error: { message: 'Unauthorized' } },
-        { status: 401 }
-      );
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     const userId = (session.user as Record<string, unknown>).id as string;
@@ -105,10 +91,7 @@ export async function DELETE(request: NextRequest) {
     });
 
     if (!pendingRequest) {
-      return NextResponse.json(
-        { success: false, error: { message: 'No pending deletion request found' } },
-        { status: 404 }
-      );
+      return apiError('NOT_FOUND', 'No pending deletion request found');
     }
 
     await prisma.gdpr_requests.update({
@@ -125,15 +108,9 @@ export async function DELETE(request: NextRequest) {
       requestId: pendingRequest.id,
     });
 
-    return NextResponse.json({
-      success: true,
-      message: 'Deletion request has been cancelled',
-    });
+    return apiSuccess({ message: 'Deletion request has been cancelled' });
   } catch (error) {
-    console.error('GDPR deletion cancel failed:', error);
-    return NextResponse.json(
-      { success: false, error: { message: 'Internal server error' } },
-      { status: 500 }
-    );
+    logger.error('GDPR deletion cancel failed', {}, error as Error);
+    return apiError('INTERNAL_ERROR', 'Internal server error');
   }
 }

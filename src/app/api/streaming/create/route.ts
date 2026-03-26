@@ -1,5 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { withArtistStreaming, createStreamSession } from '@/lib/streaming-auth';
+import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 export async function POST(request: NextRequest) {
   return withArtistStreaming<any>(request, async (req) => {
@@ -8,17 +10,11 @@ export async function POST(request: NextRequest) {
       const { title, description, isPrivate = false } = body;
 
       if (!title || title.trim().length === 0) {
-        return NextResponse.json(
-          { error: 'Stream title is required' },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'Stream title is required');
       }
 
       if (title.length > 100) {
-        return NextResponse.json(
-          { error: 'Stream title must be 100 characters or less' },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'Stream title must be 100 characters or less');
       }
 
       // Create new stream session
@@ -29,14 +25,11 @@ export async function POST(request: NextRequest) {
       );
 
       if (!streamSession) {
-        return NextResponse.json(
-          { error: 'Failed to create stream session' },
-          { status: 500 }
-        );
+        return apiError('INTERNAL_ERROR', 'Failed to create stream session');
       }
 
       // Return stream details (excluding sensitive information)
-      return NextResponse.json({
+      return apiSuccess({
         streamId: streamSession.streamId,
         title,
         description,
@@ -46,11 +39,8 @@ export async function POST(request: NextRequest) {
         streamKey: streamSession.streamKey, // Only return to stream owner
       });
     } catch (error) {
-      console.error('Stream creation error:', error);
-      return NextResponse.json(
-        { error: 'Failed to create stream' },
-        { status: 500 }
-      );
+      logger.error('Stream creation error', {}, error as Error);
+      return apiError('INTERNAL_ERROR', 'Failed to create stream');
     }
   });
 }

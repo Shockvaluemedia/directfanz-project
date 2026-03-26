@@ -1,6 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { withFanApi } from '@/lib/api-auth';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
@@ -40,12 +42,10 @@ export async function GET(request: NextRequest) {
       });
 
       if (!fan) {
-        return NextResponse.json({ error: 'Fan profile not found' }, { status: 404 });
+        return apiError('NOT_FOUND', 'Fan profile not found');
       }
 
-      return NextResponse.json({
-        success: true,
-        data: {
+      return apiSuccess({
           id: fan.id,
           email: fan.email,
           displayName: fan.displayName,
@@ -58,11 +58,10 @@ export async function GET(request: NextRequest) {
             totalComments: fan._count.comments,
             activeSubscriptions: fan.subscriptions.length,
           },
-        },
-      });
+        });
     } catch (error) {
-      console.error('Fan profile fetch error:', error);
-      return NextResponse.json({ error: 'Failed to fetch fan profile' }, { status: 500 });
+      logger.error('Fan profile fetch error', {}, error as Error);
+      return apiError('INTERNAL_ERROR', 'Failed to fetch fan profile');
     }
   });
 }
@@ -83,14 +82,11 @@ export async function PUT(request: NextRequest) {
         },
       });
 
-      return NextResponse.json({
-        success: true,
-        message: 'Fan profile updated successfully',
-        data: updatedFan,
-      });
+      return apiSuccess({ message: 'Fan profile updated successfully',
+        data: updatedFan });
     } catch (error) {
-      console.error('Fan profile update error:', error);
-      return NextResponse.json({ error: 'Failed to update fan profile' }, { status: 500 });
+      logger.error('Fan profile update error', {}, error as Error);
+      return apiError('INTERNAL_ERROR', 'Failed to update fan profile');
     }
   });
 }

@@ -8,6 +8,7 @@ import { redis, getRedisClient } from '@/lib/redis';
 import { businessMetrics } from '@/lib/business-metrics';
 import { logger } from '@/lib/logger';
 import client from 'prom-client';
+import { apiError } from '@/lib/api-response';
 
 // Secure random number generator
 function secureRandom(max: number): number {
@@ -225,7 +226,7 @@ export async function GET(request: NextRequest) {
     const expectedToken = process.env.METRICS_AUTH_TOKEN;
 
     if (expectedToken && authHeader !== `Bearer ${expectedToken}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     // Use the format parameter to determine response type
@@ -303,13 +304,8 @@ export async function GET(request: NextRequest) {
     }
   } catch (error) {
     logger.error('Failed to collect metrics', {}, error as Error);
-    return NextResponse.json(
-      {
-        error: 'Failed to collect metrics',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 }
-    );
+    return apiError('INTERNAL_ERROR', 'Failed to collect metrics', {
+        message: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
 

@@ -1,27 +1,31 @@
 'use client';
 
-// Minimal not-found page without external imports to avoid hydration/module issues
+import Link from 'next/link';
+
 export default function NotFound() {
   return (
-    <div className='min-h-screen flex items-center justify-center bg-gray-50'>
-      <div className='max-w-md w-full bg-white shadow-lg rounded-lg p-6 text-center'>
-        <div className='text-2xl font-bold text-gray-900'>Page Not Found</div>
-        <p className='mt-2 text-sm text-gray-600'>
-          The page you&apos;re looking for does not exist or may have been moved.
+    <div className="min-h-[80vh] flex items-center justify-center px-4">
+      <div className="text-center max-w-lg">
+        <p className="text-7xl font-bold text-indigo-600">404</p>
+        <h1 className="mt-4 text-3xl font-bold tracking-tight text-gray-900">
+          Page not found
+        </h1>
+        <p className="mt-4 text-base text-gray-600">
+          Sorry, we couldn&apos;t find the page you&apos;re looking for. It may have been moved or no longer exists.
         </p>
-        <div className='mt-6 flex flex-col space-y-3'>
-          <a
-            href='/'
-            className='w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700'
+        <div className="mt-8 flex items-center justify-center gap-4">
+          <Link
+            href="/"
+            className="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 transition-colors"
           >
-            Go to Home Page
-          </a>
-          <button
-            onClick={() => (typeof window !== 'undefined' ? window.history.back() : null)}
-            className='w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50'
+            Back to Home
+          </Link>
+          <Link
+            href="/discover"
+            className="rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 transition-colors"
           >
-            Go Back
-          </button>
+            Browse Creators
+          </Link>
         </div>
       </div>
     </div>

@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { notificationService } from '@/lib/notifications';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 interface RouteParams {
   params: {
@@ -16,7 +17,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     const notificationId = params.id;
@@ -32,9 +33,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       });
     }
 
-    return NextResponse.json({ message: 'Notification deleted successfully' });
+    return apiSuccess({ message: 'Notification deleted successfully' });
   } catch (error) {
     logger.error('Failed to delete notification', { notificationId: params.id }, error as Error);
-    return NextResponse.json({ error: 'Failed to delete notification' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Failed to delete notification');
   }
 }

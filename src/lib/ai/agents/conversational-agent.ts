@@ -1,7 +1,6 @@
-// @ts-nocheck
 import { BaseAgent, AgentType, AgentTask, AgentResponse, AgentConfig, AgentContext } from '../base-agent';
 import { Logger } from '@/lib/logger';
-import type { Database } from '@/lib/database/types';
+import type { Database } from '../base-agent';
 
 export interface ConversationContext {
   userId?: string;
@@ -100,8 +99,7 @@ export interface ConversationalAgentConfig extends AgentConfig {
 }
 
 // Conversational AI Agent for 24/7 fan engagement
-export class ConversationalAgent extends BaseAgent {
-  private readonly config: ConversationalAgentConfig;
+export class ConversationalAgent extends BaseAgent<ConversationalAgentConfig> {
   private readonly activeConversations: Map<string, ConversationContext> = new Map();
   private readonly escalationQueue: Map<string, EscalationReason> = new Map();
 
@@ -112,7 +110,6 @@ export class ConversationalAgent extends BaseAgent {
     db?: Database
   ) {
     super(id, AgentType.CONVERSATIONAL, config, logger, db);
-    this.config = config;
   }
 
   public getCapabilities(): string[] {

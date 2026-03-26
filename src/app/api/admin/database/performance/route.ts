@@ -5,11 +5,12 @@
  * recommendations to ensure compliance with Requirements 12.4
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getDatabaseQueryOptimizer, checkQueryPerformanceHealth } from '@/lib/database-query-optimizer';
 import { getOptimizedQueries } from '@/lib/optimized-queries';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 // GET /api/admin/database/performance - Get performance metrics
 export async function GET(request: NextRequest) {
@@ -22,72 +23,40 @@ export async function GET(request: NextRequest) {
     switch (action) {
       case 'summary':
         const report = await optimizer.getPerformanceReport();
-        return NextResponse.json({
-          success: true,
-          data: report,
-          timestamp: new Date().toISOString()
-        });
+        return apiSuccess({ ...report, timestamp: new Date().toISOString() });
 
       case 'health':
         const health = await checkQueryPerformanceHealth(optimizer);
-        return NextResponse.json({
-          success: true,
-          data: health,
-          timestamp: new Date().toISOString()
-        });
+        return apiSuccess({ ...health, timestamp: new Date().toISOString() });
 
       case 'analyze':
         const queryId = searchParams.get('queryId');
         if (!queryId) {
-          return NextResponse.json(
-            { success: false, error: 'queryId parameter is required for analysis' },
-            { status: 400 }
-          );
+          return apiError('BAD_REQUEST', 'queryId parameter is required for analysis');
         }
 
         const analysis = await optimizer.analyzeQueryPerformance(queryId);
-        return NextResponse.json({
-          success: true,
-          data: analysis,
-          timestamp: new Date().toISOString()
-        });
+        return apiSuccess({ ...analysis, timestamp: new Date().toISOString() });
 
       case 'indexes':
         const indexSuggestions = await optimizer.generateOptimalIndexes();
-        return NextResponse.json({
-          success: true,
-          data: {
+        return apiSuccess({
             suggestions: indexSuggestions,
             count: indexSuggestions.length,
-            estimatedTotalImpact: indexSuggestions.reduce((sum, s) => sum + s.estimatedImpact, 0) / indexSuggestions.length
-          },
-          timestamp: new Date().toISOString()
-        });
+            estimatedTotalImpact: indexSuggestions.reduce((sum, s) => sum + s.estimatedImpact, 0) / indexSuggestions.length,
+            timestamp: new Date().toISOString(),
+          });
 
       case 'optimizations':
         const optimizations = await optimizer.applyAutomaticOptimizations();
-        return NextResponse.json({
-          success: true,
-          data: optimizations,
-          timestamp: new Date().toISOString()
-        });
+        return apiSuccess({ ...optimizations, timestamp: new Date().toISOString() });
 
       default:
-        return NextResponse.json(
-          { success: false, error: 'Invalid action parameter' },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'Invalid action parameter');
     }
   } catch (error) {
     logger.error('Database performance API error:', undefined, error instanceof Error ? error : undefined);
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error',
-        timestamp: new Date().toISOString()
-      },
-      { status: 500 }
-    );
+    return apiError('INTERNAL_ERROR', error instanceof Error ? error.message : 'Unknown error');
   }
 }
 
@@ -103,44 +72,22 @@ export async function POST(request: NextRequest) {
     switch (action) {
       case 'benchmark':
         const benchmarkResults = await runPerformanceBenchmark(optimizedQueries, parameters);
-        return NextResponse.json({
-          success: true,
-          data: benchmarkResults,
-          timestamp: new Date().toISOString()
-        });
+        return apiSuccess({ ...benchmarkResults, timestamp: new Date().toISOString() });
 
       case 'stress_test':
         const stressResults = await runStressTest(optimizedQueries, parameters);
-        return NextResponse.json({
-          success: true,
-          data: stressResults,
-          timestamp: new Date().toISOString()
-        });
+        return apiSuccess({ ...stressResults, timestamp: new Date().toISOString() });
 
       case 'validate_indexes':
         const validationResults = await validateIndexPerformance(parameters);
-        return NextResponse.json({
-          success: true,
-          data: validationResults,
-          timestamp: new Date().toISOString()
-        });
+        return apiSuccess({ ...validationResults, timestamp: new Date().toISOString() });
 
       default:
-        return NextResponse.json(
-          { success: false, error: 'Invalid action parameter' },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'Invalid action parameter');
     }
   } catch (error) {
     logger.error('Database performance test error:', undefined, error instanceof Error ? error : undefined);
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error',
-        timestamp: new Date().toISOString()
-      },
-      { status: 500 }
-    );
+    return apiError('INTERNAL_ERROR', error instanceof Error ? error.message : 'Unknown error');
   }
 }
 

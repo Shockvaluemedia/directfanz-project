@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import {
@@ -12,6 +12,7 @@ import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { headFile } from '@/lib/s3';
 import crypto from 'crypto';
+import { apiSuccess } from '@/lib/api-response';
 
 const confirmUploadSchema = z.object({
   key: z.string().min(1, 'File key is required'),
@@ -42,17 +43,14 @@ export async function POST(request: NextRequest) {
         fileSize: blobInfo.size,
       });
 
-      return NextResponse.json({
-        success: true,
-        data: {
+      return apiSuccess({
           key: validatedData.key,
           fileName: validatedData.fileName,
           fileType: validatedData.fileType,
           fileSize: blobInfo.size,
           uploadedAt: blobInfo.uploadedAt.toISOString(),
           fileUrl: blobInfo.url,
-        },
-      });
+        });
     } catch (blobError: any) {
       if (blobError?.name === 'NotFound' || blobError?.$metadata?.httpStatusCode === 404) {
         throw new NotFoundError('File not found in storage');

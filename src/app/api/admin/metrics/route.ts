@@ -19,6 +19,7 @@ function secureRandomFloat(max: number): number {
   return (crypto.getRandomValues(new Uint32Array(1))[0] / (0xffffffff + 1)) * max;
 }
 import client from 'prom-client';
+import { apiError } from '@/lib/api-response';
 
 interface BusinessMetricsResponse {
   summary: {
@@ -100,7 +101,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     // Check authentication and admin role
     const session = await getServerSession(authOptions);
     if (!session || session.user.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     const searchParams = request.nextUrl.searchParams;
@@ -212,7 +213,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     });
   } catch (error) {
     logger.error('Failed to retrieve business metrics', {}, error as Error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Internal server error');
   }
 }
 

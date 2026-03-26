@@ -1,7 +1,6 @@
-// @ts-nocheck
 import { BaseAgent, AgentType, AgentTask, AgentResponse, AgentConfig } from '../base-agent';
 import { Logger } from '@/lib/logger';
-import type { Database } from '@/lib/database/types';
+import type { Database } from '../base-agent';
 
 export interface ABTest {
   id: string;
@@ -353,8 +352,7 @@ export interface PerformanceOptimizerConfig extends AgentConfig {
 }
 
 // Performance Optimizer AI Agent for A/B testing and optimization
-export class PerformanceOptimizerAgent extends BaseAgent {
-  private readonly config: PerformanceOptimizerConfig;
+export class PerformanceOptimizerAgent extends BaseAgent<PerformanceOptimizerConfig> {
   private readonly activeTests: Map<string, ABTest> = new Map();
   private readonly optimizations: Map<string, any> = new Map();
   private readonly experiments: Map<string, any> = new Map();
@@ -366,7 +364,6 @@ export class PerformanceOptimizerAgent extends BaseAgent {
     db?: Database
   ) {
     super(id, AgentType.PERFORMANCE_OPTIMIZER, config, logger, db);
-    this.config = config;
   }
 
   public getCapabilities(): string[] {
@@ -457,7 +454,7 @@ export class PerformanceOptimizerAgent extends BaseAgent {
       const test: ABTest = {
         id: testId,
         name: testConfig.name,
-        type: testConfig.type as any,
+        type: testConfig.type as ABTest['type'],
         artistId: testConfig.artistId,
         status: 'draft',
         startDate: new Date(),

@@ -320,23 +320,35 @@ export async function monitorOptimizationPerformance(
   }>;
 }> {
   try {
-    // This would integrate with actual Stripe analytics
-    // For now, we'll return simulated performance data
-    
-    const performanceMetrics = [
-      {
-        testPriceId: 'price_test_123',
-        originalAmount: 9.99,
-        testAmount: 11.99,
-        conversionRate: 0.85, // 85% of original conversion rate
-        revenueImpact: 2.1, // 2.1% increase in revenue
-        recommendation: 'continue' as const
-      }
-    ];
+    // Query real price optimization tests from database
+    const optimizations = await prisma.price_optimizations.findMany({
+      where: { artistId, isActive: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const performanceMetrics = optimizations.map(opt => {
+      const original = Number(opt.originalAmount);
+      const optimized = Number(opt.optimizedAmount);
+      // Calculate revenue impact: (optimized - original) / original * 100
+      const revenueImpact = original > 0 ? ((optimized - original) / original) * 100 : 0;
+
+      let recommendation: 'continue' | 'implement' | 'stop' = 'continue';
+      if (opt.status === 'COMPLETED' && revenueImpact > 0) recommendation = 'implement';
+      if (revenueImpact < -5) recommendation = 'stop';
+
+      return {
+        testPriceId: opt.testPriceId || opt.id,
+        originalAmount: original,
+        testAmount: optimized,
+        conversionRate: 1.0, // Would need subscription conversion tracking for real data
+        revenueImpact,
+        recommendation,
+      };
+    });
 
     return {
       activeTests: performanceMetrics.length,
-      performanceMetrics
+      performanceMetrics,
     };
 
   } catch (error) {

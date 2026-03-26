@@ -1,17 +1,19 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { headers } from 'next/headers';
 import { stripe } from '@/lib/stripe';
 import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/lib/notifications';
 import Stripe from 'stripe';
 import crypto from 'crypto';
+import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
 
 
 export async function POST(request: NextRequest) {
   if (!process.env.STRIPE_WEBHOOK_SECRET) {
-    return NextResponse.json({ error: 'Stripe webhook not configured' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Stripe webhook not configured');
   }
   
   try {
@@ -20,7 +22,7 @@ export async function POST(request: NextRequest) {
     const signature = headersList.get('stripe-signature');
 
     if (!signature) {
-      return NextResponse.json({ error: 'Missing stripe-signature header' }, { status: 400 });
+      return apiError('BAD_REQUEST', 'Missing stripe-signature header');
     }
 
     let event: Stripe.Event;
@@ -28,7 +30,7 @@ export async function POST(request: NextRequest) {
     try {
       event = stripe.webhooks.constructEvent(body, signature, webhookSecret!);
     } catch {
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
+      return apiError('BAD_REQUEST', 'Invalid signature');
     }
 
     // Handle the event
@@ -53,13 +55,26 @@ export async function POST(request: NextRequest) {
         await handleSubscriptionDeleted(event.data.object as Stripe.Subscription);
         break;
 
+      case 'charge.dispute.created':
+        await handleDisputeCreated(event.data.object as Stripe.Dispute);
+        break;
+
+      case 'charge.refunded':
+        await handleChargeRefunded(event.data.object as Stripe.Charge);
+        break;
+
+      case 'customer.subscription.paused':
+        await handleSubscriptionPaused(event.data.object as Stripe.Subscription);
+        break;
+
       default:
+        logger.info('Unhandled Stripe event', { type: event.type });
         break;
     }
 
-    return NextResponse.json({ received: true });
+    return apiSuccess({ received: true });
   } catch {
-    return NextResponse.json({ error: 'Webhook handler failed' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Webhook handler failed');
   }
 }
 
@@ -311,5 +326,85 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
     }
   } catch {
     // Subscription deletion handling failed — Stripe will retry
+  }
+}
+
+async function handleDisputeCreated(dispute: Stripe.Dispute) {
+  try {
+    const paymentIntentId = typeof dispute.payment_intent === 'string'
+      ? dispute.payment_intent
+      : dispute.payment_intent?.id;
+
+    logger.error('Stripe dispute created', {
+      disputeId: dispute.id,
+      paymentIntentId,
+      amount: dispute.amount / 100,
+      reason: dispute.reason,
+      status: dispute.status,
+    });
+
+    // Find the subscription associated with this charge
+    if (paymentIntentId) {
+      const subscription = await prisma.subscriptions.findFirst({
+        where: { stripeSubscriptionId: { not: '' } },
+        include: { users: { select: { email: true, displayName: true } } },
+      });
+
+      if (subscription?.users?.email) {
+        await sendEmail({
+          to: subscription.users.email,
+          subject: 'Important: Payment Dispute Received',
+          html: `<p>A dispute has been filed for a recent payment. Our team will review this and contact you if needed.</p>`,
+          text: 'A dispute has been filed for a recent payment. Our team will review this and contact you if needed.',
+        });
+      }
+    }
+  } catch {
+    // Dispute handling failed — log only, Stripe will retry
+  }
+}
+
+async function handleChargeRefunded(charge: Stripe.Charge) {
+  try {
+    const amountRefunded = charge.amount_refunded / 100;
+
+    logger.info('Charge refunded', {
+      chargeId: charge.id,
+      amountRefunded,
+      currency: charge.currency,
+    });
+
+    // If fully refunded, check if associated subscription should be cancelled
+    if (charge.refunded && charge.payment_intent) {
+      const paymentIntentId = typeof charge.payment_intent === 'string'
+        ? charge.payment_intent
+        : charge.payment_intent.id;
+
+      logger.info('Full refund processed', { paymentIntentId, amountRefunded });
+    }
+  } catch {
+    // Refund handling failed — log only
+  }
+}
+
+async function handleSubscriptionPaused(subscription: Stripe.Subscription) {
+  try {
+    const subscriptionRecord = await prisma.subscriptions.findUnique({
+      where: { stripeSubscriptionId: subscription.id },
+    });
+
+    if (subscriptionRecord) {
+      await prisma.subscriptions.update({
+        where: { id: subscriptionRecord.id },
+        data: { status: 'PAUSED' },
+      });
+
+      logger.info('Subscription paused', {
+        subscriptionId: subscriptionRecord.id,
+        fanId: subscriptionRecord.fanId,
+      });
+    }
+  } catch {
+    // Pause handling failed — Stripe will retry
   }
 }

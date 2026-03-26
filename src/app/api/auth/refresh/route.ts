@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import crypto from 'crypto';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 // Secure server-side OAuth token refresh
 export async function POST(request: NextRequest) {
@@ -10,13 +11,13 @@ export async function POST(request: NextRequest) {
     // Verify user session
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Authentication required');
     }
 
     const { provider } = await request.json();
 
     if (!provider || !['google', 'facebook'].includes(provider)) {
-      return NextResponse.json({ error: 'Invalid provider' }, { status: 400 });
+      return apiError('BAD_REQUEST', 'Invalid provider');
     }
 
     // Get stored encrypted tokens
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!oAuthToken || !oAuthToken.encryptedRefreshToken) {
-      return NextResponse.json({ error: 'No refresh token found' }, { status: 404 });
+      return apiError('NOT_FOUND', 'No refresh token found');
     }
 
     // Decrypt refresh token
@@ -40,7 +41,7 @@ export async function POST(request: NextRequest) {
     const refreshedTokens = await refreshOAuthToken(provider, refreshToken);
 
     if (!refreshedTokens) {
-      return NextResponse.json({ error: 'Token refresh failed' }, { status: 400 });
+      return apiError('BAD_REQUEST', 'Token refresh failed');
     }
 
     // Encrypt and store new tokens
@@ -61,12 +62,9 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({
-      success: true,
-      expiresIn: refreshedTokens.expires_in,
-    });
+    return apiSuccess({ expiresIn: refreshedTokens.expires_in });
   } catch {
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Internal server error');
   }
 }
 

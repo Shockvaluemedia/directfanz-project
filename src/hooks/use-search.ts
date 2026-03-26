@@ -243,143 +243,48 @@ export function useLocalSearch(data: SearchableContent[], query: string) {
   }, [fuse, query, data]);
 }
 
-// API functions (these would connect to your backend)
+// API functions — call the backend search endpoint
 async function fetchSearchResults(query: string, filters: SearchFilters, page: number) {
-  // In a real app, this would be an API call
-  const mockData = generateMockSearchResults(query, filters, page);
-  
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  return mockData;
+  const params = new URLSearchParams({
+    q: query,
+    page: String(page),
+    ...(filters.types?.length && { types: filters.types.join(',') }),
+    ...(filters.categories?.length && { categories: filters.categories.join(',') }),
+    ...(filters.sortBy && { sortBy: filters.sortBy }),
+  });
+
+  const res = await fetch(`/api/search?${params}`);
+  if (!res.ok) throw new Error('Search failed');
+  return res.json();
 }
 
 async function fetchSearchSuggestions(query: string): Promise<SearchSuggestion[]> {
-  // Mock suggestions
-  const suggestions: SearchSuggestion[] = [
-    { text: `${query} tutorial`, type: 'query', count: 156 },
-    { text: `${query} live`, type: 'query', count: 89 },
-    { text: `${query} premium`, type: 'query', count: 67 },
-    { text: `best ${query}`, type: 'query', count: 234 },
-  ];
-  
-  // Add creator suggestions
-  if (query.length >= 3) {
-    suggestions.push(
-      { text: `${query} creator`, type: 'creator', count: 45 },
-      { text: `${query} artist`, type: 'creator', count: 32 }
-    );
-  }
-  
-  return suggestions;
+  const res = await fetch(`/api/search?q=${encodeURIComponent(query)}&suggestions=true&limit=6`);
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.suggestions ?? [];
 }
 
 async function fetchTrending(category?: string): Promise<TrendingItem[]> {
-  // Mock trending data
-  return [
-    {
-      id: '1',
-      title: 'Music Production',
-      type: 'query',
-      trendScore: 95,
-      change: 15.3
-    },
-    {
-      id: '2',
-      title: 'Sarah Johnson',
-      type: 'creator',
-      trendScore: 88,
-      change: 23.7,
-      thumbnailUrl: 'https://picsum.photos/100/100?random=1'
-    },
-    {
-      id: '3',
-      title: 'Fitness Challenge',
-      type: 'content',
-      trendScore: 82,
-      change: -5.2,
-      creator: 'FitPro Mike'
-    },
-    {
-      id: '4',
-      title: '#WorkoutMotivation',
-      type: 'tag',
-      trendScore: 76,
-      change: 8.9
-    }
-  ];
+  const params = new URLSearchParams({ trending: 'true' });
+  if (category) params.set('category', category);
+
+  const res = await fetch(`/api/search?${params}`);
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.trending ?? [];
 }
 
-async function fetchRecommendations(userId: string, preferences?: any): Promise<SearchableContent[]> {
-  // Mock recommendations based on user preferences
-  return generateMockContent(10, 'recommended');
+async function fetchRecommendations(userId: string, _preferences?: any): Promise<SearchableContent[]> {
+  const res = await fetch(`/api/recommendations?userId=${userId}`);
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.results ?? data.recommendations ?? [];
 }
 
 async function fetchFeaturedContent(): Promise<SearchableContent[]> {
-  // Mock featured content
-  return generateMockContent(8, 'featured');
-}
-
-// Mock data generator
-function generateMockSearchResults(query: string, filters: SearchFilters, page: number) {
-  const pageSize = 20;
-  const totalResults = 150;
-  const hasMore = (page + 1) * pageSize < totalResults;
-  
-  const results = generateMockContent(pageSize, 'search', query);
-  
-  return {
-    results,
-    total: totalResults,
-    hasMore,
-    page
-  };
-}
-
-function generateMockContent(count: number, context: 'search' | 'recommended' | 'featured', query?: string): SearchableContent[] {
-  const categories = ['Music', 'Art', 'Fitness', 'Gaming', 'Education', 'Comedy', 'Fashion', 'Cooking'];
-  const contentTypes = ['image', 'video', 'audio', 'document'] as const;
-  const creators = [
-    'Sarah Johnson', 'Mike Chen', 'Emma Williams', 'David Brown', 'Lisa Garcia',
-    'Alex Thompson', 'Maya Patel', 'Chris Wilson', 'Ashley Davis', 'Ryan Martinez'
-  ];
-
-  return Array.from({ length: count }, (_, i) => {
-    const creator = creators[i % creators.length];
-    const category = categories[i % categories.length];
-    const contentType = contentTypes[i % contentTypes.length];
-    const isPremium = Math.random() > 0.7;
-    const isLive = Math.random() > 0.9;
-
-    return {
-      id: `${context}-${i}`,
-      type: Math.random() > 0.8 ? 'creator' : 'content',
-      title: query ? `${query} - ${category} Content ${i + 1}` : `${category} Content ${i + 1}`,
-      description: `Amazing ${category.toLowerCase()} content created by ${creator}. This is a detailed description of the content.`,
-      tags: [`${category.toLowerCase()}`, 'tutorial', 'premium', 'popular'],
-      category,
-      createdAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000),
-      updatedAt: new Date(),
-      thumbnailUrl: `https://picsum.photos/400/300?random=${i}`,
-      creator: {
-        id: `creator-${i}`,
-        name: creator,
-        avatar: `https://picsum.photos/100/100?random=${i + 100}`,
-        verified: Math.random() > 0.6,
-        followerCount: Math.floor(Math.random() * 10000) + 100
-      },
-      metrics: {
-        views: Math.floor(Math.random() * 50000) + 100,
-        likes: Math.floor(Math.random() * 5000) + 10,
-        comments: Math.floor(Math.random() * 1000) + 5,
-        shares: Math.floor(Math.random() * 500) + 1,
-        rating: 3 + Math.random() * 2
-      },
-      contentType,
-      duration: contentType === 'video' || contentType === 'audio' ? Math.floor(Math.random() * 3600) + 60 : undefined,
-      isLive,
-      isPremium,
-      price: isPremium ? Math.floor(Math.random() * 50) + 5 : undefined
-    };
-  });
+  const res = await fetch('/api/search?featured=true&limit=8');
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.results ?? [];
 }

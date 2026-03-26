@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
 import { CampaignType, CampaignStatus, CampaignMetric } from '@/lib/types/enums';
+import { apiSuccess, apiError, apiValidationError } from '@/lib/api-response';
 
 const updateCampaignSchema = z.object({
   title: z.string().min(1).max(200).optional(),
@@ -86,7 +87,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     });
 
     if (!campaign) {
-      return NextResponse.json({ error: 'Campaign not found' }, { status: 404 });
+      return apiError('NOT_FOUND', 'Campaign not found');
     }
 
     // Check if user can access this campaign
@@ -96,7 +97,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       session?.user?.role === 'ADMIN'; // Admin access
 
     if (!canAccess) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      return apiError('FORBIDDEN', 'Access denied');
     }
 
     // Add user-specific participation data if authenticated
@@ -135,14 +136,14 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       }
     }
 
-    return NextResponse.json({
+    return apiSuccess({
       ...campaign,
       tags: campaign.tags ? JSON.parse(campaign.tags) : [],
       userParticipation,
     });
   } catch (error) {
     logger.error('Error fetching campaign', { campaignId: params.id }, error as Error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Internal server error');
   }
 }
 
@@ -153,7 +154,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     // Check if campaign exists and user owns it
@@ -163,11 +164,11 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     });
 
     if (!existingCampaign) {
-      return NextResponse.json({ error: 'Campaign not found' }, { status: 404 });
+      return apiError('NOT_FOUND', 'Campaign not found');
     }
 
     if (existingCampaign.artistId !== session.user.id && session.user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      return apiError('FORBIDDEN', 'Access denied');
     }
 
     const body = await request.json();
@@ -179,7 +180,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       const endDate = new Date(validatedData.endDate);
 
       if (endDate <= startDate) {
-        return NextResponse.json({ error: 'End date must be after start date' }, { status: 400 });
+        return apiError('BAD_REQUEST', 'End date must be after start date');
       }
     }
 
@@ -191,10 +192,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       );
 
       if (hasRestrictedChanges && session.user.role !== 'ADMIN') {
-        return NextResponse.json(
-          { error: 'Cannot modify core campaign details while active' },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'Cannot modify core campaign details while active');
       }
     }
 
@@ -242,20 +240,17 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       updatedFields: Object.keys(validatedData),
     });
 
-    return NextResponse.json({
+    return apiSuccess({
       ...updatedCampaign,
       tags: updatedCampaign.tags ? JSON.parse(updatedCampaign.tags) : [],
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
-        { status: 400 }
-      );
+      return apiValidationError(error.errors);
     }
 
     logger.error('Error updating campaign', { campaignId: params.id }, error as Error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Internal server error');
   }
 }
 
@@ -266,7 +261,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     // Check if campaign exists and user owns it
@@ -276,27 +271,21 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     });
 
     if (!existingCampaign) {
-      return NextResponse.json({ error: 'Campaign not found' }, { status: 404 });
+      return apiError('NOT_FOUND', 'Campaign not found');
     }
 
     if (existingCampaign.artistId !== session.user.id && session.user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      return apiError('FORBIDDEN', 'Access denied');
     }
 
     // Don't allow deletion if campaign has participants
     if (existingCampaign.totalParticipants > 0) {
-      return NextResponse.json(
-        { error: 'Cannot delete campaign with participants' },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'Cannot delete campaign with participants');
     }
 
     // Only allow deletion if campaign is in DRAFT or CANCELLED status
     if (!['DRAFT', 'CANCELLED'].includes(existingCampaign.status)) {
-      return NextResponse.json(
-        { error: 'Can only delete campaigns in draft or cancelled status' },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'Can only delete campaigns in draft or cancelled status');
     }
 
     await prisma.campaigns.delete({
@@ -308,9 +297,9 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       artistId: session.user.id,
     });
 
-    return NextResponse.json({ success: true });
+    return apiSuccess({ success: true });
   } catch (error) {
     logger.error('Error deleting campaign', { campaignId: params.id }, error as Error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Internal server error');
   }
 }

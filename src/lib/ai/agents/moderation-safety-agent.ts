@@ -1,7 +1,6 @@
-// @ts-nocheck
 import { BaseAgent, AgentType, AgentTask, AgentResponse, AgentConfig } from '../base-agent';
 import { Logger } from '@/lib/logger';
-import type { Database } from '@/lib/database/types';
+import type { Database } from '../base-agent';
 
 export interface ModerationResult {
   id: string;
@@ -242,8 +241,7 @@ export interface ModerationSafetyConfig extends AgentConfig {
 }
 
 // Moderation and Safety AI Agent for content moderation and fraud detection
-export class ModerationSafetyAgent extends BaseAgent {
-  private readonly config: ModerationSafetyConfig;
+export class ModerationSafetyAgent extends BaseAgent<ModerationSafetyConfig> {
   private readonly moderationQueue: Map<string, ModerationResult> = new Map();
   private readonly userProfiles: Map<string, UserSafetyProfile> = new Map();
   private readonly fraudCases: Map<string, FraudDetection> = new Map();
@@ -255,7 +253,6 @@ export class ModerationSafetyAgent extends BaseAgent {
     db?: Database
   ) {
     super(id, AgentType.MODERATION_SAFETY, config, logger, db);
-    this.config = config;
   }
 
   public getCapabilities(): string[] {
@@ -366,7 +363,7 @@ export class ModerationSafetyAgent extends BaseAgent {
       const result: ModerationResult = {
         id: `mod_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         contentId,
-        contentType: contentType as any,
+        contentType: contentType as ModerationResult['contentType'],
         status,
         confidence,
         violations,

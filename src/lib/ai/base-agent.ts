@@ -1,7 +1,8 @@
-// @ts-nocheck
 import { EventEmitter } from 'events';
 import { Logger } from '@/lib/logger';
-import type { Database } from '@/lib/database/types';
+
+/** Minimal database handle type — a generic record-based interface */
+export type Database = Record<string, any>;
 
 // Base interfaces for all AI agents
 export interface AgentConfig {
@@ -49,6 +50,11 @@ export interface AgentTask {
   context: AgentContext;
   createdAt: Date;
   expiresAt?: Date;
+  retryCount?: number;
+  timeout?: number;
+  metadata?: Record<string, any>;
+  status?: string;
+  [key: string]: any; // Allow additional agent-specific properties
 }
 
 export interface AgentResponse<T = any> {
@@ -63,6 +69,7 @@ export interface AgentResponse<T = any> {
     processingTime: number;
     tokensUsed?: number;
     model?: string;
+    [key: string]: any;
   };
   metadata?: Record<string, any>;
 }
@@ -96,13 +103,18 @@ export enum AgentType {
   OPERATIONS_MANAGER = 'operations_manager',
   CUSTOMER_SUPPORT = 'customer_support',
   COMPLIANCE_MONITOR = 'compliance_monitor',
+  REVENUE_OPTIMIZER = 'revenue_optimizer',
+  CONTENT_CURATOR = 'content_curator',
+  COMMUNITY_MANAGER = 'community_manager',
+  ADMIN_OPERATIONS = 'admin_operations',
+  MODERATION_SAFETY = 'moderation_safety',
 }
 
 // Base agent class that all AI agents extend
-export abstract class BaseAgent extends EventEmitter {
+export abstract class BaseAgent<TConfig extends AgentConfig = AgentConfig> extends EventEmitter {
   protected readonly id: string;
   protected readonly type: AgentType;
-  protected readonly config: AgentConfig;
+  protected readonly config: TConfig;
   protected status: AgentStatus;
   protected metrics: AgentMetrics;
   protected logger: Logger;
@@ -113,7 +125,7 @@ export abstract class BaseAgent extends EventEmitter {
   constructor(
     id: string,
     type: AgentType,
-    config: AgentConfig,
+    config: TConfig,
     logger?: Logger,
     db?: Database
   ) {

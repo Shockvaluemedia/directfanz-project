@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { headers } from 'next/headers';
 import crypto from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { subscriptionCache, SubscriptionCacheUtils } from '@/lib/subscription-cache';
 import { invalidateAnalyticsCache } from '@/lib/analytics-cached';
 import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 /**
  * Webhook endpoint for subscription changes
@@ -60,7 +61,7 @@ export async function POST(request: NextRequest) {
 
     if (!signature) {
       logger.warn('Webhook request missing signature');
-      return NextResponse.json({ error: 'Missing webhook signature' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Missing webhook signature');
     }
 
     const body = await request.text();
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest) {
     // Verify webhook signature
     if (!verifyWebhookSignature(signature, body)) {
       logger.warn('Invalid webhook signature', { signature });
-      return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Invalid webhook signature');
     }
 
     const payload: SubscriptionWebhookPayload = JSON.parse(body);
@@ -158,22 +159,14 @@ export async function POST(request: NextRequest) {
       errors: cacheMetrics.errors,
     });
 
-    return NextResponse.json({
-      success: true,
-      message: 'Subscription webhook processed successfully',
+    return apiSuccess({ message: 'Subscription webhook processed successfully',
       cacheInvalidated: true,
-      timestamp: new Date().toISOString(),
-    });
+      timestamp: new Date().toISOString() });
   } catch (error) {
     logger.error('Subscription webhook error', {}, error as Error);
 
-    return NextResponse.json(
-      {
-        error: 'Failed to process subscription webhook',
-        timestamp: new Date().toISOString(),
-      },
-      { status: 500 }
-    );
+    return apiError('INTERNAL_ERROR', 'Failed to process subscription webhook', {
+        timestamp: new Date().toISOString() });
   }
 }
 
@@ -182,7 +175,7 @@ export async function GET() {
   try {
     const health = await subscriptionCache.healthCheck();
 
-    return NextResponse.json({
+    return apiSuccess({
       webhookSystem: 'healthy',
       cacheSystem: health.status,
       cacheMetrics: health.metrics,
@@ -197,13 +190,6 @@ export async function GET() {
   } catch (error) {
     logger.error('Webhook health check failed', {}, error as Error);
 
-    return NextResponse.json(
-      {
-        webhookSystem: 'unhealthy',
-        error: error instanceof Error ? error.message : 'Unknown error',
-        lastCheck: new Date().toISOString(),
-      },
-      { status: 500 }
-    );
+    return apiError('INTERNAL_ERROR', error instanceof Error ? error.message : 'Unknown error');
   }
 }

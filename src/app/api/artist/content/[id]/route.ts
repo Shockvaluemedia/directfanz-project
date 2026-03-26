@@ -1,9 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { deleteFile, extractKeyFromUrl } from '@/lib/s3';
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
+import { apiSuccess, apiError, apiValidationError } from '@/lib/api-response';
 
 const updateContentSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title too long').optional(),
@@ -19,10 +21,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id || session.user.role !== 'ARTIST') {
-      return NextResponse.json(
-        { error: { code: 'UNAUTHORIZED', message: 'Artist authentication required' } },
-        { status: 401 }
-      );
+      return apiError('UNAUTHORIZED', 'Artist authentication required');
     }
 
     const content = await prisma.content.findFirst({
@@ -41,22 +40,13 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     });
 
     if (!content) {
-      return NextResponse.json(
-        { error: { code: 'NOT_FOUND', message: 'Content not found' } },
-        { status: 404 }
-      );
+      return apiError('NOT_FOUND', 'Content not found');
     }
 
-    return NextResponse.json({
-      success: true,
-      data: content,
-    });
+    return apiSuccess(content);
   } catch (error) {
-    console.error('Content fetch error:', error);
-    return NextResponse.json(
-      { error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch content' } },
-      { status: 500 }
-    );
+    logger.error('Content fetch error', {}, error as Error);
+    return apiError('INTERNAL_ERROR', 'Failed to fetch content');
   }
 }
 
@@ -65,10 +55,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id || session.user.role !== 'ARTIST') {
-      return NextResponse.json(
-        { error: { code: 'UNAUTHORIZED', message: 'Artist authentication required' } },
-        { status: 401 }
-      );
+      return apiError('UNAUTHORIZED', 'Artist authentication required');
     }
 
     const body = await request.json();
@@ -83,10 +70,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     });
 
     if (!existingContent) {
-      return NextResponse.json(
-        { error: { code: 'NOT_FOUND', message: 'Content not found' } },
-        { status: 404 }
-      );
+      return apiError('NOT_FOUND', 'Content not found');
     }
 
     // Verify that specified tiers belong to the artist
@@ -99,15 +83,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       });
 
       if (tierCount !== validatedData.tierIds.length) {
-        return NextResponse.json(
-          {
-            error: {
-              code: 'INVALID_TIERS',
-              message: 'One or more tiers do not belong to this artist',
-            },
-          },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'One or more tiers do not belong to this artist');
       }
     }
 
@@ -141,30 +117,15 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       },
     });
 
-    return NextResponse.json({
-      success: true,
-      data: updatedContent,
-    });
+    return apiSuccess(updatedContent);
   } catch (error) {
-    console.error('Content update error:', error);
+    logger.error('Content update error', {}, error as Error);
 
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Invalid request data',
-            details: { errors: error.errors },
-          },
-        },
-        { status: 400 }
-      );
+      return apiValidationError(error.errors);
     }
 
-    return NextResponse.json(
-      { error: { code: 'INTERNAL_ERROR', message: 'Failed to update content' } },
-      { status: 500 }
-    );
+    return apiError('INTERNAL_ERROR', 'Failed to update content');
   }
 }
 
@@ -173,10 +134,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id || session.user.role !== 'ARTIST') {
-      return NextResponse.json(
-        { error: { code: 'UNAUTHORIZED', message: 'Artist authentication required' } },
-        { status: 401 }
-      );
+      return apiError('UNAUTHORIZED', 'Artist authentication required');
     }
 
     // Check if content exists and belongs to artist
@@ -188,10 +146,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     });
 
     if (!existingContent) {
-      return NextResponse.json(
-        { error: { code: 'NOT_FOUND', message: 'Content not found' } },
-        { status: 404 }
-      );
+      return apiError('NOT_FOUND', 'Content not found');
     }
 
     // Delete file from S3
@@ -205,7 +160,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
         await deleteFile(thumbnailKey);
       }
     } catch (s3Error) {
-      console.error('S3 deletion error:', s3Error);
+      logger.error('S3 deletion error', {}, s3Error as Error);
       // Continue with database deletion even if S3 deletion fails
     }
 
@@ -214,15 +169,9 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       where: { id: params.id },
     });
 
-    return NextResponse.json({
-      success: true,
-      message: 'Content deleted successfully',
-    });
+    return apiSuccess({ message: 'Content deleted successfully' });
   } catch (error) {
-    console.error('Content deletion error:', error);
-    return NextResponse.json(
-      { error: { code: 'INTERNAL_ERROR', message: 'Failed to delete content' } },
-      { status: 500 }
-    );
+    logger.error('Content deletion error', {}, error as Error);
+    return apiError('INTERNAL_ERROR', 'Failed to delete content');
   }
 }

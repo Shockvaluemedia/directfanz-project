@@ -1,5 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { withStreamManagement, getStreamMetrics } from '@/lib/streaming-auth';
+import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 export async function GET(
   request: NextRequest,
@@ -10,23 +12,17 @@ export async function GET(
       const { streamId } = params;
 
       if (!streamId) {
-        return NextResponse.json(
-          { error: 'Stream ID is required' },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'Stream ID is required');
       }
 
       // Get stream metrics
       const metrics = await getStreamMetrics(streamId);
 
       if (!metrics) {
-        return NextResponse.json(
-          { error: 'Stream metrics not found' },
-          { status: 404 }
-        );
+        return apiError('NOT_FOUND', 'Stream metrics not found');
       }
 
-      return NextResponse.json({
+      return apiSuccess({
         streamId,
         metrics: {
           currentViewers: metrics.viewerCount,
@@ -39,11 +35,8 @@ export async function GET(
         lastUpdated: new Date().toISOString(),
       });
     } catch (error) {
-      console.error('Stream metrics error:', error);
-      return NextResponse.json(
-        { error: 'Failed to get stream metrics' },
-        { status: 500 }
-      );
+      logger.error('Stream metrics error', {}, error as Error);
+      return apiError('INTERNAL_ERROR', 'Failed to get stream metrics');
     }
   });
 }

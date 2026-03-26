@@ -1,9 +1,9 @@
-// @ts-nocheck
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { createAgentTask, createAgentRegistry, DEFAULT_AGENT_CONFIGS } from '@/lib/ai';
 import { Logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 const logger = new Logger('ai-admin-api');
 
@@ -24,16 +24,12 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
     
     if (!session) {
-      return NextResponse.json({ 
-        error: 'Authentication required' 
-      }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Authentication required');
     }
 
     // Additional admin check - you might want to verify admin role
     if (!isAdminUser(session)) {
-      return NextResponse.json({
-        error: 'Admin privileges required'
-      }, { status: 403 });
+      return apiError('FORBIDDEN', 'Admin privileges required');
     }
 
     const { searchParams } = new URL(request.url);
@@ -109,9 +105,7 @@ export async function GET(request: NextRequest) {
           tasks.map(t => agentRegistry.executeTask(agentId, t))
         );
 
-        return NextResponse.json({
-          success: true,
-          data: {
+        return apiSuccess({
             timestamp: new Date().toISOString(),
             timeframe,
             scope,
@@ -126,28 +120,22 @@ export async function GET(request: NextRequest) {
             insights: await generateAdminInsights(results),
             recommendations: await generateAdminRecommendations(results),
             status: determineOverallSystemStatus(results),
-          },
-          metrics: {
-            tasksExecuted: tasks.length,
-            successfulTasks: results.filter(r => r.success).length,
-            totalProcessingTime: results.reduce((sum, r) => sum + (r.metrics?.processingTime || 0), 0),
-          }
-        });
+            metrics: {
+              tasksExecuted: tasks.length,
+              successfulTasks: results.filter(r => r.success).length,
+              totalProcessingTime: results.reduce((sum, r) => sum + (r.metrics?.processingTime || 0), 0),
+            } });
     }
 
     const response = await agentRegistry.executeTask(agentId, task);
 
     if (!response.success) {
-      return NextResponse.json({
-        error: 'Admin operation failed',
-        details: response.error,
-        suggestion: 'Check agent status or system permissions'
-      }, { status: 500 });
+      return apiError('INTERNAL_ERROR', 'Admin operation failed', {
+        error: response.error,
+        suggestion: 'Check agent status or system permissions' });
     }
 
-    return NextResponse.json({
-      success: true,
-      data: {
+    return apiSuccess({
         operationType,
         timeframe,
         scope,
@@ -156,16 +144,12 @@ export async function GET(request: NextRequest) {
         insights: await generateSingleAdminInsight(response.data, operationType),
         actionItems: await generateAdminActionItems(response.data, operationType),
         priority: determinePriority(response.data, operationType),
-      },
-      metrics: response.metrics
-    });
+        metrics: response.metrics });
 
   } catch (error) {
-    logger.error('Admin API Error:', error);
-    return NextResponse.json({
-      error: 'Internal server error',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    logger.error('Admin API Error', {}, error as Error);
+    return apiError('INTERNAL_ERROR', 'Internal server error', {
+      message: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
 
@@ -174,15 +158,11 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
     
     if (!session) {
-      return NextResponse.json({ 
-        error: 'Authentication required' 
-      }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Authentication required');
     }
 
     if (!isAdminUser(session)) {
-      return NextResponse.json({
-        error: 'Admin privileges required'
-      }, { status: 403 });
+      return apiError('FORBIDDEN', 'Admin privileges required');
     }
 
     const body = await request.json();
@@ -194,8 +174,7 @@ export async function POST(request: NextRequest) {
     } = body;
 
     if (!action) {
-      return NextResponse.json({
-        error: 'Action is required',
+      return apiError('BAD_REQUEST', 'Action is required', {
         availableActions: [
           'user_action',
           'system_maintenance',
@@ -203,8 +182,7 @@ export async function POST(request: NextRequest) {
           'security_action',
           'backup_restore',
           'configuration_update'
-        ]
-      }, { status: 400 });
+        ] });
     }
 
     const agentRegistry = await getRegistry();
@@ -215,12 +193,10 @@ export async function POST(request: NextRequest) {
     const isDestructive = destructiveActions.includes(action) || parameters.destructive === true;
     
     if (isDestructive && !confirmationCode) {
-      return NextResponse.json({
-        error: 'Destructive action requires confirmation code',
+      return apiError('BAD_REQUEST', 'Destructive action requires confirmation code', {
         confirmationRequired: true,
         action,
-        warningMessage: 'This action may impact platform availability or user access'
-      }, { status: 400 });
+        warningMessage: 'This action may impact platform availability or user access' });
     }
 
     let task;
@@ -293,8 +269,7 @@ export async function POST(request: NextRequest) {
         break;
 
       default:
-        return NextResponse.json({
-          error: 'Unknown action type',
+        return apiError('BAD_REQUEST', 'Unknown action type', {
           action,
           availableActions: [
             'user_action',
@@ -303,8 +278,7 @@ export async function POST(request: NextRequest) {
             'security_action',
             'backup_restore',
             'configuration_update'
-          ]
-        }, { status: 400 });
+          ] });
     }
 
     const response = await agentRegistry.executeTask(agentId, task);
@@ -312,7 +286,7 @@ export async function POST(request: NextRequest) {
     // Generate safety information and rollback plan
     const safetyInfo = await generateSafetyInfo(action, parameters, dryRun, response);
     
-    return NextResponse.json({
+    return apiSuccess({
       success: response.success,
       data: {
         action,
@@ -332,11 +306,9 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    logger.error('Admin POST API Error:', error);
-    return NextResponse.json({
-      error: 'Admin action failed',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    logger.error('Admin POST API Error', {}, error as Error);
+    return apiError('INTERNAL_ERROR', 'Admin action failed', {
+      message: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
 

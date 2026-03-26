@@ -1,31 +1,19 @@
-import type { Metadata, Viewport } from 'next';
+import type { Viewport } from 'next';
 import './globals.css';
 import AuthSessionProvider from '@/components/providers/session-provider';
 import { WebSocketClientProvider } from '@/components/providers/WebSocketClientProvider';
 import { ToastProvider } from '@/components/ui/toast';
-// Temporarily disabled for debugging
-// import { generateCSP } from '@/lib/security'
 import GDPRConsent from '@/components/ui/gdpr-consent';
 import StaticHeader from '@/components/navigation/StaticHeader';
 import StaticBreadcrumbs from '@/components/navigation/StaticBreadcrumbs';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import { generateMetadata as generateSEO } from '@/lib/seo';
 
-// Generate CSP directives - DISABLED FOR DEBUGGING
-// const csp = generateCSP();
-
-export const metadata: Metadata = {
-  title: 'DirectFanz - Empower Your Creative Journey',
+export const metadata = generateSEO({
+  title: undefined, // Uses default: "Direct Fan - Connect Creators with Fans"
   description: 'The ultimate creator platform for building meaningful fan connections and monetizing your content. Join thousands of creators earning directly from their audience.',
-  // Temporarily disabled security headers for debugging
-  // other: {
-  //   'Content-Security-Policy': csp,
-  //   'X-Content-Type-Options': 'nosniff',
-  //   'X-Frame-Options': 'DENY',
-  //   'X-XSS-Protection': '1; mode=block',
-  //   'Referrer-Policy': 'strict-origin-when-cross-origin',
-  //   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-  // },
-};
+  url: '/',
+});
 
 export const viewport: Viewport = {
   width: 'device-width',

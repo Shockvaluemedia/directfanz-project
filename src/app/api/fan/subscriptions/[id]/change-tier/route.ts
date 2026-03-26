@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
@@ -9,6 +9,8 @@ import {
   TierChangeOptions,
 } from '@/lib/billing';
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 const changeTierSchema = z.object({
   newTierId: z.string().min(1),
@@ -23,7 +25,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     const body = await request.json();
@@ -42,14 +44,11 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     });
 
     if (!subscription) {
-      return NextResponse.json({ error: 'Subscription not found' }, { status: 404 });
+      return apiError('NOT_FOUND', 'Subscription not found');
     }
 
     if (subscription.status !== 'ACTIVE') {
-      return NextResponse.json(
-        { error: 'Can only change tiers for active subscriptions' },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'Can only change tiers for active subscriptions');
     }
 
     // Get new tier details
@@ -58,23 +57,17 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     });
 
     if (!newTier) {
-      return NextResponse.json({ error: 'New tier not found' }, { status: 404 });
+      return apiError('NOT_FOUND', 'New tier not found');
     }
 
     // Validate that the new tier belongs to the same artist
     if (newTier.artistId !== subscription.tiers.artistId) {
-      return NextResponse.json(
-        { error: 'Cannot change to a tier from a different artist' },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'Cannot change to a tier from a different artist');
     }
 
     // Validate minimum amount
     if (newAmount < parseFloat(newTier.minimumPrice.toString())) {
-      return NextResponse.json(
-        { error: 'Amount is below minimum price for the new tier' },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'Amount is below minimum price for the new tier');
     }
 
     const currentAmount = parseFloat(subscription.amount.toString());
@@ -91,9 +84,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       if (effectiveDate === 'next_billing_cycle') {
         result = await scheduleTierChange(subscription.id, newTierId, newAmount);
 
-        return NextResponse.json({
-          success: true,
-          message: `Subscription change scheduled for next billing cycle`,
+        return apiSuccess({ message: `Subscription change scheduled for next billing cycle`,
           tierChange: {
             fromTier: subscription.tiers.name,
             toTier: newTier.name,
@@ -101,14 +92,11 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
             toAmount: newAmount,
             scheduledDate: result.scheduledDate,
             isUpgrade,
-          },
-        });
+          } });
       } else {
         result = await changeTier(subscription.id, newTierId, newAmount, options);
 
-        return NextResponse.json({
-          success: true,
-          message: `Subscription ${isUpgrade ? 'upgraded' : 'downgraded'} successfully`,
+        return apiSuccess({ message: `Subscription ${isUpgrade ? 'upgraded' : 'downgraded'} successfully`,
           tierChange: {
             fromTier: subscription.tiers.name,
             toTier: newTier.name,
@@ -118,27 +106,20 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
             invoiceId: result.invoiceId,
             effectiveDate: result.effectiveDate,
             isUpgrade,
-          },
-        });
+          } });
       }
     } catch (error) {
-      console.error('Tier change error:', error);
-      return NextResponse.json(
-        { error: error instanceof Error ? error.message : 'Failed to change tier' },
-        { status: 500 }
-      );
+      logger.error('Tier change error', {}, error as Error);
+      return apiError('INTERNAL_ERROR', error instanceof Error ? error.message : 'Failed to change tier');
     }
   } catch (error) {
-    console.error('Change tier error:', error);
+    logger.error('Change tier error', {}, error as Error);
 
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Invalid request data', details: error.errors },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'Invalid request data', error.errors);
     }
 
-    return NextResponse.json({ error: 'Failed to change subscription tier' }, { status: 500 });
+    return apiError('INTERNAL_ERROR', 'Failed to change subscription tier');
   }
 }
 
@@ -147,7 +128,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     const url = new URL(request.url);
@@ -156,15 +137,12 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     const effectiveDate = url.searchParams.get('effectiveDate') || 'now';
 
     if (!newTierId || !newAmount) {
-      return NextResponse.json(
-        { error: 'Missing newTierId or newAmount parameters' },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'Missing newTierId or newAmount parameters');
     }
 
     const newAmountNum = parseFloat(newAmount);
     if (isNaN(newAmountNum) || newAmountNum <= 0) {
-      return NextResponse.json({ error: 'Invalid amount' }, { status: 400 });
+      return apiError('BAD_REQUEST', 'Invalid amount');
     }
 
     // Get subscription and verify ownership
@@ -179,7 +157,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     });
 
     if (!subscription) {
-      return NextResponse.json({ error: 'Subscription not found' }, { status: 404 });
+      return apiError('NOT_FOUND', 'Subscription not found');
     }
 
     // Get new tier details
@@ -188,7 +166,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     });
 
     if (!newTier) {
-      return NextResponse.json({ error: 'New tier not found' }, { status: 404 });
+      return apiError('NOT_FOUND', 'New tier not found');
     }
 
     // Calculate proration preview
@@ -205,7 +183,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     const currentAmount = parseFloat(subscription.amount.toString());
     const isUpgrade = newAmountNum > currentAmount;
 
-    return NextResponse.json({
+    return apiSuccess({
       preview: {
         currentTier: subscription.tiers.name,
         newTier: newTier.name,
@@ -217,7 +195,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       },
     });
   } catch (error) {
-    console.error('Get tier change preview error:', error);
-    return NextResponse.json({ error: 'Failed to get tier change preview' }, { status: 500 });
+    logger.error('Get tier change preview error', {}, error as Error);
+    return apiError('INTERNAL_ERROR', 'Failed to get tier change preview');
   }
 }

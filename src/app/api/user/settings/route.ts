@@ -1,8 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,10 +34,7 @@ export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return NextResponse.json(
-        { success: false, error: { message: 'Unauthorized' } },
-        { status: 401 }
-      );
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     const userId = (session.user as Record<string, unknown>).id as string;
@@ -53,18 +52,13 @@ export async function GET() {
     });
 
     if (!user) {
-      return NextResponse.json(
-        { success: false, error: { message: 'User not found' } },
-        { status: 404 }
-      );
+      return apiError('NOT_FOUND', 'User not found');
     }
 
     const notificationPrefs = (user.notificationPreferences as Record<string, boolean> | null) || {};
     const privacyPrefs = (user.privacySettings as Record<string, unknown> | null) || {};
 
-    return NextResponse.json({
-      success: true,
-      data: {
+    return apiSuccess({
         profile: {
           name: user.displayName,
           email: user.email,
@@ -96,14 +90,10 @@ export async function GET() {
           autoRenew: true,
           paymentMethod: '',
         },
-      },
-    });
+      });
   } catch (error) {
-    console.error('Failed to fetch settings:', error);
-    return NextResponse.json(
-      { success: false, error: { message: 'Internal server error' } },
-      { status: 500 }
-    );
+    logger.error('Failed to fetch settings', {}, error as Error);
+    return apiError('INTERNAL_ERROR', 'Internal server error');
   }
 }
 
@@ -111,10 +101,7 @@ export async function PUT(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return NextResponse.json(
-        { success: false, error: { message: 'Unauthorized' } },
-        { status: 401 }
-      );
+      return apiError('UNAUTHORIZED', 'Unauthorized');
     }
 
     const userId = (session.user as Record<string, unknown>).id as string;
@@ -153,19 +140,13 @@ export async function PUT(request: NextRequest) {
       });
     }
 
-    return NextResponse.json({ success: true, message: 'Settings updated' });
+    return apiSuccess({ message: 'Settings updated' });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { success: false, error: { message: 'Invalid request data', details: error.errors } },
-        { status: 400 }
-      );
+      return apiError('BAD_REQUEST', 'Invalid request data', error.errors);
     }
 
-    console.error('Failed to update settings:', error);
-    return NextResponse.json(
-      { success: false, error: { message: 'Internal server error' } },
-      { status: 500 }
-    );
+    logger.error('Failed to update settings', {}, error as Error);
+    return apiError('INTERNAL_ERROR', 'Internal server error');
   }
 }

@@ -1,6 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { withApi } from '@/lib/api-auth';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   return withApi(request, async req => {
@@ -17,7 +19,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       });
 
       if (!content) {
-        return NextResponse.json({ error: 'Content not found' }, { status: 404 });
+        return apiError('NOT_FOUND', 'Content not found');
       }
 
       // Check access rights
@@ -45,7 +47,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       }
 
       if (!hasAccess) {
-        return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+        return apiError('FORBIDDEN', 'Access denied');
       }
 
       // Check if user has already liked this content
@@ -59,7 +61,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       });
 
       if (existingLike) {
-        return NextResponse.json({ error: 'Already liked' }, { status: 409 });
+        return apiError('CONFLICT', 'Already liked');
       }
 
       // Create like
@@ -84,13 +86,13 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         },
       });
 
-      return NextResponse.json({
+      return apiSuccess({
         liked: true,
         totalLikes: updatedContent.totalLikes,
       });
     } catch (error) {
-      console.error('Error liking content:', error);
-      return NextResponse.json({ error: 'Failed to like content' }, { status: 500 });
+      logger.error('Error liking content', {}, error as Error);
+      return apiError('INTERNAL_ERROR', 'Failed to like content');
     }
   });
 }
@@ -111,7 +113,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       });
 
       if (!existingLike) {
-        return NextResponse.json({ error: 'Like not found' }, { status: 404 });
+        return apiError('NOT_FOUND', 'Like not found');
       }
 
       // Remove like
@@ -137,13 +139,13 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
         },
       });
 
-      return NextResponse.json({
+      return apiSuccess({
         liked: false,
         totalLikes: updatedContent.totalLikes,
       });
     } catch (error) {
-      console.error('Error unliking content:', error);
-      return NextResponse.json({ error: 'Failed to unlike content' }, { status: 500 });
+      logger.error('Error unliking content', {}, error as Error);
+      return apiError('INTERNAL_ERROR', 'Failed to unlike content');
     }
   });
 }

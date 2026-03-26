@@ -1,5 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { withStreamManagement } from '@/lib/streaming-auth';
+import { prisma } from '@/lib/prisma';
+import { createVodJob, getVodUrl } from '@/lib/vod-service';
+import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 export async function POST(
   request: NextRequest,
@@ -12,41 +16,43 @@ export async function POST(
       const { recordingKey, title, description } = body;
 
       if (!streamId || !recordingKey) {
-        return NextResponse.json(
-          { error: 'Stream ID and recording key are required' },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'Stream ID and recording key are required');
       }
 
-      // TODO: Implement VOD conversion with a Vercel-compatible transcoding service
-      // Previous implementation used AWS MediaConvert which is no longer available.
-      // Options: use a third-party transcoding API (e.g., Mux, Cloudflare Stream)
-      // or store the raw recording directly for playback.
+      // Verify the stream exists and belongs to the user
+      const stream = await prisma.live_streams.findFirst({
+        where: { id: streamId, artistId: req.user.id },
+        select: { id: true, title: true },
+      });
 
-      const vodRecord = {
-        id: crypto.randomUUID(),
+      if (!stream) {
+        return apiError('NOT_FOUND', 'Stream not found');
+      }
+
+      // Submit MediaConvert job
+      const job = await createVodJob({
         streamId,
+        inputKey: recordingKey,
+        title: title || `VOD from ${stream.title}`,
         userId: req.user.id,
-        title: title || `VOD from Stream ${streamId}`,
-        description: description || '',
-        status: 'pending',
-        recordingKey,
-        createdAt: new Date().toISOString(),
-      };
+      });
 
-      return NextResponse.json({
-        vodId: vodRecord.id,
-        status: 'pending',
-        title: vodRecord.title,
-        description: vodRecord.description,
-        message: 'VOD conversion queued. Transcoding service integration pending.',
+      logger.info('VOD conversion started', {
+        streamId,
+        jobId: job.jobId,
+        userId: req.user.id,
+      });
+
+      return apiSuccess({
+        vodId: job.jobId,
+        status: job.status,
+        title: title || `VOD from ${stream.title}`,
+        description: description || '',
+        message: 'VOD conversion started. Processing will complete in a few minutes.',
       });
     } catch (error) {
-      console.error('VOD conversion error:', error);
-      return NextResponse.json(
-        { error: 'Failed to start VOD conversion' },
-        { status: 500 }
-      );
+      logger.error('VOD conversion error', {}, error as Error);
+      return apiError('INTERNAL_ERROR', 'Failed to start VOD conversion');
     }
   });
 }
@@ -60,26 +66,40 @@ export async function GET(
       const { streamId } = params;
 
       if (!streamId) {
-        return NextResponse.json(
-          { error: 'Stream ID is required' },
-          { status: 400 }
-        );
+        return apiError('BAD_REQUEST', 'Stream ID is required');
       }
 
-      // TODO: Get VOD records from database
-      const vodRecords: any[] = [];
+      // Get all VOD recordings for this stream
+      const vodRecords = await prisma.stream_recordings.findMany({
+        where: { streamId },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          videoUrl: true,
+          thumbnailUrl: true,
+          duration: true,
+          fileSize: true,
+          quality: true,
+          format: true,
+          status: true,
+          processedAt: true,
+          isPublic: true,
+          createdAt: true,
+        },
+      });
 
-      return NextResponse.json({
+      // Also get the playback URL for the latest ready recording
+      const playbackUrl = await getVodUrl(streamId);
+
+      return apiSuccess({
         streamId,
         vodRecords,
         totalCount: vodRecords.length,
+        playbackUrl,
       });
     } catch (error) {
-      console.error('VOD retrieval error:', error);
-      return NextResponse.json(
-        { error: 'Failed to retrieve VOD records' },
-        { status: 500 }
-      );
+      logger.error('VOD retrieval error', {}, error as Error);
+      return apiError('INTERNAL_ERROR', 'Failed to retrieve VOD records');
     }
   });
 }
