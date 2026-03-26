@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
         message: 'A verification email has been sent. Please check your email to confirm this request.' });
     }
 
-    return apiError('INTERNAL_ERROR', result.error);
+    return apiError('INTERNAL_ERROR', result.error || 'An error occurred');
   } catch (error) {
     logger.error('GDPR request error', {}, error as Error);
     return apiError('INTERNAL_ERROR', 'Failed to submit GDPR request');
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
         return apiSuccess({ message: 'Your request has been processed successfully.' });
       }
 
-      return apiError('BAD_REQUEST', result.error);
+      return apiError('BAD_REQUEST', result.error || 'Bad request');
     }
 
     // Get user's GDPR request history

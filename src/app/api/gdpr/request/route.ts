@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
           'Your GDPR request has been submitted. A verification email has been sent to your email address. Please verify to proceed.' });
     }
 
-    return apiError('INTERNAL_ERROR', result.error);
+    return apiError('INTERNAL_ERROR', result.error || 'An error occurred');
   } catch (error) {
     if (error instanceof SyntaxError) {
       return apiError('BAD_REQUEST', 'Invalid JSON in request body');

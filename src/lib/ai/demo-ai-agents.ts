@@ -219,7 +219,7 @@ function setupEventListeners(
 
   // Health check monitoring
   orchestrator.on('health-check-completed', (health) => {
-    const healthyAgents = health.agents.filter(a => a.healthy).length;
+    const healthyAgents = health.agents.filter((a: any) => a.healthy).length;
     logger.info(`💚 Health check: ${healthyAgents}/${health.agents.length} agents healthy`);
   });
 }
@@ -347,14 +347,14 @@ async function demoContentModerationAgent(orchestrator: AIOrchestrator, logger: 
         
         if (result.violations.length > 0) {
           logger.info(`   Violations: ${result.violations.length}`);
-          result.violations.forEach(violation => {
+          result.violations.forEach((violation: any) => {
             logger.info(`   - ${violation.type}: ${violation.description} (${violation.severity})`);
           });
         }
 
         if (result.suggestedActions.length > 0) {
           logger.info(`   Suggested Actions:`);
-          result.suggestedActions.forEach(action => {
+          result.suggestedActions.forEach((action: any) => {
             logger.info(`   - ${action.type}: ${action.reason}`);
           });
         }

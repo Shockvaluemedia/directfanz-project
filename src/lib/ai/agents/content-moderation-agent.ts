@@ -252,7 +252,7 @@ export class ContentModerationAgent extends BaseAgent<ContentModerationConfig> {
         case 'audio':
           if (this.config.enableAudioScanning) {
             const audioViolations = await this.scanAudio(content.data as Buffer);
-            violations.push(...violations.violations);
+            violations.push(...audioViolations.violations);
             rulesApplied.push(...audioViolations.rules);
           }
           break;

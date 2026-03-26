@@ -8,7 +8,7 @@ import {
   updateUserNotificationPreferences,
   NotificationPreferences,
 } from '@/lib/notifications';
-import { apiSuccess, apiError } from '@/lib/api-response';
+import { apiSuccess, apiError, apiValidationError } from '@/lib/api-response';
 
 // Validation schema for notification preferences
 const notificationPreferencesSchema = z.object({
@@ -57,7 +57,7 @@ export async function PUT(request: NextRequest) {
     return apiSuccess({ preferences: updatedPreferences });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return apiError('BAD_REQUEST', error.errors);
+      return apiValidationError(error.errors);
     }
 
     logger.error('Error updating notification preferences', {}, error as Error);

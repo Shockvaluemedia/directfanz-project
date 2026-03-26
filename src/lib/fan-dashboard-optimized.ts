@@ -503,6 +503,7 @@ export async function getFanDashboardStatsOptimized(fanId: string): Promise<FanD
       content_access_count: bigint;
       joined_date: Date;
       subscription_streak: number;
+      favorite_genres: string[];
     }>
   >`
     WITH subscription_stats AS (

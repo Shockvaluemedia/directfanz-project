@@ -289,7 +289,7 @@ export async function PUT(request: NextRequest) {
       const validation = FileUploader.validateFile(file, detectedContentType);
 
       if (!validation.isValid) {
-        return apiError('BAD_REQUEST', validation.error);
+        return apiError('BAD_REQUEST', validation.error || 'Invalid file');
       }
 
       // Generate unique key and presigned URL

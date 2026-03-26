@@ -308,7 +308,7 @@ export class PredictiveAnalyticsAgent extends BaseAgent<PredictiveAnalyticsConfi
       const cacheKey = `${artistId}-${timeframe}`;
       if (this.forecastCache.has(cacheKey)) {
         const cached = this.forecastCache.get(cacheKey)!;
-        if (Date.now() - cached.metadata?.timestamp < this.config.updateInterval * 60 * 60 * 1000) {
+        if (Date.now() - ((cached as any).metadata?.timestamp ?? 0) < this.config.updateInterval * 60 * 60 * 1000) {
           return {
             success: true,
             data: cached,

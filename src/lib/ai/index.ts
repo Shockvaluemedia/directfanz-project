@@ -1,7 +1,17 @@
-// Local imports used by AIAgentSystem class below
+// Local imports used by AIAgentSystem class and factory functions below
 import { BaseAgent, AgentType, AgentStatus, type AgentConfig, type AgentContext, type AgentTask, type AgentResponse } from './base-agent';
 import { AIOrchestrator } from './orchestrator';
-import { EventBus } from './event-bus';
+import { EventBus, type AgentEvent, type EventHandler } from './event-bus';
+import { ConversationalAgent, type ConversationalAgentConfig } from './agents/conversational-agent';
+import { ContentModerationAgent, type ContentModerationConfig } from './agents/content-moderation-agent';
+import { RecommendationAgent, type RecommendationAgentConfig } from './agents/recommendation-agent';
+import { CommunityManagementAgent, type CommunityManagementConfig } from './agents/community-management-agent';
+import { PredictiveAnalyticsAgent, type PredictiveAnalyticsConfig } from './agents/predictive-analytics-agent';
+import { PerformanceOptimizerAgent, type PerformanceOptimizerConfig } from './agents/performance-optimizer-agent';
+import { ContentCurationAgent, type ContentCurationConfig } from './agents/content-curation-agent';
+import { RevenueOptimizationAgent, type RevenueOptimizationConfig } from './agents/revenue-optimization-agent';
+import { ModerationSafetyAgent, type ModerationSafetyConfig } from './agents/moderation-safety-agent';
+import { AdminOperationsAgent, type AdminOperationsConfig } from './agents/admin-operations-agent';
 
 // Core AI Agent System
 export { BaseAgent, AgentType, AgentStatus, type AgentConfig, type AgentContext, type AgentTask, type AgentResponse, type AgentMetrics } from './base-agent';

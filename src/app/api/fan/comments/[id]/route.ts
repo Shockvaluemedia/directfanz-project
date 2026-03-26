@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { updateCommentSchema } from '@/lib/validations';
 import { checkPermission } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
-import { apiSuccess, apiError } from '@/lib/api-response';
+import { apiSuccess, apiError, apiValidationError } from '@/lib/api-response';
 
 // GET /api/fan/comments/[id]
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
@@ -98,7 +98,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     return apiSuccess({ comment: updatedComment });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return apiError('BAD_REQUEST', error.errors);
+      return apiValidationError(error.errors);
     }
 
     logger.error('Error updating comment', {}, error as Error);

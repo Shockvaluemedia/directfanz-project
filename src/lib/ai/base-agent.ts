@@ -69,6 +69,7 @@ export interface AgentResponse<T = any> {
     processingTime: number;
     tokensUsed?: number;
     model?: string;
+    [key: string]: any;
   };
   metadata?: Record<string, any>;
 }
@@ -106,6 +107,7 @@ export enum AgentType {
   CONTENT_CURATOR = 'content_curator',
   COMMUNITY_MANAGER = 'community_manager',
   ADMIN_OPERATIONS = 'admin_operations',
+  MODERATION_SAFETY = 'moderation_safety',
 }
 
 // Base agent class that all AI agents extend

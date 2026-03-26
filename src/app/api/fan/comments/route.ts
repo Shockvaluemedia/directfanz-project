@@ -7,7 +7,7 @@ import { createCommentSchema } from '@/lib/validations';
 import { checkPermission } from '@/lib/rbac';
 import { notifyContentComment } from '@/lib/notifications';
 import { logger } from '@/lib/logger';
-import { apiSuccess, apiCreated, apiError } from '@/lib/api-response';
+import { apiSuccess, apiCreated, apiError, apiValidationError } from '@/lib/api-response';
 
 // GET /api/fan/comments?contentId=xxx
 export async function GET(request: NextRequest) {
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
     return apiCreated({ comment });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return apiError('BAD_REQUEST', error.errors);
+      return apiValidationError(error.errors);
     }
 
     logger.error('Error creating comment', {}, error as Error);
