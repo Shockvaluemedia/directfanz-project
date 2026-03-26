@@ -203,14 +203,20 @@ export default function StreamDashboard() {
 
   const loadStreamStats = useCallback(async () => {
     try {
-      // TODO: Implement stream stats endpoint
-      // For now, use mock data
-      setStreamStats({
-        totalLiveStreams: 0,
-        totalViewers: 0,
-        popularCategories: [],
-        trendingStreams: []
-      });
+      const res = await fetch('/api/streaming/stats');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setStreamStats({
+            totalLiveStreams: data.data.liveStreams ?? 0,
+            totalViewers: data.data.totalViewers ?? 0,
+            popularCategories: [],
+            trendingStreams: [],
+          });
+          return;
+        }
+      }
+      setStreamStats({ totalLiveStreams: 0, totalViewers: 0, popularCategories: [], trendingStreams: [] });
     } catch (error) {
       console.error('Failed to load stream stats:', error);
     }

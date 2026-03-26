@@ -635,8 +635,35 @@ class EmailService {
   private async sendViaSES(
     options: EmailOptions
   ): Promise<{ success: boolean; messageId?: string }> {
-    // Implementation for AWS SES
-    throw new Error('SES integration not implemented yet');
+    try {
+      const { SESClient, SendEmailCommand } = await import('@aws-sdk/client-ses');
+      const ses = new SESClient({ region: process.env.AWS_REGION || 'us-east-1' });
+
+      const recipients = Array.isArray(options.to) ? options.to : [options.to];
+
+      const command = new SendEmailCommand({
+        Source: `${this.config.fromName} <${this.config.fromEmail}>`,
+        Destination: { ToAddresses: recipients },
+        Message: {
+          Subject: { Data: options.subject || '', Charset: 'UTF-8' },
+          Body: {
+            ...(options.html && { Html: { Data: options.html, Charset: 'UTF-8' } }),
+            ...(options.text && { Text: { Data: options.text, Charset: 'UTF-8' } }),
+          },
+        },
+        ...(this.config.replyTo && { ReplyToAddresses: [this.config.replyTo] }),
+        Tags: options.tags?.map(tag => ({ Name: 'tag', Value: tag })),
+      });
+
+      const response = await ses.send(command);
+
+      return {
+        success: true,
+        messageId: response.MessageId,
+      };
+    } catch (error) {
+      throw new Error(`SES error: ${(error as Error).message}`);
+    }
   }
 
   private isValidEmail(email: string): boolean {
