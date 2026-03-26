@@ -54,6 +54,16 @@ export async function POST(request: NextRequest) {
         return apiError('BAD_REQUEST', 'No file provided');
       }
 
+      // Server-side file size enforcement
+      const MAX_UPLOAD_BYTES = 500 * 1024 * 1024; // 500MB absolute max
+      if (file.size > MAX_UPLOAD_BYTES) {
+        return apiError('BAD_REQUEST', `File too large (${Math.round(file.size / 1024 / 1024)}MB). Maximum upload size is 500MB.`);
+      }
+
+      if (file.size === 0) {
+        return apiError('BAD_REQUEST', 'File is empty');
+      }
+
       // Parse metadata
       const metadata = JSON.parse((formData.get('metadata') as string) || '{}');
       const validatedData = uploadSchema.parse(metadata);

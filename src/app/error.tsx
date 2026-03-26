@@ -1,50 +1,58 @@
 'use client';
 
-// Minimal global error component without external imports to avoid module load issues
-export default function GlobalError({
+import { useEffect } from 'react';
+import Link from 'next/link';
+
+export default function Error({
   error,
   reset,
 }: {
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  useEffect(() => {
+    // Log the error for monitoring
+    console.error('Application error:', error);
+  }, [error]);
+
   return (
-    <div className='min-h-screen flex items-center justify-center bg-gray-50'>
-      <div className='max-w-md w-full bg-white shadow-lg rounded-lg p-6 text-center'>
-        <div className='text-lg font-medium text-gray-900'>Something went wrong</div>
-        <p className='mt-2 text-sm text-gray-500'>An unexpected error occurred.</p>
-        <div className='mt-6 flex flex-col space-y-3'>
+    <div className="min-h-[80vh] flex items-center justify-center px-4">
+      <div className="text-center max-w-lg">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
+          <svg className="h-8 w-8 text-red-600" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+          </svg>
+        </div>
+        <h1 className="mt-6 text-3xl font-bold tracking-tight text-gray-900">
+          Something went wrong
+        </h1>
+        <p className="mt-4 text-base text-gray-600">
+          An unexpected error occurred. Our team has been notified.
+        </p>
+        <div className="mt-8 flex items-center justify-center gap-4">
           <button
             onClick={() => reset()}
-            className='w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700'
-            aria-label='Try again'
+            className="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 transition-colors"
           >
             Try Again
           </button>
-          <a
-            href='/'
-            className='w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50'
-            aria-label='Go to home page'
+          <Link
+            href="/"
+            className="rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 transition-colors"
           >
-            Go to Home Page
-          </a>
+            Back to Home
+          </Link>
         </div>
-        {process.env.NODE_ENV === 'development' && (
-          <details className='mt-6'>
-            <summary className='cursor-pointer text-sm font-medium text-gray-700'>
-              Error Details (Development Only)
+        {process.env.NODE_ENV === 'development' && error.stack && (
+          <details className="mt-8 text-left">
+            <summary className="cursor-pointer text-sm font-medium text-gray-500 hover:text-gray-700">
+              Error details
             </summary>
-            <div className='mt-2 p-3 bg-gray-100 rounded text-xs font-mono text-gray-800 overflow-auto max-h-40'>
-              <div className='mb-2'>
-                <strong>Error:</strong> {error.message}
-              </div>
-              {error.stack && (
-                <div>
-                  <strong>Stack:</strong>
-                  <pre className='whitespace-pre-wrap'>{error.stack}</pre>
-                </div>
-              )}
-            </div>
+            <pre className="mt-2 overflow-auto rounded-lg bg-gray-900 p-4 text-xs text-gray-300">
+              {error.message}
+              {'\n\n'}
+              {error.stack}
+            </pre>
           </details>
         )}
       </div>

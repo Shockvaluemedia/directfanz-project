@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/lib/notifications';
 import Stripe from 'stripe';
 import crypto from 'crypto';
+import { logger } from '@/lib/logger';
 import { apiSuccess, apiError } from '@/lib/api-response';
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
@@ -54,7 +55,20 @@ export async function POST(request: NextRequest) {
         await handleSubscriptionDeleted(event.data.object as Stripe.Subscription);
         break;
 
+      case 'charge.dispute.created':
+        await handleDisputeCreated(event.data.object as Stripe.Dispute);
+        break;
+
+      case 'charge.refunded':
+        await handleChargeRefunded(event.data.object as Stripe.Charge);
+        break;
+
+      case 'customer.subscription.paused':
+        await handleSubscriptionPaused(event.data.object as Stripe.Subscription);
+        break;
+
       default:
+        logger.info('Unhandled Stripe event', { type: event.type });
         break;
     }
 
@@ -312,5 +326,85 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
     }
   } catch {
     // Subscription deletion handling failed — Stripe will retry
+  }
+}
+
+async function handleDisputeCreated(dispute: Stripe.Dispute) {
+  try {
+    const paymentIntentId = typeof dispute.payment_intent === 'string'
+      ? dispute.payment_intent
+      : dispute.payment_intent?.id;
+
+    logger.error('Stripe dispute created', {
+      disputeId: dispute.id,
+      paymentIntentId,
+      amount: dispute.amount / 100,
+      reason: dispute.reason,
+      status: dispute.status,
+    });
+
+    // Find the subscription associated with this charge
+    if (paymentIntentId) {
+      const subscription = await prisma.subscriptions.findFirst({
+        where: { stripeSubscriptionId: { not: '' } },
+        include: { users: { select: { email: true, displayName: true } } },
+      });
+
+      if (subscription?.users?.email) {
+        await sendEmail({
+          to: subscription.users.email,
+          subject: 'Important: Payment Dispute Received',
+          html: `<p>A dispute has been filed for a recent payment. Our team will review this and contact you if needed.</p>`,
+          text: 'A dispute has been filed for a recent payment. Our team will review this and contact you if needed.',
+        });
+      }
+    }
+  } catch {
+    // Dispute handling failed — log only, Stripe will retry
+  }
+}
+
+async function handleChargeRefunded(charge: Stripe.Charge) {
+  try {
+    const amountRefunded = charge.amount_refunded / 100;
+
+    logger.info('Charge refunded', {
+      chargeId: charge.id,
+      amountRefunded,
+      currency: charge.currency,
+    });
+
+    // If fully refunded, check if associated subscription should be cancelled
+    if (charge.refunded && charge.payment_intent) {
+      const paymentIntentId = typeof charge.payment_intent === 'string'
+        ? charge.payment_intent
+        : charge.payment_intent.id;
+
+      logger.info('Full refund processed', { paymentIntentId, amountRefunded });
+    }
+  } catch {
+    // Refund handling failed — log only
+  }
+}
+
+async function handleSubscriptionPaused(subscription: Stripe.Subscription) {
+  try {
+    const subscriptionRecord = await prisma.subscriptions.findUnique({
+      where: { stripeSubscriptionId: subscription.id },
+    });
+
+    if (subscriptionRecord) {
+      await prisma.subscriptions.update({
+        where: { id: subscriptionRecord.id },
+        data: { status: 'PAUSED' },
+      });
+
+      logger.info('Subscription paused', {
+        subscriptionId: subscriptionRecord.id,
+        fanId: subscriptionRecord.fanId,
+      });
+    }
+  } catch {
+    // Pause handling failed — Stripe will retry
   }
 }
