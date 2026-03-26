@@ -85,15 +85,15 @@ export async function GET(request: NextRequest) {
       }
 
       default: {
-        return apiError('BAD_REQUEST', 'Invalid action',
-          availableActions: ['analysis', 'monitoring']);
+        return apiError('BAD_REQUEST', 'Invalid action', {
+          availableActions: ['analysis', 'monitoring'] });
       }
     }
 
   } catch (error) {
     logger.error('Revenue Stripe API Error', {}, error as Error);
-    return apiError('INTERNAL_ERROR', 'Internal server error',
-      message: error instanceof Error ? error.message : 'Unknown error');
+    return apiError('INTERNAL_ERROR', 'Internal server error', {
+      message: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
 
@@ -113,13 +113,13 @@ export async function POST(request: NextRequest) {
     const { action, parameters = {}, testMode = true } = body;
 
     if (!action) {
-      return apiError('BAD_REQUEST', 'Action is required',
+      return apiError('BAD_REQUEST', 'Action is required', {
         availableActions: [
           'optimize_pricing',
           'create_bundle',
           'restructure_tiers',
           'implement_ai_recommendations'
-        ]);
+        ] });
     }
 
     const artistId = session.user.id;
@@ -254,20 +254,20 @@ export async function POST(request: NextRequest) {
       }
 
       default: {
-        return apiError('BAD_REQUEST', 'Unknown action',
+        return apiError('BAD_REQUEST', 'Unknown action', {
           availableActions: [
             'optimize_pricing',
-            'create_bundle', 
+            'create_bundle',
             'restructure_tiers',
             'implement_ai_recommendations'
-          ]);
+          ] });
       }
     }
 
   } catch (error) {
     logger.error('Revenue Stripe POST API Error', {}, error as Error);
-    return apiError('INTERNAL_ERROR', 'Revenue optimization failed',
-      message: error instanceof Error ? error.message : 'Unknown error');
+    return apiError('INTERNAL_ERROR', 'Revenue optimization failed', {
+      message: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
 

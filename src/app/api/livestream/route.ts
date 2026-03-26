@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
@@ -196,8 +196,7 @@ export async function GET(request: NextRequest) {
             offset: 0,
             hasMore: false,
           },
-        },
-        message: 'Streaming feature is being set up. Check back soon!');
+          message: 'Streaming feature is being set up. Check back soon!' });
     }
     
     return apiError('INTERNAL_ERROR', 'Internal server error');
@@ -287,10 +286,7 @@ export async function POST(request: NextRequest) {
     
     // Check if it's a missing table error
     if (error instanceof Error && error.message.includes('does not exist')) {
-      return NextResponse.json(
-        { success: false, error: { message: 'Streaming feature is being set up. Please try again later.' } },
-        { status: 503 }
-      );
+      return apiError('INTERNAL_ERROR', 'Streaming feature is being set up. Please try again later.', undefined, 503);
     }
     
     return apiError('INTERNAL_ERROR', 'Internal server error');

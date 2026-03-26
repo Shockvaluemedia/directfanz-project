@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
       
       case 'update_subtask_progress':
         if (!phaseId || !subTaskId || params.progress === undefined) {
-          return apiError('BAD_REQUEST', 'Phase ID);
+          return apiError('BAD_REQUEST', 'Phase ID, SubTask ID, and progress are required for update_subtask_progress action');
         }
         await tracker.updateSubTaskProgress(phaseId, subTaskId, params.progress, params.metadata);
         break;
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
       
       case 'fail_subtask':
         if (!phaseId || !subTaskId || !params.error) {
-          return apiError('BAD_REQUEST', 'Phase ID);
+          return apiError('BAD_REQUEST', 'Phase ID, SubTask ID, and error are required for fail_subtask action');
         }
         await tracker.failSubTask(phaseId, subTaskId, params.error, params.metadata);
         break;

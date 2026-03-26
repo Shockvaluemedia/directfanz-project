@@ -244,13 +244,12 @@ export async function GET(request: NextRequest) {
             dismissed: dismissedCount,
             highPriority: highPriorityCount,
           },
-        },
-        pagination: {
-          limit,
-          offset,
-          total: totalCount,
-          hasNext: offset + limit < totalCount,
-        });
+          pagination: {
+            limit,
+            offset,
+            total: totalCount,
+            hasNext: offset + limit < totalCount,
+          } });
     } catch (error) {
       logger.error('Get reports error', { adminId: req.user?.id }, error as Error);
       return apiError('INTERNAL_ERROR', 'Failed to fetch reports');

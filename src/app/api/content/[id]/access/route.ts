@@ -27,8 +27,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         invalid_tier: 'Your subscription tier does not include this content',
       };
 
-      return apiError('FORBIDDEN', errorMessages[accessResult.reason as keyof typeof errorMessages] || 'Access denied',
-          reason: accessResult.reason,);
+      return apiError('FORBIDDEN', errorMessages[accessResult.reason as keyof typeof errorMessages] || 'Access denied');
     }
 
     // Generate access token

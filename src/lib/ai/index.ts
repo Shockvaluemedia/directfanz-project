@@ -1,3 +1,8 @@
+// Local imports used by AIAgentSystem class below
+import { BaseAgent, AgentType, AgentStatus, type AgentConfig, type AgentContext, type AgentTask, type AgentResponse } from './base-agent';
+import { AIOrchestrator } from './orchestrator';
+import { EventBus } from './event-bus';
+
 // Core AI Agent System
 export { BaseAgent, AgentType, AgentStatus, type AgentConfig, type AgentContext, type AgentTask, type AgentResponse, type AgentMetrics } from './base-agent';
 

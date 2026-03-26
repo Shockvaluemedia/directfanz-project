@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
-import { apiError } from '@/lib/api-response';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 // GET /api/campaigns/[id]/analytics - Get campaign analytics
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {

@@ -268,12 +268,11 @@ export async function GET(request: NextRequest) {
             lastMessage: messages.length > 0 ? messages[messages.length - 1] : null,
             unreadCount,
           },
-        },
-        pagination: {
-          limit: params.limit,
-          offset: params.offset,
-          hasMore: messages.length === params.limit, // If we got exactly limit, there might be more
-        });
+          pagination: {
+            limit: params.limit,
+            offset: params.offset,
+            hasMore: messages.length === params.limit, // If we got exactly limit, there might be more
+          } });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return apiError('BAD_REQUEST', 'Invalid parameters', error.errors);

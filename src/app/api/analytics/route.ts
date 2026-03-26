@@ -217,12 +217,11 @@ export async function GET(request: NextRequest) {
         content,
         topContent,
         demographics,
-      },
-      timeRange,
-      dateRange: {
-        start: startDate.toISOString(),
-        end: endDate.toISOString(),
-      });
+        timeRange,
+        dateRange: {
+          start: startDate.toISOString(),
+          end: endDate.toISOString(),
+        } });
   } catch (error) {
     logger.error('Analytics API error', {}, error as Error);
     return apiError('INTERNAL_ERROR', 'Internal server error');

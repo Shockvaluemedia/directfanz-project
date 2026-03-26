@@ -68,7 +68,8 @@ export async function GET(request: NextRequest) {
         tierCount: recommendations.tiers.length,
       });
 
-      return apiSuccess(recommendations,
+      return apiSuccess({
+        ...recommendations,
         metadata: {
           generatedAt: new Date().toISOString(),
           algorithm: recommendations.algorithm,
@@ -83,7 +84,8 @@ export async function GET(request: NextRequest) {
                 favoriteGenres: [],
                 priceRange: 0,
               },
-        });
+        },
+      });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return apiError('BAD_REQUEST', 'Invalid parameters', error.errors);

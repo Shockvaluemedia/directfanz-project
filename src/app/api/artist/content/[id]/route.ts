@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { deleteFile, extractKeyFromUrl } from '@/lib/s3';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
-import { apiSuccess, apiError } from '@/lib/api-response';
+import { apiSuccess, apiError, apiValidationError } from '@/lib/api-response';
 
 const updateContentSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title too long').optional(),
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id || session.user.role !== 'ARTIST') {
-      return apiError('UNAUTHORIZED', { code: 'UNAUTHORIZED', message: 'Artist authentication required' });
+      return apiError('UNAUTHORIZED', 'Artist authentication required');
     }
 
     const content = await prisma.content.findFirst({
@@ -40,13 +40,13 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     });
 
     if (!content) {
-      return apiError('NOT_FOUND', { code: 'NOT_FOUND', message: 'Content not found' });
+      return apiError('NOT_FOUND', 'Content not found');
     }
 
     return apiSuccess(content);
   } catch (error) {
     logger.error('Content fetch error', {}, error as Error);
-    return apiError('INTERNAL_ERROR', { code: 'INTERNAL_ERROR', message: 'Failed to fetch content' });
+    return apiError('INTERNAL_ERROR', 'Failed to fetch content');
   }
 }
 
@@ -55,7 +55,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id || session.user.role !== 'ARTIST') {
-      return apiError('UNAUTHORIZED', { code: 'UNAUTHORIZED', message: 'Artist authentication required' });
+      return apiError('UNAUTHORIZED', 'Artist authentication required');
     }
 
     const body = await request.json();
@@ -70,7 +70,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     });
 
     if (!existingContent) {
-      return apiError('NOT_FOUND', { code: 'NOT_FOUND', message: 'Content not found' });
+      return apiError('NOT_FOUND', 'Content not found');
     }
 
     // Verify that specified tiers belong to the artist
@@ -83,10 +83,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       });
 
       if (tierCount !== validatedData.tierIds.length) {
-        return apiError('BAD_REQUEST', {
-              code: 'INVALID_TIERS',
-              message: 'One or more tiers do not belong to this artist',
-            },);
+        return apiError('BAD_REQUEST', 'One or more tiers do not belong to this artist');
       }
     }
 
@@ -125,13 +122,10 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     logger.error('Content update error', {}, error as Error);
 
     if (error instanceof z.ZodError) {
-      return apiError('BAD_REQUEST', {
-            code: 'VALIDATION_ERROR',
-            message: 'Invalid request data', { errors: error.errors },
-          });
+      return apiValidationError(error.errors);
     }
 
-    return apiError('INTERNAL_ERROR', { code: 'INTERNAL_ERROR', message: 'Failed to update content' });
+    return apiError('INTERNAL_ERROR', 'Failed to update content');
   }
 }
 
@@ -140,7 +134,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id || session.user.role !== 'ARTIST') {
-      return apiError('UNAUTHORIZED', { code: 'UNAUTHORIZED', message: 'Artist authentication required' });
+      return apiError('UNAUTHORIZED', 'Artist authentication required');
     }
 
     // Check if content exists and belongs to artist
@@ -152,7 +146,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     });
 
     if (!existingContent) {
-      return apiError('NOT_FOUND', { code: 'NOT_FOUND', message: 'Content not found' });
+      return apiError('NOT_FOUND', 'Content not found');
     }
 
     // Delete file from S3
@@ -178,6 +172,6 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     return apiSuccess({ message: 'Content deleted successfully' });
   } catch (error) {
     logger.error('Content deletion error', {}, error as Error);
-    return apiError('INTERNAL_ERROR', { code: 'INTERNAL_ERROR', message: 'Failed to delete content' });
+    return apiError('INTERNAL_ERROR', 'Failed to delete content');
   }
 }

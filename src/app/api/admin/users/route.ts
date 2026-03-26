@@ -116,7 +116,8 @@ export async function GET(request: NextRequest) {
         filters: params,
       });
 
-      return apiSuccess(formattedUsers,
+      return apiSuccess({
+        users: formattedUsers,
         pagination: {
           limit: params.limit,
           offset: params.offset,
@@ -125,7 +126,8 @@ export async function GET(request: NextRequest) {
         },
         stats: {
           total: totalCount,
-        });
+        },
+      });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return apiError('BAD_REQUEST', 'Invalid parameters', error.errors);

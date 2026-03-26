@@ -23,13 +23,11 @@ export async function GET(request: NextRequest) {
     switch (action) {
       case 'summary':
         const report = await optimizer.getPerformanceReport();
-        return apiSuccess(report,
-          timestamp: new Date().toISOString());
+        return apiSuccess({ ...report, timestamp: new Date().toISOString() });
 
       case 'health':
         const health = await checkQueryPerformanceHealth(optimizer);
-        return apiSuccess(health,
-          timestamp: new Date().toISOString());
+        return apiSuccess({ ...health, timestamp: new Date().toISOString() });
 
       case 'analyze':
         const queryId = searchParams.get('queryId');
@@ -38,22 +36,20 @@ export async function GET(request: NextRequest) {
         }
 
         const analysis = await optimizer.analyzeQueryPerformance(queryId);
-        return apiSuccess(analysis,
-          timestamp: new Date().toISOString());
+        return apiSuccess({ ...analysis, timestamp: new Date().toISOString() });
 
       case 'indexes':
         const indexSuggestions = await optimizer.generateOptimalIndexes();
         return apiSuccess({
             suggestions: indexSuggestions,
             count: indexSuggestions.length,
-            estimatedTotalImpact: indexSuggestions.reduce((sum, s) => sum + s.estimatedImpact, 0) / indexSuggestions.length
-          },
-          timestamp: new Date().toISOString());
+            estimatedTotalImpact: indexSuggestions.reduce((sum, s) => sum + s.estimatedImpact, 0) / indexSuggestions.length,
+            timestamp: new Date().toISOString(),
+          });
 
       case 'optimizations':
         const optimizations = await optimizer.applyAutomaticOptimizations();
-        return apiSuccess(optimizations,
-          timestamp: new Date().toISOString());
+        return apiSuccess({ ...optimizations, timestamp: new Date().toISOString() });
 
       default:
         return apiError('BAD_REQUEST', 'Invalid action parameter');
@@ -76,18 +72,15 @@ export async function POST(request: NextRequest) {
     switch (action) {
       case 'benchmark':
         const benchmarkResults = await runPerformanceBenchmark(optimizedQueries, parameters);
-        return apiSuccess(benchmarkResults,
-          timestamp: new Date().toISOString());
+        return apiSuccess({ ...benchmarkResults, timestamp: new Date().toISOString() });
 
       case 'stress_test':
         const stressResults = await runStressTest(optimizedQueries, parameters);
-        return apiSuccess(stressResults,
-          timestamp: new Date().toISOString());
+        return apiSuccess({ ...stressResults, timestamp: new Date().toISOString() });
 
       case 'validate_indexes':
         const validationResults = await validateIndexPerformance(parameters);
-        return apiSuccess(validationResults,
-          timestamp: new Date().toISOString());
+        return apiSuccess({ ...validationResults, timestamp: new Date().toISOString() });
 
       default:
         return apiError('BAD_REQUEST', 'Invalid action parameter');

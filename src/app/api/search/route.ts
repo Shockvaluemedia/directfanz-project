@@ -56,8 +56,8 @@ export async function GET(request: NextRequest) {
 
       // --- Regular search ---
       if (!query) {
-        return apiSuccess({ artists: [], content: [], total: 0, query: '' },
-          pagination: { limit, offset: 0, total: 0, hasNext: false });
+        return apiSuccess({ artists: [], content: [], total: 0, query: '',
+          pagination: { limit, offset: 0, total: 0, hasNext: false } });
       }
 
       const params: SearchParams = searchSchema.parse({

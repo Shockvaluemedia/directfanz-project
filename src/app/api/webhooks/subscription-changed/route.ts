@@ -165,8 +165,8 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     logger.error('Subscription webhook error', {}, error as Error);
 
-    return apiError('INTERNAL_ERROR', 'Failed to process subscription webhook',
-        timestamp: new Date().toISOString(),);
+    return apiError('INTERNAL_ERROR', 'Failed to process subscription webhook', {
+        timestamp: new Date().toISOString() });
   }
 }
 

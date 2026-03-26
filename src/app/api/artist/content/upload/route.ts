@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id || session.user.role !== 'ARTIST') {
-      return apiError('UNAUTHORIZED', { code: 'UNAUTHORIZED', message: 'Artist authentication required' });
+      return apiError('UNAUTHORIZED', 'Artist authentication required');
     }
 
     const body = await request.json();
@@ -28,10 +28,7 @@ export async function POST(request: NextRequest) {
     // Validate file upload parameters
     const validationErrors = validateFileUpload(fileName, fileType, fileSize);
     if (validationErrors.length > 0) {
-      return apiError('BAD_REQUEST', {
-            code: 'VALIDATION_ERROR',
-            message: 'File validation failed', { errors: validationErrors },
-          });
+      return apiError('BAD_REQUEST', 'File validation failed', validationErrors);
     }
 
     // Generate presigned URL
@@ -47,16 +44,13 @@ export async function POST(request: NextRequest) {
     logger.error('Upload URL generation error', {}, error as Error);
 
     if (error instanceof z.ZodError) {
-      return apiError('BAD_REQUEST', {
-            code: 'VALIDATION_ERROR',
-            message: 'Invalid request data', { errors: error.errors },
-          });
+      return apiError('BAD_REQUEST', 'Invalid request data', error.errors);
     }
 
     if (error instanceof Error) {
-      return apiError('BAD_REQUEST', { code: 'UPLOAD_ERROR', message: error.message });
+      return apiError('BAD_REQUEST', error.message);
     }
 
-    return apiError('INTERNAL_ERROR', { code: 'INTERNAL_ERROR', message: 'Failed to generate upload URL' });
+    return apiError('INTERNAL_ERROR', 'Failed to generate upload URL');
   }
 }

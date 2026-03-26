@@ -201,15 +201,15 @@ export async function GET(request: NextRequest) {
       }
 
       default: {
-        return apiError('BAD_REQUEST', 'Invalid action',
-          availableActions: ['pending', 'stats', 'history']);
+        return apiError('BAD_REQUEST', 'Invalid action', {
+          availableActions: ['pending', 'stats', 'history'] });
       }
     }
 
   } catch (error) {
     logger.error('Admin moderation API error:', error);
-    return apiError('INTERNAL_ERROR', 'Internal server error',
-      message: error instanceof Error ? error.message : 'Unknown error');
+    return apiError('INTERNAL_ERROR', 'Internal server error', {
+      message: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
 
@@ -418,14 +418,14 @@ export async function POST(request: NextRequest) {
       }
 
       default: {
-        return apiError('BAD_REQUEST', 'Invalid action',
-          availableActions: ['approve', 'reject', 'flag', 'bulk_action']);
+        return apiError('BAD_REQUEST', 'Invalid action', {
+          availableActions: ['approve', 'reject', 'flag', 'bulk_action'] });
       }
     }
 
   } catch (error) {
     logger.error('Admin moderation POST API error:', error);
-    return apiError('INTERNAL_ERROR', 'Moderation action failed',
-      message: error instanceof Error ? error.message : 'Unknown error');
+    return apiError('INTERNAL_ERROR', 'Moderation action failed', {
+      message: error instanceof Error ? error.message : 'Unknown error' });
   }
 }

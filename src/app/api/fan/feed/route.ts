@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions) as any;
 
     if (!session?.user?.id || session.user.role !== 'FAN') {
-      return apiError('UNAUTHORIZED', { code: 'UNAUTHORIZED', message: 'Fan authentication required' });
+      return apiError('UNAUTHORIZED', 'Fan authentication required');
     }
 
     const { searchParams } = new URL(request.url);
@@ -293,6 +293,6 @@ export async function GET(request: NextRequest) {
       });
   } catch (error) {
     logger.error('Feed error', {}, error as Error);
-    return apiError('INTERNAL_ERROR', { code: 'INTERNAL_ERROR', message: 'Failed to fetch content feed' });
+    return apiError('INTERNAL_ERROR', 'Failed to fetch content feed');
   }
 }

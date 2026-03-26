@@ -12,28 +12,25 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id || session.user.role !== 'ARTIST') {
-      return apiError('UNAUTHORIZED', { code: 'UNAUTHORIZED', message: 'Artist authentication required' });
+      return apiError('UNAUTHORIZED', 'Artist authentication required');
     }
 
     // Check if local storage is enabled
     if (process.env.USE_LOCAL_STORAGE !== 'true') {
-      return apiError('BAD_REQUEST', { code: 'NOT_AVAILABLE', message: 'Local upload not available in this environment' });
+      return apiError('BAD_REQUEST', 'Local upload not available in this environment');
     }
 
     const formData = await request.formData();
     const file = formData.get('file') as File;
 
     if (!file) {
-      return apiError('BAD_REQUEST', { code: 'MISSING_FILE', message: 'No file provided' });
+      return apiError('BAD_REQUEST', 'No file provided');
     }
 
     // Validate file
     const validationErrors = validateFileUpload(file.name, file.type, file.size);
     if (validationErrors.length > 0) {
-      return apiError('BAD_REQUEST', {
-            code: 'VALIDATION_ERROR',
-            message: 'File validation failed', validationErrors,
-          });
+      return apiError('BAD_REQUEST', 'File validation failed', validationErrors);
     }
 
     // Create upload directory structure
@@ -76,9 +73,6 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     logger.error('Local file upload error', {}, error as Error);
     
-    return apiError('INTERNAL_ERROR', { 
-          code: 'UPLOAD_ERROR', 
-          message: error instanceof Error ? error.message : 'Failed to upload file' 
-        });
+    return apiError('INTERNAL_ERROR', error instanceof Error ? error.message : 'Failed to upload file');
   }
 }

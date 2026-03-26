@@ -115,8 +115,8 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     logger.error('AI API Error', {}, error as Error);
-    return apiError('INTERNAL_ERROR', 'Internal server error',
-      message: error instanceof Error ? error.message : 'Unknown error');
+    return apiError('INTERNAL_ERROR', 'Internal server error', {
+      message: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
 
@@ -137,9 +137,9 @@ export async function POST(request: NextRequest) {
     } = body;
 
     if (!agent || !action) {
-      return apiError('BAD_REQUEST', 'Missing required parameters',
+      return apiError('BAD_REQUEST', 'Missing required parameters', {
         required: ['agent', 'action'],
-        provided: { agent: !!agent, action: !!action });
+        provided: { agent: !!agent, action: !!action } });
     }
 
     const registry = await getOrCreateRegistry();
@@ -164,8 +164,8 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     logger.error('AI Task Execution Error', {}, error as Error);
-    return apiError('INTERNAL_ERROR', 'Task execution failed',
-      message: error instanceof Error ? error.message : 'Unknown error');
+    return apiError('INTERNAL_ERROR', 'Task execution failed', {
+      message: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
 
@@ -201,8 +201,8 @@ export async function PUT(request: NextRequest) {
             workflow = registry.createContentOptimizationWorkflow(artistId);
             break;
           default:
-            return apiError('BAD_REQUEST', 'Unknown workflow type',
-              availableWorkflows: ['revenue_optimization', 'content_optimization']);
+            return apiError('BAD_REQUEST', 'Unknown workflow type', {
+              availableWorkflows: ['revenue_optimization', 'content_optimization'] });
         }
 
         const workflowResult = await registry.executeCoordinatedTask(workflow);
@@ -215,13 +215,13 @@ export async function PUT(request: NextRequest) {
           } });
 
       default:
-        return apiError('BAD_REQUEST', 'Unknown action',
-          availableActions: ['restart_registry', 'execute_workflow']);
+        return apiError('BAD_REQUEST', 'Unknown action', {
+          availableActions: ['restart_registry', 'execute_workflow'] });
     }
 
   } catch (error) {
     logger.error('AI Registry Management Error', {}, error as Error);
-    return apiError('INTERNAL_ERROR', 'Registry management failed',
-      message: error instanceof Error ? error.message : 'Unknown error');
+    return apiError('INTERNAL_ERROR', 'Registry management failed', {
+      message: error instanceof Error ? error.message : 'Unknown error' });
   }
 }

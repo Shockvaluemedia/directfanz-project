@@ -232,9 +232,9 @@ export async function GET(request: NextRequest) {
         metrics: params.metrics,
       });
 
-      return apiSuccess(analytics,
+      return apiSuccess({ ...analytics,
         period: params.period,
-        generatedAt: new Date().toISOString());
+        generatedAt: new Date().toISOString() });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return apiError('BAD_REQUEST', 'Invalid parameters', error.errors);

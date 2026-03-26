@@ -36,8 +36,8 @@ export async function GET(request: NextRequest) {
     const timeframe = searchParams.get('timeframe') || 'monthly';
 
     if (!artistId) {
-      return apiError('BAD_REQUEST', 'Artist ID is required',
-        usage: '/api/ai/analytics?artistId=123&type=revenue&timeframe=quarterly');
+      return apiError('BAD_REQUEST', 'Artist ID is required', {
+        usage: '/api/ai/analytics?artistId=123&type=revenue&timeframe=quarterly' });
     }
 
     const agentRegistry = await getRegistry();
@@ -108,19 +108,19 @@ export async function GET(request: NextRequest) {
             },
             insights: await generateInsights(results, artistId),
             recommendations: await generateRecommendations(results, artistId),
-          },
-          metrics: {
-            tasksExecuted: tasks.length,
-            successfulTasks: results.filter(r => r.success).length,
-            totalProcessingTime: results.reduce((sum, r) => sum + (r.metrics?.processingTime || 0), 0),
-          });
+            metrics: {
+              tasksExecuted: tasks.length,
+              successfulTasks: results.filter(r => r.success).length,
+              totalProcessingTime: results.reduce((sum, r) => sum + (r.metrics?.processingTime || 0), 0),
+            } });
     }
 
     const response = await agentRegistry.executeTask(agentId, task);
 
     if (!response.success) {
-      return apiError('INTERNAL_ERROR', 'Analytics generation failed', response.error,
-        suggestion: 'Try with different parameters or check agent status');
+      return apiError('INTERNAL_ERROR', 'Analytics generation failed', {
+        error: response.error,
+        suggestion: 'Try with different parameters or check agent status' });
     }
 
     return apiSuccess({
@@ -130,13 +130,12 @@ export async function GET(request: NextRequest) {
         timestamp: new Date().toISOString(),
         result: response.data,
         insights: await generateSingleInsight(response.data, analysisType),
-      },
-      metrics: response.metrics);
+        metrics: response.metrics });
 
   } catch (error) {
     logger.error('Analytics API Error', {}, error as Error);
-    return apiError('INTERNAL_ERROR', 'Internal server error',
-      message: error instanceof Error ? error.message : 'Unknown error');
+    return apiError('INTERNAL_ERROR', 'Internal server error', {
+      message: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
 
@@ -157,9 +156,9 @@ export async function POST(request: NextRequest) {
     } = body;
 
     if (!artistId || !analysisType) {
-      return apiError('BAD_REQUEST', 'Missing required parameters',
+      return apiError('BAD_REQUEST', 'Missing required parameters', {
         required: ['artistId', 'analysisType'],
-        optional: ['parameters', 'customMetrics']);
+        optional: ['parameters', 'customMetrics'] });
     }
 
     const agentRegistry = await getRegistry();
@@ -206,13 +205,13 @@ export async function POST(request: NextRequest) {
         break;
 
       default:
-        return apiError('BAD_REQUEST', 'Unknown analysis type',
+        return apiError('BAD_REQUEST', 'Unknown analysis type', {
           availableTypes: [
             'custom_forecast',
-            'comparative_analysis', 
+            'comparative_analysis',
             'predictive_modeling',
             'market_intelligence'
-          ]);
+          ] });
     }
 
     const response = await agentRegistry.executeTask(agentId, task);
@@ -235,8 +234,8 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     logger.error('Analytics POST API Error', {}, error as Error);
-    return apiError('INTERNAL_ERROR', 'Analysis execution failed',
-      message: error instanceof Error ? error.message : 'Unknown error');
+    return apiError('INTERNAL_ERROR', 'Analysis execution failed', {
+      message: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
 

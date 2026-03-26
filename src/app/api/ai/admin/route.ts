@@ -120,19 +120,19 @@ export async function GET(request: NextRequest) {
             insights: await generateAdminInsights(results),
             recommendations: await generateAdminRecommendations(results),
             status: determineOverallSystemStatus(results),
-          },
-          metrics: {
-            tasksExecuted: tasks.length,
-            successfulTasks: results.filter(r => r.success).length,
-            totalProcessingTime: results.reduce((sum, r) => sum + (r.metrics?.processingTime || 0), 0),
-          });
+            metrics: {
+              tasksExecuted: tasks.length,
+              successfulTasks: results.filter(r => r.success).length,
+              totalProcessingTime: results.reduce((sum, r) => sum + (r.metrics?.processingTime || 0), 0),
+            } });
     }
 
     const response = await agentRegistry.executeTask(agentId, task);
 
     if (!response.success) {
-      return apiError('INTERNAL_ERROR', 'Admin operation failed', response.error,
-        suggestion: 'Check agent status or system permissions');
+      return apiError('INTERNAL_ERROR', 'Admin operation failed', {
+        error: response.error,
+        suggestion: 'Check agent status or system permissions' });
     }
 
     return apiSuccess({
@@ -144,13 +144,12 @@ export async function GET(request: NextRequest) {
         insights: await generateSingleAdminInsight(response.data, operationType),
         actionItems: await generateAdminActionItems(response.data, operationType),
         priority: determinePriority(response.data, operationType),
-      },
-      metrics: response.metrics);
+        metrics: response.metrics });
 
   } catch (error) {
     logger.error('Admin API Error', {}, error as Error);
-    return apiError('INTERNAL_ERROR', 'Internal server error',
-      message: error instanceof Error ? error.message : 'Unknown error');
+    return apiError('INTERNAL_ERROR', 'Internal server error', {
+      message: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
 
@@ -175,7 +174,7 @@ export async function POST(request: NextRequest) {
     } = body;
 
     if (!action) {
-      return apiError('BAD_REQUEST', 'Action is required',
+      return apiError('BAD_REQUEST', 'Action is required', {
         availableActions: [
           'user_action',
           'system_maintenance',
@@ -183,7 +182,7 @@ export async function POST(request: NextRequest) {
           'security_action',
           'backup_restore',
           'configuration_update'
-        ]);
+        ] });
     }
 
     const agentRegistry = await getRegistry();
@@ -194,10 +193,10 @@ export async function POST(request: NextRequest) {
     const isDestructive = destructiveActions.includes(action) || parameters.destructive === true;
     
     if (isDestructive && !confirmationCode) {
-      return apiError('BAD_REQUEST', 'Destructive action requires confirmation code',
+      return apiError('BAD_REQUEST', 'Destructive action requires confirmation code', {
         confirmationRequired: true,
         action,
-        warningMessage: 'This action may impact platform availability or user access');
+        warningMessage: 'This action may impact platform availability or user access' });
     }
 
     let task;
@@ -270,7 +269,7 @@ export async function POST(request: NextRequest) {
         break;
 
       default:
-        return apiError('BAD_REQUEST', 'Unknown action type',
+        return apiError('BAD_REQUEST', 'Unknown action type', {
           action,
           availableActions: [
             'user_action',
@@ -279,7 +278,7 @@ export async function POST(request: NextRequest) {
             'security_action',
             'backup_restore',
             'configuration_update'
-          ]);
+          ] });
     }
 
     const response = await agentRegistry.executeTask(agentId, task);
@@ -308,8 +307,8 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     logger.error('Admin POST API Error', {}, error as Error);
-    return apiError('INTERNAL_ERROR', 'Admin action failed',
-      message: error instanceof Error ? error.message : 'Unknown error');
+    return apiError('INTERNAL_ERROR', 'Admin action failed', {
+      message: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
 

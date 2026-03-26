@@ -304,8 +304,8 @@ export async function GET(request: NextRequest) {
     }
   } catch (error) {
     logger.error('Failed to collect metrics', {}, error as Error);
-    return apiError('INTERNAL_ERROR', 'Failed to collect metrics',
-        message: error instanceof Error ? error.message : 'Unknown error',);
+    return apiError('INTERNAL_ERROR', 'Failed to collect metrics', {
+        message: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
 
