@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getToken } from 'next-auth/jwt';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { UserRole } from '@/types/database';
 import { hasPermission, hasAllPermissions, Permission } from '@/lib/rbac';
 
@@ -19,12 +20,13 @@ export async function withApiAuth<T = any>(
   handler: (req: AuthenticatedRequest) => Promise<NextResponse<T>>
 ): Promise<NextResponse<T>> {
   try {
-    const token = await getToken({
-      req: request,
-      secret: process.env.NEXTAUTH_SECRET,
-    });
+    // Use getServerSession so the app's custom (HS256) JWT decode is applied.
+    // getToken() from next-auth/jwt assumes the default encrypted-JWE format and
+    // cannot decode the signed tokens this app issues, so it would 401 every
+    // authenticated request.
+    const session = await getServerSession(authOptions);
 
-    if (!token || !token.id) {
+    if (!session?.user?.id) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
@@ -34,10 +36,10 @@ export async function withApiAuth<T = any>(
     // Attach user info to request
     const authenticatedRequest = request as AuthenticatedRequest;
     authenticatedRequest.user = {
-      id: token.id as string,
-      email: token.email as string,
-      role: token.role as UserRole,
-      name: token.name as string,
+      id: session.user.id as string,
+      email: session.user.email as string,
+      role: session.user.role as UserRole,
+      name: session.user.name as string,
     };
 
     return await handler(authenticatedRequest);

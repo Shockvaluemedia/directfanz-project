@@ -74,9 +74,6 @@ export async function middleware(request: NextRequest) {
 
   // CSRF Protection for state-changing operations (check BEFORE rate limiting for security)
   if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
-    const csrfToken = request.headers.get('x-csrf-token');
-    const cookieCSRF = request.cookies.get('csrf-token')?.value;
-
     // Define specific CSRF-exempt routes (more secure than blanket exemption)
     const CSRF_EXEMPT_ROUTES = [
       '/api/auth/', // All NextAuth routes need to be exempt
@@ -86,24 +83,51 @@ export async function middleware(request: NextRequest) {
 
     const isCSRFExempt = CSRF_EXEMPT_ROUTES.some(exemptRoute => url.startsWith(exemptRoute));
 
-    // Only exempt specific routes, not all auth routes
-    if (!isCSRFExempt && (!csrfToken || csrfToken !== cookieCSRF)) {
-      logger.securityEvent('CSRF token validation failed', 'high', {
+    // Origin-based CSRF protection (OWASP "verifying origin" pattern). Browsers
+    // always attach an Origin header to state-changing cross-origin requests, and
+    // same-origin fetches from our own pages send an Origin equal to our host.
+    // Requiring the Origin (or Referer) to match an allowed origin blocks
+    // cross-site forgery without needing a client-issued token, and composes with
+    // the SameSite=Lax session cookie. Requests with no Origin/Referer are
+    // non-browser clients (server-to-server, curl); the SameSite session cookie
+    // still prevents an authenticated cross-site browser request from carrying
+    // credentials, so those are allowed through here.
+    let sourceOrigin: string | null = request.headers.get('origin');
+    if (!sourceOrigin) {
+      const referer = request.headers.get('referer');
+      if (referer) {
+        try {
+          sourceOrigin = new URL(referer).origin;
+        } catch {
+          sourceOrigin = 'invalid';
+        }
+      }
+    }
+
+    const allowedOrigins = new Set(
+      [
+        request.nextUrl.origin,
+        process.env.NEXTAUTH_URL,
+        process.env.NEXT_PUBLIC_APP_URL,
+        process.env.NEXT_PUBLIC_FRONTEND_URL,
+      ].filter(Boolean) as string[]
+    );
+
+    if (!isCSRFExempt && sourceOrigin && !allowedOrigins.has(sourceOrigin)) {
+      logger.securityEvent('CSRF origin validation failed', 'high', {
         requestId,
         ip,
         url,
         method,
-        hasCSRFHeader: !!csrfToken,
-        hasCSRFCookie: !!cookieCSRF,
-        isExemptRoute: isCSRFExempt,
+        sourceOrigin,
       });
 
       return new NextResponse(
         JSON.stringify({
           success: false,
           error: {
-            code: 'CSRF_TOKEN_INVALID',
-            message: 'CSRF token validation failed',
+            code: 'CSRF_ORIGIN_INVALID',
+            message: 'Cross-site request blocked',
           },
           requestId,
           timestamp: new Date().toISOString(),
