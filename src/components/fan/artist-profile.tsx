@@ -103,8 +103,9 @@ export default function ArtistProfile({ artist, existingSubscriptions }: ArtistP
       });
 
       if (simRes.ok) {
-        // Reload so the subscribed state and any now-unlocked content refresh.
-        window.location.reload();
+        // Re-fetch the server component so the subscribed state and any
+        // now-unlocked content refresh.
+        router.refresh();
         return;
       }
 
