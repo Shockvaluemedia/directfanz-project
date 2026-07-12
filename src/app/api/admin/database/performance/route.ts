@@ -6,14 +6,47 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { getDatabaseQueryOptimizer, checkQueryPerformanceHealth } from '@/lib/database-query-optimizer';
 import { getOptimizedQueries } from '@/lib/optimized-queries';
 import { logger } from '@/lib/logger';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+/**
+ * Ensure the caller is an authenticated ADMIN. Returns a NextResponse to short
+ * circuit the handler when access is denied, or null when access is granted.
+ */
+async function requireAdmin(): Promise<NextResponse | null> {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const user = await prisma.users.findUnique({
+    where: { id: session.user.id },
+    select: { role: true },
+  });
+
+  if (user?.role !== 'ADMIN') {
+    return NextResponse.json(
+      { success: false, error: 'Access denied. Admin role required.' },
+      { status: 403 }
+    );
+  }
+
+  return null;
+}
+
 // GET /api/admin/database/performance - Get performance metrics
 export async function GET(request: NextRequest) {
   try {
+    const denied = await requireAdmin();
+    if (denied) return denied;
+
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action') || 'summary';
 
@@ -94,6 +127,9 @@ export async function GET(request: NextRequest) {
 // POST /api/admin/database/performance - Execute performance tests
 export async function POST(request: NextRequest) {
   try {
+    const denied = await requireAdmin();
+    if (denied) return denied;
+
     const body = await request.json();
     const { action, parameters = {} } = body;
 

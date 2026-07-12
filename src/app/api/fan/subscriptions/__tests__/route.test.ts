@@ -98,7 +98,7 @@ describe('/api/fan/subscriptions', () => {
             name: 'Basic',
             description: 'Basic tier',
             minimumPrice: 5.0,
-            artists: {
+            users: {
               id: 'artist-1',
               displayName: 'Test Artist',
               avatar: null,

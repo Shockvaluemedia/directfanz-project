@@ -6,6 +6,7 @@
  */
 
 import { NextRequest } from 'next/server';
+import { getServerSession } from 'next-auth';
 
 // Mock NextAuth before any imports
 jest.mock('next-auth', () => {
@@ -538,14 +539,22 @@ describe('Authentication Integration Tests', () => {
   });
 
   describe('Role Management', () => {
-    // The actual change-role route uses x-test-admin header for auth check
+    // The change-role route requires a real authenticated ADMIN session and
+    // verifies the caller's role against the database before mutating anything.
+    beforeEach(() => {
+      (getServerSession as jest.Mock).mockReset();
+      (prisma.users.update as jest.Mock).mockReset();
+    });
+
     it('should allow admin to change user role', async () => {
+      (getServerSession as jest.Mock).mockResolvedValue({ user: { id: 'admin-1' } });
+      // Actor lookup returns an ADMIN, then the target update returns the new role
+      (prisma.users.findUnique as jest.Mock).mockResolvedValue({ role: 'ADMIN' });
+      (prisma.users.update as jest.Mock).mockResolvedValue({ id: 'user-123', role: 'ARTIST' });
+
       const request = new NextRequest('http://localhost:3000/api/admin/change-role', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-test-admin': 'true',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: 'user-123',
           role: 'artist',
@@ -556,19 +565,41 @@ describe('Authentication Integration Tests', () => {
       const data = await response.json();
 
       expect(response.status).toBe(200);
-      expect(data.user.role).toBe('artist');
+      expect(data.user.role).toBe('ARTIST');
       expect(data.message).toContain('User role updated successfully');
+      expect(prisma.users.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'user-123' },
+          data: expect.objectContaining({ role: 'ARTIST' }),
+        })
+      );
     });
 
-    it('should prevent non-admin from changing user roles', async () => {
-      // Without x-test-admin header, the route returns 403
+    it('should reject an unauthenticated request', async () => {
+      (getServerSession as jest.Mock).mockResolvedValue(null);
+
       const request = new NextRequest('http://localhost:3000/api/admin/change-role', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: 'other-user-123',
-          role: 'artist',
-        }),
+        body: JSON.stringify({ userId: 'other-user-123', role: 'artist' }),
+      });
+
+      const response = await changeRoleHandler(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(401);
+      expect(data.error).toContain('Unauthorized');
+      expect(prisma.users.update).not.toHaveBeenCalled();
+    });
+
+    it('should prevent a non-admin from changing user roles', async () => {
+      (getServerSession as jest.Mock).mockResolvedValue({ user: { id: 'fan-1' } });
+      (prisma.users.findUnique as jest.Mock).mockResolvedValue({ role: 'FAN' });
+
+      const request = new NextRequest('http://localhost:3000/api/admin/change-role', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: 'other-user-123', role: 'artist' }),
       });
 
       const response = await changeRoleHandler(request);
@@ -576,15 +607,16 @@ describe('Authentication Integration Tests', () => {
 
       expect(response.status).toBe(403);
       expect(data.error).toContain('Unauthorized');
+      expect(prisma.users.update).not.toHaveBeenCalled();
     });
 
     it('should prevent invalid role changes', async () => {
+      (getServerSession as jest.Mock).mockResolvedValue({ user: { id: 'admin-1' } });
+      (prisma.users.findUnique as jest.Mock).mockResolvedValue({ role: 'ADMIN' });
+
       const request = new NextRequest('http://localhost:3000/api/admin/change-role', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-test-admin': 'true',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: 'user-123',
           role: 'invalid_role',
@@ -596,6 +628,7 @@ describe('Authentication Integration Tests', () => {
 
       expect(response.status).toBe(400);
       expect(data.error).toContain('Invalid role');
+      expect(prisma.users.update).not.toHaveBeenCalled();
     });
   });
 

@@ -3,268 +3,131 @@
 A platform that connects independent artists with their superfans through
 subscription-based exclusive content access.
 
-## 🚀 Ready to Deploy to Production?
-
-**Your DirectFanz platform is 95% production-ready!**
-
-→ **[START HERE: DEPLOYMENT_READY.md](./DEPLOYMENT_READY.md)** ←
-
-This master guide will take you from zero to live in ~50 minutes.
+> **Production status:** DirectFanz is **not yet launch-ready.** A production
+> trust sprint has stabilized the build, tests, CI, and several security holes,
+> but launch blockers remain (see
+> [`PRODUCTION_READINESS.md`](./PRODUCTION_READINESS.md)). Do not treat any
+> older doc that claims "PRODUCTION READY", "LIVE", or "COMPLETE" as accurate —
+> `PRODUCTION_READINESS.md` and this README are the authoritative status.
 
 ## Features
 
-- **Artist Dashboard**: Create subscription tiers, upload exclusive content,
-  track earnings
-- **Fan Experience**: Discover artists, flexible subscription pricing, access
-  exclusive content
-- **Secure Payments**: Stripe integration with daily payouts
-- **Community Features**: Comments, notifications, and fan interactions
+- **Artist dashboard** — create subscription tiers, upload exclusive content, track earnings
+- **Fan experience** — discover artists, subscribe, access gated content
+- **Payments** — Stripe subscriptions and webhooks
+- **Community** — comments, notifications, messaging
 
-## Tech Stack
+## Tech stack (the real one)
 
-- **Frontend**: Next.js 14, React 18, Tailwind CSS
-- **Backend**: Next.js API routes
-- **Database**: PostgreSQL with Prisma ORM
-- **Cache**: Redis
-- **Payments**: Stripe Connect
-- **Storage**: AWS S3 (for production)
-- **Authentication**: NextAuth.js
+| Concern        | Technology                                             |
+| -------------- | ------------------------------------------------------ |
+| Framework      | Next.js 14 (App Router), React 18, TypeScript          |
+| Styling        | Tailwind CSS                                            |
+| Database       | PostgreSQL via Prisma ORM                              |
+| Cache / limits | Redis (`ioredis`; Upstash on Vercel)                   |
+| File storage   | **Vercel Blob** (`@vercel/blob`)                        |
+| Payments       | Stripe                                                  |
+| Email          | SendGrid (`@sendgrid/mail`)                             |
+| Auth           | NextAuth.js (JWT sessions)                              |
+| Hosting        | **Vercel** (this is the one supported deploy target)   |
 
-## Docker Setup
+> The repo also contains AWS/ECS/Docker/Terraform files from an earlier
+> exploration. **They are legacy and not the supported path** — the application
+> imports `@vercel/blob` (there is no AWS SDK dependency), `next.config.js`
+> only whitelists `*.public.blob.vercel-storage.com`, and `vercel.json` +
+> `.github/workflows/vercel-deploy.yml` are the real deploy config. Ignore the
+> AWS/Docker docs until they are archived.
 
-### Prerequisites
+## Local development
 
-- Docker and Docker Compose installed on your system
-- Git (to clone the repository)
-
-### Quick Start
-
-1. **Clone the repository** (if not already done):
-
-   ```bash
-   git clone https://github.com/your-username/directfanz-project-project.git
-   cd directfanz-project-project
-   ```
-
-2. **Set up environment variables**:
-
-   ```bash
-   cp .env.local.example .env.local
-   ```
-
-   Edit `.env.local` with your configuration values.
-
-3. **Start the application with Docker**:
-
-   ```bash
-   docker-compose up --build
-   ```
-
-4. **Access the application**:
-   - Main app: http://localhost:3000
-   - PostgreSQL: localhost:5432
-   - Redis: localhost:6379
-   - pgAdmin: http://localhost:5050 (admin@directfanz.io / admin)
-
-### Docker Services
-
-- **app**: Next.js application (port 3000)
-- **postgres**: PostgreSQL database (port 5432)
-- **redis**: Redis cache (port 6379)
-- **pgadmin**: Database management interface (port 5050)
-
-### Development Commands
+Requires Node.js 20+, a PostgreSQL database, and (optionally) a Redis instance.
 
 ```bash
-# Start all services
-docker-compose up
-
-# Start in background
-docker-compose up -d
-
-# Rebuild and start
-docker-compose up --build
-
-# Stop all services
-docker-compose down
-
-# View logs
-docker-compose logs app
-
-# Access app container shell
-docker-compose exec app sh
-
-# Access database
-docker-compose exec postgres psql -U postgres -d direct_fan_platform
+npm install                 # install dependencies
+cp .env.example .env.local  # then fill in the values below
+npm run db:generate         # generate the Prisma client
+npm run db:push             # apply the schema to your dev database
+npm run dev                 # start the dev server on http://localhost:3000
 ```
 
-### Database Setup
-
-The database will be automatically initialized when you first run
-`docker-compose up`. The schema will be created using Prisma migrations.
-
-To run database operations:
+### Quality gates (run these before pushing)
 
 ```bash
-# Generate Prisma client
-docker-compose exec app npm run db:generate
-
-# Push schema to database
-docker-compose exec app npm run db:push
-
-# Run migrations
-docker-compose exec app npm run db:migrate
-
-# Seed database
-docker-compose exec app npm run db:seed
+npm run typecheck    # tsc --noEmit
+npm run lint:check   # next lint (no autofix)
+npm test             # jest unit + integration suites
+npm audit            # dependency vulnerabilities
+npm run build        # production build
 ```
 
-## Environment Variables
+CI (`.github/workflows/ci-cd.yml`) runs the same gates on `integration-testing`
+and `main`.
 
-Key environment variables you need to configure in `.env.local`:
+## Environment variables
+
+Copy `.env.example` and fill in real values. The essentials:
 
 ```env
-# Database (automatically configured for Docker)
-DATABASE_URL="postgresql://postgres:password@postgres:5432/directfanz"
+# Core (required — the app will not run without these)
+DATABASE_URL="postgresql://user:password@host:5432/directfanz"
+NEXTAUTH_SECRET="<32+ char random string>"     # openssl rand -base64 32
+NEXTAUTH_URL="https://your-domain.com"          # must be HTTPS in production
+JWT_SECRET="<32+ char random string>"
 
-# Redis (automatically configured for Docker)
-REDIS_URL="redis://redis:6379"
-
-# NextAuth.js
-NEXTAUTH_SECRET="your-secret-key-change-in-production"
-NEXTAUTH_URL="http://localhost:3000"
-
-# Stripe (required for payments)
-STRIPE_PUBLISHABLE_KEY="pk_test_..."
-STRIPE_SECRET_KEY="sk_test_..."
+# Payments (required for subscriptions)
+STRIPE_SECRET_KEY="sk_..."
+STRIPE_PUBLISHABLE_KEY="pk_..."
 STRIPE_WEBHOOK_SECRET="whsec_..."
 
-# AWS S3 (required for file uploads)
-AWS_ACCESS_KEY_ID="your-access-key"
-AWS_SECRET_ACCESS_KEY="your-secret-key"
-AWS_S3_BUCKET_NAME="your-bucket-name"
+# File storage (Vercel Blob — auto-provisioned when you add Blob in Vercel)
+BLOB_READ_WRITE_TOKEN="vercel_blob_rw_..."
 
-# SendGrid (required for emails)
+# Cache / rate limiting (Upstash Redis on Vercel)
+REDIS_URL="rediss://..."
+
+# Email (required for notifications / password reset)
 SENDGRID_API_KEY="SG...."
-FROM_EMAIL="noreply@directfanz.io"
+FROM_EMAIL="noreply@your-domain.com"
+
+# App URL
+NEXT_PUBLIC_APP_URL="https://your-domain.com"
 ```
 
-## Troubleshooting
+See [`VERCEL_ENV_CHECKLIST.md`](./VERCEL_ENV_CHECKLIST.md) for the full list.
 
-### Common Issues
+## Deployment (Vercel)
 
-1. **Port conflicts**: If ports 3000, 5432, 6379, or 5050 are already in use,
-   modify the ports in `docker-compose.yml`
+1. Import `Shockvaluemedia/directfanz-project` at <https://vercel.com/new>.
+2. Add the environment variables above in the Vercel project settings
+   (Production + Preview). **Never commit real secrets.**
+3. Add the **Vercel Blob** and **Upstash Redis** integrations (these provide
+   `BLOB_READ_WRITE_TOKEN` and `REDIS_URL`).
+4. Configure the **Stripe webhook** to point at
+   `https://your-domain.com/api/payments/webhooks` and copy the signing secret
+   into `STRIPE_WEBHOOK_SECRET`.
+5. Deploy. Pushes to `main` deploy production via
+   `.github/workflows/vercel-deploy.yml`; PRs get preview deploys.
 
-2. **Database connection issues**: Ensure PostgreSQL service is running:
+The build runs with placeholder env in CI and is build-safe (config validation
+is deferred out of the build phase), so a missing production secret fails at
+runtime rather than silently shipping. Configure all required variables before
+directing traffic.
 
-   ```bash
-   docker-compose logs postgres
-   ```
+## Authoritative documentation
 
-3. **Node modules issues**: If you encounter module-related errors, rebuild the
-   container:
+- [`PRODUCTION_READINESS.md`](./PRODUCTION_READINESS.md) — **current status, blockers, and remaining risks (read this first)**
+- [`NEXT_STEPS.md`](./NEXT_STEPS.md) — action plan and roadmap
+- [`VERCEL_ENV_CHECKLIST.md`](./VERCEL_ENV_CHECKLIST.md) — environment variables
 
-   ```bash
-   docker-compose down
-   docker-compose up --build
-   ```
-
-4. **Permission issues**: On Linux/Mac, you might need to adjust file
-   permissions:
-   ```bash
-   sudo chown -R $USER:$USER .
-   ```
-
-### Logs and Debugging
-
-```bash
-# View all logs
-docker-compose logs
-
-# View specific service logs
-docker-compose logs app
-docker-compose logs postgres
-docker-compose logs redis
-
-# Follow logs in real-time
-docker-compose logs -f app
-```
-
-## Production Deployment
-
-### 🎯 Ready to Go Live?
-
-**Your DirectFanz platform is production-ready!**
-
-**→ [DEPLOYMENT_READY.md](./DEPLOYMENT_READY.md)** - Master deployment guide (start here)
-
-### Quick Deploy Options
-
-**Option 1: GitHub → Vercel** (Recommended, ~50 minutes)
-```bash
-# 1. Go to https://vercel.com/new
-# 2. Import repository: Shockvaluemedia/directfanz-project
-# 3. Add environment variables
-# 4. Deploy!
-```
-See: [DEPLOY_FROM_GITHUB.md](./DEPLOY_FROM_GITHUB.md)
-
-**Option 2: Vercel CLI** (~1 hour)
-```bash
-# Automated setup wizard
-npm run vercel:setup
-
-# Or manual deployment
-./deploy-to-vercel.sh
-```
-See: [DEPLOY_NOW.md](./DEPLOY_NOW.md)
-
-### Pre-Deployment Checklist
-
-```bash
-# Run automated checks
-npm run vercel:check
-```
-
-### Available Deployment Scripts
-
-- `npm run vercel:setup` - Interactive production setup wizard
-- `npm run vercel:check` - Run pre-deployment checklist
-- `npm run vercel:deploy` - Deploy to production
-- `npm run vercel:preview` - Deploy preview environment
-- `npm run vercel:env` - Pull environment variables
-
-### Required Services
-
-For production deployment, you'll need:
-
-1. **Database**: Vercel Postgres, Supabase, or AWS RDS
-2. **Cache**: Upstash Redis (recommended for Vercel)
-3. **Storage**: AWS S3 for media files
-4. **Payments**: Stripe account with live keys
-5. **Email**: SendGrid or similar service
-6. **Monitoring**: Sentry for error tracking (optional)
-
-### Documentation
-
-**Deployment Guides:**
-- [DEPLOYMENT_READY.md](./DEPLOYMENT_READY.md) - **Master deployment guide (start here)**
-- [NEXT_STEPS.md](./NEXT_STEPS.md) - Comprehensive action plan & feature roadmap
-- [DEPLOY_FROM_GITHUB.md](./DEPLOY_FROM_GITHUB.md) - GitHub integration (recommended)
-- [DEPLOY_NOW.md](./DEPLOY_NOW.md) - Quick CLI deployment
-- [VERCEL_ENV_CHECKLIST.md](./VERCEL_ENV_CHECKLIST.md) - Environment variables guide
-- [AWS_DEPLOYMENT_GUIDE.md](./AWS_DEPLOYMENT_GUIDE.md) - AWS architecture alternative
-- [PRODUCTION_QUICKSTART.md](./PRODUCTION_QUICKSTART.md) - 5-minute quick start
+Older `DEPLOYMENT_*.md` / `AWS_*.md` / Docker guides are historical and may
+contradict the above; they are pending archival.
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test with Docker
-5. Submit a pull request
+1. Branch from `integration-testing`.
+2. Make your changes and keep the quality gates green.
+3. Open a pull request against `integration-testing`.
 
 ## License
 
-[Your License Here]
+Proprietary — all rights reserved (update as appropriate).

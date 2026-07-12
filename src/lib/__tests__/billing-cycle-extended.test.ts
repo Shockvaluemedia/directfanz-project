@@ -8,7 +8,7 @@ jest.mock('@/lib/prisma', () => ({
       count: jest.fn(),
       aggregate: jest.fn(),
     },
-    invoice: {
+    invoices: {
       findMany: jest.fn(),
       update: jest.fn(),
       create: jest.fn(),
@@ -129,7 +129,7 @@ describe('Extended Billing Cycle Functions', () => {
       // Mock transaction
       mockPrisma.$transaction.mockImplementation(async callback => {
         return await callback({
-          subscription: {
+          subscriptions: {
             update: jest.fn().mockResolvedValue({}),
           },
           tiers: {
@@ -213,7 +213,7 @@ describe('Extended Billing Cycle Functions', () => {
       // Mock transaction
       mockPrisma.$transaction.mockImplementation(async callback => {
         return await callback({
-          subscription: {
+          subscriptions: {
             update: jest.fn().mockResolvedValue({}),
           },
           tiers: {
@@ -486,7 +486,7 @@ describe('Extended Billing Cycle Functions', () => {
         },
       ];
 
-      mockPrisma.invoice.findMany
+      mockPrisma.invoices.findMany
         .mockResolvedValueOnce(mockCurrentMonthInvoices as any)
         .mockResolvedValueOnce(mockPreviousMonthInvoices as any);
 
@@ -529,7 +529,7 @@ describe('Extended Billing Cycle Functions', () => {
 
       const mockPreviousMonthInvoices: any[] = [];
 
-      mockPrisma.invoice.findMany
+      mockPrisma.invoices.findMany
         .mockResolvedValueOnce(mockCurrentMonthInvoices as any)
         .mockResolvedValueOnce(mockPreviousMonthInvoices as any);
 
@@ -558,7 +558,7 @@ describe('Extended Billing Cycle Functions', () => {
       jest.useFakeTimers();
       jest.setSystemTime(new Date('2022-01-31T12:00:00Z'));
 
-      mockPrisma.invoice.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      mockPrisma.invoices.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
 
       mockPrisma.subscriptions.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
 

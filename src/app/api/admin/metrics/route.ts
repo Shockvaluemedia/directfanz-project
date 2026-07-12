@@ -99,8 +99,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     // Check authentication and admin role
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== 'admin') {
+    if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (session.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Access denied. Admin role required.' }, { status: 403 });
     }
 
     const searchParams = request.nextUrl.searchParams;

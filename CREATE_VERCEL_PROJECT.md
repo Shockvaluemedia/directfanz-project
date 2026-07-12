@@ -86,9 +86,9 @@ Value: cname.vercel-dns.com
 
 ```bash
 # Generated secrets (from .env.production.secrets)
-echo "o5up8Woxtj0Iu0j3yBy+Wl5dynqiJtrmkKz8IlQJQBE=" | vercel env add NEXTAUTH_SECRET production
-echo "126e7caccce86ff1af33a31b6413c1278b87d656101a3530fc17d605cd23a668" | vercel env add ENCRYPTION_KEY production
-echo "DFbIHLqrPz9+7mTo3QUng2a6rSsHVLKKsHiF01RL9Uk=" | vercel env add JWT_SECRET production
+echo "<REDACTED_ROTATE_NEXTAUTH_SECRET>" | vercel env add NEXTAUTH_SECRET production
+echo "<REDACTED_ROTATE_ENCRYPTION_KEY>" | vercel env add ENCRYPTION_KEY production
+echo "<REDACTED_ROTATE_JWT_SECRET>" | vercel env add JWT_SECRET production
 
 # Add your actual values
 vercel env add DATABASE_URL production
@@ -107,9 +107,9 @@ Go to: https://vercel.com/your-account/directfanz/settings/environment-variables
 |----------|-------|---------|
 | `DATABASE_URL` | PostgreSQL connection | `postgresql://user:pass@host:5432/db` |
 | `NEXTAUTH_URL` | Production URL | `https://www.directfanz.io` |
-| `NEXTAUTH_SECRET` | From .env.production.secrets | `o5up8Woxtj0Iu0j3yBy+...` |
+| `NEXTAUTH_SECRET` | From .env.production.secrets | `<REDACTED_ROTATE_NEXTAUTH_SECRET>` |
 | `ENCRYPTION_KEY` | From .env.production.secrets | `126e7caccce86ff1af33a31b...` |
-| `JWT_SECRET` | From .env.production.secrets | `DFbIHLqrPz9+7mTo3QUng2a6...` |
+| `JWT_SECRET` | From .env.production.secrets | `<REDACTED_ROTATE_JWT_SECRET>` |
 | `STRIPE_SECRET_KEY` | Stripe live key | `sk_live_...` |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe publishable | `pk_live_...` |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook | `whsec_...` |

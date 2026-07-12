@@ -7,6 +7,7 @@ const nextConfig = {
   typescript: { ignoreBuildErrors: false },
   eslint: { ignoreDuringBuilds: false },
   reactStrictMode: true,
+  poweredByHeader: false,
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '*.public.blob.vercel-storage.com' },

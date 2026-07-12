@@ -1,51 +1,48 @@
 import { NextRequest, NextResponse } from 'next/server';
-// @ts-ignore - multer lacks type declarations
-import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
+import { randomUUID } from 'crypto';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { processFile } from '@/lib/file-upload';
 
-// Configure multer for file uploads
-const upload = multer({
-  dest: 'uploads/temp/',
-  limits: {
-    fileSize: 100 * 1024 * 1024, // 100MB
-  },
-  fileFilter: (req: any, file: any, cb: any) => {
-    const allowedTypes = [
-      'image/jpeg', 'image/png', 'image/gif', 'image/webp',
-      'video/mp4', 'video/mov', 'video/avi', 'video/mkv',
-      'audio/mpeg', 'audio/wav', 'audio/aac', 'audio/ogg',
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    ];
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Unsupported file type'), false);
-    }
-  }
-});
+const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
 
-// Helper to run multer middleware in Next.js
-function runMiddleware(req: any, res: any, fn: any) {
-  return new Promise((resolve, reject) => {
-    fn(req, res, (result: any) => {
-      if (result instanceof Error) {
-        return reject(result);
-      }
-      return resolve(result);
-    });
-  });
-}
+// Allowlist of accepted MIME types mapped to the canonical, server-controlled
+// file extension. The client-supplied filename is NEVER used in a filesystem
+// path; only these extensions are ever written to disk.
+const ALLOWED_TYPES: Record<string, string> = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/gif': '.gif',
+  'image/webp': '.webp',
+  'video/mp4': '.mp4',
+  'video/quicktime': '.mov',
+  'video/x-msvideo': '.avi',
+  'video/x-matroska': '.mkv',
+  'audio/mpeg': '.mp3',
+  'audio/wav': '.wav',
+  'audio/aac': '.aac',
+  'audio/ogg': '.ogg',
+  'application/pdf': '.pdf',
+  'application/msword': '.doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+};
 
 export async function POST(request: NextRequest) {
   try {
+    // Require an authenticated session — uploads must never be anonymous.
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const formData = await request.formData();
     const files = formData.getAll('files') as File[];
-    
+
     if (!files || files.length === 0) {
       return NextResponse.json(
         { error: 'No files provided' },
@@ -54,16 +51,36 @@ export async function POST(request: NextRequest) {
     }
 
     const uploadResults = [];
-    
+
     for (const file of files) {
       try {
-        // Create temp file
+        // Validate type against the allowlist and reject oversized files
+        // BEFORE writing anything to disk.
+        const safeExt = ALLOWED_TYPES[file.type];
+        if (!safeExt) {
+          uploadResults.push({
+            originalName: file.name,
+            error: `Unsupported file type: ${file.type || 'unknown'}`,
+            success: false,
+          });
+          continue;
+        }
+        if (file.size > MAX_FILE_SIZE) {
+          uploadResults.push({
+            originalName: file.name,
+            error: 'File exceeds the 100MB size limit',
+            success: false,
+          });
+          continue;
+        }
+
+        // Create temp file with a server-generated name (no client input in path)
         const tempDir = path.join(process.cwd(), 'uploads', 'temp');
         await fs.mkdir(tempDir, { recursive: true });
-        
-        const tempFileName = `${Date.now()}-${file.name}`;
+
+        const tempFileName = `${randomUUID()}${safeExt}`;
         const tempFilePath = path.join(tempDir, tempFileName);
-        
+
         // Save file to temp location
         const arrayBuffer = await file.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
@@ -79,10 +96,10 @@ export async function POST(request: NextRequest) {
         // Move to permanent storage
         const permanentDir = path.join(process.cwd(), 'uploads', 'content');
         await fs.mkdir(permanentDir, { recursive: true });
-        
-        const finalFileName = `${Date.now()}-${Math.random().toString(36).substring(2)}-${file.name}`;
+
+        const finalFileName = `${randomUUID()}${safeExt}`;
         const finalFilePath = path.join(permanentDir, finalFileName);
-        
+
         if (processedFile.processedPath && processedFile.processedPath !== tempFilePath) {
           // File was processed, move the processed version
           await fs.rename(processedFile.processedPath, finalFilePath);

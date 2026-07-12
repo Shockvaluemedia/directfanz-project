@@ -32,13 +32,13 @@ echo "Step 2: Fixing configuration files..."
 
 # Update any files that reference the old hardcoded secrets
 find . -name "*.md" -o -name "*.txt" | while read -r file; do
-    if grep -q "o5up8Woxtj0Iu0j3yBy" "$file" 2>/dev/null; then
-        safe_replace "$file" "o5up8Woxtj0Iu0j3yBy+Wl5dynqiJtrmkKz8IlQJQBE=" "your-secure-nextauth-secret-here"
+    if grep -q "<REDACTED_ROTATE_NEXTAUTH_SECRET>" "$file" 2>/dev/null; then
+        safe_replace "$file" "<REDACTED_ROTATE_NEXTAUTH_SECRET>" "your-secure-nextauth-secret-here"
         echo "  Fixed NextAuth secret reference in: $file"
     fi
     
     if grep -q "126e7caccce86ff1" "$file" 2>/dev/null; then
-        safe_replace "$file" "126e7caccce86ff1af33a31b6413c1278b87d656101a3530fc17d605cd23a668" "your-encryption-key-here"
+        safe_replace "$file" "<REDACTED_ROTATE_ENCRYPTION_KEY>" "your-encryption-key-here"
         echo "  Fixed encryption key reference in: $file"
     fi
 done

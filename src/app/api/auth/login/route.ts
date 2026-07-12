@@ -96,10 +96,21 @@ export const POST = withApiHandler(
       );
     }
 
-    // Generate JWT token
+    // Generate JWT token. Never fall back to a hardcoded secret — a known
+    // signing key would let anyone forge tokens (including admin roles).
+    const jwtSecret = process.env.JWT_SECRET || process.env.NEXTAUTH_SECRET;
+    if (!jwtSecret) {
+      throw new AppError(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Server authentication is not configured',
+        500,
+        undefined,
+        context.requestId
+      );
+    }
     const token = jwt.sign(
       { userId: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET || process.env.NEXTAUTH_SECRET || 'fallback-secret',
+      jwtSecret,
       { expiresIn: '24h' }
     );
 

@@ -20,6 +20,21 @@ build/
 coverage/
 .nyc_output/
 
+# Local databases (never commit — may contain real user data / password hashes)
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+prisma/**/*.db
+
+# Secrets / credential dumps (never commit)
+cookies.txt
+*.pem
+*.key
+# AWS ECS task definitions may embed secrets — keep them out of the repo
+production-app-task.json
+production-task-definition.json
+
 # IDE
 .vscode/
 .idea/
@@ -105,3 +120,7 @@ infrastructure/terraform-backup-*/
 .serverless/
 logs/
 *.log
+
+# TypeScript incremental build info (build artifact)
+tsconfig.tsbuildinfo
+*.tsbuildinfo

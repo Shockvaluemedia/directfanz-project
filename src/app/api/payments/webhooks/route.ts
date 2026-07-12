@@ -58,7 +58,10 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ received: true });
-  } catch {
+  } catch (error) {
+    // Returning 500 tells Stripe to retry delivery so a transient failure does
+    // not leave a paying customer without access.
+    console.error('Stripe webhook handler failed:', error);
     return NextResponse.json({ error: 'Webhook handler failed' }, { status: 500 });
   }
 }
@@ -72,41 +75,70 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     const { fanId, artistId, tierId, amount } = session.metadata;
     const subscriptionId = session.subscription as string;
 
-    // Create subscription record
-    await prisma.subscriptions.create({
-      data: {
-        id: crypto.randomUUID(),
-        fanId,
-        artistId,
-        tierId,
-        stripeSubscriptionId: subscriptionId,
-        amount: parseFloat(amount),
-        status: 'ACTIVE',
-        currentPeriodStart: new Date(),
-        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
-        updatedAt: new Date(),
-      },
+    // A fan may re-subscribe to a tier they previously cancelled. The
+    // subscriptions table has a unique (fanId, tierId) constraint, so a blind
+    // create would throw and (previously) be silently swallowed — leaving the
+    // customer charged with no access. Reactivate the existing row instead.
+    const existing = await prisma.subscriptions.findUnique({
+      where: { fanId_tierId: { fanId, tierId } },
     });
 
-    // Update tier subscriber count
-    await prisma.tiers.update({
-      where: { id: tierId },
-      data: {
-        subscriberCount: {
-          increment: 1,
-        },
-      },
-    });
+    // Count a subscriber when there is no row yet, or the existing row was not
+    // already ACTIVE (a cancelled sub being reactivated). This keeps
+    // subscriberCount/totalSubscribers correct across the
+    // subscribe -> cancel -> resubscribe lifecycle, since deletion decrements them.
+    const isNewActiveSubscriber = !existing || existing.status !== 'ACTIVE';
 
-    // Update artist total subscribers
-    await prisma.artists.update({
-      where: { userId: artistId },
-      data: {
-        totalSubscribers: {
-          increment: 1,
+    if (existing) {
+      await prisma.subscriptions.update({
+        where: { id: existing.id },
+        data: {
+          stripeSubscriptionId: subscriptionId,
+          amount: parseFloat(amount),
+          status: 'ACTIVE',
+          currentPeriodStart: new Date(),
+          currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          updatedAt: new Date(),
         },
-      },
-    });
+      });
+    } else {
+      await prisma.subscriptions.create({
+        data: {
+          id: crypto.randomUUID(),
+          fanId,
+          artistId,
+          tierId,
+          stripeSubscriptionId: subscriptionId,
+          amount: parseFloat(amount),
+          status: 'ACTIVE',
+          currentPeriodStart: new Date(),
+          currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+          updatedAt: new Date(),
+        },
+      });
+    }
+
+    if (isNewActiveSubscriber) {
+      // Update tier subscriber count
+      await prisma.tiers.update({
+        where: { id: tierId },
+        data: {
+          subscriberCount: {
+            increment: 1,
+          },
+        },
+      });
+
+      // Update artist total subscribers
+      await prisma.artists.update({
+        where: { userId: artistId },
+        data: {
+          totalSubscribers: {
+            increment: 1,
+          },
+        },
+      });
+    }
 
     // Send welcome notification to fan
     const [fan, artist, tier] = await Promise.all([
@@ -129,8 +161,10 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
       });
     }
 
-  } catch {
-    // Checkout session handling failed — Stripe will retry
+  } catch (error) {
+    // Re-throw so POST returns a non-2xx and Stripe retries the delivery.
+    console.error('checkout.session.completed handler failed:', error);
+    throw error;
   }
 }
 
@@ -172,8 +206,9 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
       });
 
     }
-  } catch {
-    // Invoice payment handling failed — Stripe will retry
+  } catch (error) {
+    console.error('invoice.payment_succeeded handler failed:', error);
+    throw error;
   }
 }
 
@@ -220,8 +255,10 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
         },
       });
 
-      // Send notification email to fan about payment failure
-      if (subscription.users.email) {
+      // Send notification email to fan about payment failure. Guard the fan
+      // relation: the status update and failure record above are the critical
+      // work, and a missing relation must not fail the whole webhook.
+      if (subscription.users?.email) {
         await sendEmail({
           to: subscription.users.email,
           subject: `Payment Failed for ${subscription.tiers.users?.displayName || 'Artist'} Subscription`,
@@ -248,8 +285,9 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
       }
 
     }
-  } catch {
-    // Payment failure handling failed — Stripe will retry
+  } catch (error) {
+    console.error('invoice.payment_failed handler failed:', error);
+    throw error;
   }
 }
 
@@ -270,8 +308,9 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
       });
 
     }
-  } catch {
-    // Subscription update handling failed — Stripe will retry
+  } catch (error) {
+    console.error('customer.subscription.updated handler failed:', error);
+    throw error;
   }
 }
 
@@ -309,7 +348,8 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
       });
 
     }
-  } catch {
-    // Subscription deletion handling failed — Stripe will retry
+  } catch (error) {
+    console.error('customer.subscription.deleted handler failed:', error);
+    throw error;
   }
 }

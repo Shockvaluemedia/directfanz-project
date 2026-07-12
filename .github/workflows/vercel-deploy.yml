@@ -4,10 +4,11 @@ on:
   push:
     branches:
       - main
-      - claude/setup-production-deployment-*
+      - integration-testing
   pull_request:
     branches:
       - main
+      - integration-testing
 
 env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -19,22 +20,43 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Deploys require Vercel credentials that are configured manually in the
+      # repository secrets (see PRODUCTION_READINESS.md). When they are absent
+      # this job is a green no-op instead of a hard failure, so it never blocks
+      # a PR before deployment has been set up.
+      - name: Check Vercel credentials
+        id: creds
+        run: |
+          if [ -n "${{ secrets.VERCEL_TOKEN }}" ] && [ -n "${{ secrets.VERCEL_PROJECT_ID }}" ] && [ -n "${{ secrets.VERCEL_ORG_ID }}" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Vercel secrets (VERCEL_TOKEN / VERCEL_ORG_ID / VERCEL_PROJECT_ID) are not configured; skipping deploy."
+          fi
+
       - name: Checkout code
+        if: steps.creds.outputs.configured == 'true'
         uses: actions/checkout@v4
 
       - name: Setup Node.js
+        if: steps.creds.outputs.configured == 'true'
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
           cache: 'npm'
 
       - name: Install Vercel CLI
+        if: steps.creds.outputs.configured == 'true'
         run: npm install --global vercel@latest
 
       - name: Pull Vercel Environment Information
+        if: steps.creds.outputs.configured == 'true'
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
 
+      # Only sync production env vars from a real production deploy (push to main),
+      # never from a PR preview build.
       - name: Set Environment Variables in Vercel
+        if: steps.creds.outputs.configured == 'true' && github.ref == 'refs/heads/main'
         run: |
           echo "Setting environment variables in Vercel..."
 
@@ -74,7 +96,8 @@ jobs:
           echo "✅ Environment variables synced from GitHub Secrets to Vercel"
 
       - name: Build Project Artifacts
-        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        if: steps.creds.outputs.configured == 'true'
+        run: vercel build ${{ github.ref == 'refs/heads/main' && '--prod' || '' }} --token=${{ secrets.VERCEL_TOKEN }}
         env:
           # Provide env vars for build time
           NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
@@ -86,18 +109,19 @@ jobs:
           STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
 
       - name: Deploy to Vercel (Production)
-        if: github.ref == 'refs/heads/main'
+        if: steps.creds.outputs.configured == 'true' && github.ref == 'refs/heads/main'
         run: |
           vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }} > deployment-url.txt
           echo "DEPLOYMENT_URL=$(cat deployment-url.txt)" >> $GITHUB_ENV
 
       - name: Deploy to Vercel (Preview)
-        if: github.ref != 'refs/heads/main'
+        if: steps.creds.outputs.configured == 'true' && github.ref != 'refs/heads/main'
         run: |
           vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} > deployment-url.txt
           echo "DEPLOYMENT_URL=$(cat deployment-url.txt)" >> $GITHUB_ENV
 
       - name: Deployment Summary
+        if: steps.creds.outputs.configured == 'true'
         run: |
           echo "🚀 Deployment successful!"
           echo "📍 URL: ${{ env.DEPLOYMENT_URL }}"
@@ -105,7 +129,7 @@ jobs:
           echo "📦 Commit: ${{ github.sha }}"
 
       - name: Comment on PR (Preview Deployments)
-        if: github.event_name == 'pull_request'
+        if: steps.creds.outputs.configured == 'true' && github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
