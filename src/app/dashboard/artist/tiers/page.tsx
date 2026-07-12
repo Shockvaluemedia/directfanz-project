@@ -7,9 +7,8 @@ import { useEffect, useState, useCallback } from 'react';
 interface Tier {
   id: string;
   name: string;
-  price: number;
+  minimumPrice: number;
   description: string;
-  benefits: string[];
   subscriberCount: number;
   isActive: boolean;
 }
@@ -18,14 +17,12 @@ interface TierFormData {
   name: string;
   price: string;
   description: string;
-  benefits: string;
 }
 
 const emptyForm: TierFormData = {
   name: '',
   price: '',
   description: '',
-  benefits: '',
 };
 
 export default function ArtistTiersPage() {
@@ -49,7 +46,8 @@ export default function ArtistTiersPage() {
         throw new Error(`Failed to fetch tiers: ${res.statusText}`);
       }
       const data = await res.json();
-      setTiers(data.tiers ?? data);
+      // API responds with { success, data: Tier[] }
+      setTiers(Array.isArray(data) ? data : (data.data ?? data.tiers ?? []));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load tiers');
     } finally {
@@ -80,9 +78,8 @@ export default function ArtistTiersPage() {
     setEditingTierId(tier.id);
     setFormData({
       name: tier.name,
-      price: tier.price.toString(),
+      price: tier.minimumPrice.toString(),
       description: tier.description,
-      benefits: tier.benefits.join('\n'),
     });
     setShowForm(true);
   };
@@ -100,9 +97,8 @@ export default function ArtistTiersPage() {
 
     const payload = {
       name: formData.name,
-      price: parseFloat(formData.price),
+      minimumPrice: parseFloat(formData.price),
       description: formData.description,
-      benefits: formData.benefits.split('\n').filter((b) => b.trim() !== ''),
     };
 
     try {
@@ -219,13 +215,14 @@ export default function ArtistTiersPage() {
                   <input
                     type="number"
                     required
-                    min="0"
+                    min="1"
                     step="0.01"
                     value={formData.price}
                     onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                     placeholder="9.99"
                     className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                   />
+                  <p className="mt-1 text-xs text-gray-500">Minimum $1.00 per month</p>
                 </div>
               </div>
               <div>
@@ -238,18 +235,6 @@ export default function ArtistTiersPage() {
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="A short description of what subscribers get"
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Benefits (one per line)
-                </label>
-                <textarea
-                  rows={4}
-                  value={formData.benefits}
-                  onChange={(e) => setFormData({ ...formData, benefits: e.target.value })}
-                  placeholder={"Access to exclusive content\nMonthly live streams\nDirect messaging"}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 />
               </div>
@@ -314,29 +299,18 @@ export default function ArtistTiersPage() {
                 </div>
 
                 <div className="text-3xl font-bold text-indigo-600 mb-2">
-                  ${tier.price.toFixed(2)}
+                  ${tier.minimumPrice.toFixed(2)}
                   <span className="text-sm font-normal text-gray-500">/mo</span>
                 </div>
 
                 <p className="text-sm text-gray-600 mb-4">{tier.description}</p>
 
-                <div className="flex items-center text-sm text-gray-500 mb-4">
+                <div className="flex items-center text-sm text-gray-500 mb-4 border-t border-gray-100 pt-4">
                   <span className="font-medium text-gray-700">{tier.subscriberCount}</span>
                   <span className="ml-1">
                     {tier.subscriberCount === 1 ? 'subscriber' : 'subscribers'}
                   </span>
                 </div>
-
-                {tier.benefits.length > 0 && (
-                  <ul className="text-sm text-gray-600 space-y-1 mb-4 border-t border-gray-100 pt-4">
-                    {tier.benefits.map((benefit, i) => (
-                      <li key={i} className="flex items-start gap-2">
-                        <span className="text-indigo-500 mt-0.5">&#10003;</span>
-                        {benefit}
-                      </li>
-                    ))}
-                  </ul>
-                )}
 
                 <div className="flex gap-2 pt-2 border-t border-gray-100">
                   <button
