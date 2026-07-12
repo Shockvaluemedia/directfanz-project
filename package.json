@@ -58,7 +58,6 @@
     "multer": "^2.0.2",
     "next": "^14.2.35",
     "next-auth": "^4.24.5",
-    "next-pwa": "^5.6.0",
     "prom-client": "^15.1.0",
     "pusher": "^5.3.2",
     "pusher-js": "^8.4.0",

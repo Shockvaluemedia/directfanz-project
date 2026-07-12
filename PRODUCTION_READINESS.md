@@ -21,7 +21,7 @@ Do not put real artists or fans on this until the blockers below are cleared.
 | `npm run typecheck` | ✅ pass | clean                                                    |
 | `npm run lint:check` | ✅ pass | warnings only                                           |
 | `npm test`      | ✅ pass | 55 suites, 684 passing, 1 skipped (was 9 suites / 28 failing) |
-| `npm audit`     | ⚠️ improved | 0 critical (was 2), 18 high (was 25) — remaining are dev/build-time |
+| `npm audit`     | ⚠️ improved | 0 critical (was 2); 4 production high remain, all needing major upgrades. CI blocks on critical and reports highs. |
 | `npm run build` | ✅ pass | now build-safe with placeholder env (see below)              |
 
 ## What was fixed this sprint
@@ -88,6 +88,12 @@ Do not put real artists or fans on this until the blockers below are cleared.
 
 - Upgraded **Next.js 14.0.4 → 14.2.35** (clears both critical advisories) and
   ran safe `npm audit fix`. Criticals: 2 → 0.
+- Removed the unused **`next-pwa`** dependency (PWA has been disabled in
+  `next.config.js`); this alone cleared 5 high advisories from its
+  `workbox` / `rollup-plugin-terser` / `serialize-javascript` build chain.
+- The CI audit gate **blocks on `critical`** (currently 0) and **reports
+  `high` non-blocking**, so CI reflects reality and can go green while the
+  residual highs are tracked below.
 - Rewrote CI so it is **truthful**: `ci-cd.yml` now runs on the real branches
   (`integration-testing`, `main`) and runs ci → typecheck → lint → test →
   audit → build using scripts that actually exist. `security.yml` was stripped
@@ -148,11 +154,17 @@ Do not put real artists or fans on this until the blockers below are cleared.
   in all non-build environments.
 - **CSP** allows `unsafe-inline`/`unsafe-eval`; middleware imports Node `crypto`
   which logs an Edge-runtime warning at build.
-- **Remaining `npm audit` highs (18)** are all dev/build-time (eslint tooling,
-  `next-pwa` build chain, Sentry webpack plugin, `@vercel/blob`'s `undici`) and
-  only resolve via major upgrades (Next 16, Sentry 10, `@vercel/blob` 2.x) that
-  need their own testing pass. No production-runtime critical/high remains
-  unaddressed that has a safe (non-major) fix.
+- **Remaining `npm audit` highs — 4 production, 0 critical.** After removing
+  the unused `next-pwa` chain, the only highs left in production dependencies
+  each require a **major-version upgrade** with its own validation pass, so they
+  are deliberately deferred out of this trust sprint:
+  - `next` — DoS advisories (Image Optimizer `remotePatterns`, HTTP request
+    deserialization); patched line is Next 15/16 → App Router migration test.
+  - `@sentry/nextjs` (+ its `rollup`) — fix is `@sentry/nextjs` 10.x (major).
+  - `undici` (via `@vercel/blob`) — fix is `@vercel/blob` 2.x (major; storage
+    API surface must be re-tested).
+  None has a safe (non-major) fix. CI blocks on `critical` and reports these
+  highs so they stay visible without wedging the pipeline red.
 - **Repo hygiene:** ~50 debug/fix/test scripts and 100+ markdown docs remain at
   the repo root, many contradicting each other. Recommend archiving them under
   `docs/archive/` so the tree tells one story.
