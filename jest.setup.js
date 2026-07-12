@@ -452,7 +452,17 @@ function enhanceAudioElement(element) {
   });
 
   element.play = jest.fn().mockImplementation(() => {
-    global._mediaElementSpies.play();
+    // Record the call on the shared spy for assertions, but swallow any promise
+    // it returns. The class-level HTMLAudioElement mock installs a
+    // readyState-gated implementation on this same spy (rejecting when
+    // readyState < 3, bound to a *different* element instance), so invoking it
+    // here can yield a rejected promise. This real jsdom <audio> element is
+    // already loaded, so ignore that foreign rejection instead of letting it
+    // surface as an unhandled rejection and flake the suite.
+    const spyResult = global._mediaElementSpies.play();
+    if (spyResult && typeof spyResult.catch === 'function') {
+      spyResult.catch(() => {});
+    }
     element.paused = false;
     element.dispatchEvent(new Event('play'));
     return Promise.resolve();
