@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { simulatedSubscriptionsEnabled } from '@/lib/subscription-mode';
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -72,7 +73,9 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: 'Artist not found' }, { status: 404 });
     }
 
-    if (!artist.artists?.isStripeOnboarded) {
+    // With simulated subscriptions enabled (Stripe not configured), allow viewing
+    // and subscribing to artists who haven't onboarded to Stripe yet.
+    if (!simulatedSubscriptionsEnabled() && !artist.artists?.isStripeOnboarded) {
       return NextResponse.json(
         { error: 'Artist is not accepting subscriptions yet' },
         { status: 400 }
