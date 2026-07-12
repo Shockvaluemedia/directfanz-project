@@ -60,8 +60,39 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // For non-API routes, apply browser security headers
+  // For non-API routes, gate protected pages and apply browser security headers.
   if (!url.startsWith('/api/')) {
+    // Server-side auth gate: redirect unauthenticated users away from protected
+    // pages before they render (prevents the content flash and the JS-off
+    // bypass that a client-only useSession guard leaves open). We check for the
+    // session cookie rather than decoding it, because this app signs a custom
+    // HS256 JWT that next-auth/jwt getToken can't read in the edge runtime;
+    // full role authorization still happens in the pages and API routes.
+    const PROTECTED_PAGE_PREFIXES = [
+      '/dashboard',
+      '/profile',
+      '/messages',
+      '/studio',
+      '/upload',
+      '/settings',
+    ];
+    const isProtectedPage = PROTECTED_PAGE_PREFIXES.some(
+      p => url === p || url.startsWith(p + '/')
+    );
+
+    if (isProtectedPage) {
+      const hasSession =
+        request.cookies.has('next-auth.session-token') ||
+        request.cookies.has('__Secure-next-auth.session-token');
+
+      if (!hasSession) {
+        const signinUrl = request.nextUrl.clone();
+        signinUrl.pathname = '/auth/signin';
+        signinUrl.search = `?callbackUrl=${encodeURIComponent(url + request.nextUrl.search)}`;
+        return NextResponse.redirect(signinUrl);
+      }
+    }
+
     const response = NextResponse.next();
     // Apply browser-specific security headers
     applySecurityHeaders(response);

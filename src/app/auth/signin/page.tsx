@@ -31,7 +31,9 @@ function SignInContent() {
         setError('Invalid email or password');
       } else {
         await getSession();
-        router.push('/dashboard');
+        // Honor the deep link the user was bounced from; otherwise send them to
+        // /dashboard, which fans them out to the right role dashboard.
+        router.push(!callbackUrl || callbackUrl === '/' ? '/dashboard' : callbackUrl);
       }
     } catch {
       setError('An error occurred. Please try again.');
