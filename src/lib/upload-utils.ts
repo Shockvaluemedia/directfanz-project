@@ -40,24 +40,51 @@ export async function uploadFileWithProgress(
   onProgress?: UploadProgressCallback
 ): Promise<string> {
   if (uploadInfo.useLocalStorage) {
-    return simulateLocalUpload(file, uploadInfo.fileUrl, onProgress);
+    return uploadToContentApi(file, onProgress);
   }
   return uploadToS3(file, uploadInfo, onProgress);
 }
 
-async function simulateLocalUpload(
+// When object storage (S3 / Vercel Blob) is not configured, persist the file
+// through the hardened /api/upload endpoint, which validates the type/size and
+// writes it to local content storage, returning a servable /api/files URL.
+// Previously this "local" path only animated a progress bar and returned a URL
+// pointing at a file that was never stored, so uploads silently lost data.
+async function uploadToContentApi(
   file: File,
-  fileUrl: string,
   onProgress?: UploadProgressCallback
 ): Promise<string> {
-  const totalSteps = 10;
-  for (let step = 1; step <= totalSteps; step++) {
-    const progress = (step / totalSteps) * 100;
-    onProgress?.(progress);
-    const delay = Math.random() * 200 + 100;
-    await new Promise(resolve => setTimeout(resolve, delay));
-  }
-  return fileUrl;
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const formData = new FormData();
+    formData.append('files', file);
+
+    xhr.upload.addEventListener('progress', event => {
+      if (event.lengthComputable) {
+        onProgress?.((event.loaded / event.total) * 100);
+      }
+    });
+
+    xhr.addEventListener('load', () => {
+      try {
+        const res = JSON.parse(xhr.responseText);
+        const first = res?.files?.[0];
+        if (xhr.status >= 200 && xhr.status < 300 && first?.success && first.url) {
+          onProgress?.(100);
+          resolve(first.url as string);
+        } else {
+          reject(new Error(first?.error || res?.error || `Upload failed (HTTP ${xhr.status})`));
+        }
+      } catch {
+        reject(new Error('Upload failed: invalid server response'));
+      }
+    });
+
+    xhr.addEventListener('error', () => reject(new Error('Network error during upload')));
+
+    xhr.open('POST', '/api/upload');
+    xhr.send(formData);
+  });
 }
 
 async function uploadToS3(

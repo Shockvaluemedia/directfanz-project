@@ -2,20 +2,28 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { createErrorResponse, UnauthorizedError, ValidationError } from '@/lib/api-error-handler';
+import { createErrorResponse } from '@/lib/api-error-handler';
 import { AppError, ErrorCode, isAppError } from '@/lib/errors';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { nanoid } from 'nanoid';
 import crypto from 'crypto';
 
+// Accept either an absolute http(s) URL (e.g. Vercel Blob) or an app-relative
+// path (e.g. /api/files/content/... served by local storage).
+const urlOrPath = z
+  .string()
+  .min(1)
+  .refine(v => v.startsWith('/') || /^https?:\/\//i.test(v), 'Invalid file URL or path');
+
 const createContentSchema = z.object({
   title: z.string().min(1, 'Title is required').max(255, 'Title too long'),
   description: z.string().optional(),
   type: z.enum(['IMAGE', 'VIDEO', 'AUDIO', 'DOCUMENT']),
-  fileUrl: z.string().url('Invalid file URL'),
-  thumbnailUrl: z.string().url().optional(),
+  fileUrl: urlOrPath,
+  thumbnailUrl: urlOrPath.optional(),
   visibility: z.enum(['PUBLIC', 'PRIVATE', 'SUBSCRIBERS_ONLY']).default('PUBLIC'),
+  tierIds: z.array(z.string()).optional().default([]),
   fileSize: z.number().positive('File size must be positive'),
   duration: z.number().positive().optional(),
   format: z.string().min(1, 'Format is required'),
@@ -35,7 +43,7 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id || session.user.role !== 'ARTIST') {
-      throw new UnauthorizedError('Artist authentication required');
+      throw new AppError(ErrorCode.UNAUTHORIZED, 'Artist authentication required', 401);
     }
 
     const body = await request.json();
@@ -49,6 +57,29 @@ export async function POST(request: NextRequest) {
       .map(tag => tag.trim())
       .filter(tag => tag.length > 0)
       .join(',');
+
+    // Subscriber-only content must be linked to at least one tier, otherwise the
+    // access check (which grants access via a tier subscription) would lock it to
+    // everyone — including paying subscribers. Verify the tiers belong to this
+    // artist before connecting them.
+    let tierConnect: { connect: { id: string }[] } | undefined;
+    if (validatedData.visibility === 'SUBSCRIBERS_ONLY') {
+      if (!validatedData.tierIds || validatedData.tierIds.length === 0) {
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          'Select at least one tier for subscriber-only content',
+          400
+        );
+      }
+      const ownedTiers = await prisma.tiers.findMany({
+        where: { id: { in: validatedData.tierIds }, artistId: session.user.id },
+        select: { id: true },
+      });
+      if (ownedTiers.length !== validatedData.tierIds.length) {
+        throw new AppError(ErrorCode.VALIDATION_ERROR, 'One or more selected tiers are invalid', 400);
+      }
+      tierConnect = { connect: ownedTiers.map(t => ({ id: t.id })) };
+    }
 
     const content = await prisma.content.create({
       data: {
@@ -64,6 +95,7 @@ export async function POST(request: NextRequest) {
         duration: validatedData.duration || null,
         format: validatedData.format,
         tags: tags,
+        ...(tierConnect ? { tiers: tierConnect } : {}),
         createdAt: validatedData.scheduledFor ? new Date(validatedData.scheduledFor) : new Date(),
         updatedAt: new Date(),
       },

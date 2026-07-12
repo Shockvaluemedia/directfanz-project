@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import Image from 'next/image';
 import { useSession } from 'next-auth/react';
 import {
@@ -72,6 +72,24 @@ const ContentUploader: React.FC = () => {
     contentWarning: false,
     notifySubscribers: true,
   });
+
+  // The artist's tiers, so subscriber-only content can be gated to a tier.
+  const [tiers, setTiers] = useState<{ id: string; name: string; minimumPrice: number }[]>([]);
+  const [selectedTierIds, setSelectedTierIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    if ((session?.user as any)?.role !== 'ARTIST') return;
+    fetch('/api/artist/tiers')
+      .then(r => (r.ok ? r.json() : { data: [] }))
+      .then(d => setTiers(Array.isArray(d) ? d : (d.data ?? [])))
+      .catch(() => setTiers([]));
+  }, [session]);
+
+  const toggleTier = (tierId: string) => {
+    setSelectedTierIds(prev =>
+      prev.includes(tierId) ? prev.filter(id => id !== tierId) : [...prev, tierId]
+    );
+  };
 
   // Drag and drop handlers
   const handleDrag = useCallback((e: React.DragEvent) => {
@@ -211,6 +229,7 @@ const ContentUploader: React.FC = () => {
   const closeMetadataModal = () => {
     setMetadataModalOpen(false);
     setCurrentUploadId(null);
+    setSelectedTierIds([]);
     setMetadata({
       title: '',
       description: '',
@@ -237,15 +256,25 @@ const ContentUploader: React.FC = () => {
       return;
     }
 
+    // Subscribers-only content (either "Subscribers" or "Premium") is gated to a
+    // tier; require at least one tier so it isn't accidentally locked to everyone.
+    const gated = metadata.visibility === 'SUBSCRIBERS' || metadata.visibility === 'PREMIUM';
+    if (gated && selectedTierIds.length === 0) {
+      alert('Select at least one tier that unlocks this content.');
+      return;
+    }
+
     try {
-      // Prepare content data for API
+      // Prepare content data for API. Note: the client-side blob preview is not a
+      // persisted URL, so we don't send it as a thumbnail; the storage layer
+      // returns a real thumbnail when one is generated.
       const contentData = {
         title: metadata.title,
         description: metadata.description,
         type: determineContentType(upload.file),
         fileUrl: upload.url,
-        thumbnailUrl: upload.preview,
-        visibility: metadata.visibility === 'SUBSCRIBERS' ? 'SUBSCRIBERS_ONLY' : metadata.visibility,
+        visibility: gated ? 'SUBSCRIBERS_ONLY' : 'PUBLIC',
+        tierIds: gated ? selectedTierIds : [],
         fileSize: upload.file.size,
         format: upload.file.type,
         tags: metadata.tags.join(','),
@@ -253,8 +282,6 @@ const ContentUploader: React.FC = () => {
         allowComments: metadata.allowComments,
         allowDownloads: metadata.allowDownload,
         matureContent: metadata.contentWarning,
-        isPremium: metadata.visibility === 'PREMIUM',
-        price: metadata.price,
       };
 
       // Submit to API
@@ -811,24 +838,44 @@ const ContentUploader: React.FC = () => {
                     </select>
                   </div>
                   
+                </div>
+
+                {/* Tier gating — required when the content is subscribers-only */}
+                {metadata.visibility !== 'PUBLIC' && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Price (if premium)
+                      Unlocked by tiers *
                     </label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-2 text-gray-500">$</span>
-                      <input
-                        type="number"
-                        value={metadata.price || ''}
-                        onChange={(e) => setMetadata({ ...metadata, price: parseFloat(e.target.value) || undefined })}
-                        placeholder="0.00"
-                        min="0"
-                        step="0.01"
-                        className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
+                    {tiers.length === 0 ? (
+                      <p className="text-sm text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                        You have no subscription tiers yet. Create a tier first so fans
+                        can unlock this content.
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {tiers.map(tier => (
+                          <label
+                            key={tier.id}
+                            className="flex items-center gap-2 text-sm text-gray-700"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedTierIds.includes(tier.id)}
+                              onChange={() => toggleTier(tier.id)}
+                              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <span>
+                              {tier.name}{' '}
+                              <span className="text-gray-400">
+                                (${Number(tier.minimumPrice).toFixed(2)}/mo)
+                              </span>
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                </div>
+                )}
                 
                 <div className="space-y-3">
                   <div className="flex items-center">
