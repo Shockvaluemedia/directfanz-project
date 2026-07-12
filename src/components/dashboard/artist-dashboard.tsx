@@ -531,14 +531,21 @@ export default function ArtistDashboard() {
 
       {/* Quick Links */}
       <div className='bg-white rounded-lg shadow-sm border border-gray-200 p-6'>
-        <h3 className='text-lg font-semibold text-gray-900 mb-4'>Need Help?</h3>
+        <h3 className='text-lg font-semibold text-gray-900 mb-4'>Manage your page</h3>
         <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
           <Link
-            href='/support'
+            href={session?.user?.id ? `/artist/${session.user.id}` : '/discover'}
             className='flex items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors'
           >
             <QuestionMarkCircleIcon className='w-5 h-5 text-gray-600 mr-3' />
-            <span className='text-sm font-medium text-gray-900'>Help Center</span>
+            <span className='text-sm font-medium text-gray-900'>Preview my page (as a fan)</span>
+          </Link>
+          <Link
+            href='/dashboard/artist/tiers'
+            className='flex items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors'
+          >
+            <CurrencyDollarIcon className='w-5 h-5 text-gray-600 mr-3' />
+            <span className='text-sm font-medium text-gray-900'>Subscription Tiers</span>
           </Link>
           <Link
             href='/profile/settings'
@@ -546,13 +553,6 @@ export default function ArtistDashboard() {
           >
             <CogIcon className='w-5 h-5 text-gray-600 mr-3' />
             <span className='text-sm font-medium text-gray-900'>Account Settings</span>
-          </Link>
-          <Link
-            href='/profile/billing'
-            className='flex items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors'
-          >
-            <CurrencyDollarIcon className='w-5 h-5 text-gray-600 mr-3' />
-            <span className='text-sm font-medium text-gray-900'>Billing & Payouts</span>
           </Link>
         </div>
       </div>

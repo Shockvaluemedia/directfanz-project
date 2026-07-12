@@ -3,26 +3,8 @@ import Link from 'next/link';
 export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 via-indigo-950 to-gray-900 text-white">
-      {/* Navigation */}
-      <nav className="flex items-center justify-between px-6 py-4 max-w-7xl mx-auto">
-        <div className="text-2xl font-bold tracking-tight">
-          Direct<span className="text-indigo-400">Fanz</span>
-        </div>
-        <div className="flex items-center gap-4">
-          <Link
-            href="/auth/signin"
-            className="text-gray-300 hover:text-white transition-colors"
-          >
-            Sign In
-          </Link>
-          <Link
-            href="/auth/signup"
-            className="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg font-medium transition-colors"
-          >
-            Get Started
-          </Link>
-        </div>
-      </nav>
+      {/* The global site header (with sign in / dashboard) is rendered by the
+          root layout, so the homepage does not render its own nav. */}
 
       {/* Hero Section */}
       <section className="max-w-7xl mx-auto px-6 pt-20 pb-32 text-center">
@@ -61,13 +43,13 @@ export default function Home() {
           <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-8">
             <div className="w-12 h-12 bg-indigo-600/20 rounded-lg flex items-center justify-center mb-4">
               <svg className="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
             </div>
-            <h3 className="text-xl font-semibold mb-2">Live Streaming</h3>
+            <h3 className="text-xl font-semibold mb-2">Protected Content</h3>
             <p className="text-gray-400">
-              Go live with your audience. Real-time chat, tips, and exclusive
-              subscriber-only streams.
+              Upload photos, audio, and video that only your paying subscribers
+              can unlock — access is enforced on every request.
             </p>
           </div>
 
@@ -116,7 +98,7 @@ export default function Home() {
           <ul className="text-left space-y-3 mb-8">
             {[
               'Unlimited content uploads',
-              'Live streaming with chat',
+              'Subscriber-only protected content',
               'Custom subscription tiers',
               'Analytics dashboard',
               'Direct Stripe payouts',
