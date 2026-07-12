@@ -42,13 +42,16 @@ export class ProductionAuthManager {
       return;
     }
 
-    // Validate production domain
-    if (process.env.NODE_ENV === 'production') {
+    // Validate production domain. Skip the hard failure during `next build`
+    // (NEXT_PHASE === 'phase-production-build'), where NEXTAUTH_URL is often a
+    // placeholder — the check still runs (and fails closed) at request time.
+    const isBuildPhase = process.env.NEXT_PHASE === 'phase-production-build';
+    if (process.env.NODE_ENV === 'production' && !isBuildPhase) {
       const url = new URL(process.env.NEXTAUTH_URL);
       if (url.protocol !== 'https:') {
         throw new Error('NEXTAUTH_URL must use HTTPS in production');
       }
-      
+
       if (!url.hostname.includes('directfanz.io')) {
         console.warn('Warning: Production URL does not use directfanz.io domain');
       }

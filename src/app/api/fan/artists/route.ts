@@ -89,8 +89,9 @@ export async function GET(request: NextRequest) {
         createdAt: true,
         artists: {
           select: {
+            // Do not expose an artist's earnings to fans; only public,
+            // non-sensitive aggregate stats belong in this list endpoint.
             totalSubscribers: true,
-            totalEarnings: true,
           },
         },
         tiers: {

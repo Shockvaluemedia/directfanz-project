@@ -248,11 +248,11 @@ Then visit: `https://your-deployment.vercel.app/api/test-db`
 **Check these are SET for Production:**
 
 - [ ] `DATABASE_URL` = `postgresql://postgres.xcxlvyfbzvnnuueyntot:PASSWORD@aws-1-us-east-2.pooler.supabase.com:6543/postgres`
-- [ ] `NEXTAUTH_SECRET` = `o5up8Woxtj0Iu0j3yBy+Wl5dynqiJtrmkKz8IlQJQBE=`
+- [ ] `NEXTAUTH_SECRET` = `<REDACTED_ROTATE_NEXTAUTH_SECRET>`
 - [ ] `NEXTAUTH_URL` = Your Vercel deployment URL
 - [ ] `NODE_ENV` = `production`
-- [ ] `ENCRYPTION_KEY` = `126e7caccce86ff1af33a31b6413c1278b87d656101a3530fc17d605cd23a668`
-- [ ] `JWT_SECRET` = `DFbIHLqrPz9+7mTo3QUng2a6rSsHVLKKsHiF01RL9Uk=`
+- [ ] `ENCRYPTION_KEY` = `<REDACTED_ROTATE_ENCRYPTION_KEY>`
+- [ ] `JWT_SECRET` = `<REDACTED_ROTATE_JWT_SECRET>`
 
 **After adding/changing any variable** → You MUST redeploy!
 

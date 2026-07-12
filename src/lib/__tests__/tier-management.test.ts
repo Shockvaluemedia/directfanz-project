@@ -151,7 +151,11 @@ describe('Tier Management', () => {
       const result = await createTier(tierData);
 
       expect(mockPrisma.tiers.create).toHaveBeenCalledWith({
-        data: tierData,
+        data: {
+          ...tierData,
+          id: expect.any(String),
+          updatedAt: expect.any(Date),
+        },
         include: {
           _count: {
             select: {

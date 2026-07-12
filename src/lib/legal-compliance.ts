@@ -1,3 +1,4 @@
+import { randomBytes, randomUUID } from 'crypto';
 import { logger } from './logger';
 import { Prisma } from '@prisma/client';
 import { prisma } from './prisma';
@@ -383,11 +384,13 @@ export class GDPRComplianceService {
 
   // Private helper methods
   private static generateRequestId(): string {
-    return `gdpr_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    return `gdpr_${Date.now()}_${randomUUID()}`;
   }
 
   private static generateVerificationToken(): string {
-    return Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2);
+    // Cryptographically-random token — this value authorizes data export and
+    // deletion, so it must not be guessable (Math.random is not secure).
+    return randomBytes(32).toString('hex');
   }
 
   private static generateConsentId(): string {

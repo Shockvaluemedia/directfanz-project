@@ -159,14 +159,8 @@ describe('Billing Cycle Functions', () => {
 
   describe('processBillingRenewals', () => {
     it('should process renewals for subscriptions due in next 24 hours', async () => {
-      const OriginalDate = Date;
-      const now = new OriginalDate('2022-01-31T12:00:00Z');
-      const tomorrow = new OriginalDate('2022-02-01T12:00:00Z');
-
-      jest.spyOn(global, 'Date').mockImplementation((dateString?: string) => {
-        if (dateString) return new OriginalDate(dateString) as any;
-        return now as any;
-      });
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2022-01-31T12:00:00Z'));
 
       const mockSubscriptions = [
         {
@@ -178,7 +172,7 @@ describe('Billing Cycle Functions', () => {
           },
           tiers: {
             name: 'Premium',
-            artist: { displayName: 'Test Artist' },
+            users: { displayName: 'Test Artist' },
           },
           amount: new Decimal(10.0),
         },
@@ -218,17 +212,12 @@ describe('Billing Cycle Functions', () => {
         text: expect.stringContaining('Subscription Renewed'),
       });
 
-      jest.restoreAllMocks();
+      jest.useRealTimers();
     });
 
     it('should skip email notification if billing notifications disabled', async () => {
-      const OriginalDate = Date;
-      const now = new OriginalDate('2022-01-31T12:00:00Z');
-
-      jest.spyOn(global, 'Date').mockImplementation((dateString?: string) => {
-        if (dateString) return new OriginalDate(dateString) as any;
-        return now as any;
-      });
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2022-01-31T12:00:00Z'));
 
       const mockSubscriptions = [
         {
@@ -240,7 +229,7 @@ describe('Billing Cycle Functions', () => {
           },
           tiers: {
             name: 'Premium',
-            artist: { displayName: 'Test Artist' },
+            users: { displayName: 'Test Artist' },
           },
           amount: new Decimal(10.0),
         },
@@ -260,7 +249,7 @@ describe('Billing Cycle Functions', () => {
 
       expect(mockSendEmail).not.toHaveBeenCalled();
 
-      jest.restoreAllMocks();
+      jest.useRealTimers();
     });
   });
 
@@ -430,7 +419,7 @@ describe('Billing Cycle Functions', () => {
           },
           tiers: {
             name: 'Premium',
-            artist: { displayName: 'Test Artist' },
+            users: { displayName: 'Test Artist' },
           },
         },
         {
@@ -443,7 +432,7 @@ describe('Billing Cycle Functions', () => {
           },
           tiers: {
             name: 'VIP',
-            artist: { displayName: 'Test Artist' },
+            users: { displayName: 'Test Artist' },
           },
         },
       ];

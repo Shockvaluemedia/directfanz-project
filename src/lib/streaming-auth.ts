@@ -251,9 +251,14 @@ export async function generateStreamAccessUrl(
       throw new Error('MediaStore endpoint not configured');
     }
 
-    // Generate a signed URL with HMAC signature and expiration
+    // Generate a signed URL with HMAC signature and expiration.
+    // Fail closed if no signing secret is configured — an empty HMAC key would
+    // make stream signatures forgeable and bypass access control.
     const streamUrl = `${mediaStoreEndpoint}/live/${streamId}/index.m3u8`;
-    const signingSecret = process.env.STREAM_URL_SIGNING_SECRET || process.env.NEXTAUTH_SECRET || '';
+    const signingSecret = process.env.STREAM_URL_SIGNING_SECRET || process.env.NEXTAUTH_SECRET;
+    if (!signingSecret) {
+      throw new Error('Stream URL signing secret is not configured');
+    }
     const expiresAt = Math.floor(Date.now() / 1000) + expirationMinutes * 60;
     const payload = `${streamId}:${userId}:${expiresAt}`;
     const signature = crypto

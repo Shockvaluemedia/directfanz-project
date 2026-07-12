@@ -66,14 +66,21 @@ export async function GET(request: NextRequest) {
 
         const subscribedTierIds = subscriptions.map(sub => sub.tierId);
 
-        where.OR = [
-          { visibility: 'PUBLIC' },
+        // The subscription/visibility gate MUST always apply. Keep it as an
+        // AND clause so later filters (e.g. search) can never widen access by
+        // being ORed alongside it.
+        where.AND = [
           {
-            tiers: {
-              some: {
-                id: { in: subscribedTierIds },
+            OR: [
+              { visibility: 'PUBLIC' },
+              {
+                tiers: {
+                  some: {
+                    id: { in: subscribedTierIds },
+                  },
+                },
               },
-            },
+            ],
           },
         ];
       }
@@ -94,13 +101,16 @@ export async function GET(request: NextRequest) {
       }
 
       if (query.search) {
-        where.OR = where.OR
-          ? [
-              ...where.OR,
-              { title: { contains: query.search } },
-              { description: { contains: query.search } },
-            ]
-          : [{ title: { contains: query.search } }, { description: { contains: query.search } }];
+        // AND the search on top of the access gate — never merge it into the
+        // gate's OR (that would let a fan retrieve any content whose title or
+        // description matched, bypassing the subscription check).
+        const searchClause = {
+          OR: [
+            { title: { contains: query.search } },
+            { description: { contains: query.search } },
+          ],
+        };
+        where.AND = where.AND ? [...where.AND, searchClause] : [searchClause];
       }
 
       // Build order by

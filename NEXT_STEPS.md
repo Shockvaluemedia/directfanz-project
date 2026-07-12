@@ -1,11 +1,16 @@
 # DirectFanz - Next Steps Action Plan
 
-**Last Updated**: February 21, 2026
-**Platform**: Vercel (fully migrated from AWS)
+**Platform**: Vercel (the AWS/Docker files in the repo are legacy)
 
-## Current Status: 95% Production Ready
+> ⚠️ **Status correction:** The "95% production ready / live" claim below is
+> **not accurate.** See [`PRODUCTION_READINESS.md`](./PRODUCTION_READINESS.md)
+> for the real status — there are open launch blockers (rotate leaked secrets,
+> implement password reset, wire brute-force protection, add webhook
+> idempotency). The stack description below is correct; the readiness claim is not.
 
-The DirectFanz platform is **live at directfanz.io** and deployed on **Vercel**. All AWS dependencies have been removed. The platform now uses:
+## Historical status note (kept for context)
+
+The DirectFanz platform targets **Vercel**. The platform uses:
 
 - **Vercel** for hosting and deployment
 - **Vercel Blob** for file storage (replacing AWS S3)

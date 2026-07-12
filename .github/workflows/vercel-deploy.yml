@@ -4,10 +4,11 @@ on:
   push:
     branches:
       - main
-      - claude/setup-production-deployment-*
+      - integration-testing
   pull_request:
     branches:
       - main
+      - integration-testing
 
 env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}

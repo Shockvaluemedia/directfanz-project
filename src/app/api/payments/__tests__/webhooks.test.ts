@@ -100,6 +100,7 @@ describe('/api/payments/webhooks', () => {
       expect(data.received).toBe(true);
       expect(mockPrisma.subscriptions.create).toHaveBeenCalledWith({
         data: {
+          id: expect.any(String),
           fanId: 'fan123',
           artistId: 'artist123',
           tierId: 'tier123',
@@ -108,6 +109,7 @@ describe('/api/payments/webhooks', () => {
           status: 'ACTIVE',
           currentPeriodStart: expect.any(Date),
           currentPeriodEnd: expect.any(Date),
+          updatedAt: expect.any(Date),
         },
       });
     });
@@ -210,12 +212,14 @@ describe('/api/payments/webhooks', () => {
       });
       expect(mockPrisma.payment_failures.create).toHaveBeenCalledWith({
         data: {
+          id: expect.any(String),
           subscriptionId: 'subscription123',
           stripeInvoiceId: 'in_test123',
           amount: 10.0,
           attemptCount: 2,
           nextRetryAt: new Date(1640995200 * 1000),
           failureReason: 'Your card was declined.',
+          updatedAt: expect.any(Date),
         },
       });
     });

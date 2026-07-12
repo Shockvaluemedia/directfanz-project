@@ -342,8 +342,9 @@ export async function POST(request: NextRequest) {
 
 // Utility function to check if user has admin privileges
 function isAdminUser(session: any): boolean {
-  // Implement your admin role checking logic here
-  return session?.user?.role === 'admin' || session?.user?.permissions?.includes('admin');
+  // Role comes from the DB enum (uppercase 'ADMIN'); there is no permissions
+  // array on the session, so authorize strictly on the ADMIN role.
+  return session?.user?.role === 'ADMIN';
 }
 
 // Helper functions for generating insights and recommendations

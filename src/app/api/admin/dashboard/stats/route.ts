@@ -20,11 +20,11 @@ export async function GET(_request: NextRequest) {
     // Verify user is an admin
     const user = await prisma.users.findUnique({
       where: { id: session.user.id },
-      select: { role: true, email: true },
+      select: { role: true },
     });
 
-    const isAdmin = user?.role === 'ADMIN' || user?.email === 'admin@directfan.com';
-    
+    const isAdmin = user?.role === 'ADMIN';
+
     if (!isAdmin) {
       return NextResponse.json({ error: 'Access denied. Admin role required.' }, { status: 403 });
     }

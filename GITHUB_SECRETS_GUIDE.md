@@ -27,17 +27,17 @@ This approach keeps GitHub as your source of truth for secrets, and uses GitHub 
 #### From `.env.production.secrets` (already in your repo):
 ```
 Name: NEXTAUTH_SECRET
-Value: o5up8Woxtj0Iu0j3yBy+Wl5dynqiJtrmkKz8IlQJQBE=
+Value: <REDACTED_ROTATE_NEXTAUTH_SECRET>
 ```
 
 ```
 Name: ENCRYPTION_KEY
-Value: 126e7caccce86ff1af33a31b6413c1278b87d656101a3530fc17d605cd23a668
+Value: <REDACTED_ROTATE_ENCRYPTION_KEY>
 ```
 
 ```
 Name: JWT_SECRET
-Value: DFbIHLqrPz9+7mTo3QUng2a6rSsHVLKKsHiF01RL9Uk=
+Value: <REDACTED_ROTATE_JWT_SECRET>
 ```
 
 #### Required for deployment:
@@ -126,9 +126,9 @@ If you want to deploy NOW and set up automation later:
 
 ```bash
 # From .env.production.secrets
-NEXTAUTH_SECRET=o5up8Woxtj0Iu0j3yBy+Wl5dynqiJtrmkKz8IlQJQBE=
-ENCRYPTION_KEY=126e7caccce86ff1af33a31b6413c1278b87d656101a3530fc17d605cd23a668
-JWT_SECRET=DFbIHLqrPz9+7mTo3QUng2a6rSsHVLKKsHiF01RL9Uk=
+NEXTAUTH_SECRET=<REDACTED_ROTATE_NEXTAUTH_SECRET>
+ENCRYPTION_KEY=<REDACTED_ROTATE_ENCRYPTION_KEY>
+JWT_SECRET=<REDACTED_ROTATE_JWT_SECRET>
 
 # Basic config
 NODE_ENV=production

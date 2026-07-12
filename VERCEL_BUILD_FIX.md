@@ -26,15 +26,15 @@ Copy and paste each variable below. **For now, use these test/placeholder values
 #### **Core Authentication** (Use real values from `.env.production.secrets`):
 
 ```bash
-NEXTAUTH_SECRET=o5up8Woxtj0Iu0j3yBy+Wl5dynqiJtrmkKz8IlQJQBE=
+NEXTAUTH_SECRET=<REDACTED_ROTATE_NEXTAUTH_SECRET>
 ```
 
 ```bash
-ENCRYPTION_KEY=126e7caccce86ff1af33a31b6413c1278b87d656101a3530fc17d605cd23a668
+ENCRYPTION_KEY=<REDACTED_ROTATE_ENCRYPTION_KEY>
 ```
 
 ```bash
-JWT_SECRET=DFbIHLqrPz9+7mTo3QUng2a6rSsHVLKKsHiF01RL9Uk=
+JWT_SECRET=<REDACTED_ROTATE_JWT_SECRET>
 ```
 
 #### **Node Environment**:
@@ -119,9 +119,9 @@ To get a working build and basic functionality:
 
 ```bash
 # Core (Required)
-NEXTAUTH_SECRET=o5up8Woxtj0Iu0j3yBy+Wl5dynqiJtrmkKz8IlQJQBE=
-ENCRYPTION_KEY=126e7caccce86ff1af33a31b6413c1278b87d656101a3530fc17d605cd23a668
-JWT_SECRET=DFbIHLqrPz9+7mTo3QUng2a6rSsHVLKKsHiF01RL9Uk=
+NEXTAUTH_SECRET=<REDACTED_ROTATE_NEXTAUTH_SECRET>
+ENCRYPTION_KEY=<REDACTED_ROTATE_ENCRYPTION_KEY>
+JWT_SECRET=<REDACTED_ROTATE_JWT_SECRET>
 NODE_ENV=production
 NEXTAUTH_URL=https://your-app.vercel.app
 
@@ -166,9 +166,9 @@ DATABASE_URL=postgresql://placeholder:placeholder@placeholder:5432/placeholder
 **Tip**: In Vercel's "Add Environment Variable" interface, you can paste variables in this format:
 
 ```
-NEXTAUTH_SECRET=o5up8Woxtj0Iu0j3yBy+Wl5dynqiJtrmkKz8IlQJQBE=
-ENCRYPTION_KEY=126e7caccce86ff1af33a31b6413c1278b87d656101a3530fc17d605cd23a668
-JWT_SECRET=DFbIHLqrPz9+7mTo3QUng2a6rSsHVLKKsHiF01RL9Uk=
+NEXTAUTH_SECRET=<REDACTED_ROTATE_NEXTAUTH_SECRET>
+ENCRYPTION_KEY=<REDACTED_ROTATE_ENCRYPTION_KEY>
+JWT_SECRET=<REDACTED_ROTATE_JWT_SECRET>
 NODE_ENV=production
 NEXTAUTH_URL=https://your-app.vercel.app
 STRIPE_SECRET_KEY=sk_test_51PlaceholderKeyForBuildOnly

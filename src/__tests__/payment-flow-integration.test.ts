@@ -332,6 +332,7 @@ describe('Payment Flow Integration Tests', () => {
       // Verify Prisma operations were called for subscription creation
       expect(prisma.subscriptions.create).toHaveBeenCalledWith({
         data: {
+          id: expect.any(String),
           fanId: 'fan-123',
           artistId: 'artist-123',
           tierId: 'tier-123',
@@ -340,6 +341,7 @@ describe('Payment Flow Integration Tests', () => {
           status: 'ACTIVE',
           currentPeriodStart: expect.any(Date),
           currentPeriodEnd: expect.any(Date),
+          updatedAt: expect.any(Date),
         },
       });
 
@@ -459,19 +461,21 @@ describe('Payment Flow Integration Tests', () => {
         next_payment_attempt: Math.floor(Date.now() / 1000) + 86400, // Tomorrow
       });
 
-      // Set up existing subscription mock with fan and tier data
+      // Set up existing subscription mock with fan and tier data. Relation
+      // names must match the Prisma schema: the fan is `users` and the tier's
+      // artist is `tiers.users`.
       const mockSubscription = {
         id: 'sub_internal_123',
         artistId: 'artist-123',
         fanId: 'fan-123',
-        fan: {
+        users: {
           id: 'fan-123',
           email: 'fan@example.com',
         },
-        tier: {
+        tiers: {
           id: 'tier-123',
           name: 'Premium Tier',
-          artist: {
+          users: {
             id: 'artist-123',
             displayName: 'Test Artist',
           },

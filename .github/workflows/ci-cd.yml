@@ -1,43 +1,21 @@
-name: CI/CD Pipeline
+name: CI
 
+# Runs the full quality gate on the real working branches. `integration-testing`
+# is the active default branch; `main` is included so the same gate applies if/when
+# main becomes the production branch.
 on:
   push:
-    branches: [main]
+    branches: [integration-testing, main]
   pull_request:
-    branches: [main]
+    branches: [integration-testing, main]
 
 env:
-  NODE_VERSION: '18'
+  NODE_VERSION: '20'
 
 jobs:
-  lint-and-test:
-    name: Lint and Test
+  quality:
+    name: Typecheck, Lint, Test, Audit, Build
     runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:14
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: direct_fan_platform_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-      redis:
-        image: redis:6
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
 
     steps:
       - name: Checkout code
@@ -49,101 +27,39 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
 
+      # ffmpeg-static's postinstall downloads a binary from GitHub releases,
+      # which is not required to typecheck/lint/test/build.
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
-      - name: Run type checking
+      - name: Generate Prisma client
+        run: npm run db:generate
+
+      - name: Type check
         run: npm run typecheck
 
-      - name: Run linting
+      - name: Lint
         run: npm run lint:check
 
-      - name: Setup test database
-        run: npx prisma migrate deploy
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/direct_fan_platform_test
-
-      - name: Run tests
+      - name: Test
         run: npm test -- --coverage
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/direct_fan_platform_test
-          REDIS_URL: redis://localhost:6379
-          NEXTAUTH_SECRET: test_secret
+          NODE_ENV: test
+          NEXTAUTH_SECRET: test_secret_ci_placeholder_value_32chars
           NEXTAUTH_URL: http://localhost:3000
 
-  security-scan:
-    name: Security Scan
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run npm audit
+      - name: Dependency audit (fail on high/critical)
         run: npm audit --audit-level=high
 
-  deploy-preview:
-    name: Deploy Preview
-    if: github.event_name == 'pull_request'
-    needs: [lint-and-test, security-scan]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Deploy to Vercel Preview
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-
-  deploy-production:
-    name: Deploy Production
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [lint-and-test, security-scan]
-    runs-on: ubuntu-latest
-    environment:
-      name: production
-      url: https://www.directfanz.io
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Deploy to Vercel Production
-        id: deploy
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-args: '--prod'
-
-      - name: Database migration
-        run: npx prisma migrate deploy
+      - name: Build
+        run: npm run build
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-
-      - name: Health check
-        run: |
-          sleep 30
-          for i in {1..5}; do
-            if curl -sf ${{ steps.deploy.outputs.preview-url }}/api/health; then
-              echo "Health check passed"
-              exit 0
-            fi
-            echo "Retrying in 15s..."
-            sleep 15
-          done
-          echo "Health check failed"
-          exit 1
+          # Placeholder values so the production build can run in CI. Real
+          # secrets are configured in the hosting provider, never here.
+          NODE_ENV: production
+          NEXTAUTH_SECRET: build_time_placeholder_secret_value_32c
+          NEXTAUTH_URL: http://localhost:3000
+          DATABASE_URL: postgresql://user:pass@localhost:5432/db
+          STRIPE_SECRET_KEY: sk_test_placeholder
+          STRIPE_PUBLISHABLE_KEY: pk_test_placeholder
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
