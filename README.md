@@ -96,7 +96,7 @@ FROM_EMAIL="noreply@your-domain.com"
 NEXT_PUBLIC_APP_URL="https://your-domain.com"
 ```
 
-See [`VERCEL_ENV_CHECKLIST.md`](./VERCEL_ENV_CHECKLIST.md) for the full list.
+See [`.env.example`](./.env.example) for the full, provider-neutral list.
 
 ## Deployment
 
@@ -127,9 +127,10 @@ directing traffic.
 
 - [`PRODUCTION_READINESS.md`](./PRODUCTION_READINESS.md) — **current status, blockers, and remaining risks (read this first)**
 - [`NEXT_STEPS.md`](./NEXT_STEPS.md) — action plan and roadmap
-- [`VERCEL_ENV_CHECKLIST.md`](./VERCEL_ENV_CHECKLIST.md) — environment variables
+- [`.env.example`](./.env.example) — the full environment-variable list
 
-Older `DEPLOYMENT_*.md` / `AWS_*.md` / Docker guides are historical and may
+Older `DEPLOYMENT_*.md` / `AWS_*.md` / Docker guides, and the Vercel-specific
+[`VERCEL_ENV_CHECKLIST.md`](./VERCEL_ENV_CHECKLIST.md), are historical and may
 contradict the above; they are pending archival.
 
 ## Contributing
