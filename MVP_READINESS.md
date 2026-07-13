@@ -107,8 +107,9 @@ have blocked the whole product, and neither was visible without running the app.
   webhook secret. Simulated subscriptions auto-disable once real keys are present
   (or force with `ALLOW_SIMULATED_SUBSCRIPTIONS=false`). **Simulated subscriptions
   must be disabled in production.**
-- **Object storage** (Vercel Blob or S3): local disk storage works for dev but is
-  not durable on serverless; set `BLOB_READ_WRITE_TOKEN` (or S3 config) for launch.
+- **Object storage** (S3 / Blob / configured object storage): local disk storage
+  works for dev but isn't durable for production; set `BLOB_READ_WRITE_TOKEN`
+  (or the equivalent S3 config) for launch.
 - **Email** (SendGrid): password reset is still a stub (from the trust sprint);
   wire real email before relying on account recovery.
 - **Database & auth**: `DATABASE_URL` and a strong `NEXTAUTH_SECRET`.
