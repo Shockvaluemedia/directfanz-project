@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import HeaderAuth from '@/components/navigation/HeaderAuth';
 
 export default function StaticHeader() {
   return (
@@ -15,19 +16,9 @@ export default function StaticHeader() {
             </Link>
           </div>
 
-          {/* Right Side - Static Links */}
+          {/* Right Side - Session-aware auth controls */}
           <div className='flex items-center space-x-4'>
-            <div className='hidden sm:flex items-center space-x-4'>
-              <Link href='/auth/signin' className='text-gray-600 hover:text-gray-900 font-medium'>
-                Sign In
-              </Link>
-              <Link
-                href='/auth/signup'
-                className='bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors'
-              >
-                Sign Up
-              </Link>
-            </div>
+            <HeaderAuth />
           </div>
         </div>
       </div>

@@ -93,6 +93,22 @@ export default function ArtistProfile({ artist, existingSubscriptions }: ArtistP
 
     setLoading(true);
     try {
+      // MVP: try the simulated-subscription path first. It succeeds while Stripe
+      // is not configured and returns 400 (disabled) once real Stripe is set up,
+      // in which case we fall back to Stripe checkout.
+      const simRes = await fetch('/api/fan/subscriptions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tierId: tier.id }),
+      });
+
+      if (simRes.ok) {
+        // Re-fetch the server component so the subscribed state and any
+        // now-unlocked content refresh.
+        router.refresh();
+        return;
+      }
+
       const response = await fetch('/api/payments/create-checkout', {
         method: 'POST',
         headers: {

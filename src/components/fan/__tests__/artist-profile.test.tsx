@@ -19,6 +19,7 @@ jest.mock('next/image', () => {
 });
 
 const mockPush = jest.fn();
+const mockRefresh = jest.fn();
 const mockUseRouter = useRouter as jest.MockedFunction<typeof useRouter>;
 
 // Mock fetch
@@ -100,7 +101,7 @@ describe('ArtistProfile', () => {
       prefetch: jest.fn(),
       back: jest.fn(),
       forward: jest.fn(),
-      refresh: jest.fn(),
+      refresh: mockRefresh,
     });
   });
 
@@ -186,13 +187,47 @@ describe('ArtistProfile', () => {
     alertSpy.mockRestore();
   });
 
-  it('creates checkout session on successful subscription', async () => {
+  it('subscribes via the simulated path when it is available', async () => {
+    // Simulated-subscription endpoint succeeds.
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => ({
-        checkoutUrl: 'https://checkout.stripe.com/session123',
-      }),
+      json: async () => ({ success: true, simulated: true }),
     } as Response);
+
+    render(<ArtistProfile artist={mockArtist} existingSubscriptions={[]} />);
+
+    const subscribeButtons = screen.getAllByText('Subscribe');
+    fireEvent.click(subscribeButtons[0]);
+
+    const confirmButtons = screen.getAllByText('Subscribe');
+    const confirmButton =
+      confirmButtons.find(button => {
+        const parent = button.closest('div');
+        return parent && parent.querySelector('input[placeholder="5.00"]');
+      }) || confirmButtons[0];
+    fireEvent.click(confirmButton);
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith('/api/fan/subscriptions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tierId: 'tier-1' }),
+      });
+    });
+    await waitFor(() => expect(mockRefresh).toHaveBeenCalled());
+  });
+
+  it('falls back to Stripe checkout when simulation is disabled', async () => {
+    // Simulated path disabled (real Stripe configured) -> falls back to checkout.
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({ error: 'Simulated subscriptions are disabled.' }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ checkoutUrl: 'https://checkout.stripe.com/session123' }),
+      } as Response);
 
     render(<ArtistProfile artist={mockArtist} existingSubscriptions={[]} />);
 
@@ -220,20 +255,21 @@ describe('ArtistProfile', () => {
         }),
       });
     });
-
-    // Note: Testing window.location.href assignment is complex in JSDOM
-    // Instead, we verify the correct API call was made and would redirect
   });
 
   it('handles subscription errors', async () => {
     const alertSpy = jest.spyOn(window, 'alert').mockImplementation();
 
-    mockFetch.mockResolvedValueOnce({
-      ok: false,
-      json: async () => ({
-        error: 'Payment failed',
-      }),
-    } as Response);
+    // Simulated path disabled, then checkout also fails.
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({ error: 'Simulated subscriptions are disabled.' }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({ error: 'Payment failed' }),
+      } as Response);
 
     render(<ArtistProfile artist={mockArtist} existingSubscriptions={[]} />);
 
@@ -256,13 +292,17 @@ describe('ArtistProfile', () => {
     alertSpy.mockRestore();
   });
 
-  it('uses custom amount when provided', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        checkoutUrl: 'https://checkout.stripe.com/session123',
-      }),
-    } as Response);
+  it('uses custom amount when provided (checkout fallback)', async () => {
+    // Simulated path disabled -> checkout receives the custom amount.
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({ error: 'Simulated subscriptions are disabled.' }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ checkoutUrl: 'https://checkout.stripe.com/session123' }),
+      } as Response);
 
     render(<ArtistProfile artist={mockArtist} existingSubscriptions={[]} />);
 

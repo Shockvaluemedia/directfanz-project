@@ -7,6 +7,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { safeParseURL } from '@/lib/api-utils';
+import { simulatedSubscriptionsEnabled } from '@/lib/subscription-mode';
 import { z } from 'zod';
 
 const searchSchema = z.object({
@@ -46,12 +47,14 @@ export async function GET(request: NextRequest) {
 
     const { search, genre, tags, limit, offset } = searchSchema.parse(params);
 
-    // Build where clause for filtering
+    // Build where clause for filtering. While simulated subscriptions are enabled
+    // (Stripe not configured), don't hide artists who haven't onboarded to Stripe
+    // yet — otherwise no one is discoverable before billing is set up.
     const whereClause: any = {
       role: 'ARTIST',
-      artists: {
-        isStripeOnboarded: true, // Only show artists who can accept payments
-      },
+      ...(simulatedSubscriptionsEnabled()
+        ? {}
+        : { artists: { isStripeOnboarded: true } }),
       tiers: {
         some: {
           isActive: true, // Only show artists with active tiers
