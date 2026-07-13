@@ -5,6 +5,17 @@ import { signIn, getSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
+// Only allow post-login redirects to internal, root-relative paths. Reject
+// absolute URLs (https://evil), protocol-relative URLs (//evil), and backslash
+// tricks (/\evil, which browsers normalize to //evil) to prevent open redirects.
+function getSafeCallbackUrl(raw: string | null | undefined): string {
+  if (!raw || raw === '/') return '/dashboard';
+  if (!raw.startsWith('/') || raw.startsWith('//') || raw.includes('\\')) {
+    return '/dashboard';
+  }
+  return raw;
+}
+
 function SignInContent() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -31,9 +42,9 @@ function SignInContent() {
         setError('Invalid email or password');
       } else {
         await getSession();
-        // Honor the deep link the user was bounced from; otherwise send them to
-        // /dashboard, which fans them out to the right role dashboard.
-        router.push(!callbackUrl || callbackUrl === '/' ? '/dashboard' : callbackUrl);
+        // Honor the (sanitized) deep link the user was bounced from; otherwise
+        // send them to /dashboard, which fans them out to the right role dashboard.
+        router.push(getSafeCallbackUrl(callbackUrl));
       }
     } catch {
       setError('An error occurred. Please try again.');

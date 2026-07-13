@@ -120,43 +120,46 @@ export async function POST(request: NextRequest) {
     const now = new Date();
     const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
-    const existing = await prisma.subscriptions.findUnique({
-      where: { fanId_tierId: { fanId: user.id, tierId } },
-    });
+    // Upsert the subscription and recompute the subscriber counts from the
+    // actual ACTIVE rows in one transaction. Recomputing (rather than
+    // incrementing off a prior read) is idempotent, so concurrent retries or
+    // double-clicks on the same (fan, tier) cannot over-count.
+    const subscription = await prisma.$transaction(async tx => {
+      const sub = await tx.subscriptions.upsert({
+        where: { fanId_tierId: { fanId: user.id, tierId } },
+        update: {
+          status: 'ACTIVE',
+          amount: tier.minimumPrice,
+          currentPeriodStart: now,
+          currentPeriodEnd: periodEnd,
+          updatedAt: now,
+        },
+        create: {
+          id: randomUUID(),
+          fanId: user.id,
+          artistId: tier.artistId,
+          tierId,
+          stripeSubscriptionId: `sim_${randomUUID()}`,
+          amount: tier.minimumPrice,
+          status: 'ACTIVE',
+          currentPeriodStart: now,
+          currentPeriodEnd: periodEnd,
+          updatedAt: now,
+        },
+      });
 
-    const subscription = await prisma.subscriptions.upsert({
-      where: { fanId_tierId: { fanId: user.id, tierId } },
-      update: {
-        status: 'ACTIVE',
-        amount: tier.minimumPrice,
-        currentPeriodStart: now,
-        currentPeriodEnd: periodEnd,
-        updatedAt: now,
-      },
-      create: {
-        id: randomUUID(),
-        fanId: user.id,
-        artistId: tier.artistId,
-        tierId,
-        stripeSubscriptionId: `sim_${randomUUID()}`,
-        amount: tier.minimumPrice,
-        status: 'ACTIVE',
-        currentPeriodStart: now,
-        currentPeriodEnd: periodEnd,
-        updatedAt: now,
-      },
-    });
+      const [tierActive, artistActive] = await Promise.all([
+        tx.subscriptions.count({ where: { tierId, status: 'ACTIVE' } }),
+        tx.subscriptions.count({ where: { artistId: tier.artistId, status: 'ACTIVE' } }),
+      ]);
 
-    // Keep subscriber counts consistent, but only when this is a genuine new
-    // activation (not a no-op re-subscribe of an already-active tier).
-    if (!existing || existing.status !== 'ACTIVE') {
-      await prisma.tiers
-        .update({ where: { id: tierId }, data: { subscriberCount: { increment: 1 } } })
+      await tx.tiers.update({ where: { id: tierId }, data: { subscriberCount: tierActive } });
+      await tx.artists
+        .update({ where: { userId: tier.artistId }, data: { totalSubscribers: artistActive } })
         .catch(() => {});
-      await prisma.artists
-        .update({ where: { userId: tier.artistId }, data: { totalSubscribers: { increment: 1 } } })
-        .catch(() => {});
-    }
+
+      return sub;
+    });
 
     return NextResponse.json({
       success: true,
