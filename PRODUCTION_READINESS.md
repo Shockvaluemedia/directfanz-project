@@ -176,17 +176,22 @@ You must configure these yourself — they cannot be done from the codebase:
 | Service       | Action                                                                                  |
 | ------------- | --------------------------------------------------------------------------------------- |
 | **Secrets**   | **Rotate** `NEXTAUTH_SECRET`, `JWT_SECRET`, `ENCRYPTION_KEY`, DB password (see blocker 1). |
-| **Vercel**    | Set all env vars (Production + Preview). Never commit them.                              |
+| **Host**      | Set all env vars in the host's secret store. Never commit them.                         |
 | **Stripe**    | Live keys; create the webhook → `/api/payments/webhooks`; set `STRIPE_WEBHOOK_SECRET`.  |
 | **SendGrid**  | API key + verified sender (`FROM_EMAIL`) — required for notifications & password reset. |
-| **Redis**     | Upstash instance → `REDIS_URL` (rate limiting, cache).                                   |
-| **Vercel Blob** | Add the Blob integration → `BLOB_READ_WRITE_TOKEN` (file storage).                     |
-| **Database**  | Managed Postgres (Vercel Postgres / Supabase / RDS) → `DATABASE_URL`; run migrations.   |
-| **Domain**    | Point the domain at Vercel; set `NEXTAUTH_URL`/`NEXT_PUBLIC_APP_URL` (HTTPS).            |
+| **Redis**     | Redis instance (e.g. Upstash) → `REDIS_URL` (rate limiting, cache).                      |
+| **Object storage** | Configured object storage (S3 / Blob) → `BLOB_READ_WRITE_TOKEN` or the S3 config.   |
+| **Database**  | Managed Postgres (Supabase / RDS / etc.) → `DATABASE_URL`; run migrations.               |
+| **Domain**    | Point the domain at the host; set `NEXTAUTH_URL`/`NEXT_PUBLIC_APP_URL` (HTTPS).          |
 
 ## Deployment path (decision)
 
-**Vercel-first.** The application targets Vercel + Vercel Blob + Upstash Redis +
-Stripe + SendGrid + external Postgres. The AWS/ECS/Docker/Terraform files are
-legacy and unsupported; they should be archived. See the README for the deploy
-steps.
+**Not settled in this repo.** The tree carries config for both a Vercel setup
+(`vercel.json`, `.github/workflows/vercel-deploy.yml`) and an AWS/ECS/Docker/
+Terraform setup from earlier iterations; both are history until a target is
+chosen, and neither should be read as the supported deploy path. The one
+enforced build gate is CI (`.github/workflows/ci-cd.yml`) — typecheck, lint,
+tests, the critical `npm audit` gate, and the production build. Application code
+currently wires `@vercel/blob`, Stripe, SendGrid, Redis, and external Postgres;
+swap object storage for your chosen provider (S3 / Blob) at deploy time. See the
+README for provider-neutral pre-launch steps.

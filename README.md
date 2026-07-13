@@ -24,19 +24,22 @@ subscription-based exclusive content access.
 | Framework      | Next.js 14 (App Router), React 18, TypeScript          |
 | Styling        | Tailwind CSS                                            |
 | Database       | PostgreSQL via Prisma ORM                              |
-| Cache / limits | Redis (`ioredis`; Upstash on Vercel)                   |
-| File storage   | **Vercel Blob** (`@vercel/blob`)                        |
+| Cache / limits | Redis (`ioredis`; e.g. Upstash)                        |
+| Object storage | Configured object storage — S3 / Blob (`@vercel/blob` is wired) |
 | Payments       | Stripe                                                  |
 | Email          | SendGrid (`@sendgrid/mail`)                             |
 | Auth           | NextAuth.js (JWT sessions)                              |
-| Hosting        | **Vercel** (this is the one supported deploy target)   |
+| Build gate     | CI — `.github/workflows/ci-cd.yml`                      |
+| Hosting        | Not settled in this repo — see the deployment note below |
 
-> The repo also contains AWS/ECS/Docker/Terraform files from an earlier
-> exploration. **They are legacy and not the supported path** — the application
-> imports `@vercel/blob` (there is no AWS SDK dependency), `next.config.js`
-> only whitelists `*.public.blob.vercel-storage.com`, and `vercel.json` +
-> `.github/workflows/vercel-deploy.yml` are the real deploy config. Ignore the
-> AWS/Docker docs until they are archived.
+> The repo carries deployment config for **both** an AWS/ECS/Docker/Terraform
+> stack and a Vercel setup, left over from earlier iterations. Neither is
+> confirmed as the current deploy target here, so treat both as history until a
+> target is chosen; do not read either as "the supported path". The one enforced
+> build gate is CI (`.github/workflows/ci-cd.yml`). Application code currently
+> wires `@vercel/blob` for object storage and `next.config.js` whitelists
+> `*.public.blob.vercel-storage.com`; swap these for your chosen object store
+> (S3 / Blob) at deploy time.
 
 ## Local development
 
@@ -79,10 +82,10 @@ STRIPE_SECRET_KEY="sk_..."
 STRIPE_PUBLISHABLE_KEY="pk_..."
 STRIPE_WEBHOOK_SECRET="whsec_..."
 
-# File storage (Vercel Blob — auto-provisioned when you add Blob in Vercel)
+# Object storage (S3 / Blob / configured object storage)
 BLOB_READ_WRITE_TOKEN="vercel_blob_rw_..."
 
-# Cache / rate limiting (Upstash Redis on Vercel)
+# Cache / rate limiting (Redis; e.g. Upstash)
 REDIS_URL="rediss://..."
 
 # Email (required for notifications / password reset)
@@ -95,18 +98,25 @@ NEXT_PUBLIC_APP_URL="https://your-domain.com"
 
 See [`VERCEL_ENV_CHECKLIST.md`](./VERCEL_ENV_CHECKLIST.md) for the full list.
 
-## Deployment (Vercel)
+## Deployment
 
-1. Import `Shockvaluemedia/directfanz-project` at <https://vercel.com/new>.
-2. Add the environment variables above in the Vercel project settings
-   (Production + Preview). **Never commit real secrets.**
-3. Add the **Vercel Blob** and **Upstash Redis** integrations (these provide
-   `BLOB_READ_WRITE_TOKEN` and `REDIS_URL`).
+The deployment target is **not settled in this repo** — it carries config for
+both a Vercel setup (`vercel.json`, `.github/workflows/vercel-deploy.yml`) and an
+AWS/ECS/Docker/Terraform setup from earlier iterations. Pick and confirm one
+before launch; don't treat either as the supported path yet. What *is*
+authoritative here is the build gate: CI (`.github/workflows/ci-cd.yml`) runs
+typecheck, lint, tests, the critical `npm audit` gate, and the production build
+on every push/PR to `integration-testing` and `main`.
+
+Whatever target you choose, before directing traffic:
+
+1. Set every required environment variable (see above) in the host's secret
+   store — never commit real secrets.
+2. Provision **object storage** (S3 or Blob) and set `BLOB_READ_WRITE_TOKEN`
+   (or the equivalent S3 config).
+3. Provision **Redis** (e.g. Upstash) → `REDIS_URL` for rate limiting / cache.
 4. Configure the **Stripe webhook** to point at
-   `https://your-domain.com/api/payments/webhooks` and copy the signing secret
-   into `STRIPE_WEBHOOK_SECRET`.
-5. Deploy. Pushes to `main` deploy production via
-   `.github/workflows/vercel-deploy.yml`; PRs get preview deploys.
+   `https://your-domain.com/api/payments/webhooks` and set `STRIPE_WEBHOOK_SECRET`.
 
 The build runs with placeholder env in CI and is build-safe (config validation
 is deferred out of the build phase), so a missing production secret fails at

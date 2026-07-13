@@ -82,10 +82,13 @@ exists on the base branch. Never describe an unrun or failing check as passing.
 
 ## Deployment And Secrets
 
-- Vercel is the supported application deployment target. Vercel Blob, Upstash
-  Redis, Stripe, SendGrid, and external PostgreSQL are the expected production
-  services. AWS may still host an external resource such as RDS, but the old
-  AWS/ECS/Terraform deployment specs are not the supported app deploy path.
+- The deployment target is not settled in this repo: it carries both a Vercel
+  setup and an AWS/ECS/Docker/Terraform setup from earlier iterations, and
+  neither is the confirmed app deploy path — treat both as history until a target
+  is chosen. The one enforced build gate is CI (`.github/workflows/ci-cd.yml`).
+  Object storage (S3 / Blob), Redis, Stripe, SendGrid, and external PostgreSQL
+  are the expected production services; keep object-storage wording
+  provider-neutral rather than assuming a specific host.
 - When deployment docs disagree, use this order: current
   `PRODUCTION_READINESS.md` if present, then `README.md`, `NEXT_STEPS.md`, and
   `PRODUCTION_STATUS_REPORT.md`, then live workflow/config files. Surface any
@@ -94,9 +97,9 @@ exists on the base branch. Never describe an unrun or failing check as passing.
   production migrations, provider architecture, or release behavior without
   explicit approval. Do not run a production deploy or merge to `main` as part
   of an ordinary implementation task.
-- Keep real values in Vercel or GitHub secret stores. Commit only placeholders
-  in example env files. Never paste secrets into code, docs, PRs, test output,
-  shell history, or workflow logs.
+- Keep real values in the host's secret store or GitHub secret store. Commit only
+  placeholders in example env files. Never paste secrets into code, docs, PRs,
+  test output, shell history, or workflow logs.
 - Do not add shell steps that echo secret values. Treat `vercel env pull`,
   secret rotation, secret-name changes, and deploy-workflow edits as privileged
   operations requiring explicit approval and a handoff note.
