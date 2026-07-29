@@ -19,6 +19,7 @@ interface DirectFanzJWT {
   role?: string;
   lastActivity?: number;
   sessionStart?: number;
+  sessionVersion?: number;
   name?: string | null;
   email?: string | null;
   picture?: string | null;
@@ -66,6 +67,7 @@ export const authOptions: NextAuthOptions = {
             name: user.displayName,
             image: user.avatar,
             role: user.role,
+            sessionVersion: user.sessionVersion,
           };
         } catch (error) {
           console.error('Authorization error:', error instanceof Error ? error.message : 'Unknown error');
@@ -135,11 +137,29 @@ export const authOptions: NextAuthOptions = {
       const jwt = await import('jsonwebtoken');
 
       try {
-        return jwt.verify(token!, secret, {
+        const decoded = jwt.verify(token!, secret, {
           algorithms: ['HS256'],
           issuer: process.env.NEXTAUTH_URL || 'directfanz',
           audience: 'directfanz-platform',
-        }) as any;
+        }) as DirectFanzJWT;
+
+        const userId = decoded.id || decoded.sub;
+        if (!userId) {
+          return null;
+        }
+
+        const user = await prisma.users.findUnique({
+          where: { id: userId },
+          select: { sessionVersion: true },
+        });
+        const tokenSessionVersion =
+          typeof decoded.sessionVersion === 'number' ? decoded.sessionVersion : 0;
+
+        if (!user || user.sessionVersion !== tokenSessionVersion) {
+          return null;
+        }
+
+        return decoded as JWT;
       } catch {
         return null;
       }
@@ -171,9 +191,19 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user, trigger }) {
       const t = token as unknown as DirectFanzJWT;
       if (user) {
-        const u = user as { id: string; role?: string; name?: string; displayName?: string; email?: string; image?: string; avatar?: string };
+        const u = user as {
+          id: string;
+          role?: string;
+          name?: string;
+          displayName?: string;
+          email?: string;
+          image?: string;
+          avatar?: string;
+          sessionVersion?: number;
+        };
         t.id = u.id;
         t.role = u.role;
+        t.sessionVersion = u.sessionVersion ?? 0;
         t.name = u.name || u.displayName || t.name;
         t.email = u.email || t.email;
         t.picture = u.image || u.avatar || t.picture;

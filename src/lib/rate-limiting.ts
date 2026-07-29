@@ -25,8 +25,8 @@ function inMemoryIncr(key: string, windowMs: number): number {
   return entry.count;
 }
 
-// Periodically clean expired entries
-setInterval(() => {
+// Periodically clean expired entries without keeping short-lived processes alive.
+const cleanupInterval = setInterval(() => {
   const now = Date.now();
   for (const [key, entry] of inMemoryStore) {
     if (entry.expiresAt <= now) {
@@ -34,6 +34,7 @@ setInterval(() => {
     }
   }
 }, 60_000);
+cleanupInterval.unref?.();
 
 export interface RateLimitConfig {
   windowMs: number; // Time window in milliseconds
