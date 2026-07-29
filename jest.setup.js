@@ -836,6 +836,8 @@ function createPrismaMock() {
     moderation_logs: createMockModel(),
     accounts: createMockModel(),
     sessions: createMockModel(),
+    refresh_tokens: createMockModel(),
+    password_reset_tokens: createMockModel(),
     gdpr_requests: createMockModel(),
     consent_records: createMockModel(),
     content_views: createMockModel(),

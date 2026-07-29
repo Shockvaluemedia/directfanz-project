@@ -110,6 +110,15 @@ function SignInContent() {
             </div>
           </div>
 
+          <div className='flex justify-end'>
+            <Link
+              href='/auth/forgot-password'
+              className='text-sm font-medium text-indigo-600 hover:text-indigo-500'
+            >
+              Forgot your password?
+            </Link>
+          </div>
+
           <div>
             <button
               type='submit'

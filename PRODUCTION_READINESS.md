@@ -11,8 +11,9 @@ disagree, this file is correct.
 **Not launch-ready yet, but materially closer.** The build, test suite, CI, and
 several serious security holes are fixed. A handful of **launch blockers**
 remain — most importantly, production secrets that were committed to the repo
-must be rotated, and the password-reset/email flow is a non-functional stub.
-Do not put real artists or fans on this until the blockers below are cleared.
+must be rotated. Password recovery is implemented, but SendGrid and the public
+application URL still need production configuration. Do not put real artists
+or fans on this until the blockers below are cleared.
 
 ## Quality gates (local, this branch)
 
@@ -20,8 +21,8 @@ Do not put real artists or fans on this until the blockers below are cleared.
 | --------------- | ------ | ------------------------------------------------------------ |
 | `npm run typecheck` | ✅ pass | clean                                                    |
 | `npm run lint:check` | ✅ pass | warnings only                                           |
-| `npm test`      | ✅ pass | 55 suites, 684 passing, 1 skipped (was 9 suites / 28 failing) |
-| `npm audit`     | ⚠️ improved | 0 critical (was 2); 4 production high remain, all needing major upgrades. CI blocks on critical and reports highs. |
+| `npm test`      | ✅ pass | 57 suites, 693 passing, 1 skipped (was 9 suites / 28 failing) |
+| `npm audit`     | ⚠️ improved | 0 critical (was 2); 12 production high / 46 total high remain. CI blocks on critical and reports highs. |
 | `npm run build` | ✅ pass | now build-safe with placeholder env (see below)              |
 
 ## What was fixed this sprint
@@ -50,6 +51,10 @@ Do not put real artists or fans on this until the blockers below are cleared.
 - **`/api/auth/login`** — removed the hardcoded `'fallback-secret'` JWT signing
   key; it now fails closed if no real secret is configured (a known key lets
   anyone forge admin tokens).
+- **Password recovery** — replaced the forgot/reset stubs with rate-limited
+  account-neutral requests, cryptographically random hashed tokens, one-hour
+  expiry, atomic single-use consumption, password replacement, and session
+  revocation. Delivery uses the existing SendGrid integration.
 - **`/api/upload`** — was unauthenticated and wrote the **client-supplied
   filename straight into a filesystem path** (path traversal → arbitrary file
   write). Now requires an authenticated session, generates server-side random
@@ -88,6 +93,8 @@ Do not put real artists or fans on this until the blockers below are cleared.
 
 - Upgraded **Next.js 14.0.4 → 14.2.35** (clears both critical advisories) and
   ran safe `npm audit fix`. Criticals: 2 → 0.
+- Upgraded **NextAuth 4.24.14 → 4.24.15** to clear the critical email
+  normalization advisory and its malformed-Bearer-token advisory.
 - Removed the unused **`next-pwa`** dependency (PWA has been disabled in
   `next.config.js`); this alone cleared 5 high advisories from its
   `workbox` / `rollup-plugin-terser` / `serialize-javascript` build chain.
@@ -116,16 +123,11 @@ Do not put real artists or fans on this until the blockers below are cleared.
    - force a password reset for any account whose hash was in the committed
      `*.db` files.
    Optionally purge the values from git history (BFG / `git filter-repo`).
-2. **Password reset & "forgot password" are non-functional stubs.**
-   `/api/auth/forgot-password` and `/api/auth/reset-password` always return
-   success without sending email or changing anything. Implement a real
-   token-based flow (hashed, single-use, short-TTL, emailed via SendGrid)
-   before launch. Requires SendGrid configured.
-3. **Login brute-force protection is effectively disabled.** The auth rate
+2. **Login brute-force protection is effectively disabled.** The auth rate
    limiter is set to test-mode values and the account-lockout code
    (`AuthSecurityManager`) is never wired into the login path. Restore strict
    limits and wire lockout in before launch.
-4. **No Stripe webhook idempotency.** Error propagation now makes Stripe retry
+3. **No Stripe webhook idempotency.** Error propagation now makes Stripe retry
    failed events (good), but retries can double-count earnings/subscriber
    counts because processed events are not deduplicated. Add a
    `processed_webhook_events` table (persist `event.id`, short-circuit on
@@ -154,17 +156,22 @@ Do not put real artists or fans on this until the blockers below are cleared.
   in all non-build environments.
 - **CSP** allows `unsafe-inline`/`unsafe-eval`; middleware imports Node `crypto`
   which logs an Edge-runtime warning at build.
-- **Remaining `npm audit` highs — 4 production, 0 critical.** After removing
-  the unused `next-pwa` chain, the only highs left in production dependencies
-  each require a **major-version upgrade** with its own validation pass, so they
-  are deliberately deferred out of this trust sprint:
+- **Remaining `npm audit` debt — 12 production high / 46 total high, 0
+  critical.** After removing the unused `next-pwa` chain and upgrading
+  NextAuth, the production-high dependency families still include:
   - `next` — DoS advisories (Image Optimizer `remotePatterns`, HTTP request
     deserialization); patched line is Next 15/16 → App Router migration test.
   - `@sentry/nextjs` (+ its `rollup`) — fix is `@sentry/nextjs` 10.x (major).
   - `undici` (via `@vercel/blob`) — fix is `@vercel/blob` 2.x (major; storage
     API surface must be re-tested).
-  None has a safe (non-major) fix. CI blocks on `critical` and reports these
-  highs so they stay visible without wedging the pipeline red.
+  - `sharp` — current libvips advisories; the audit-proposed fix is a major
+    upgrade.
+  - `brace-expansion` / `minimatch` — present in both production tooling and
+    the larger development/test graph.
+  - `fast-uri` — has a non-major transitive fix available and should be handled
+    in a focused dependency-maintenance PR.
+  CI blocks on `critical` and reports highs so the full debt stays visible
+  without pretending this trust-sprint slice resolved it.
 - **Repo hygiene:** ~50 debug/fix/test scripts and 100+ markdown docs remain at
   the repo root, many contradicting each other. Recommend archiving them under
   `docs/archive/` so the tree tells one story.

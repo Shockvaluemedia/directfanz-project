@@ -31,7 +31,7 @@ tier/content/subscription/access endpoints, and the middleware redirects). Every
 | --- | --- |
 | `npm run typecheck` | ✅ pass |
 | `npm run lint:check` | ✅ pass (warnings only) |
-| `npm test` | ✅ **55 suites / 685 passing, 1 skipped** |
+| `npm test` | ✅ **57 suites / 693 passing, 1 skipped** |
 | `npm audit --audit-level=critical` | ✅ 0 critical |
 | `npm run build` | ✅ pass (placeholder env) |
 
@@ -110,8 +110,8 @@ have blocked the whole product, and neither was visible without running the app.
 - **Object storage** (S3 / Blob / configured object storage): local disk storage
   works for dev but isn't durable for production; set `BLOB_READ_WRITE_TOKEN`
   (or the equivalent S3 config) for launch.
-- **Email** (SendGrid): password reset is still a stub (from the trust sprint);
-  wire real email before relying on account recovery.
+- **Email** (SendGrid): password recovery is implemented, but delivery requires
+  `SENDGRID_API_KEY`, `FROM_EMAIL`, and the public application URL.
 - **Database & auth**: `DATABASE_URL` and a strong `NEXTAUTH_SECRET`.
 
 ## Manual configuration summary
@@ -123,4 +123,4 @@ have blocked the whole product, and neither was visible without running the app.
 | Stripe | `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET` | real payments |
 | Simulated subs | `ALLOW_SIMULATED_SUBSCRIPTIONS` (`false` in prod) | MVP-safe subscribe |
 | Storage | `BLOB_READ_WRITE_TOKEN` (or S3) | durable uploads |
-| Email | `SENDGRID_API_KEY`, `FROM_EMAIL` | password reset / notifications |
+| Email | `SENDGRID_API_KEY`, `FROM_EMAIL`, `NEXT_PUBLIC_APP_URL` (or `NEXTAUTH_URL`) | password reset / notifications |

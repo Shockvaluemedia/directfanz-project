@@ -30,6 +30,20 @@ interface WelcomeEmailOptions {
   role: 'fan' | 'artist';
 }
 
+function escapeHtml(value: string): string {
+  return value.replace(
+    /[&<>"']/g,
+    character =>
+      ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;',
+      })[character] as string
+  );
+}
+
 /**
  * Send a generic email via SendGrid
  */
@@ -48,8 +62,9 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
       text: options.text || options.html.replace(/<[^>]*>/g, ''),
     });
     return true;
-  } catch (error) {
-    console.error('Failed to send email:', error);
+  } catch {
+    // Provider errors can echo the complete message body, including auth links.
+    console.error('Failed to send email');
     return false;
   }
 }
@@ -58,14 +73,25 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
  * Send password reset email
  */
 export async function sendPasswordResetEmail(options: PasswordResetEmailOptions): Promise<boolean> {
-  const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password?token=${options.resetToken}`;
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || '').replace(
+    /\/$/,
+    ''
+  );
+
+  if (!appUrl) {
+    console.warn('Password reset email skipped because the application URL is not configured');
+    return false;
+  }
+
+  const resetUrl = `${appUrl}/auth/reset-password?token=${encodeURIComponent(options.resetToken)}`;
+  const userName = escapeHtml(options.userName);
 
   return sendEmail({
     to: options.email,
     subject: 'Password Reset Request',
     html: `
       <h2>Password Reset Request</h2>
-      <p>Hi ${options.userName},</p>
+      <p>Hi ${userName},</p>
       <p>You requested a password reset for your account. Click the link below to reset your password:</p>
       <a href="${resetUrl}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Reset Password</a>
       <p>This link will expire in 1 hour.</p>
