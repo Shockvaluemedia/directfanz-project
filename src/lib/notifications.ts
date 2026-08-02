@@ -3,8 +3,8 @@ import { Content, Subscription, Tier, User } from '@prisma/client';
 import { prisma } from './prisma';
 import { logger } from './logger';
 
-// Initialize SendGrid with API key
-if (process.env.SENDGRID_API_KEY) {
+// Initialize SendGrid with API key (only in server environment)
+if (typeof window === 'undefined' && process.env.SENDGRID_API_KEY) {
   sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 }
 

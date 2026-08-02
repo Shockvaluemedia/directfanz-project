@@ -17,7 +17,7 @@ resource "aws_lb" "main" {
 
 # Target Group for Web App
 resource "aws_lb_target_group" "web_app" {
-  name        = "${var.project_name}-web-app-tg"
+  name        = "${var.project_name}-web-tg"
   port        = var.app_port
   protocol    = "HTTP"
   vpc_id      = aws_vpc.main.id
@@ -36,7 +36,32 @@ resource "aws_lb_target_group" "web_app" {
   }
 
   tags = {
-    Name = "${var.project_name}-web-app-tg"
+    Name = "${var.project_name}-web-tg"
+  }
+}
+
+# Target Group for WebSocket Service
+resource "aws_lb_target_group" "websocket" {
+  name        = "${var.project_name}-websocket-tg"
+  port        = var.websocket_port
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.main.id
+  target_type = "ip"
+
+  health_check {
+    enabled             = true
+    healthy_threshold   = 2
+    interval            = 30
+    matcher             = "200"
+    path                = "/health"
+    port                = "traffic-port"
+    protocol            = "HTTP"
+    timeout             = 5
+    unhealthy_threshold = 2
+  }
+
+  tags = {
+    Name = "${var.project_name}-websocket-tg"
   }
 }
 
@@ -98,6 +123,23 @@ resource "aws_lb_listener_rule" "api" {
   condition {
     host_header {
       values = ["api.${var.domain_name}"]
+    }
+  }
+}
+
+# Listener rule for Socket.IO / websocket traffic
+resource "aws_lb_listener_rule" "websocket" {
+  listener_arn = aws_lb_listener.web_app_https.arn
+  priority     = 110
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.websocket.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/socket.io/*", "/health"]
     }
   }
 }

@@ -10,6 +10,8 @@
     "lint:check": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "jest",
+    "honest:loop": "node scripts/repo-honesty-loop.cjs",
+    "honest:loop:quick": "node scripts/repo-honesty-loop.cjs --quick",
     "test:infrastructure": "jest tests/infrastructure --passWithNoTests",
     "test:property": "jest .kiro/tests/property --passWithNoTests",
     "quality:check": "npm run typecheck && npm run lint:check",
@@ -17,9 +19,11 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
-    "amplify:init": "amplify init",
-    "amplify:deploy": "./scripts/deploy-amplify.sh",
-    "amplify:publish": "amplify publish"
+    "aws:deploy": "bash scripts/deploy-ecs-containers.sh deploy",
+    "aws:build": "bash scripts/deploy-ecs-containers.sh build-only",
+    "aws:push": "bash scripts/deploy-ecs-containers.sh push-only",
+    "aws:ssm:check": "bash scripts/check-aws-ssm-parameters.sh",
+    "aws:ssm:seed": "bash scripts/seed-aws-ssm-parameters.sh"
   },
   "dependencies": {
     "@aws-sdk/client-cloudwatch": "^3.958.0",

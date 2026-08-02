@@ -3,13 +3,9 @@
 A platform that connects independent artists with their superfans through
 subscription-based exclusive content access.
 
-## 🚀 Ready to Deploy to Production?
+## Deployment
 
-**Your DirectFanz platform is 95% production-ready!**
-
-→ **[START HERE: DEPLOYMENT_READY.md](./DEPLOYMENT_READY.md)** ←
-
-This master guide will take you from zero to live in ~50 minutes.
+DirectFanz web deploys on AWS architecture. Use [Deployment](docs/deployment.md) as the single source of truth for production, rollback, smoke checks, and required secrets.
 
 ## Features
 
@@ -193,69 +189,7 @@ docker-compose logs -f app
 
 ## Production Deployment
 
-### 🎯 Ready to Go Live?
-
-**Your DirectFanz platform is production-ready!**
-
-**→ [DEPLOYMENT_READY.md](./DEPLOYMENT_READY.md)** - Master deployment guide (start here)
-
-### Quick Deploy Options
-
-**Option 1: GitHub → Vercel** (Recommended, ~50 minutes)
-```bash
-# 1. Go to https://vercel.com/new
-# 2. Import repository: Shockvaluemedia/directfanz-project
-# 3. Add environment variables
-# 4. Deploy!
-```
-See: [DEPLOY_FROM_GITHUB.md](./DEPLOY_FROM_GITHUB.md)
-
-**Option 2: Vercel CLI** (~1 hour)
-```bash
-# Automated setup wizard
-npm run vercel:setup
-
-# Or manual deployment
-./deploy-to-vercel.sh
-```
-See: [DEPLOY_NOW.md](./DEPLOY_NOW.md)
-
-### Pre-Deployment Checklist
-
-```bash
-# Run automated checks
-npm run vercel:check
-```
-
-### Available Deployment Scripts
-
-- `npm run vercel:setup` - Interactive production setup wizard
-- `npm run vercel:check` - Run pre-deployment checklist
-- `npm run vercel:deploy` - Deploy to production
-- `npm run vercel:preview` - Deploy preview environment
-- `npm run vercel:env` - Pull environment variables
-
-### Required Services
-
-For production deployment, you'll need:
-
-1. **Database**: Vercel Postgres, Supabase, or AWS RDS
-2. **Cache**: Upstash Redis (recommended for Vercel)
-3. **Storage**: AWS S3 for media files
-4. **Payments**: Stripe account with live keys
-5. **Email**: SendGrid or similar service
-6. **Monitoring**: Sentry for error tracking (optional)
-
-### Documentation
-
-**Deployment Guides:**
-- [DEPLOYMENT_READY.md](./DEPLOYMENT_READY.md) - **Master deployment guide (start here)**
-- [NEXT_STEPS.md](./NEXT_STEPS.md) - Comprehensive action plan & feature roadmap
-- [DEPLOY_FROM_GITHUB.md](./DEPLOY_FROM_GITHUB.md) - GitHub integration (recommended)
-- [DEPLOY_NOW.md](./DEPLOY_NOW.md) - Quick CLI deployment
-- [VERCEL_ENV_CHECKLIST.md](./VERCEL_ENV_CHECKLIST.md) - Environment variables guide
-- [AWS_DEPLOYMENT_GUIDE.md](./AWS_DEPLOYMENT_GUIDE.md) - AWS architecture alternative
-- [PRODUCTION_QUICKSTART.md](./PRODUCTION_QUICKSTART.md) - 5-minute quick start
+Use [Deployment](docs/deployment.md). Legacy Vercel, Amplify, Railway, Render, and older Docker production notes are archived under `docs/archive/deployment/` and are not active operating instructions.
 
 ## Contributing
 

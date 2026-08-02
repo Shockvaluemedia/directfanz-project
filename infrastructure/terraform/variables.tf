@@ -9,7 +9,7 @@ variable "project_name" {
 variable "environment" {
   description = "Environment (dev, staging, prod)"
   type        = string
-  default     = "prod"
+  default     = "staging"
 }
 
 variable "aws_region" {
@@ -49,6 +49,12 @@ variable "database_subnets" {
   default     = ["10.0.5.0/24", "10.0.6.0/24"]
 }
 
+variable "enable_nat_gateway" {
+  description = "Enable NAT Gateways for private ECS outbound traffic. Keep false for minimal-cost staging."
+  type        = bool
+  default     = false
+}
+
 # Application Configuration
 variable "app_port" {
   description = "Port on which the application runs"
@@ -56,17 +62,23 @@ variable "app_port" {
   default     = 3000
 }
 
+variable "websocket_port" {
+  description = "Port on which the websocket service runs"
+  type        = number
+  default     = 3001
+}
+
 # Database Configuration
 variable "db_instance_class" {
   description = "RDS instance class"
   type        = string
-  default     = "db.t3.medium"
+  default     = "db.t4g.micro"
 }
 
 variable "db_allocated_storage" {
   description = "Allocated storage for RDS instance"
   type        = number
-  default     = 100
+  default     = 20
 }
 
 variable "db_name" {
@@ -85,31 +97,67 @@ variable "db_username" {
 variable "redis_node_type" {
   description = "ElastiCache Redis node type"
   type        = string
-  default     = "cache.t3.medium"
+  default     = "cache.t4g.micro"
+}
+
+variable "redis_num_cache_clusters" {
+  description = "Number of Redis cache nodes. Use 1 for minimal staging; raise for production HA."
+  type        = number
+  default     = 1
 }
 
 # ECS Configuration
 variable "web_app_cpu" {
   description = "CPU units for web app task"
   type        = number
-  default     = 1024
+  default     = 512
 }
 
 variable "web_app_memory" {
   description = "Memory for web app task"
   type        = number
-  default     = 2048
+  default     = 1024
 }
 
 variable "web_app_desired_count" {
   description = "Desired number of web app tasks"
   type        = number
-  default     = 2
+  default     = 1
+}
+
+variable "websocket_cpu" {
+  description = "CPU units for websocket task"
+  type        = number
+  default     = 256
+}
+
+variable "websocket_memory" {
+  description = "Memory for websocket task"
+  type        = number
+  default     = 512
+}
+
+variable "websocket_desired_count" {
+  description = "Desired number of websocket tasks"
+  type        = number
+  default     = 0
 }
 
 # Monitoring
 variable "log_retention_days" {
   description = "CloudWatch log retention period in days"
   type        = number
-  default     = 30
+  default     = 7
+}
+
+variable "enable_rds_enhanced_monitoring" {
+  description = "Enable RDS enhanced monitoring. Keep false for minimal-cost staging."
+  type        = bool
+  default     = false
+}
+
+variable "enable_rds_performance_insights" {
+  description = "Enable RDS Performance Insights. Keep false for minimal-cost staging."
+  type        = bool
+  default     = false
 }

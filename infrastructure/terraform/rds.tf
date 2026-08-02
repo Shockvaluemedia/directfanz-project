@@ -13,7 +13,7 @@ resource "aws_db_subnet_group" "main" {
 # Random password for database
 resource "random_password" "db_password" {
   length  = 32
-  special = false  # Disable special characters to avoid RDS validation issues
+  special = false # Disable special characters to avoid RDS validation issues
 }
 
 # RDS Instance
@@ -27,7 +27,7 @@ resource "aws_db_instance" "postgres" {
 
   # Storage
   allocated_storage     = var.db_allocated_storage
-  max_allocated_storage = var.db_allocated_storage * 2
+  max_allocated_storage = max(var.db_allocated_storage * 2, 100)
   storage_type          = "gp3"
   storage_encrypted     = true
 
@@ -43,15 +43,15 @@ resource "aws_db_instance" "postgres" {
 
   # Backup
   backup_retention_period = 7
-  backup_window          = "03:00-04:00"
-  maintenance_window     = "Mon:04:00-Mon:05:00"
+  backup_window           = "03:00-04:00"
+  maintenance_window      = "Mon:04:00-Mon:05:00"
 
   # Monitoring
-  monitoring_interval = 60
-  monitoring_role_arn = aws_iam_role.rds_monitoring.arn
+  monitoring_interval = var.enable_rds_enhanced_monitoring ? 60 : 0
+  monitoring_role_arn = var.enable_rds_enhanced_monitoring ? aws_iam_role.rds_monitoring.arn : null
 
   # Performance Insights
-  performance_insights_enabled = true
+  performance_insights_enabled          = var.enable_rds_performance_insights
   performance_insights_retention_period = 7
 
   # Deletion protection
@@ -92,7 +92,7 @@ resource "aws_secretsmanager_secret" "db_password" {
 }
 
 resource "aws_secretsmanager_secret_version" "db_password" {
-  secret_id     = aws_secretsmanager_secret.db_password.id
+  secret_id = aws_secretsmanager_secret.db_password.id
   secret_string = jsonencode({
     username = var.db_username
     password = random_password.db_password.result

@@ -1,0 +1,61 @@
+name: Rollback AWS ECS
+
+on:
+  workflow_dispatch:
+    inputs:
+      web_task_definition:
+        description: "Previous directfanz-web task definition ARN"
+        required: true
+      websocket_task_definition:
+        description: "Previous directfanz-websocket task definition ARN, if websocket changed"
+        required: false
+      reason:
+        description: "Reason for rollback"
+        required: true
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
+
+jobs:
+  rollback:
+    name: Roll back ECS services
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Roll back web service
+        run: |
+          aws ecs update-service \
+            --cluster directfanz-cluster \
+            --service directfanz-web \
+            --task-definition "${{ inputs.web_task_definition }}" \
+            --region "$AWS_REGION"
+          aws ecs wait services-stable \
+            --cluster directfanz-cluster \
+            --services directfanz-web \
+            --region "$AWS_REGION"
+
+      - name: Roll back websocket service
+        if: ${{ inputs.websocket_task_definition != '' }}
+        run: |
+          aws ecs update-service \
+            --cluster directfanz-cluster \
+            --service directfanz-websocket \
+            --task-definition "${{ inputs.websocket_task_definition }}" \
+            --region "$AWS_REGION"
+          aws ecs wait services-stable \
+            --cluster directfanz-cluster \
+            --services directfanz-websocket \
+            --region "$AWS_REGION"
+
+      - name: Record rollback reason
+        run: |
+          echo "Rollback reason: ${{ inputs.reason }}"
+          echo "Web task definition: ${{ inputs.web_task_definition }}"
+          echo "Websocket task definition: ${{ inputs.websocket_task_definition }}"

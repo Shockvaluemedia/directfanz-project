@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # DirectFanz ECS Container Deployment Script
-# Builds and deploys Docker images to AWS ECR for ECS deployment
+# Builds and deploys Docker images to AWS ECR for ECS deployment.
 
 set -e
 
@@ -11,6 +11,8 @@ AWS_ACCOUNT_ID=${AWS_ACCOUNT_ID}
 ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
 WEB_APP_REPO="directfanz-web"
 WEBSOCKET_REPO="directfanz-websocket"
+WEB_APP_DOCKERFILE=${WEB_APP_DOCKERFILE:-Dockerfile.production}
+WEBSOCKET_DOCKERFILE=${WEBSOCKET_DOCKERFILE:-Dockerfile}
 IMAGE_TAG=${IMAGE_TAG:-latest}
 
 # Colors for output
@@ -63,6 +65,16 @@ check_prerequisites() {
         log_error "AWS_ACCOUNT_ID environment variable is not set."
         exit 1
     fi
+
+    if [ ! -f "$WEB_APP_DOCKERFILE" ]; then
+        log_error "Web app Dockerfile not found: $WEB_APP_DOCKERFILE"
+        exit 1
+    fi
+
+    if [ ! -f "$WEBSOCKET_DOCKERFILE" ]; then
+        log_error "WebSocket Dockerfile not found: $WEBSOCKET_DOCKERFILE"
+        exit 1
+    fi
     
     log_success "Prerequisites check passed"
 }
@@ -82,31 +94,21 @@ authenticate_ecr() {
     fi
 }
 
-# Create ECR repositories if they don't exist
-create_ecr_repositories() {
-    log_info "Creating ECR repositories if they don't exist..."
+# Verify ECR repositories exist
+verify_ecr_repositories() {
+    log_info "Verifying ECR repositories managed by Terraform..."
     
-    # Create web app repository
-    aws ecr describe-repositories --repository-names $WEB_APP_REPO --region $AWS_REGION &> /dev/null || {
-        log_info "Creating ECR repository: $WEB_APP_REPO"
-        aws ecr create-repository \
-            --repository-name $WEB_APP_REPO \
-            --region $AWS_REGION \
-            --image-scanning-configuration scanOnPush=true \
-            --encryption-configuration encryptionType=AES256
-    }
+    if ! aws ecr describe-repositories --repository-names $WEB_APP_REPO --region $AWS_REGION &> /dev/null; then
+        log_error "ECR repository not found: $WEB_APP_REPO. Run terraform apply first."
+        exit 1
+    fi
     
-    # Create websocket repository
-    aws ecr describe-repositories --repository-names $WEBSOCKET_REPO --region $AWS_REGION &> /dev/null || {
-        log_info "Creating ECR repository: $WEBSOCKET_REPO"
-        aws ecr create-repository \
-            --repository-name $WEBSOCKET_REPO \
-            --region $AWS_REGION \
-            --image-scanning-configuration scanOnPush=true \
-            --encryption-configuration encryptionType=AES256
-    }
+    if ! aws ecr describe-repositories --repository-names $WEBSOCKET_REPO --region $AWS_REGION &> /dev/null; then
+        log_error "ECR repository not found: $WEBSOCKET_REPO. Run terraform apply first."
+        exit 1
+    fi
     
-    log_success "ECR repositories ready"
+    log_success "ECR repositories exist"
 }
 
 # Build Docker images
@@ -115,12 +117,12 @@ build_images() {
     
     # Build web app image
     log_info "Building web app image..."
-    docker build -f Dockerfile.ecs -t $WEB_APP_REPO:$IMAGE_TAG .
+    docker build -f "$WEB_APP_DOCKERFILE" -t $WEB_APP_REPO:$IMAGE_TAG .
     docker tag $WEB_APP_REPO:$IMAGE_TAG $ECR_REGISTRY/$WEB_APP_REPO:$IMAGE_TAG
     
     # Build websocket image
     log_info "Building websocket image..."
-    docker build -f Dockerfile.websocket -t $WEBSOCKET_REPO:$IMAGE_TAG .
+    docker build -f "$WEBSOCKET_DOCKERFILE" -t $WEBSOCKET_REPO:$IMAGE_TAG .
     docker tag $WEBSOCKET_REPO:$IMAGE_TAG $ECR_REGISTRY/$WEBSOCKET_REPO:$IMAGE_TAG
     
     log_success "Docker images built successfully"
@@ -143,44 +145,20 @@ push_images() {
 
 # Update ECS task definitions
 update_task_definitions() {
-    log_info "Updating ECS task definitions..."
-    
-    # Update web app task definition
-    log_info "Updating web app task definition..."
-    sed "s/ACCOUNT_ID/$AWS_ACCOUNT_ID/g; s/REGION/$AWS_REGION/g" \
-        ecs-task-definitions/web-app-task.json > /tmp/web-app-task.json
-    
-    aws ecs register-task-definition \
-        --cli-input-json file:///tmp/web-app-task.json \
-        --region $AWS_REGION
-    
-    # Update websocket task definition
-    log_info "Updating websocket task definition..."
-    sed "s/ACCOUNT_ID/$AWS_ACCOUNT_ID/g; s/REGION/$AWS_REGION/g" \
-        ecs-task-definitions/websocket-task.json > /tmp/websocket-task.json
-    
-    aws ecs register-task-definition \
-        --cli-input-json file:///tmp/websocket-task.json \
-        --region $AWS_REGION
-    
-    # Clean up temporary files
-    rm -f /tmp/web-app-task.json /tmp/websocket-task.json
-    
-    log_success "Task definitions updated"
+    log_info "Skipping task definition registration; Terraform owns ECS task definitions"
 }
 
 # Update ECS services
 update_services() {
     log_info "Updating ECS services..."
     
-    CLUSTER_NAME="directfanz-cluster"
+    CLUSTER_NAME="${ECS_CLUSTER_NAME:-directfanz-cluster}"
     
     # Update web app service
     log_info "Updating web app service..."
     aws ecs update-service \
         --cluster $CLUSTER_NAME \
         --service directfanz-web \
-        --task-definition directfanz-web-app \
         --region $AWS_REGION \
         --force-new-deployment
     
@@ -189,7 +167,6 @@ update_services() {
     aws ecs update-service \
         --cluster $CLUSTER_NAME \
         --service directfanz-websocket \
-        --task-definition directfanz-websocket \
         --region $AWS_REGION \
         --force-new-deployment
     
@@ -200,7 +177,7 @@ update_services() {
 wait_for_deployment() {
     log_info "Waiting for deployment to complete..."
     
-    CLUSTER_NAME="directfanz-cluster"
+    CLUSTER_NAME="${ECS_CLUSTER_NAME:-directfanz-cluster}"
     
     # Wait for web app service
     log_info "Waiting for web app service deployment..."
@@ -239,7 +216,7 @@ main() {
     
     check_prerequisites
     authenticate_ecr
-    create_ecr_repositories
+    verify_ecr_repositories
     build_images
     push_images
     update_task_definitions

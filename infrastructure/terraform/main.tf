@@ -13,7 +13,7 @@ terraform {
 
 provider "aws" {
   region = var.aws_region
-  
+
   default_tags {
     tags = {
       Project     = var.project_name
@@ -95,9 +95,9 @@ resource "aws_subnet" "database" {
 
 # NAT Gateway
 resource "aws_eip" "nat" {
-  count = length(var.public_subnets)
+  count = var.enable_nat_gateway ? length(var.public_subnets) : 0
 
-  domain = "vpc"
+  domain     = "vpc"
   depends_on = [aws_internet_gateway.main]
 
   tags = {
@@ -106,7 +106,7 @@ resource "aws_eip" "nat" {
 }
 
 resource "aws_nat_gateway" "main" {
-  count = length(var.public_subnets)
+  count = var.enable_nat_gateway ? length(var.public_subnets) : 0
 
   allocation_id = aws_eip.nat[count.index].id
   subnet_id     = aws_subnet.public[count.index].id
@@ -133,7 +133,7 @@ resource "aws_route_table" "public" {
 }
 
 resource "aws_route_table" "private" {
-  count = length(var.private_subnets)
+  count = var.enable_nat_gateway ? length(var.private_subnets) : 0
 
   vpc_id = aws_vpc.main.id
 
@@ -156,7 +156,7 @@ resource "aws_route_table_association" "public" {
 }
 
 resource "aws_route_table_association" "private" {
-  count = length(var.private_subnets)
+  count = var.enable_nat_gateway ? length(var.private_subnets) : 0
 
   subnet_id      = aws_subnet.private[count.index].id
   route_table_id = aws_route_table.private[count.index].id
@@ -200,6 +200,13 @@ resource "aws_security_group" "ecs_tasks" {
   ingress {
     from_port       = var.app_port
     to_port         = var.app_port
+    protocol        = "tcp"
+    security_groups = [aws_security_group.alb.id]
+  }
+
+  ingress {
+    from_port       = var.websocket_port
+    to_port         = var.websocket_port
     protocol        = "tcp"
     security_groups = [aws_security_group.alb.id]
   }

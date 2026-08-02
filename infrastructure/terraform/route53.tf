@@ -66,7 +66,7 @@ resource "aws_route53_record" "cdn" {
 # Health check for main domain
 resource "aws_route53_health_check" "main" {
   fqdn                    = var.domain_name
-  port                    = 80  # Use HTTP port since we don't have SSL yet
+  port                    = 80 # Use HTTP port since we don't have SSL yet
   type                    = "HTTP"
   resource_path           = "/api/health"
   failure_threshold       = "3"

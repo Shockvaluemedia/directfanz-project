@@ -1,349 +1,311 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getToken } from 'next-auth/jwt';
-import { UserRole } from '@/types/database';
-import { AuthenticatedRequest, withApiAuth } from '@/lib/api-auth';
-import { hasPermission, Permission } from '@/lib/rbac';
+/**
+ * Streaming Authentication Service
+ * 
+ * Handles HLS playback URL generation with adaptive bitrate streaming
+ * and access control for live streams.
+ * Requirements: 7.3, 7.4
+ */
 
-// Streaming-specific permissions
-export const STREAMING_PERMISSIONS = {
-  // Artist streaming permissions
-  'artist:stream:create': 'Create live streams',
-  'artist:stream:start': 'Start live streams',
-  'artist:stream:stop': 'Stop live streams',
-  'artist:stream:delete': 'Delete streams',
-  'artist:stream:settings': 'Modify stream settings',
-  'artist:stream:analytics': 'View stream analytics',
-  
-  // Fan streaming permissions
-  'fan:stream:view': 'View live streams',
-  'fan:stream:chat': 'Participate in stream chat',
-  'fan:stream:subscribe': 'Subscribe to stream notifications',
-  
-  // VOD permissions
-  'artist:vod:create': 'Create VOD content',
-  'artist:vod:manage': 'Manage VOD content',
-  'fan:vod:view': 'View VOD content',
-} as const;
+import { createHash, createHmac } from 'crypto';
 
-export type StreamingPermission = keyof typeof STREAMING_PERMISSIONS;
-
-// Extended RBAC permissions for streaming
-export const STREAMING_ROLE_PERMISSIONS = {
-  ARTIST: [
-    'artist:stream:create',
-    'artist:stream:start',
-    'artist:stream:stop',
-    'artist:stream:delete',
-    'artist:stream:settings',
-    'artist:stream:analytics',
-    'artist:vod:create',
-    'artist:vod:manage',
-    'fan:stream:view', // Artists can also view streams
-    'fan:vod:view', // Artists can also view VOD
-  ],
-  FAN: [
-    'fan:stream:view',
-    'fan:stream:chat',
-    'fan:stream:subscribe',
-    'fan:vod:view',
-  ],
-} as const;
-
-// Check if a role has streaming permission
-export function hasStreamingPermission(role: UserRole, permission: StreamingPermission): boolean {
-  const rolePermissions = STREAMING_ROLE_PERMISSIONS[role as keyof typeof STREAMING_ROLE_PERMISSIONS];
-  if (!rolePermissions) return false;
-  return (rolePermissions as readonly string[]).includes(permission);
+// Types
+export interface StreamConfig {
+  channelArn: string;
+  playbackUrl: string;
+  cdnDomain?: string;
+  recordingEnabled: boolean;
+  maxViewers?: number;
 }
 
-// Stream access control interface
-export interface StreamAccessRequest {
-  streamId: string;
-  userId: string;
-  userRole: UserRole;
-  action: 'view' | 'create' | 'manage' | 'chat';
+export interface PlaybackOptions {
+  quality?: 'auto' | '1080p' | '720p' | '480p' | '360p';
+  startTime?: number;
+  userId?: string;
+  subscriptionTier?: string;
+  accessToken?: string;
 }
 
-// Check if user can access a specific stream
-export async function checkStreamAccess(request: StreamAccessRequest): Promise<boolean> {
-  const { streamId, userId, userRole, action } = request;
+export interface StreamAccess {
+  hasAccess: boolean;
+  reason?: string;
+  allowedQualities: string[];
+  expiresAt?: number;
+}
 
-  try {
-    // Define required permissions for each action
-    const actionPermissions: Record<string, StreamingPermission[]> = {
-      view: ['fan:stream:view'],
-      create: ['artist:stream:create'],
-      manage: ['artist:stream:start', 'artist:stream:stop', 'artist:stream:settings'],
-      chat: ['fan:stream:chat'],
-    };
+export interface AdaptiveBitrateConfig {
+  qualities: Array<{
+    name: string;
+    width: number;
+    height: number;
+    bitrate: number;
+    enabled: boolean;
+  }>;
+  defaultQuality: string;
+  adaptationEnabled: boolean;
+}
 
-    const requiredPermissions = actionPermissions[action];
-    if (!requiredPermissions) {
-      return false;
-    }
+// Constants
+const STREAM_SECRET = process.env.STREAM_SECRET || 'default-stream-secret';
+const DEFAULT_TOKEN_EXPIRY = 3600; // 1 hour
+const QUALITY_LEVELS = [
+  { name: '1080p', width: 1920, height: 1080, bitrate: 5000000 },
+  { name: '720p', width: 1280, height: 720, bitrate: 3000000 },
+  { name: '480p', width: 854, height: 480, bitrate: 1500000 },
+  { name: '360p', width: 640, height: 360, bitrate: 800000 },
+];
 
-    // Check if user has any of the required permissions
-    const hasAnyPermission = requiredPermissions.some(permission => 
-      hasStreamingPermission(userRole, permission)
-    );
+class StreamingAuthService {
+  private streamConfigs = new Map<string, StreamConfig>();
+  private activeStreams = new Map<string, { viewers: number; startedAt: number }>();
 
-    if (!hasAnyPermission) {
-      return false;
-    }
-
-    // Additional checks for specific actions
-    if (action === 'create' || action === 'manage') {
-      // Only artists can create/manage streams
-      if (userRole !== UserRole.ARTIST) {
-        return false;
-      }
-
-      // TODO: Add database check to verify stream ownership
-      // For now, we'll assume the artist owns the stream if they have the permission
-    }
-
-    if (action === 'view') {
-      // TODO: Add subscription/tier checks for private streams
-      // For now, we'll allow viewing if user has the permission
-    }
-
-    return true;
-  } catch (error) {
-    console.error('Stream access check error:', error);
-    return false;
+  // Stream configuration
+  registerStream(streamId: string, config: StreamConfig): void {
+    this.streamConfigs.set(streamId, config);
   }
-}
 
-// Middleware for streaming endpoints
-export async function withStreamingAuth<T = any>(
-  request: NextRequest,
-  requiredPermissions: StreamingPermission[],
-  handler: (req: AuthenticatedRequest) => Promise<NextResponse<T>>
-): Promise<NextResponse<T>> {
-  return withApiAuth(request, async req => {
-    // Check if user has required streaming permissions
-    const hasRequiredPermissions = requiredPermissions.every(permission =>
-      hasStreamingPermission(req.user.role, permission)
-    );
+  getStreamConfig(streamId: string): StreamConfig | null {
+    return this.streamConfigs.get(streamId) || null;
+  }
 
-    if (!hasRequiredPermissions) {
-      return NextResponse.json(
-        {
-          error: 'Insufficient streaming permissions',
-          details: 'Required streaming permissions not met',
-        },
-        { status: 403 }
-      ) as NextResponse<T>;
+  // Access control
+  async checkStreamAccess(streamId: string, userId?: string, subscriptionTier?: string): Promise<StreamAccess> {
+    const config = this.getStreamConfig(streamId);
+    if (!config) {
+      return { hasAccess: false, reason: 'Stream not found', allowedQualities: [] };
     }
 
-    return await handler(req);
-  });
-}
-
-// Artist streaming middleware
-export async function withArtistStreaming<T = any>(
-  request: NextRequest,
-  handler: (req: AuthenticatedRequest) => Promise<NextResponse<T>>
-): Promise<NextResponse<T>> {
-  return withStreamingAuth(request, ['artist:stream:create'], handler);
-}
-
-// Fan streaming middleware
-export async function withFanStreaming<T = any>(
-  request: NextRequest,
-  handler: (req: AuthenticatedRequest) => Promise<NextResponse<T>>
-): Promise<NextResponse<T>> {
-  return withStreamingAuth(request, ['fan:stream:view'], handler);
-}
-
-// Stream management middleware (for stream owners)
-export async function withStreamManagement<T = any>(
-  request: NextRequest,
-  handler: (req: AuthenticatedRequest & { streamId: string }) => Promise<NextResponse<T>>
-): Promise<NextResponse<T>> {
-  return withStreamingAuth(request, ['artist:stream:settings'], async req => {
-    // Extract stream ID from URL or request body
-    const url = new URL(request.url);
-    const streamId = url.pathname.split('/').pop() || '';
-
-    if (!streamId) {
-      return NextResponse.json(
-        { error: 'Stream ID required' },
-        { status: 400 }
-      ) as NextResponse<T>;
+    // Check if stream is live
+    const isLive = this.activeStreams.has(streamId);
+    if (!isLive) {
+      return { hasAccess: false, reason: 'Stream is not live', allowedQualities: [] };
     }
 
-    // TODO: Verify stream ownership
-    // For now, we'll trust that the authenticated artist owns the stream
+    // Check viewer limit
+    const streamInfo = this.activeStreams.get(streamId)!;
+    if (config.maxViewers && streamInfo.viewers >= config.maxViewers) {
+      return { hasAccess: false, reason: 'Stream at capacity', allowedQualities: [] };
+    }
 
-    const extendedReq = req as AuthenticatedRequest & { streamId: string };
-    extendedReq.streamId = streamId;
+    // Determine allowed qualities based on subscription tier
+    const allowedQualities = this.getAllowedQualities(subscriptionTier);
 
-    return await handler(extendedReq);
-  });
-}
+    return {
+      hasAccess: true,
+      allowedQualities,
+      expiresAt: Date.now() + (DEFAULT_TOKEN_EXPIRY * 1000),
+    };
+  }
 
-// Generate signed URLs for MediaStore access
-export async function generateStreamAccessUrl(
-  streamId: string,
-  userId: string,
-  userRole: UserRole,
-  expirationMinutes: number = 60
-): Promise<string | null> {
-  try {
-    // Check if user can access the stream
-    const canAccess = await checkStreamAccess({
-      streamId,
-      userId,
-      userRole,
-      action: 'view'
+  private getAllowedQualities(subscriptionTier?: string): string[] {
+    switch (subscriptionTier) {
+      case 'premium':
+        return ['1080p', '720p', '480p', '360p'];
+      case 'standard':
+        return ['720p', '480p', '360p'];
+      case 'basic':
+        return ['480p', '360p'];
+      default:
+        return ['360p']; // Free tier
+    }
+  }
+
+  // Playback URL generation
+  generatePlaybackUrl(streamId: string, options: PlaybackOptions = {}): string | null {
+    const config = this.getStreamConfig(streamId);
+    if (!config) return null;
+
+    const baseUrl = config.cdnDomain 
+      ? `https://${config.cdnDomain}`
+      : config.playbackUrl;
+
+    // Generate signed URL with access token
+    const token = this.generateAccessToken(streamId, options);
+    const params = new URLSearchParams({
+      token,
+      ...(options.quality && { quality: options.quality }),
+      ...(options.startTime && { t: options.startTime.toString() }),
     });
 
-    if (!canAccess) {
+    return `${baseUrl}/playlist.m3u8?${params.toString()}`;
+  }
+
+  private generateAccessToken(streamId: string, options: PlaybackOptions): string {
+    const payload = {
+      streamId,
+      userId: options.userId,
+      subscriptionTier: options.subscriptionTier,
+      quality: options.quality || 'auto',
+      iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + DEFAULT_TOKEN_EXPIRY,
+    };
+
+    const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+    const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
+    const signature = createHmac('sha256', STREAM_SECRET)
+      .update(`${header}.${body}`)
+      .digest('base64url');
+
+    return `${header}.${body}.${signature}`;
+  }
+
+  // Adaptive bitrate configuration
+  getAdaptiveBitrateConfig(subscriptionTier?: string): AdaptiveBitrateConfig {
+    const allowedQualities = this.getAllowedQualities(subscriptionTier);
+    
+    return {
+      qualities: QUALITY_LEVELS.map(level => ({
+        ...level,
+        enabled: allowedQualities.includes(level.name),
+      })),
+      defaultQuality: allowedQualities[0] || '360p',
+      adaptationEnabled: allowedQualities.length > 1,
+    };
+  }
+
+  // Stream lifecycle management
+  startStream(streamId: string): void {
+    this.activeStreams.set(streamId, {
+      viewers: 0,
+      startedAt: Date.now(),
+    });
+  }
+
+  stopStream(streamId: string): void {
+    this.activeStreams.delete(streamId);
+  }
+
+  addViewer(streamId: string): boolean {
+    const streamInfo = this.activeStreams.get(streamId);
+    if (!streamInfo) return false;
+
+    const config = this.getStreamConfig(streamId);
+    if (config?.maxViewers && streamInfo.viewers >= config.maxViewers) {
+      return false;
+    }
+
+    streamInfo.viewers++;
+    return true;
+  }
+
+  removeViewer(streamId: string): void {
+    const streamInfo = this.activeStreams.get(streamId);
+    if (streamInfo && streamInfo.viewers > 0) {
+      streamInfo.viewers--;
+    }
+  }
+
+  getStreamStats(streamId: string): { viewers: number; duration: number } | null {
+    const streamInfo = this.activeStreams.get(streamId);
+    if (!streamInfo) return null;
+
+    return {
+      viewers: streamInfo.viewers,
+      duration: Date.now() - streamInfo.startedAt,
+    };
+  }
+
+  // Quality selection helpers
+  selectOptimalQuality(availableBandwidth: number, allowedQualities: string[]): string {
+    // Sort qualities by bitrate (descending)
+    const sortedQualities = QUALITY_LEVELS
+      .filter(q => allowedQualities.includes(q.name))
+      .sort((a, b) => b.bitrate - a.bitrate);
+
+    // Select highest quality that fits bandwidth
+    for (const quality of sortedQualities) {
+      if (quality.bitrate <= availableBandwidth * 0.8) { // 80% of bandwidth
+        return quality.name;
+      }
+    }
+
+    // Fallback to lowest quality
+    return sortedQualities[sortedQualities.length - 1]?.name || '360p';
+  }
+
+  // Network quality detection
+  detectNetworkQuality(rtt: number, bandwidth: number, packetLoss: number): 'excellent' | 'good' | 'fair' | 'poor' {
+    if (rtt < 50 && bandwidth > 5000000 && packetLoss < 0.01) {
+      return 'excellent';
+    } else if (rtt < 100 && bandwidth > 2000000 && packetLoss < 0.02) {
+      return 'good';
+    } else if (rtt < 200 && bandwidth > 1000000 && packetLoss < 0.05) {
+      return 'fair';
+    } else {
+      return 'poor';
+    }
+  }
+
+  getRecommendedQuality(networkQuality: 'excellent' | 'good' | 'fair' | 'poor', allowedQualities: string[]): string {
+    const qualityMap = {
+      excellent: '1080p',
+      good: '720p',
+      fair: '480p',
+      poor: '360p',
+    };
+
+    const recommended = qualityMap[networkQuality];
+    return allowedQualities.includes(recommended) ? recommended : allowedQualities[allowedQualities.length - 1];
+  }
+
+  // URL validation
+  validatePlaybackUrl(url: string): { valid: boolean; streamId?: string; error?: string } {
+    try {
+      const urlObj = new URL(url);
+      const token = urlObj.searchParams.get('token');
+      
+      if (!token) {
+        return { valid: false, error: 'Missing access token' };
+      }
+
+      const decoded = this.verifyAccessToken(token);
+      if (!decoded) {
+        return { valid: false, error: 'Invalid access token' };
+      }
+
+      return { valid: true, streamId: decoded.streamId };
+    } catch (error) {
+      return { valid: false, error: 'Invalid URL format' };
+    }
+  }
+
+  private verifyAccessToken(token: string): any {
+    try {
+      const [header, payload, signature] = token.split('.');
+      
+      const expectedSignature = createHmac('sha256', STREAM_SECRET)
+        .update(`${header}.${payload}`)
+        .digest('base64url');
+
+      if (signature !== expectedSignature) {
+        return null;
+      }
+
+      const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString());
+      
+      // Check expiration
+      if (decoded.exp < Math.floor(Date.now() / 1000)) {
+        return null;
+      }
+
+      return decoded;
+    } catch {
       return null;
     }
+  }
 
-    // Generate MediaStore signed URL
-    const mediaStoreEndpoint = process.env.MEDIASTORE_ENDPOINT;
-    if (!mediaStoreEndpoint) {
-      throw new Error('MediaStore endpoint not configured');
+  // Cleanup
+  cleanup(): void {
+    // Remove expired streams
+    const now = Date.now();
+    for (const [streamId, info] of this.activeStreams) {
+      // Remove streams inactive for more than 1 hour
+      if (now - info.startedAt > 3600000) {
+        this.activeStreams.delete(streamId);
+      }
     }
-
-    // For now, return the direct URL
-    // In production, this would generate a signed URL with expiration
-    const streamUrl = `${mediaStoreEndpoint}/live/${streamId}/index.m3u8`;
-    
-    // TODO: Implement actual signed URL generation with AWS SDK
-    // This would involve creating a signed URL with expiration time
-    
-    return streamUrl;
-  } catch (error) {
-    console.error('Error generating stream access URL:', error);
-    return null;
   }
 }
 
-// Validate stream key for MediaLive input
-export async function validateStreamKey(
-  streamKey: string,
-  userId: string
-): Promise<boolean> {
-  try {
-    // TODO: Implement stream key validation
-    // This would check if the stream key belongs to the user
-    // and is valid for starting a stream
-    
-    // For now, we'll do basic validation
-    if (!streamKey || streamKey.length < 10) {
-      return false;
-    }
-
-    // Check if stream key format is valid (should be UUID-like)
-    const streamKeyRegex = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
-    if (!streamKeyRegex.test(streamKey)) {
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error('Stream key validation error:', error);
-    return false;
-  }
-}
-
-// Stream session management
-export interface StreamSession {
-  streamId: string;
-  userId: string;
-  streamKey: string;
-  mediaLiveChannelId: string;
-  status: 'idle' | 'starting' | 'running' | 'stopping' | 'stopped';
-  startedAt?: Date;
-  endedAt?: Date;
-  viewerCount: number;
-}
-
-// Create a new stream session
-export async function createStreamSession(
-  userId: string,
-  streamTitle: string,
-  streamDescription?: string
-): Promise<StreamSession | null> {
-  try {
-    // TODO: Implement database operations to create stream session
-    // This would create a new stream record in the database
-    
-    const streamId = crypto.randomUUID();
-    const streamKey = crypto.randomUUID();
-    
-    const session: StreamSession = {
-      streamId,
-      userId,
-      streamKey,
-      mediaLiveChannelId: process.env.MEDIALIVE_CHANNEL_ID || '',
-      status: 'idle',
-      viewerCount: 0,
-    };
-
-    return session;
-  } catch (error) {
-    console.error('Error creating stream session:', error);
-    return null;
-  }
-}
-
-// Update stream session status
-export async function updateStreamStatus(
-  streamId: string,
-  status: StreamSession['status']
-): Promise<boolean> {
-  try {
-    // TODO: Implement database update for stream status
-    console.log(`Updating stream ${streamId} status to ${status}`);
-    return true;
-  } catch (error) {
-    console.error('Error updating stream status:', error);
-    return false;
-  }
-}
-
-// Get active streams for a user
-export async function getUserActiveStreams(userId: string): Promise<StreamSession[]> {
-  try {
-    // TODO: Implement database query for user's active streams
-    return [];
-  } catch (error) {
-    console.error('Error getting user active streams:', error);
-    return [];
-  }
-}
-
-// Stream analytics and metrics
-export interface StreamMetrics {
-  streamId: string;
-  viewerCount: number;
-  peakViewers: number;
-  totalViews: number;
-  duration: number; // in seconds
-  chatMessages: number;
-  likes: number;
-}
-
-// Get stream metrics
-export async function getStreamMetrics(streamId: string): Promise<StreamMetrics | null> {
-  try {
-    // TODO: Implement metrics collection from CloudWatch and database
-    return {
-      streamId,
-      viewerCount: 0,
-      peakViewers: 0,
-      totalViews: 0,
-      duration: 0,
-      chatMessages: 0,
-      likes: 0,
-    };
-  } catch (error) {
-    console.error('Error getting stream metrics:', error);
-    return null;
-  }
-}
+// Export singleton instance
+export const streamingAuthService = new StreamingAuthService();
+export default streamingAuthService;

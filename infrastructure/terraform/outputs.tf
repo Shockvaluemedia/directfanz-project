@@ -92,9 +92,14 @@ output "ecs_cluster_name" {
   value       = aws_ecs_cluster.main.name
 }
 
-output "ecr_web_app_repository_url" {
+output "ecr_web_repository_url" {
   description = "ECR repository URL for web app"
-  value       = aws_ecr_repository.web_app.repository_url
+  value       = aws_ecr_repository.web.repository_url
+}
+
+output "ecr_websocket_repository_url" {
+  description = "ECR repository URL for websocket service"
+  value       = aws_ecr_repository.websocket.repository_url
 }
 
 # SSL Certificate Outputs (commented out until certificates are deployed)
@@ -114,10 +119,10 @@ output "ssl_certificate_status" {
 output "domain_urls" {
   description = "All configured domain URLs"
   value = {
-    main_domain    = "http://${var.domain_name}"  # HTTP until SSL is configured
-    www_domain     = "http://www.${var.domain_name}"
-    api_domain     = "http://api.${var.domain_name}"
-    alb_url        = "http://${aws_lb.main.dns_name}"
+    main_domain = "http://${var.domain_name}" # HTTP until SSL is configured
+    www_domain  = "http://www.${var.domain_name}"
+    api_domain  = "http://api.${var.domain_name}"
+    alb_url     = "http://${aws_lb.main.dns_name}"
   }
 }
 
