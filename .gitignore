@@ -10,11 +10,11 @@ out/
 build/
 
 # Environment variables
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env*
+!.env.example
+!.env.*.example
+!.env.*.template
+!.env.*.sample
 
 # Testing
 coverage/
@@ -91,15 +91,6 @@ temp/
 public/uploads/content/
 public/uploads/temp/
 !public/uploads/.gitkeep
-.env.local.backup
-.env.backup
-.env.local.save
-.env.staging
-.env.production.secrets
-.env.production.backup
-.env.production.vercel
-.env.amplify
-.env.vercel
 security-backup-*/
 ~/
 
