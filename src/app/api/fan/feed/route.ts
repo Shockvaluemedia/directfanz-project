@@ -258,7 +258,13 @@ export async function GET(request: NextRequest) {
           title: item.title,
           description: item.description,
           type: item.type as 'AUDIO' | 'VIDEO' | 'IMAGE' | 'DOCUMENT',
-          fileUrl: item.fileUrl,
+          // The raw storage URL is public and permanent; gated items only get
+          // the access-checked app URLs.
+          ...(item.visibility === 'PUBLIC' || item.users.id === session.user.id
+            ? { fileUrl: item.fileUrl }
+            : {}),
+          streamUrl: `/api/content/${item.id}/stream`,
+          downloadUrl: `/api/content/${item.id}/download`,
           thumbnailUrl: item.thumbnailUrl,
           fileSize: item.fileSize,
           format: item.format,

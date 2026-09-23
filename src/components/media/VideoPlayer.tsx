@@ -236,7 +236,8 @@ export function VideoPlayer({
           playsInline
           onClick={togglePlay}
         >
-          <source src={src} type='video/mp4' />
+          {/* No hard-coded type: the gated stream route sets the real Content-Type. */}
+          <source src={src} />
           Your browser does not support the video tag.
         </video>
 

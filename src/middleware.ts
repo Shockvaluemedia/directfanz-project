@@ -46,6 +46,11 @@ const contentRateLimiter = new AdaptiveRateLimiter({
   maxViolations: 3,
 });
 
+// Media playback issues many small Range requests (seeking, chunked loading),
+// which the strict content limiter would treat as a burst. Stream/download are
+// already gated by session + subscription checks; they use the general limiter.
+const MEDIA_ROUTE = /^\/api\/content\/[^/]+\/(stream|download)$/;
+
 export async function middleware(request: NextRequest) {
   const requestId = generateRequestId();
   const startTime = Date.now();
@@ -179,7 +184,7 @@ export async function middleware(request: NextRequest) {
 
   if (url.startsWith('/api/auth/')) {
     rateLimitResult = authRateLimiter.checkRequest(request);
-  } else if (url.startsWith('/api/content/')) {
+  } else if (url.startsWith('/api/content/') && !MEDIA_ROUTE.test(url)) {
     rateLimitResult = contentRateLimiter.checkRequest(request);
   } else {
     rateLimitResult = apiRateLimiter.checkRequest(request);

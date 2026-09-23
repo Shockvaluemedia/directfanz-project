@@ -21,7 +21,8 @@ interface ContentItem {
   title: string;
   description: string | null;
   type: 'AUDIO' | 'VIDEO' | 'IMAGE' | 'DOCUMENT';
-  fileUrl: string;
+  fileUrl?: string;
+  streamUrl?: string;
   thumbnailUrl: string | null;
   fileSize: number;
   format: string;

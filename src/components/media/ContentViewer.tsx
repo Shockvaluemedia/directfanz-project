@@ -18,9 +18,13 @@ interface ContentData {
   title: string;
   description?: string;
   type: string;
-  fileUrl: string;
+  /** Access-checked app URLs; present when the viewer may play the media. */
+  streamUrl?: string;
+  downloadUrl?: string;
+  /** Raw storage URL, only sent for public content or to the owner. */
+  fileUrl?: string;
   thumbnailUrl?: string;
-  visibility: 'PUBLIC' | 'TIER_LOCKED' | 'PRIVATE';
+  visibility: string;
   tags: string[];
   createdAt: string;
   totalViews: number;
@@ -38,6 +42,47 @@ interface ContentData {
   likes?: number;
   hasLiked?: boolean;
   commentsCount?: number;
+  /** Decided by the server; false renders the paywall. */
+  hasAccess?: boolean;
+}
+
+// GET /api/content/[id] answers { success, data } with Prisma's `users` and
+// `tiers[].minimumPrice`; the viewer speaks `artist` and `tiers[].price`.
+function toContentData(raw: any): ContentData {
+  const tiers = Array.isArray(raw.tiers)
+    ? raw.tiers.map((tier: any) => ({
+        id: tier.id,
+        name: tier.name,
+        price: Number(tier.price ?? tier.minimumPrice ?? 0),
+        description: tier.description ?? undefined,
+      }))
+    : [];
+  const artist = raw.artist ?? {
+    id: raw.users?.id ?? raw.artistId ?? '',
+    name: raw.users?.displayName ?? 'Artist',
+    profileImage: raw.users?.avatar ?? undefined,
+  };
+
+  return {
+    id: raw.id,
+    title: raw.title,
+    description: raw.description ?? undefined,
+    type: raw.type ?? '',
+    streamUrl: raw.streamUrl,
+    downloadUrl: raw.downloadUrl,
+    fileUrl: raw.fileUrl,
+    thumbnailUrl: raw.thumbnailUrl ?? undefined,
+    visibility: raw.visibility ?? 'PUBLIC',
+    tags: Array.isArray(raw.tags) ? raw.tags : [],
+    createdAt: raw.createdAt,
+    totalViews: raw.totalViews ?? 0,
+    tiers,
+    artist,
+    likes: raw.likes ?? raw.totalLikes,
+    hasLiked: raw.hasLiked,
+    commentsCount: raw.commentsCount ?? (Array.isArray(raw.comments) ? raw.comments.length : undefined),
+    hasAccess: raw.hasAccess ?? Boolean(raw.streamUrl || raw.fileUrl),
+  };
 }
 
 export function ContentViewer({ contentId, className, onSubscribe }: ContentViewerProps) {
@@ -55,8 +100,8 @@ export function ContentViewer({ contentId, className, onSubscribe }: ContentView
       if (!response.ok) {
         throw new Error('Failed to fetch content');
       }
-      const data = await response.json();
-      setContent(data);
+      const payload = await response.json();
+      setContent(toContentData(payload.data ?? payload));
     } catch (error) {
       setError(error instanceof Error ? error.message : 'An error occurred');
     } finally {
@@ -66,6 +111,11 @@ export function ContentViewer({ contentId, className, onSubscribe }: ContentView
 
   const renderMediaPlayer = (hasAccess: boolean, content: ContentData) => {
     if (!hasAccess) return null;
+
+    // Always play through the gated app URL; the raw storage URL, even when
+    // present, is never what the media element should be given.
+    const mediaSrc = content.streamUrl ?? `/api/content/${content.id}/stream`;
+    const downloadHref = content.downloadUrl ?? `/api/content/${content.id}/download`;
 
     const commonProps = {
       contentId: content.id,
@@ -77,14 +127,14 @@ export function ContentViewer({ contentId, className, onSubscribe }: ContentView
     const contentType = content.type.toLowerCase();
 
     if (contentType.startsWith('video') || contentType === 'video') {
-      return <VideoPlayer {...commonProps} src={content.fileUrl} poster={content.thumbnailUrl} />;
+      return <VideoPlayer {...commonProps} src={mediaSrc} poster={content.thumbnailUrl} />;
     }
 
     if (contentType.startsWith('audio') || contentType === 'audio') {
       return (
         <AudioPlayer
           {...commonProps}
-          src={content.fileUrl}
+          src={mediaSrc}
           artist={content.artist.name}
           artwork={content.thumbnailUrl}
         />
@@ -92,7 +142,7 @@ export function ContentViewer({ contentId, className, onSubscribe }: ContentView
     }
 
     if (contentType.startsWith('image') || contentType === 'image') {
-      return <ImageViewer {...commonProps} src={content.fileUrl} alt={content.title} />;
+      return <ImageViewer {...commonProps} src={mediaSrc} alt={content.title} />;
     }
 
     // Fallback for unknown content types
@@ -100,12 +150,7 @@ export function ContentViewer({ contentId, className, onSubscribe }: ContentView
       <div className='aspect-video bg-muted flex items-center justify-center rounded-lg'>
         <div className='text-center'>
           <p className='text-muted-foreground mb-2'>Unsupported content type: {content.type}</p>
-          <a
-            href={content.fileUrl}
-            target='_blank'
-            rel='noopener noreferrer'
-            className='text-primary hover:underline'
-          >
+          <a href={downloadHref} className='text-primary hover:underline'>
             Download file
           </a>
         </div>
@@ -141,7 +186,9 @@ export function ContentViewer({ contentId, className, onSubscribe }: ContentView
       </ContentAccessControl>
 
       {/* Comments Section - only show if content is accessible */}
-      <CommentSystem contentId={content.id} contentOwnerId={content.artist.id} />
+      {content.hasAccess && (
+        <CommentSystem contentId={content.id} contentOwnerId={content.artist.id} />
+      )}
     </div>
   );
 }
