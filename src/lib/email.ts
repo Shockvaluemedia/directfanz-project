@@ -31,6 +31,26 @@ interface WelcomeEmailOptions {
 }
 
 /**
+ * Base URL used to build links in emails. Falls back to NEXTAUTH_URL so a
+ * missing NEXT_PUBLIC_APP_URL never produces an "undefined/..." link.
+ */
+function getAppBaseUrl(): string {
+  const base =
+    process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || 'http://localhost:3000';
+  return base.replace(/\/+$/, '');
+}
+
+/** User-controlled values (display names) must be escaped before entering HTML. */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
  * Send a generic email via SendGrid
  */
 export async function sendEmail(options: EmailOptions): Promise<boolean> {
@@ -58,14 +78,14 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
  * Send password reset email
  */
 export async function sendPasswordResetEmail(options: PasswordResetEmailOptions): Promise<boolean> {
-  const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password?token=${options.resetToken}`;
+  const resetUrl = `${getAppBaseUrl()}/auth/reset-password?token=${encodeURIComponent(options.resetToken)}`;
 
   return sendEmail({
     to: options.email,
     subject: 'Password Reset Request',
     html: `
       <h2>Password Reset Request</h2>
-      <p>Hi ${options.userName},</p>
+      <p>Hi ${escapeHtml(options.userName)},</p>
       <p>You requested a password reset for your account. Click the link below to reset your password:</p>
       <a href="${resetUrl}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Reset Password</a>
       <p>This link will expire in 1 hour.</p>
@@ -79,13 +99,13 @@ export async function sendPasswordResetEmail(options: PasswordResetEmailOptions)
  * Send welcome email to new users
  */
 export async function sendWelcomeEmail(options: WelcomeEmailOptions): Promise<boolean> {
-  const loginUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/login`;
+  const loginUrl = `${getAppBaseUrl()}/auth/login`;
 
   return sendEmail({
     to: options.email,
     subject: `Welcome to ${process.env.NEXT_PUBLIC_APP_NAME || 'Direct Fan Platform'}!`,
     html: `
-      <h2>Welcome ${options.userName}!</h2>
+      <h2>Welcome ${escapeHtml(options.userName)}!</h2>
       <p>Thanks for joining our platform as a ${options.role}.</p>
       ${
         options.role === 'artist'

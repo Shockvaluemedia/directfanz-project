@@ -845,6 +845,8 @@ function createPrismaMock() {
     playlist_items: createMockModel(),
     age_verifications: createMockModel(),
     price_optimizations: createMockModel(),
+    verificationtokens: createMockModel(),
+    refresh_tokens: createMockModel(),
     // Singular aliases (for tests that use singular names)
     user: createMockModel(),
     artist: createMockModel(),
