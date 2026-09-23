@@ -19,7 +19,8 @@ const updateStreamSchema = z.object({
 });
 
 // GET /api/livestream/[streamId] - Get specific stream
-export async function GET(request: NextRequest, { params }: { params: { streamId: string } }) {
+export async function GET(request: NextRequest, props: { params: Promise<{ streamId: string }> }) {
+  const params = await props.params;
   let session: any;
   try {
     session = await getServerSession(authOptions);
@@ -123,7 +124,8 @@ export async function GET(request: NextRequest, { params }: { params: { streamId
 }
 
 // PUT /api/livestream/[streamId] - Update stream
-export async function PUT(request: NextRequest, { params }: { params: { streamId: string } }) {
+export async function PUT(request: NextRequest, props: { params: Promise<{ streamId: string }> }) {
+  const params = await props.params;
   let session: any;
   try {
     session = await getServerSession(authOptions);
@@ -243,7 +245,8 @@ export async function PUT(request: NextRequest, { params }: { params: { streamId
 }
 
 // DELETE /api/livestream/[streamId] - Delete stream
-export async function DELETE(request: NextRequest, { params }: { params: { streamId: string } }) {
+export async function DELETE(request: NextRequest, props: { params: Promise<{ streamId: string }> }) {
+  const params = await props.params;
   let session: any;
   try {
     session = await getServerSession(authOptions);

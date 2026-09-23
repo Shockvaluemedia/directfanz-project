@@ -2,9 +2,9 @@ import { ContentViewer } from '@/components/media/ContentViewer';
 import { redirect } from 'next/navigation';
 
 interface ContentPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export const metadata = {
@@ -12,7 +12,8 @@ export const metadata = {
   description: 'View exclusive content from your favorite artists',
 };
 
-export default function ContentPage({ params }: ContentPageProps) {
+export default async function ContentPage(props: ContentPageProps) {
+  const params = await props.params;
   const { id } = params;
 
   const handleSubscribe = (tierId: string) => {

@@ -5,7 +5,8 @@ import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
 // GET /api/challenges/[challengeId]/leaderboard - Get challenge leaderboard
-export async function GET(request: NextRequest, { params }: { params: { challengeId: string } }) {
+export async function GET(request: NextRequest, props: { params: Promise<{ challengeId: string }> }) {
+  const params = await props.params;
   let session: any;
   try {
     session = await getServerSession(authOptions);
@@ -155,7 +156,8 @@ export async function GET(request: NextRequest, { params }: { params: { challeng
 }
 
 // POST /api/challenges/[challengeId]/leaderboard/refresh - Recalculate leaderboard
-export async function POST(request: NextRequest, { params }: { params: { challengeId: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ challengeId: string }> }) {
+  const params = await props.params;
   let session: any;
   try {
     session = await getServerSession(authOptions);

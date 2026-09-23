@@ -17,7 +17,8 @@ const createSubmissionSchema = z.object({
 });
 
 // GET /api/challenges/[challengeId]/submissions - List submissions for challenge
-export async function GET(request: NextRequest, { params }: { params: { challengeId: string } }) {
+export async function GET(request: NextRequest, props: { params: Promise<{ challengeId: string }> }) {
+  const params = await props.params;
   let session: any;
   try {
     session = await getServerSession(authOptions);
@@ -123,7 +124,8 @@ export async function GET(request: NextRequest, { params }: { params: { challeng
 }
 
 // POST /api/challenges/[challengeId]/submissions - Create new submission
-export async function POST(request: NextRequest, { params }: { params: { challengeId: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ challengeId: string }> }) {
+  const params = await props.params;
   let session: any;
   try {
     session = await getServerSession(authOptions);

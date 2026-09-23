@@ -5,7 +5,8 @@ import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
 // POST /api/campaigns/[id]/join - Join a campaign
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   let session: any;
   try {
     session = await getServerSession(authOptions);
@@ -141,7 +142,8 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 }
 
 // DELETE /api/campaigns/[id]/join - Leave a campaign
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   let session: any;
   try {
     const { id: campaignId } = params;

@@ -51,7 +51,7 @@ export async function middleware(request: NextRequest) {
   const startTime = Date.now();
   const url = request.nextUrl.pathname;
   const method = request.method;
-  const ip = request.ip || request.headers.get('x-forwarded-for') || 'unknown';
+  const ip = request.headers.get('x-forwarded-for') || 'unknown';
   const userAgent = request.headers.get('user-agent') || 'unknown';
   const origin = request.headers.get('origin') || 'unknown';
 

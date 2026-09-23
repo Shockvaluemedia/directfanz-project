@@ -49,7 +49,7 @@ export const createRequestContext = (
     requestId: generateRequestId(),
     userId,
     userRole,
-    ip: request.ip || request.headers.get('x-forwarded-for') || 'unknown',
+    ip: request.headers.get('x-forwarded-for') || 'unknown',
     userAgent: request.headers.get('user-agent') || 'unknown',
     method: request.method,
     url: request.url,
@@ -194,18 +194,31 @@ export const normalizeError = (error: unknown, context: RequestContext): AppErro
   );
 };
 
+/**
+ * Next invokes route handlers as `(request, { params })`. The request is passed
+ * to the handler explicitly, followed by Next's route context, so the wrapper
+ * never forwards the route-context object in place of the request.
+ */
+export interface RouteHandlerContext {
+  params: Promise<Record<string, string | string[] | undefined>>;
+}
+
 // API route wrapper with error handling
-export const withErrorHandling = <T extends any[], R>(
-  handler: (context: RequestContext, ...args: T) => Promise<R>
+export const withErrorHandling = <R>(
+  handler: (
+    context: RequestContext,
+    request: NextRequest,
+    routeContext: RouteHandlerContext
+  ) => Promise<R>
 ) => {
-  return async (request: NextRequest, ...args: T): Promise<NextResponse> => {
+  return async (request: NextRequest, routeContext: RouteHandlerContext): Promise<NextResponse> => {
     const context = createRequestContext(request);
     const logContext = toLogContext(context);
 
     try {
       logger.info(`API Request started`, logContext);
 
-      const result = await handler(context, ...args);
+      const result = await handler(context, request, routeContext);
 
       const duration = Date.now() - context.startTime;
       logger.apiRequest(context.method, context.url, 200, duration, logContext);

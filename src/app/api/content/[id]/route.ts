@@ -14,7 +14,8 @@ const updateSchema = z.object({
 });
 
 // GET /api/content/[id] - Get single content item
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   return withApi(request, async req => {
     try {
       const contentId = params.id;
@@ -115,7 +116,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 }
 
 // PUT /api/content/[id] - Update content
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   return withApi(request, async req => {
     try {
       const contentId = params.id;
@@ -257,7 +259,8 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 }
 
 // DELETE /api/content/[id] - Delete content
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   return withApi(request, async req => {
     try {
       const contentId = params.id;

@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withApi } from '@/lib/api-auth';
 import { prisma } from '@/lib/prisma';
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   return withApi(request, async req => {
     try {
       const contentId = params.id;
@@ -95,7 +96,8 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   });
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   return withApi(request, async req => {
     try {
       const contentId = params.id;

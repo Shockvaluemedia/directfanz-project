@@ -244,7 +244,7 @@ export const createRateLimiter = (config: Partial<RateLimitConfig> = {}) => {
   const options: RateLimitConfig = { ...defaultRateLimitConfig, ...config };
 
   return (request: NextRequest, key?: string): { limited: boolean; response?: NextResponse } => {
-    const ip = request.ip || request.headers.get('x-forwarded-for') || 'unknown';
+    const ip = request.headers.get('x-forwarded-for') || 'unknown';
     const limitKey = key || `${ip}:${request.nextUrl.pathname}`;
     const now = Date.now();
 
@@ -310,7 +310,7 @@ export const detectSuspiciousActivity = (request: NextRequest, userId?: string):
     logger.warn('Suspicious user agent detected', {
       userId,
       userAgent,
-      ip: request.ip || request.headers.get('x-forwarded-for') || 'unknown',
+      ip: request.headers.get('x-forwarded-for') || 'unknown',
       path: request.nextUrl.pathname,
     });
     return true;

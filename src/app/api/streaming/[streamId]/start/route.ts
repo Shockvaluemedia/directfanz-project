@@ -3,10 +3,8 @@ import { withStreamManagement, updateStreamStatus } from '@/lib/streaming-auth';
 import { triggerStreamEvent } from '@/lib/pusher';
 import { prisma } from '@/lib/prisma';
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { streamId: string } }
-) {
+export async function POST(request: NextRequest, props: { params: Promise<{ streamId: string }> }) {
+  const params = await props.params;
   return withStreamManagement<any>(request, async (req) => {
     try {
       const { streamId } = params;

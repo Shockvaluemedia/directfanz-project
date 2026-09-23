@@ -5,7 +5,8 @@ import { checkContentAccess, generateAccessToken } from '@/lib/content-access';
 import { prisma } from '@/lib/prisma';
 
 // Generate access token for content
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions);
 
@@ -67,7 +68,8 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 }
 
 // Check content access without generating token
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions);
 

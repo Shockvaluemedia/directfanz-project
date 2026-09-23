@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withFanStreaming, generateStreamAccessUrl, checkStreamAccess } from '@/lib/streaming-auth';
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { streamId: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ streamId: string }> }) {
+  const params = await props.params;
   return withFanStreaming<any>(request, async (req) => {
     try {
       const { streamId } = params;

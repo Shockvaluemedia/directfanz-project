@@ -12,7 +12,8 @@ const sendMessageSchema = z.object({
 });
 
 // GET /api/livestream/[streamId]/chat - Get chat messages
-export async function GET(request: NextRequest, { params }: { params: { streamId: string } }) {
+export async function GET(request: NextRequest, props: { params: Promise<{ streamId: string }> }) {
+  const params = await props.params;
   let session: any;
   try {
     session = await getServerSession(authOptions);
@@ -127,7 +128,8 @@ export async function GET(request: NextRequest, { params }: { params: { streamId
 }
 
 // POST /api/livestream/[streamId]/chat - Send chat message
-export async function POST(request: NextRequest, { params }: { params: { streamId: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ streamId: string }> }) {
+  const params = await props.params;
   let session: any;
   try {
     session = await getServerSession(authOptions);

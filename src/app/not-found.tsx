@@ -1,6 +1,9 @@
 'use client';
 
-// Minimal not-found page without external imports to avoid hydration/module issues
+import Link from 'next/link';
+
+// Minimal not-found page without app-level imports to avoid hydration/module
+// issues (framework imports are fine).
 export default function NotFound() {
   return (
     <div className='min-h-screen flex items-center justify-center bg-gray-50'>
@@ -10,12 +13,12 @@ export default function NotFound() {
           The page you&apos;re looking for does not exist or may have been moved.
         </p>
         <div className='mt-6 flex flex-col space-y-3'>
-          <a
+          <Link
             href='/'
             className='w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700'
           >
             Go to Home Page
-          </a>
+          </Link>
           <button
             onClick={() => (typeof window !== 'undefined' ? window.history.back() : null)}
             className='w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50'
