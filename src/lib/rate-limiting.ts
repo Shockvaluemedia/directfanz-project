@@ -25,8 +25,9 @@ function inMemoryIncr(key: string, windowMs: number): number {
   return entry.count;
 }
 
-// Periodically clean expired entries
-setInterval(() => {
+// Periodically clean expired entries. The timer is unref'd so it never keeps a
+// process (or a test run) alive on its own.
+const cleanupTimer = setInterval(() => {
   const now = Date.now();
   for (const [key, entry] of inMemoryStore) {
     if (entry.expiresAt <= now) {
@@ -34,6 +35,7 @@ setInterval(() => {
     }
   }
 }, 60_000);
+(cleanupTimer as unknown as { unref?: () => void }).unref?.();
 
 export interface RateLimitConfig {
   windowMs: number; // Time window in milliseconds

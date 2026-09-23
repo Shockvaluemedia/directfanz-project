@@ -33,8 +33,19 @@ jest.mock('@/lib/logger', () => ({
     apiError: jest.fn(),
     apiSuccess: jest.fn(),
     apiRequest: jest.fn(),
+    securityEvent: jest.fn(),
   },
   generateRequestId: jest.fn().mockReturnValue('test-request-id'),
+}));
+
+// Mock email service. Declared before the route handlers are required below:
+// the forgot-password route imports @/lib/email, so this factory runs during
+// that require, and `mockSendEmail` must already be initialised by then.
+const mockSendEmail = jest.fn().mockResolvedValue(true);
+jest.mock('@/lib/email', () => ({
+  sendEmail: mockSendEmail,
+  sendPasswordResetEmail: jest.fn().mockResolvedValue(true),
+  sendWelcomeEmail: jest.fn().mockResolvedValue(true),
 }));
 
 // Mock the api-error-handler to use a simpler wrapper
@@ -160,14 +171,6 @@ jest.mock('bcryptjs', () => ({
 jest.mock('jsonwebtoken', () => ({
   sign: jest.fn().mockReturnValue('mock-jwt-token'),
   verify: jest.fn().mockReturnValue({ userId: 'user-123', email: 'test@example.com' }),
-}));
-
-// Mock email service
-const mockSendEmail = jest.fn().mockResolvedValue(true);
-jest.mock('@/lib/email', () => ({
-  sendEmail: mockSendEmail,
-  sendPasswordResetEmail: jest.fn().mockResolvedValue(true),
-  sendWelcomeEmail: jest.fn().mockResolvedValue(true),
 }));
 
 describe('Authentication Integration Tests', () => {
@@ -469,72 +472,235 @@ describe('Authentication Integration Tests', () => {
   });
 
   describe('Password Reset Flow', () => {
-    // The actual forgot-password route is a simplified stub that always returns success
-    it('should return success message for forgot password request', async () => {
-      const request = new NextRequest('http://localhost:3000/api/auth/forgot-password', {
+    const { sendPasswordResetEmail } = require('@/lib/email');
+    const { logger } = require('@/lib/logger');
+    const { hashResetToken, resetIdentifierFor } = require('@/lib/password-reset');
+
+    // Each request gets its own client IP so the per-IP limiter never bleeds
+    // between tests; the per-email limiter is keyed by address.
+    let ipCounter = 0;
+    const jsonRequest = (path: string, body: unknown, ip?: string) =>
+      new NextRequest(`http://localhost:3000${path}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        headers: {
+          'Content-Type': 'application/json',
+          'x-forwarded-for': ip ?? `10.0.0.${++ipCounter}`,
+        },
+        body: JSON.stringify(body),
+      });
+
+    beforeEach(() => {
+      [prisma.users, prisma.verificationtokens, prisma.refresh_tokens].forEach(model => {
+        Object.values(model).forEach((fn: any) => {
+          if (jest.isMockFunction(fn)) fn.mockReset();
+        });
+      });
+      // Run transaction callbacks against this same mocked client so the writes
+      // inside them can be asserted (the global mock hands out a fresh client).
+      (prisma.$transaction as jest.Mock).mockImplementation(async (cb: any) => cb(prisma));
+      sendPasswordResetEmail.mockReset();
+      sendPasswordResetEmail.mockResolvedValue(true);
+      logger.securityEvent.mockClear();
+    });
+
+    describe('forgot-password', () => {
+      it('stores a hashed, expiring token and emails the raw one to an existing user', async () => {
+        (prisma.users.findUnique as jest.Mock).mockResolvedValue({
+          id: 'user-1',
           email: 'user@example.com',
-        }),
+          displayName: 'Casey',
+          password: 'hashed-password',
+        });
+
+        const response = await forgotPasswordHandler(
+          jsonRequest('/api/auth/forgot-password', { email: 'User@Example.com' })
+        );
+        const data = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(data.message).toContain('password reset link');
+
+        // Email is normalised before lookup so it matches credentials sign-in.
+        expect(prisma.users.findUnique).toHaveBeenCalledWith(
+          expect.objectContaining({ where: { email: 'user@example.com' } })
+        );
+
+        // Earlier links are invalidated, then only the hash of the new token is stored.
+        expect(prisma.verificationtokens.deleteMany).toHaveBeenCalledWith({
+          where: { identifier: resetIdentifierFor('user-1') },
+        });
+        const created = (prisma.verificationtokens.create as jest.Mock).mock.calls[0][0].data;
+        expect(created.identifier).toBe(resetIdentifierFor('user-1'));
+        expect(created.expires.getTime()).toBeGreaterThan(Date.now());
+
+        // The emailed token is the raw one; what was stored is its hash.
+        const emailed = sendPasswordResetEmail.mock.calls[0][0];
+        expect(emailed).toMatchObject({ email: 'user@example.com', userName: 'Casey' });
+        expect(emailed.resetToken).toMatch(/^[0-9a-f]{64}$/);
+        expect(created.token).toBe(hashResetToken(emailed.resetToken));
+        expect(created.token).not.toBe(emailed.resetToken);
       });
 
-      const response = await forgotPasswordHandler(request);
-      const data = await response.json();
+      it('returns the same response without sending anything for an unknown email', async () => {
+        (prisma.users.findUnique as jest.Mock).mockResolvedValue(null);
 
-      expect(response.status).toBe(200);
-      expect(data.message).toContain('password reset link');
+        const response = await forgotPasswordHandler(
+          jsonRequest('/api/auth/forgot-password', { email: 'nonexistent@example.com' })
+        );
+        const data = await response.json();
+
+        // Still 200 so the endpoint can't be used to enumerate accounts.
+        expect(response.status).toBe(200);
+        expect(data.message).toContain('password reset link');
+        expect(prisma.verificationtokens.create).not.toHaveBeenCalled();
+        expect(sendPasswordResetEmail).not.toHaveBeenCalled();
+      });
+
+      it('does not issue a token for an OAuth-only account with no password', async () => {
+        (prisma.users.findUnique as jest.Mock).mockResolvedValue({
+          id: 'oauth-1',
+          email: 'oauth@example.com',
+          displayName: 'Sam',
+          password: null,
+        });
+
+        const response = await forgotPasswordHandler(
+          jsonRequest('/api/auth/forgot-password', { email: 'oauth@example.com' })
+        );
+
+        expect(response.status).toBe(200);
+        expect(prisma.verificationtokens.create).not.toHaveBeenCalled();
+        expect(sendPasswordResetEmail).not.toHaveBeenCalled();
+      });
+
+      it('rejects an invalid email address', async () => {
+        const response = await forgotPasswordHandler(
+          jsonRequest('/api/auth/forgot-password', { email: 'not-an-email' })
+        );
+
+        expect(response.status).toBe(400);
+        expect(prisma.users.findUnique).not.toHaveBeenCalled();
+      });
+
+      it('rate limits repeated requests for the same email address', async () => {
+        (prisma.users.findUnique as jest.Mock).mockResolvedValue(null);
+        const statuses: number[] = [];
+
+        for (let i = 0; i < 4; i++) {
+          // Fresh IP each time so only the per-email limit (3/hour) is in play.
+          const response = await forgotPasswordHandler(
+            jsonRequest('/api/auth/forgot-password', { email: 'flood@example.com' }, `10.9.9.${i}`)
+          );
+          statuses.push(response.status);
+        }
+
+        expect(statuses).toEqual([200, 200, 200, 429]);
+      });
     });
 
-    it('should handle password reset for non-existent user gracefully', async () => {
-      const request = new NextRequest('http://localhost:3000/api/auth/forgot-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: 'nonexistent@example.com',
-        }),
+    describe('reset-password', () => {
+      const validToken = 'valid-reset-token';
+      const liveTokenRow = () => ({
+        identifier: resetIdentifierFor('user-1'),
+        token: hashResetToken(validToken),
+        expires: new Date(Date.now() + 60 * 60 * 1000),
+      });
+      const resetBody = { token: validToken, newPassword: 'NewSecurePassword123!' };
+
+      it('sets the new password, consumes the token, and revokes refresh tokens', async () => {
+        (prisma.verificationtokens.findUnique as jest.Mock).mockResolvedValue(liveTokenRow());
+        (prisma.users.findUnique as jest.Mock).mockResolvedValue({ id: 'user-1' });
+
+        const response = await resetPasswordHandler(
+          jsonRequest('/api/auth/reset-password', resetBody)
+        );
+        const data = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(data.message).toContain('Password reset successfully');
+
+        // Looked up by hash, never by the raw token.
+        expect(prisma.verificationtokens.findUnique).toHaveBeenCalledWith({
+          where: { token: hashResetToken(validToken) },
+        });
+        expect(prisma.users.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: { id: 'user-1' },
+            data: expect.objectContaining({ password: 'hashed-password' }),
+          })
+        );
+        // Single-use: the token row is removed once consumed.
+        expect(prisma.verificationtokens.deleteMany).toHaveBeenCalledWith({
+          where: { identifier: resetIdentifierFor('user-1') },
+        });
+        expect(prisma.refresh_tokens.updateMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: { userId: 'user-1', isRevoked: false },
+            data: expect.objectContaining({ isRevoked: true }),
+          })
+        );
+        expect(logger.securityEvent).toHaveBeenCalledWith(
+          'password_reset_completed',
+          'medium',
+          expect.objectContaining({ userId: 'user-1' })
+        );
       });
 
-      const response = await forgotPasswordHandler(request);
-      const data = await response.json();
+      it('rejects an expired token and cleans it up', async () => {
+        (prisma.verificationtokens.findUnique as jest.Mock).mockResolvedValue({
+          ...liveTokenRow(),
+          expires: new Date(Date.now() - 1000),
+        });
 
-      // Should still return 200 for security reasons
-      expect(response.status).toBe(200);
-      expect(data.message).toContain('password reset link');
-    });
+        const response = await resetPasswordHandler(
+          jsonRequest('/api/auth/reset-password', resetBody)
+        );
+        const data = await response.json();
 
-    it('should successfully reset password with valid token', async () => {
-      const request = new NextRequest('http://localhost:3000/api/auth/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token: 'valid-reset-token',
-          newPassword: 'NewSecurePassword123!',
-        }),
+        expect(response.status).toBe(400);
+        expect(data.error).toContain('expired');
+        expect(prisma.users.update).not.toHaveBeenCalled();
+        expect(prisma.verificationtokens.deleteMany).toHaveBeenCalledWith({
+          where: { token: hashResetToken(validToken) },
+        });
       });
 
-      const response = await resetPasswordHandler(request);
-      const data = await response.json();
+      it('rejects an unknown token', async () => {
+        (prisma.verificationtokens.findUnique as jest.Mock).mockResolvedValue(null);
 
-      expect(response.status).toBe(200);
-      expect(data.message).toContain('Password reset successfully');
-    });
+        const response = await resetPasswordHandler(
+          jsonRequest('/api/auth/reset-password', { ...resetBody, token: 'nope' })
+        );
+        const data = await response.json();
 
-    it('should reject password reset with expired token', async () => {
-      const request = new NextRequest('http://localhost:3000/api/auth/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token: 'expired-token',
-          newPassword: 'NewSecurePassword123!',
-        }),
+        expect(response.status).toBe(400);
+        expect(data.error).toContain('invalid');
+        expect(prisma.users.update).not.toHaveBeenCalled();
       });
 
-      const response = await resetPasswordHandler(request);
-      const data = await response.json();
+      it('ignores tokens that are not password-reset tokens', async () => {
+        // A NextAuth magic-link row uses the email address as its identifier.
+        (prisma.verificationtokens.findUnique as jest.Mock).mockResolvedValue({
+          ...liveTokenRow(),
+          identifier: 'user@example.com',
+        });
 
-      expect(response.status).toBe(400);
-      expect(data.error).toContain('expired');
+        const response = await resetPasswordHandler(
+          jsonRequest('/api/auth/reset-password', resetBody)
+        );
+
+        expect(response.status).toBe(400);
+        expect(prisma.users.update).not.toHaveBeenCalled();
+      });
+
+      it('rejects a password shorter than 8 characters', async () => {
+        const response = await resetPasswordHandler(
+          jsonRequest('/api/auth/reset-password', { ...resetBody, newPassword: 'short' })
+        );
+
+        expect(response.status).toBe(400);
+        expect(prisma.verificationtokens.findUnique).not.toHaveBeenCalled();
+      });
     });
   });
 
