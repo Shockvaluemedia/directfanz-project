@@ -60,6 +60,13 @@ export const authOptions: NextAuthOptions = {
             return null;
           }
 
+          // Checked after the password so a banned account can't be told apart
+          // from a wrong password by an unauthenticated caller.
+          if (user.status === 'BANNED') {
+            console.warn('Sign-in refused for banned account', { userId: user.id });
+            return null;
+          }
+
           return {
             id: user.id,
             email: user.email,

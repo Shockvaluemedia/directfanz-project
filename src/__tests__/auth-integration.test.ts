@@ -402,6 +402,31 @@ describe('Authentication Integration Tests', () => {
       );
     });
 
+    it('should refuse a banned account even with the correct password', async () => {
+      const mockUser = createMockUser({
+        email: 'banned@example.com',
+        password: 'hashed-password',
+        status: 'BANNED',
+      });
+      (prisma.users.findUnique as jest.Mock).mockResolvedValue(mockUser);
+      // The default bcrypt mock reports the password as correct.
+
+      const request = new NextRequest('http://localhost:3000/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'banned@example.com',
+          password: 'correct-password',
+        }),
+      });
+
+      const response = await loginHandler(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(403);
+      expect(data.error.message).toContain('suspended');
+    });
+
     it('should reject login with incorrect password', async () => {
       const mockUser = createMockUser({
         email: 'user@example.com',
