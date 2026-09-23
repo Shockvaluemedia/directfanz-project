@@ -90,9 +90,12 @@ have blocked the whole product, and neither was visible without running the app.
   action call API routes that don't exist (`/api/admin/content`,
   `/api/admin/content/[id]`, `PATCH /api/admin/users/[id]`). Read-only admin
   (users list, dashboard stats, analytics) works; moderation write actions do not.
-- **Locked content has no teaser in the fan UI.** Blocking is enforced, but a fan
-  browsing an artist sees only public content — there's no "🔒 subscribe to
-  unlock" preview. Good next polish.
+- **Locked content teaser is partial.** For a signed-in fan the content page now
+  renders a paywall for locked items (`GET /api/content/[id]` returns the item's
+  metadata and tiers with `hasAccess: false` and no media URLs); signed-out
+  visitors get a sign-in prompt instead. A fan browsing an artist's profile
+  still sees only public content — gated items don't appear there as
+  "🔒 subscribe to unlock" previews yet. Good next polish.
 - **Profile settings opens blank** (`/api/auth/profile` returns `{ user }` but the
   form reads `{ data }`). Editing works; prefill doesn't.
 - **Stale "Nahvee Even" branding** remains in a few components (`simple-nav`,

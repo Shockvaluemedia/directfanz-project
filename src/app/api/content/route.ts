@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { FileUploader } from '@/lib/upload';
 import { del } from '@vercel/blob';
+import { withClientMediaUrls } from '@/lib/content-access';
 
 const listQuerySchema = z.object({
   page: z.string().optional().default('1'),
@@ -149,9 +150,10 @@ export async function GET(request: NextRequest) {
         prisma.content.count({ where }),
       ]);
 
-      // Parse tags and format response
+      // Parse tags and format response. Raw storage URLs only go to the owner
+      // or for public items; gated items get the access-checked app URLs.
       const formattedContent = content.map(item => ({
-        ...item,
+        ...withClientMediaUrls(item, req.user.id),
         tags: JSON.parse(item.tags),
         commentCount: item._count.comments,
         _count: undefined,

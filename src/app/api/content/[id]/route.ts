@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { FileUploader } from '@/lib/upload';
+import { checkContentAccess, withClientMediaUrls } from '@/lib/content-access';
 
 const updateSchema = z.object({
   title: z.string().min(1).max(200).optional(),
@@ -58,33 +59,42 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
         return NextResponse.json({ error: 'Content not found' }, { status: 404 });
       }
 
-      // Check access permissions
-      let hasAccess = false;
+      // One access rule for the JSON API and the media routes, so what this
+      // endpoint says the viewer can see is exactly what /stream will serve.
+      const access = await checkContentAccess(req.user.id, contentId);
 
-      if (req.user.role === 'ARTIST' && content.artistId === req.user.id) {
-        // Artist owns the content
-        hasAccess = true;
-      } else if (content.visibility === 'PUBLIC') {
-        // Public content
-        hasAccess = true;
-      } else if (req.user.role === 'FAN') {
-        // Check if fan has subscription to any of the content's tiers
-        const subscriptions = await prisma.subscriptions.findMany({
-          where: {
-            fanId: req.user.id,
-            status: 'ACTIVE',
-            tierId: { in: content.tiers.map(t => t.id) },
+      if (!access.hasAccess) {
+        // The row was loaded above, so not_found here means the access check
+        // itself failed (checkContentAccess folds its errors into that reason).
+        if (access.reason === 'not_found') {
+          return NextResponse.json({ error: 'Failed to verify access' }, { status: 500 });
+        }
+        // Private items belong to the owner alone: don't even confirm they exist.
+        if (content.visibility === 'PRIVATE') {
+          return NextResponse.json({ error: 'Content not found' }, { status: 404 });
+        }
+        // Locked: return the teaser without any media URLs or comments. Image
+        // "thumbnails" are downscaled copies of the paid image, so those stay
+        // hidden too.
+        return NextResponse.json({
+          success: true,
+          data: {
+            id: content.id,
+            title: content.title,
+            description: content.description,
+            type: content.type,
+            visibility: content.visibility,
+            artistId: content.artistId,
+            thumbnailUrl: content.type === 'IMAGE' ? null : content.thumbnailUrl,
+            tags: JSON.parse(content.tags),
+            createdAt: content.createdAt,
+            totalViews: content.totalViews,
+            totalLikes: content.totalLikes,
+            users: content.users,
+            tiers: content.tiers,
+            hasAccess: false,
           },
         });
-
-        hasAccess = subscriptions.length > 0;
-      }
-
-      if (!hasAccess) {
-        return NextResponse.json(
-          { error: 'Access denied. Subscribe to access this content.' },
-          { status: 403 }
-        );
       }
 
       // Log content view for analytics
@@ -100,8 +110,9 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
       return NextResponse.json({
         success: true,
         data: {
-          ...content,
+          ...withClientMediaUrls(content, req.user.id),
           tags: JSON.parse(content.tags),
+          hasAccess: true,
         },
       });
     } catch (error) {

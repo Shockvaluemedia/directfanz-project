@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { withClientMediaUrls } from '@/lib/content-access';
 
 interface ContentWithRelations {
   id: string;
@@ -253,12 +254,21 @@ export async function GET(request: NextRequest) {
           tags = [];
         }
 
+        // Same rule as every other content response: the raw storage URL only
+        // for public items or the owner, gated items get the app URLs.
+        const media = withClientMediaUrls(
+          { id: item.id, fileUrl: item.fileUrl, visibility: item.visibility, artistId: item.users.id },
+          session.user.id
+        );
+
         return {
           id: item.id,
           title: item.title,
           description: item.description,
           type: item.type as 'AUDIO' | 'VIDEO' | 'IMAGE' | 'DOCUMENT',
-          fileUrl: item.fileUrl,
+          ...(media.fileUrl ? { fileUrl: media.fileUrl } : {}),
+          streamUrl: media.streamUrl,
+          downloadUrl: media.downloadUrl,
           thumbnailUrl: item.thumbnailUrl,
           fileSize: item.fileSize,
           format: item.format,

@@ -46,6 +46,21 @@ const contentRateLimiter = new AdaptiveRateLimiter({
   maxViolations: 3,
 });
 
+// Media playback issues many small Range requests (seeking, chunked loading at
+// 4 MiB per request), which any burst-detecting limiter would flag and then
+// block the IP for every /api route. Stream/download are already gated by
+// session + subscription checks on each request, so they get a dedicated,
+// generous limiter with burst and adaptive behaviour off.
+const MEDIA_ROUTE = /^\/api\/content\/[^/]+\/(stream|download)$/;
+const mediaRateLimiter = new AdaptiveRateLimiter({
+  windowMs: 60 * 1000, // 1 minute
+  maxRequests: 600, // ~10 chunk requests per second
+  adaptiveRateLimiting: false,
+  burstProtection: false,
+  blockDuration: 60000, // 1 minute
+  maxViolations: 10,
+});
+
 export async function middleware(request: NextRequest) {
   const requestId = generateRequestId();
   const startTime = Date.now();
@@ -179,6 +194,8 @@ export async function middleware(request: NextRequest) {
 
   if (url.startsWith('/api/auth/')) {
     rateLimitResult = authRateLimiter.checkRequest(request);
+  } else if (MEDIA_ROUTE.test(url)) {
+    rateLimitResult = mediaRateLimiter.checkRequest(request);
   } else if (url.startsWith('/api/content/')) {
     rateLimitResult = contentRateLimiter.checkRequest(request);
   } else {

@@ -132,6 +132,24 @@ export function verifyAccessToken(token: string): AccessToken | null {
   }
 }
 
+/**
+ * Shapes a content row for a client. The raw storage URL is permanent and
+ * public, so it is only exposed for public content or to the owner; everyone
+ * else gets the gated app URLs, which check access on every request.
+ */
+export function withClientMediaUrls<
+  T extends { id: string; fileUrl: string; visibility: string; artistId: string },
+>(row: T, viewerId: string | null) {
+  const { fileUrl, ...rest } = row;
+  const exposeRaw = row.visibility === 'PUBLIC' || row.artistId === viewerId;
+  return {
+    ...rest,
+    ...(exposeRaw ? { fileUrl } : {}),
+    streamUrl: `/api/content/${row.id}/stream`,
+    downloadUrl: `/api/content/${row.id}/download`,
+  };
+}
+
 // Get user's accessible content for an artist
 export async function getUserAccessibleContent(
   userId: string,
@@ -218,7 +236,7 @@ export async function getUserAccessibleContent(
 
   return {
     content: content.map((item: any) => ({
-      ...item,
+      ...withClientMediaUrls(item, userId),
       tiers: (item.tiers || []).map((tier: any) => ({
         ...tier,
         minimumPrice: Number(tier.minimumPrice),
