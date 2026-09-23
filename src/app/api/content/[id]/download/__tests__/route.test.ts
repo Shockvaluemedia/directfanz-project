@@ -19,7 +19,8 @@ const { checkContentAccess } = require('@/lib/content-access');
 const { logger } = require('@/lib/logger');
 const { GET } = require('@/app/api/content/[id]/download/route');
 
-const BLOB_URL = 'https://store.public.blob.vercel-storage.com/content/u1/audio/a.mp3';
+const OWN_TOKEN = 'vercel_blob_rw_StoreAbc123_0123456789abcdef';
+const BLOB_URL = 'https://storeabc123.public.blob.vercel-storage.com/content/u1/audio/a.mp3';
 
 const call = () =>
   GET(new NextRequest('http://localhost:3000/api/content/c1/download'), { params: Promise.resolve({ id: 'c1' }) });
@@ -29,6 +30,7 @@ describe('GET /api/content/[id]/download', () => {
   let fetchMock: jest.Mock;
 
   beforeEach(() => {
+    process.env.BLOB_READ_WRITE_TOKEN = OWN_TOKEN;
     fetchMock = jest.fn();
     global.fetch = fetchMock as any;
     (getServerSession as jest.Mock).mockReset();
@@ -39,6 +41,7 @@ describe('GET /api/content/[id]/download', () => {
   });
   afterAll(() => {
     global.fetch = originalFetch;
+    delete process.env.BLOB_READ_WRITE_TOKEN;
   });
 
   it('requires a session', async () => {

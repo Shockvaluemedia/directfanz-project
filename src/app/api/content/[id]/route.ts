@@ -64,7 +64,13 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
       const access = await checkContentAccess(req.user.id, contentId);
 
       if (!access.hasAccess) {
+        // The row was loaded above, so not_found here means the access check
+        // itself failed (checkContentAccess folds its errors into that reason).
         if (access.reason === 'not_found') {
+          return NextResponse.json({ error: 'Failed to verify access' }, { status: 500 });
+        }
+        // Private items belong to the owner alone: don't even confirm they exist.
+        if (content.visibility === 'PRIVATE') {
           return NextResponse.json({ error: 'Content not found' }, { status: 404 });
         }
         // Locked: return the teaser without any media URLs or comments. Image

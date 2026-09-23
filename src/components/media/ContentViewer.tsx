@@ -97,6 +97,9 @@ export function ContentViewer({ contentId, className, onSubscribe }: ContentView
   const fetchContent = async () => {
     try {
       const response = await fetch(`/api/content/${contentId}`);
+      if (response.status === 401) {
+        throw new Error('Sign in to view this content');
+      }
       if (!response.ok) {
         throw new Error('Failed to fetch content');
       }

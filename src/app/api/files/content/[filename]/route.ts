@@ -1,9 +1,7 @@
 import { NextRequest } from 'next/server';
 import path from 'path';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { checkContentAccess } from '@/lib/content-access';
+import { withStreamingAccess } from '@/middleware/content-access';
 import { mimeFromExtension, proxyMedia, resolveMediaSource } from '@/lib/media-proxy';
 
 export const dynamic = 'force-dynamic';
@@ -23,29 +21,24 @@ async function serve(request: NextRequest, filename: string, head: boolean): Pro
       return new Response('File not found', { status: 404 });
     }
 
-    const owner = await prisma.content.findFirst({
-      where: { fileUrl: { endsWith: `/api/files/content/${name}` } },
-      select: { id: true, visibility: true },
-    });
+    // Any content row may reference this file (content creation accepts an
+    // arbitrary fileUrl), so the file is gated if ANY referencing row is.
+    const references =
+      (await prisma.content.findMany({
+        where: { fileUrl: { endsWith: `/api/files/content/${name}` } },
+        select: { id: true, visibility: true },
+      })) ?? [];
+    const gatedRow = references.find(row => row.visibility !== 'PUBLIC');
 
-    const gated = Boolean(owner && owner.visibility !== 'PUBLIC');
-    if (gated) {
-      const session = await getServerSession(authOptions);
-      if (!session?.user?.id) {
-        return new Response('Authentication required', { status: 401 });
-      }
-      const access = await checkContentAccess(session.user.id as string, owner!.id);
-      if (!access.hasAccess) {
-        return new Response('Access denied', { status: 403 });
-      }
-    }
+    const serveFile = () =>
+      proxyMedia(request, source, {
+        contentType: mimeFromExtension(name),
+        disposition: 'inline',
+        head,
+        cacheControl: gatedRow ? 'private, no-store' : 'public, max-age=31536000, immutable',
+      });
 
-    return await proxyMedia(request, source, {
-      contentType: mimeFromExtension(name),
-      disposition: 'inline',
-      head,
-      cacheControl: gated ? 'private, no-store' : 'public, max-age=31536000, immutable',
-    });
+    return gatedRow ? withStreamingAccess(request, gatedRow.id, serveFile) : serveFile();
   } catch (error) {
     console.error('Error serving file:', error);
     return new Response('Internal Server Error', { status: 500 });

@@ -10,19 +10,53 @@ import { Readable } from 'stream';
  * A stored `fileUrl` is either a public Vercel Blob URL (proxied with a
  * server-side fetch that forwards Range requests) or a local-disk path written
  * by the dev uploaders (read from disk with Range support). Artists control
- * `fileUrl`, so remote hosts are allowlisted to keep the server-side fetch from
- * becoming an SSRF primitive, and local paths are confined to the upload roots.
+ * `fileUrl` and `format`, so:
+ * - remote hosts are pinned to this deployment's own Blob store (derived from
+ *   BLOB_READ_WRITE_TOKEN) plus MEDIA_PROXY_ALLOWED_HOSTS, never a shared
+ *   suffix that any tenant can obtain, and never http;
+ * - local paths are confined to the upload roots;
+ * - the Content-Type is derived only from a safe audio/video/image table,
+ *   never from a database MIME string or the upstream response, and anything
+ *   else is served as an opaque attachment under a sandbox CSP so uploaded
+ *   HTML/SVG can never execute on the app origin.
  */
 
 /** Open-ended ranges are capped so one request never streams a whole file. */
 export const MAX_CHUNK_BYTES = 4 * 1024 * 1024;
 
 const BLOB_HOST_SUFFIX = '.public.blob.vercel-storage.com';
+const OPAQUE_TYPE = 'application/octet-stream';
+
+/**
+ * Media types served inline. This table is the security boundary for what the
+ * browser may interpret from the app origin, so it holds only audio, video and
+ * raster image types (no SVG, HTML, PDF or office documents).
+ */
+const SAFE_MEDIA_BY_EXT: Record<string, string> = {
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  mp4: 'video/mp4',
+  m4v: 'video/mp4',
+  mov: 'video/quicktime',
+  webm: 'video/webm',
+  avi: 'video/x-msvideo',
+  mkv: 'video/x-matroska',
+  mp3: 'audio/mpeg',
+  wav: 'audio/wav',
+  aac: 'audio/aac',
+  ogg: 'audio/ogg',
+  m4a: 'audio/mp4',
+  flac: 'audio/flac',
+};
+const SAFE_MEDIA_TYPES = new Set(Object.values(SAFE_MEDIA_BY_EXT));
 
 export type MediaSource = { kind: 'remote'; url: URL } | { kind: 'local'; filePath: string };
 
 export interface ProxyOptions {
-  /** Preferred Content-Type; falls back to the upstream header or the extension. */
+  /** Preferred Content-Type; only honoured if it is on the safe media list. */
   contentType?: string | null;
   disposition: 'inline' | { attachment: string };
   /** Answer a HEAD request: headers only, no body. */
@@ -37,47 +71,46 @@ export interface ProxyRequest {
   signal?: AbortSignal;
 }
 
-const MIME_BY_EXT: Record<string, string> = {
-  jpg: 'image/jpeg',
-  jpeg: 'image/jpeg',
-  png: 'image/png',
-  gif: 'image/gif',
-  webp: 'image/webp',
-  mp4: 'video/mp4',
-  mov: 'video/quicktime',
-  webm: 'video/webm',
-  avi: 'video/x-msvideo',
-  mkv: 'video/x-matroska',
-  mp3: 'audio/mpeg',
-  wav: 'audio/wav',
-  aac: 'audio/aac',
-  ogg: 'audio/ogg',
-  m4a: 'audio/mp4',
-  flac: 'audio/flac',
-  pdf: 'application/pdf',
-  doc: 'application/msword',
-  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-};
-
-export function mimeFromExtension(fileName: string): string {
-  const ext = path.extname(fileName).slice(1).toLowerCase();
-  return MIME_BY_EXT[ext] ?? 'application/octet-stream';
+function extensionOf(name: string): string {
+  return path.extname(name.split('?')[0]).slice(1).toLowerCase();
 }
 
-/** `content.format` is sometimes a MIME type and sometimes a bare extension. */
+/** Extension-derived type, or octet-stream for anything off the safe list. */
+export function mimeFromExtension(fileName: string): string {
+  return SAFE_MEDIA_BY_EXT[extensionOf(fileName)] ?? OPAQUE_TYPE;
+}
+
+/**
+ * `content.format` is sometimes a MIME type and sometimes a bare extension.
+ * Either is only trusted when it maps onto the safe list; otherwise the URL's
+ * extension is consulted, and failing that the type is opaque.
+ */
 export function mimeFor(format: string | null | undefined, fileUrl: string): string {
-  if (format && format.includes('/')) return format;
-  if (format && MIME_BY_EXT[format.toLowerCase()]) return MIME_BY_EXT[format.toLowerCase()];
-  return mimeFromExtension(fileUrl.split('?')[0]);
+  if (format) {
+    const normalised = format.trim().toLowerCase();
+    if (normalised.includes('/')) {
+      if (SAFE_MEDIA_TYPES.has(normalised)) return normalised;
+    } else {
+      const byExt = SAFE_MEDIA_BY_EXT[normalised.replace(/^\./, '')];
+      if (byExt) return byExt;
+    }
+  }
+  return mimeFromExtension(fileUrl);
 }
 
 export function extensionFor(format: string | null | undefined, fileUrl: string): string {
-  if (format && !format.includes('/')) return format.replace(/^\./, '').toLowerCase();
   if (format) {
-    const match = Object.entries(MIME_BY_EXT).find(([, mime]) => mime === format);
-    if (match) return match[0];
+    const normalised = format.trim().toLowerCase();
+    if (!normalised.includes('/')) {
+      const bare = normalised.replace(/^\./, '');
+      if (/^[a-z0-9]{1,8}$/.test(bare)) return bare;
+    } else {
+      const match = Object.entries(SAFE_MEDIA_BY_EXT).find(([, mime]) => mime === normalised);
+      if (match) return match[0];
+    }
   }
-  return path.extname(fileUrl.split('?')[0]).slice(1).toLowerCase() || 'bin';
+  const fromUrl = extensionOf(fileUrl);
+  return /^[a-z0-9]{1,8}$/.test(fromUrl) ? fromUrl : 'bin';
 }
 
 function allowedRemoteHosts(): string[] {
@@ -87,11 +120,26 @@ function allowedRemoteHosts(): string[] {
     .filter(Boolean);
 }
 
-/** Only https on the Blob domain or explicitly configured hosts may be fetched. */
+/**
+ * The Blob store this deployment writes to. Tokens look like
+ * `vercel_blob_rw_<STORE_ID>_<secret>` and the store's public host is
+ * `<store_id>.public.blob.vercel-storage.com`.
+ */
+export function ownBlobStoreHost(): string | null {
+  const match = /^vercel_blob_rw_([A-Za-z0-9]+)_/.exec(process.env.BLOB_READ_WRITE_TOKEN ?? '');
+  return match ? `${match[1].toLowerCase()}${BLOB_HOST_SUFFIX}` : null;
+}
+
+/**
+ * Only https on this deployment's own Blob store or an explicitly configured
+ * host may be fetched. The shared Blob suffix is deliberately not enough: any
+ * account can obtain a host under it.
+ */
 export function isAllowedRemoteHost(url: URL): boolean {
   if (url.protocol !== 'https:') return false;
   const host = url.hostname.toLowerCase();
-  return host.endsWith(BLOB_HOST_SUFFIX) || allowedRemoteHosts().includes(host);
+  const own = ownBlobStoreHost();
+  return (own !== null && host === own) || allowedRemoteHosts().includes(host);
 }
 
 function isLocalOrigin(url: URL): boolean {
@@ -153,7 +201,10 @@ export function resolveMediaSource(fileUrl: string): MediaSource | null {
   }
 
   // LocalFileUploader and /api/upload/local write under STORAGE_DIR (default
-  // public/uploads), addressed as /uploads/<rest>.
+  // public/uploads), addressed as /uploads/<rest>. Note that in `next dev` that
+  // directory is also served statically, so in development the proxy only
+  // adds playback, not protection; production builds don't serve files added
+  // after build time.
   if (decoded.startsWith('/uploads/')) {
     const root = path.resolve(process.cwd(), process.env.STORAGE_DIR || 'public/uploads');
     const filePath = containedPath(root, decoded.slice('/uploads/'.length));
@@ -214,26 +265,38 @@ function contentDisposition(disposition: ProxyOptions['disposition']): string {
   return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(disposition.attachment)}`;
 }
 
-function baseHeaders(options: ProxyOptions, contentType: string | null | undefined) {
+/**
+ * Response headers common to every proxied response. Types off the safe list
+ * become opaque attachments, and the sandbox CSP means that even a direct
+ * navigation to a proxied URL can never run script on the app origin.
+ */
+function baseHeaders(options: ProxyOptions, requestedType: string | null | undefined) {
+  const contentType = requestedType && SAFE_MEDIA_TYPES.has(requestedType) ? requestedType : OPAQUE_TYPE;
+  const disposition =
+    contentType === OPAQUE_TYPE && options.disposition === 'inline'
+      ? { attachment: 'download.bin' }
+      : options.disposition;
   const headers: Record<string, string> = {
-    'content-type': contentType || 'application/octet-stream',
+    'content-type': contentType,
     'cache-control': options.cacheControl ?? 'private, no-store',
     'x-content-type-options': 'nosniff',
+    'content-security-policy': 'sandbox',
     'accept-ranges': 'bytes',
-    'content-disposition': contentDisposition(options.disposition),
+    'content-disposition': contentDisposition(disposition),
   };
   return headers;
 }
 
 const PASS_THROUGH_STATUSES = new Set([200, 206, 304, 416]);
-const PASS_THROUGH_HEADERS = ['content-length', 'content-range', 'etag', 'last-modified'];
 
 async function proxyRemote(
   request: ProxyRequest,
   source: Extract<MediaSource, { kind: 'remote' }>,
   options: ProxyOptions
 ): Promise<Response> {
-  const headers: Record<string, string> = {};
+  // Identity encoding keeps the upstream Content-Length truthful for the bytes
+  // we stream (fetch would otherwise transparently decompress the body).
+  const headers: Record<string, string> = { 'accept-encoding': 'identity' };
   const range = capOpenEndedRange(request.headers.get('range'));
   if (range) headers.range = range;
 
@@ -250,11 +313,15 @@ async function proxyRemote(
     return new Response('Upstream media unavailable', { status: 502 });
   }
 
-  const out = baseHeaders(options, upstream.headers.get('content-type') || options.contentType);
-  for (const name of PASS_THROUGH_HEADERS) {
+  // The upstream Content-Type is untrusted; only the caller's safe type is used.
+  const out = baseHeaders(options, options.contentType);
+  const encoded = Boolean(upstream.headers.get('content-encoding'));
+  for (const name of ['content-range', 'etag', 'last-modified']) {
     const value = upstream.headers.get(name);
     if (value) out[name] = value;
   }
+  const length = upstream.headers.get('content-length');
+  if (length && !encoded) out['content-length'] = length;
 
   const body = options.head || upstream.status === 304 ? null : upstream.body;
   return new Response(body, { status: upstream.status, headers: out });

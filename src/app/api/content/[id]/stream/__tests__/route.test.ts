@@ -18,7 +18,8 @@ const { getServerSession } = require('next-auth');
 const { checkContentAccess } = require('@/lib/content-access');
 const { GET, HEAD } = require('@/app/api/content/[id]/stream/route');
 
-const BLOB_URL = 'https://store.public.blob.vercel-storage.com/content/u1/video/a.mp4';
+const OWN_TOKEN = 'vercel_blob_rw_StoreAbc123_0123456789abcdef';
+const BLOB_URL = 'https://storeabc123.public.blob.vercel-storage.com/content/u1/video/a.mp4';
 const row = (overrides: Record<string, unknown> = {}) => ({
   fileUrl: BLOB_URL,
   format: 'video/mp4',
@@ -37,6 +38,7 @@ describe('GET /api/content/[id]/stream', () => {
   let fetchMock: jest.Mock;
 
   beforeEach(() => {
+    process.env.BLOB_READ_WRITE_TOKEN = OWN_TOKEN;
     fetchMock = jest.fn();
     global.fetch = fetchMock as any;
     (getServerSession as jest.Mock).mockReset();
@@ -47,6 +49,7 @@ describe('GET /api/content/[id]/stream', () => {
   });
   afterAll(() => {
     global.fetch = originalFetch;
+    delete process.env.BLOB_READ_WRITE_TOKEN;
   });
 
   it('requires a session', async () => {
@@ -80,22 +83,39 @@ describe('GET /api/content/[id]/stream', () => {
 
     const response = await call(GET, { range: 'bytes=0-4' });
 
-    expect(fetchMock).toHaveBeenCalledWith(new URL(BLOB_URL), expect.objectContaining({ headers: { range: 'bytes=0-4' } }));
+    expect(fetchMock).toHaveBeenCalledWith(
+      new URL(BLOB_URL),
+      expect.objectContaining({ headers: expect.objectContaining({ range: 'bytes=0-4' }) })
+    );
     expect(response.status).toBe(206);
     expect(response.status).not.toBe(302);
     expect(response.headers.get('location')).toBeFalsy();
     expect(response.headers.get('content-range')).toBe('bytes 0-4/100');
     expect(response.headers.get('content-type')).toBe('video/mp4');
     expect(response.headers.get('cache-control')).toBe('private, no-store');
+    expect(response.headers.get('content-security-policy')).toBe('sandbox');
     expect(response.headers.get('content-disposition')).toBe('inline');
     expect(response.body).toBe('chunk');
   });
 
-  it('never fetches a fileUrl outside the allowlist', async () => {
-    (prisma.content.findUnique as jest.Mock).mockResolvedValue(row({ fileUrl: 'https://evil.example.com/steal' }));
+  it("never fetches a fileUrl outside this deployment's store, even another tenant's Blob host", async () => {
+    (prisma.content.findUnique as jest.Mock).mockResolvedValue(
+      row({ fileUrl: 'https://someone-else.public.blob.vercel-storage.com/steal.mp4' })
+    );
     const response = await call(GET);
     expect(response.status).toBe(502);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('refuses to serve a stored HTML "format" inline', async () => {
+    (prisma.content.findUnique as jest.Mock).mockResolvedValue(row({ format: 'text/html', fileUrl: BLOB_URL.replace('a.mp4', 'evil.html') }));
+    fetchMock.mockResolvedValue(new Response('<script>', { status: 200, headers: { 'content-type': 'text/html' } }));
+
+    const response = await call(GET);
+
+    expect(response.headers.get('content-type')).toBe('application/octet-stream');
+    expect(response.headers.get('content-disposition')).toMatch(/^attachment/);
+    expect(response.headers.get('content-security-policy')).toBe('sandbox');
   });
 
   it('answers HEAD with headers only', async () => {

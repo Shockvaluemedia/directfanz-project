@@ -390,8 +390,8 @@ export function ContentAccessControl({
         </Card>
       )}
 
-      {/* Login Prompt for Non-authenticated Users */}
-      {!session?.user && content.visibility === 'TIER_LOCKED' && (
+      {/* Login Prompt for Non-authenticated Users: any gated, non-private item */}
+      {!session?.user && content.visibility !== 'PUBLIC' && content.visibility !== 'PRIVATE' && (
         <Card>
           <CardContent className='p-6 text-center'>
             <Lock className='h-12 w-12 mx-auto mb-4 text-muted-foreground' />

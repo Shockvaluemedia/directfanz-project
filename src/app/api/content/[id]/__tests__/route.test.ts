@@ -118,6 +118,27 @@ describe('GET /api/content/[id]', () => {
     expect(data.thumbnailUrl).toBeNull();
   });
 
+  it('does not confirm that private content exists to anyone but its owner', async () => {
+    (prisma.content.findUnique as jest.Mock).mockResolvedValue(row({ visibility: 'PRIVATE' }));
+    (checkContentAccess as jest.Mock).mockResolvedValue({ hasAccess: false, reason: 'no_subscription' });
+
+    const response = await get();
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body).toEqual({ error: 'Content not found' });
+  });
+
+  it('reports a failed access check as a server error, not as missing content', async () => {
+    (prisma.content.findUnique as jest.Mock).mockResolvedValue(row());
+    // checkContentAccess folds database errors into reason: 'not_found'.
+    (checkContentAccess as jest.Mock).mockResolvedValue({ hasAccess: false, reason: 'not_found' });
+
+    const response = await get();
+
+    expect(response.status).toBe(500);
+  });
+
   it('returns 404 when the content does not exist', async () => {
     (prisma.content.findUnique as jest.Mock).mockResolvedValue(null);
     const response = await get();

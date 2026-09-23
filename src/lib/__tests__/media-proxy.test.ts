@@ -1,9 +1,10 @@
 /**
- * The media proxy is what keeps the raw storage URL off the wire: it must
- * refuse non-allowlisted hosts (artists control fileUrl, so a server-side
- * fetch is otherwise an SSRF primitive), confine local paths to the upload
- * roots, forward Range requests correctly, cap open-ended ranges, and never
- * redirect or cache.
+ * The media proxy is what keeps the raw storage URL off the wire, and it is
+ * also new attack surface: artists control fileUrl and format, so it must pin
+ * remote fetches to this deployment's own store, confine local paths to the
+ * upload roots, derive Content-Type only from a safe media table (never from
+ * the database or the upstream), serve everything else as an opaque sandboxed
+ * attachment, forward Range requests correctly, and never redirect or cache.
  */
 import os from 'os';
 import path from 'path';
@@ -19,6 +20,8 @@ import {
   extensionFor,
   isAllowedRemoteHost,
   mimeFor,
+  mimeFromExtension,
+  ownBlobStoreHost,
   parseRange,
   proxyMedia,
   resolveMediaSource,
@@ -35,24 +38,42 @@ async function readBody(body: unknown): Promise<string> {
   return Buffer.concat(chunks).toString();
 }
 
-const BLOB_URL = 'https://store.public.blob.vercel-storage.com/content/u1/video/a.mp4';
+const OWN_TOKEN = 'vercel_blob_rw_StoreAbc123_0123456789abcdef';
+const OWN_HOST = 'storeabc123.public.blob.vercel-storage.com';
+const OWN_URL = `https://${OWN_HOST}/content/u1/video/a.mp4`;
 
-describe('resolveMediaSource', () => {
-  let cwdSpy: jest.SpyInstance;
-  beforeEach(() => {
-    cwdSpy = jest.spyOn(process, 'cwd').mockReturnValue('/srv/app');
-    delete process.env.MEDIA_PROXY_ALLOWED_HOSTS;
-    delete process.env.STORAGE_DIR;
-    delete process.env.NEXT_PUBLIC_BASE_URL;
+function resetEnv() {
+  delete process.env.MEDIA_PROXY_ALLOWED_HOSTS;
+  delete process.env.STORAGE_DIR;
+  delete process.env.NEXT_PUBLIC_BASE_URL;
+  delete process.env.BLOB_READ_WRITE_TOKEN;
+}
+
+describe('remote host allowlist', () => {
+  beforeEach(resetEnv);
+
+  it("derives this deployment's Blob store host from the read-write token", () => {
+    expect(ownBlobStoreHost()).toBeNull();
+    process.env.BLOB_READ_WRITE_TOKEN = OWN_TOKEN;
+    expect(ownBlobStoreHost()).toBe(OWN_HOST);
+    process.env.BLOB_READ_WRITE_TOKEN = 'not-a-blob-token';
+    expect(ownBlobStoreHost()).toBeNull();
   });
-  afterEach(() => cwdSpy.mockRestore());
 
-  it('accepts https Vercel Blob URLs as remote sources', () => {
-    expect(resolveMediaSource(BLOB_URL)).toEqual({ kind: 'remote', url: new URL(BLOB_URL) });
+  it("accepts only this deployment's store, not any tenant of the shared Blob suffix", () => {
+    process.env.BLOB_READ_WRITE_TOKEN = OWN_TOKEN;
+    expect(resolveMediaSource(OWN_URL)).toEqual({ kind: 'remote', url: new URL(OWN_URL) });
+    expect(resolveMediaSource('https://someone-else.public.blob.vercel-storage.com/a.mp4')).toBeNull();
+    expect(resolveMediaSource(`https://${OWN_HOST}.evil.com/a.mp4`)).toBeNull();
+  });
+
+  it('refuses every Blob host when no token is configured', () => {
+    expect(resolveMediaSource(OWN_URL)).toBeNull();
   });
 
   it('refuses http, foreign hosts, and link-local metadata addresses', () => {
-    expect(resolveMediaSource('http://store.public.blob.vercel-storage.com/a.mp4')).toBeNull();
+    process.env.BLOB_READ_WRITE_TOKEN = OWN_TOKEN;
+    expect(resolveMediaSource(`http://${OWN_HOST}/a.mp4`)).toBeNull();
     expect(resolveMediaSource('https://evil.example.com/a.mp4')).toBeNull();
     expect(resolveMediaSource('http://169.254.169.254/latest/meta-data/')).toBeNull();
     expect(resolveMediaSource('https://169.254.169.254/latest/meta-data/')).toBeNull();
@@ -65,6 +86,15 @@ describe('resolveMediaSource', () => {
     expect(resolveMediaSource('https://MEDIA.example.org/a.mp4')?.kind).toBe('remote');
     expect(resolveMediaSource('http://cdn.example.com/a.mp4')).toBeNull();
   });
+});
+
+describe('local source mapping', () => {
+  let cwdSpy: jest.SpyInstance;
+  beforeEach(() => {
+    resetEnv();
+    cwdSpy = jest.spyOn(process, 'cwd').mockReturnValue('/srv/app');
+  });
+  afterEach(() => cwdSpy.mockRestore());
 
   it('maps /api/files/content/<name> onto the uploads/content root, by basename only', () => {
     expect(resolveMediaSource('/api/files/content/song.mp3')).toEqual({
@@ -84,7 +114,7 @@ describe('resolveMediaSource', () => {
     expect(resolveMediaSource('/uploads/')).toBeNull();
 
     process.env.STORAGE_DIR = 'var/media';
-    expect(resolveMediaSource('/uploads/x.mp3')?.kind === 'local' && resolveMediaSource('/uploads/x.mp3')).toEqual({
+    expect(resolveMediaSource('/uploads/x.mp3')).toEqual({
       kind: 'local',
       filePath: path.resolve('/srv/app', 'var/media', 'x.mp3'),
     });
@@ -140,25 +170,43 @@ describe('capOpenEndedRange', () => {
   });
 });
 
-describe('mime helpers', () => {
-  it('derives content types and extensions from either a MIME type or a bare extension', () => {
+describe('content type derivation', () => {
+  it('trusts a stored format only when it maps onto the safe media list', () => {
     expect(mimeFor('video/mp4', 'x')).toBe('video/mp4');
     expect(mimeFor('mp3', 'x')).toBe('audio/mpeg');
+    expect(mimeFor(' .M4A ', 'x')).toBe('audio/mp4');
     expect(mimeFor(null, 'https://b/a.webm?x=1')).toBe('video/webm');
+    // Artist-controlled values that would execute on the app origin are refused.
+    expect(mimeFor('text/html', 'evil.html')).toBe('application/octet-stream');
+    expect(mimeFor('image/svg+xml', 'a.svg')).toBe('application/octet-stream');
+    expect(mimeFor('application/pdf', 'a.pdf')).toBe('application/octet-stream');
     expect(mimeFor('zzz', 'https://b/a.unknown')).toBe('application/octet-stream');
+  });
+
+  it('derives types from extensions only for safe media', () => {
+    expect(mimeFromExtension('a.M4V')).toBe('video/mp4');
+    expect(mimeFromExtension('a.svg')).toBe('application/octet-stream');
+    expect(mimeFromExtension('a.html')).toBe('application/octet-stream');
+  });
+
+  it('derives download extensions safely', () => {
     expect(extensionFor('video/mp4', 'x')).toBe('mp4');
     expect(extensionFor('MP3', 'x')).toBe('mp3');
     expect(extensionFor(null, 'https://b/a.wav')).toBe('wav');
     expect(extensionFor(null, 'https://b/noext')).toBe('bin');
+    expect(extensionFor('text/html', 'x')).toBe('bin');
+    expect(extensionFor('../evil', 'x')).toBe('bin');
   });
 });
 
 describe('proxyMedia (remote)', () => {
   const originalFetch = global.fetch;
   let fetchMock: jest.Mock;
-  const source = { kind: 'remote' as const, url: new URL(BLOB_URL) };
+  const source = { kind: 'remote' as const, url: new URL(OWN_URL) };
 
   beforeEach(() => {
+    resetEnv();
+    process.env.BLOB_READ_WRITE_TOKEN = OWN_TOKEN;
     fetchMock = jest.fn();
     global.fetch = fetchMock as any;
   });
@@ -180,13 +228,16 @@ describe('proxyMedia (remote)', () => {
       })
     );
 
-    const response = await proxyMedia(request({ range: 'bytes=0-' }), source, { disposition: 'inline' });
+    const response = await proxyMedia(request({ range: 'bytes=0-' }), source, {
+      contentType: 'video/mp4',
+      disposition: 'inline',
+    });
 
     expect(fetchMock).toHaveBeenCalledWith(
       source.url,
       expect.objectContaining({
         method: 'GET',
-        headers: { range: `bytes=0-${MAX_CHUNK_BYTES - 1}` },
+        headers: { 'accept-encoding': 'identity', range: `bytes=0-${MAX_CHUNK_BYTES - 1}` },
         redirect: 'error',
         cache: 'no-store',
       })
@@ -199,20 +250,50 @@ describe('proxyMedia (remote)', () => {
     expect(response.headers.get('etag')).toBe('"abc"');
     expect(response.headers.get('content-type')).toBe('video/mp4');
     expect(response.headers.get('cache-control')).toBe('private, no-store');
+    expect(response.headers.get('content-security-policy')).toBe('sandbox');
     expect(response.headers.get('accept-ranges')).toBe('bytes');
     expect(response.headers.get('content-disposition')).toBe('inline');
     expect(response.headers.get('set-cookie')).toBeFalsy();
     expect(response.body).toBe('chunk');
   });
 
-  it('serves the full body when no Range is requested and never forwards credentials', async () => {
-    fetchMock.mockResolvedValue(new Response('all', { status: 200, headers: { 'content-type': 'audio/mpeg' } }));
+  it('serves the full body when no Range is requested and forwards nothing but identity encoding', async () => {
+    fetchMock.mockResolvedValue(new Response('all', { status: 200 }));
 
-    const response = await proxyMedia(request(), source, { disposition: 'inline' });
+    const response = await proxyMedia(request(), source, { contentType: 'audio/mpeg', disposition: 'inline' });
 
-    expect(fetchMock.mock.calls[0][1].headers).toEqual({});
+    expect(fetchMock.mock.calls[0][1].headers).toEqual({ 'accept-encoding': 'identity' });
     expect(response.status).toBe(200);
     expect(response.body).toBe('all');
+  });
+
+  it('ignores the upstream Content-Type entirely', async () => {
+    fetchMock.mockResolvedValue(new Response('<script>', { status: 200, headers: { 'content-type': 'text/html' } }));
+
+    const response = await proxyMedia(request(), source, { contentType: 'video/mp4', disposition: 'inline' });
+
+    expect(response.headers.get('content-type')).toBe('video/mp4');
+  });
+
+  it('serves anything off the safe media list as an opaque, sandboxed attachment', async () => {
+    fetchMock.mockResolvedValue(new Response('<script>', { status: 200 }));
+
+    const response = await proxyMedia(request(), source, { contentType: 'text/html', disposition: 'inline' });
+
+    expect(response.headers.get('content-type')).toBe('application/octet-stream');
+    expect(response.headers.get('content-disposition')).toMatch(/^attachment; filename="download\.bin"/);
+    expect(response.headers.get('content-security-policy')).toBe('sandbox');
+    expect(response.headers.get('x-content-type-options')).toBe('nosniff');
+  });
+
+  it('drops Content-Length when the upstream body is content-encoded', async () => {
+    fetchMock.mockResolvedValue(
+      new Response('decoded', { status: 200, headers: { 'content-encoding': 'gzip', 'content-length': '5' } })
+    );
+
+    const response = await proxyMedia(request(), source, { contentType: 'audio/mpeg', disposition: 'inline' });
+
+    expect(response.headers.get('content-length')).toBeFalsy();
   });
 
   it('maps unexpected upstream statuses to 502', async () => {
@@ -223,7 +304,7 @@ describe('proxyMedia (remote)', () => {
 
   it('answers HEAD with headers only', async () => {
     fetchMock.mockResolvedValue(new Response(null, { status: 200, headers: { 'content-length': '9' } }));
-    const response = await proxyMedia(request(), source, { disposition: 'inline', head: true });
+    const response = await proxyMedia(request(), source, { contentType: 'video/mp4', disposition: 'inline', head: true });
     expect(fetchMock.mock.calls[0][1].method).toBe('HEAD');
     expect(response.status).toBe(200);
     expect(response.headers.get('content-length')).toBe('9');
@@ -232,7 +313,10 @@ describe('proxyMedia (remote)', () => {
 
   it('builds an attachment disposition with a sanitised filename', async () => {
     fetchMock.mockResolvedValue(new Response('x', { status: 200 }));
-    const response = await proxyMedia(request(), source, { disposition: { attachment: 'My Song (live).mp3' } });
+    const response = await proxyMedia(request(), source, {
+      contentType: 'audio/mpeg',
+      disposition: { attachment: 'My Song (live).mp3' },
+    });
     expect(response.headers.get('content-disposition')).toBe(
       `attachment; filename="My_Song__live_.mp3"; filename*=UTF-8''My%20Song%20(live).mp3`
     );
@@ -247,15 +331,17 @@ describe('proxyMedia (local disk)', () => {
   beforeAll(() => {
     dir = mkdtempSync(path.join(os.tmpdir(), 'media-proxy-'));
     mkdirSync(path.join(dir, 'uploads', 'content'), { recursive: true });
-    writeFileSync(path.join(dir, 'uploads', 'content', 'clip.bin'), content);
+    writeFileSync(path.join(dir, 'uploads', 'content', 'clip.mp3'), content);
+    writeFileSync(path.join(dir, 'uploads', 'content', 'page.html'), '<script>alert(1)</script>');
   });
   afterAll(() => rmSync(dir, { recursive: true, force: true }));
   beforeEach(() => {
+    resetEnv();
     cwdSpy = jest.spyOn(process, 'cwd').mockReturnValue(dir);
   });
   afterEach(() => cwdSpy.mockRestore());
 
-  const source = () => resolveMediaSource('/api/files/content/clip.bin')!;
+  const source = (name = 'clip.mp3') => resolveMediaSource(`/api/files/content/${name}`)!;
 
   it('serves the whole file with a 200 when no Range is requested', async () => {
     const response = await proxyMedia(request(), source(), { disposition: 'inline' });
@@ -263,7 +349,9 @@ describe('proxyMedia (local disk)', () => {
     expect(response.headers.get('content-length')).toBe('10');
     expect(response.headers.get('accept-ranges')).toBe('bytes');
     expect(response.headers.get('cache-control')).toBe('private, no-store');
-    expect(response.headers.get('content-type')).toBe('application/octet-stream');
+    expect(response.headers.get('content-type')).toBe('audio/mpeg');
+    expect(response.headers.get('content-disposition')).toBe('inline');
+    expect(response.headers.get('content-security-policy')).toBe('sandbox');
     expect(response.headers.get('etag')).toMatch(/^W\/"10-\d+"$/);
     await expect(readBody(response.body)).resolves.toBe(content);
   });
@@ -288,13 +376,21 @@ describe('proxyMedia (local disk)', () => {
     expect(response.body).toBeNull();
   });
 
+  it('serves a non-media file as an opaque, sandboxed attachment', async () => {
+    const response = await proxyMedia(request(), source('page.html'), { disposition: 'inline' });
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toBe('application/octet-stream');
+    expect(response.headers.get('content-disposition')).toMatch(/^attachment; filename="download\.bin"/);
+    expect(response.headers.get('content-security-policy')).toBe('sandbox');
+  });
+
   it('answers HEAD with headers only and 404 for a missing file', async () => {
     const head = await proxyMedia(request(), source(), { disposition: 'inline', head: true });
     expect(head.status).toBe(200);
     expect(head.headers.get('content-length')).toBe('10');
     expect(head.body).toBeNull();
 
-    const missing = await proxyMedia(request(), resolveMediaSource('/api/files/content/nope.bin')!, {
+    const missing = await proxyMedia(request(), resolveMediaSource('/api/files/content/nope.mp3')!, {
       disposition: 'inline',
     });
     expect(missing.status).toBe(404);
