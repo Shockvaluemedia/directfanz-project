@@ -1,15 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, use } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import ArtistProfile from '@/components/fan/artist-profile';
 
 interface ArtistPageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
-export default function ArtistPage({ params }: ArtistPageProps) {
+export default function ArtistPage(props: ArtistPageProps) {
+  const params = use(props.params);
   const { data: session, status } = useSession();
   const router = useRouter();
   const [data, setData] = useState<any>(null);

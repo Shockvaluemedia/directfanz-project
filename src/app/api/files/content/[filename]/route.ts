@@ -3,10 +3,8 @@ import path from 'path';
 import fs from 'fs/promises';
 import { stat } from 'fs/promises';
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { filename: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ filename: string }> }) {
+  const params = await props.params;
   try {
     const filename = params.filename;
     
@@ -133,10 +131,8 @@ export async function GET(
 }
 
 // Handle HEAD requests for file metadata
-export async function HEAD(
-  request: NextRequest,
-  { params }: { params: { filename: string } }
-) {
+export async function HEAD(request: NextRequest, props: { params: Promise<{ filename: string }> }) {
+  const params = await props.params;
   try {
     const filename = params.filename;
     const sanitizedFilename = path.basename(filename);

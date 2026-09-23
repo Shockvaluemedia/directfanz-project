@@ -4,9 +4,9 @@ import StreamPlayer from '@/components/livestream/stream-player';
 import { prisma } from '@/lib/prisma';
 
 interface StreamPageProps {
-  params: {
+  params: Promise<{
     streamId: string;
-  };
+  }>;
 }
 
 async function getStreamData(streamId: string) {
@@ -31,7 +31,8 @@ async function getStreamData(streamId: string) {
   }
 }
 
-export async function generateMetadata({ params }: StreamPageProps): Promise<Metadata> {
+export async function generateMetadata(props: StreamPageProps): Promise<Metadata> {
+  const params = await props.params;
   const stream = await getStreamData(params.streamId);
 
   if (!stream) {
@@ -58,7 +59,8 @@ export async function generateMetadata({ params }: StreamPageProps): Promise<Met
   };
 }
 
-export default async function StreamPage({ params }: StreamPageProps) {
+export default async function StreamPage(props: StreamPageProps) {
+  const params = await props.params;
   const stream = await getStreamData(params.streamId);
 
   if (!stream) {

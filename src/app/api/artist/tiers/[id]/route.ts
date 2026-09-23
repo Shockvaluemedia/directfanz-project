@@ -6,13 +6,14 @@ import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 // GET /api/artist/tiers/[id] - Get a specific tier
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(request: NextRequest, props: RouteParams) {
+  const params = await props.params;
   return withArtistApi(request, async req => {
     try {
       const tier = await prisma.tiers.findFirst({
@@ -53,7 +54,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 }
 
 // PUT /api/artist/tiers/[id] - Update a tier
-export async function PUT(request: NextRequest, { params }: RouteParams) {
+export async function PUT(request: NextRequest, props: RouteParams) {
+  const params = await props.params;
   return withArtistApi(request, async req => {
     try {
       const body = await request.json();
@@ -130,7 +132,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 }
 
 // DELETE /api/artist/tiers/[id] - Delete a tier
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+export async function DELETE(request: NextRequest, props: RouteParams) {
+  const params = await props.params;
   return withArtistApi(request, async req => {
     try {
       // Check if tier exists and belongs to the artist

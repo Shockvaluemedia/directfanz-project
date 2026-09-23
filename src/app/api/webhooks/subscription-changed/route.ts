@@ -55,7 +55,7 @@ function verifyWebhookSignature(signature: string, payload: string): boolean {
 
 export async function POST(request: NextRequest) {
   try {
-    const headersList = headers();
+    const headersList = await headers();
     const signature = headersList.get('x-webhook-signature');
 
     if (!signature) {

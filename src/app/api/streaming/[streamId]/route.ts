@@ -3,10 +3,8 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { streamId: string } }
-) {
+export async function POST(request: NextRequest, props: { params: Promise<{ streamId: string }> }) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
@@ -82,10 +80,8 @@ export async function POST(
   }
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { streamId: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ streamId: string }> }) {
+  const params = await props.params;
   try {
     const { streamId } = params;
 

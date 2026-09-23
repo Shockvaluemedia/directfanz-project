@@ -5,7 +5,8 @@ import { getUserAccessibleContent, getContentAccessSummary } from '@/lib/content
 import { UserRole } from '@/types/database';
 
 // Get accessible content for a specific artist
-export async function GET(request: NextRequest, { params }: { params: { artistId: string } }) {
+export async function GET(request: NextRequest, props: { params: Promise<{ artistId: string }> }) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions);
 

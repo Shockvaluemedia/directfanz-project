@@ -5,7 +5,8 @@ import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
 // POST /api/challenges/[challengeId]/participate - Join a challenge
-export async function POST(request: NextRequest, { params }: { params: { challengeId: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ challengeId: string }> }) {
+  const params = await props.params;
   let session: any;
   try {
     session = await getServerSession(authOptions);
@@ -189,10 +190,8 @@ export async function POST(request: NextRequest, { params }: { params: { challen
 }
 
 // DELETE /api/challenges/[challengeId]/participate - Leave a challenge
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { challengeId: string } }
-) {
+export async function DELETE(request: NextRequest, props: { params: Promise<{ challengeId: string }> }) {
+  const params = await props.params;
   let session: any;
   try {
     session = await getServerSession(authOptions);

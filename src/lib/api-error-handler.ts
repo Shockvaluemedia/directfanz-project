@@ -43,7 +43,7 @@ export function createApiContext(request: NextRequest): ApiRequestContext {
     requestId: generateRequestId(),
     method: request.method,
     url: request.url,
-    ip: request.ip || request.headers.get('x-forwarded-for') || 'unknown',
+    ip: request.headers.get('x-forwarded-for') || 'unknown',
     userAgent: request.headers.get('user-agent') || 'unknown',
     startTime: Date.now(),
   };
@@ -309,21 +309,36 @@ export function validateApiRequest<T>(
   }
 }
 
+/**
+ * Next invokes route handlers as `(request, { params })`. Handlers receive the
+ * request explicitly after the API context, followed by Next's route context,
+ * so a wrapper never forwards the route-context object in place of the request.
+ */
+export interface RouteHandlerContext {
+  params: Promise<Record<string, string | string[] | undefined>>;
+}
+
 // Main API handler wrapper
-export function withApiHandler<T extends any[], R>(
-  handler: (context: ApiRequestContext, ...args: T) => Promise<R>
+export function withApiHandler<R>(
+  handler: (
+    context: ApiRequestContext,
+    request: NextRequest,
+    routeContext: RouteHandlerContext
+  ) => Promise<R>
 ) {
-  return async (request: NextRequest, ...args: T): Promise<NextResponse> => {
+  return async (request: NextRequest, routeContext: RouteHandlerContext): Promise<NextResponse> => {
     const context = createApiContext(request);
 
     try {
       logger.info('API request started', toLoggerContext(context));
 
-      const result = await handler(context, ...args);
+      const result = await handler(context, request, routeContext);
 
-      // If handler returns NextResponse directly, return it
-      if (result instanceof NextResponse) {
-        return result;
+      // A Response (NextResponse included) is returned as-is: Next accepts
+      // either, and NextResponse is a Response subclass.
+      if (result instanceof Response) {
+        const response: Response = result;
+        return response as NextResponse;
       }
 
       // Otherwise wrap in success response
@@ -336,11 +351,17 @@ export function withApiHandler<T extends any[], R>(
 }
 
 // Authenticated API handler wrapper
-export function withAuthenticatedApiHandler<T extends any[], R>(
-  handler: (context: ApiRequestContext, userId: string, userRole: string, ...args: T) => Promise<R>,
+export function withAuthenticatedApiHandler<R>(
+  handler: (
+    context: ApiRequestContext,
+    userId: string,
+    userRole: string,
+    request: NextRequest,
+    routeContext: RouteHandlerContext
+  ) => Promise<R>,
   requiredRole?: 'ADMIN' | 'ARTIST' | 'FAN'
 ) {
-  return withApiHandler(async (context: ApiRequestContext, ...args: T) => {
+  return withApiHandler(async (context: ApiRequestContext, request, routeContext) => {
     // Get session
     const session = await getServerSession(authOptions);
 
@@ -369,29 +390,30 @@ export function withAuthenticatedApiHandler<T extends any[], R>(
     // Add user info to context
     const userContext = addUserToContext(context, session.user.id, session.user.role);
 
-    return handler(userContext, session.user.id, session.user.role, ...args);
+    return handler(userContext, session.user.id, session.user.role, request, routeContext);
   });
 }
 
+type RoleScopedHandler<R> = (
+  context: ApiRequestContext,
+  userId: string,
+  request: NextRequest,
+  routeContext: RouteHandlerContext
+) => Promise<R>;
+
 // Admin API handler wrapper
-export const withAdminApiHandler = <T extends any[], R>(
-  handler: (context: ApiRequestContext, userId: string, ...args: T) => Promise<R>
-) =>
+export const withAdminApiHandler = <R>(handler: RoleScopedHandler<R>) =>
   withAuthenticatedApiHandler(
-    async (context: ApiRequestContext, userId: string, userRole: string, ...args: T) => {
-      return handler(context, userId, ...args);
-    },
+    async (context, userId, _userRole, request, routeContext) =>
+      handler(context, userId, request, routeContext),
     'ADMIN'
   );
 
 // Artist API handler wrapper
-export const withArtistApiHandler = <T extends any[], R>(
-  handler: (context: ApiRequestContext, userId: string, ...args: T) => Promise<R>
-) =>
+export const withArtistApiHandler = <R>(handler: RoleScopedHandler<R>) =>
   withAuthenticatedApiHandler(
-    async (context: ApiRequestContext, userId: string, userRole: string, ...args: T) => {
-      return handler(context, userId, ...args);
-    },
+    async (context, userId, _userRole, request, routeContext) =>
+      handler(context, userId, request, routeContext),
     'ARTIST'
   );
 

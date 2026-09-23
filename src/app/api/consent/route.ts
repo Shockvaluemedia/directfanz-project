@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
 
     const { categories, source } = parsed.data;
 
-    const ip = request.ip || request.headers.get('x-forwarded-for') || undefined;
+    const ip = request.headers.get('x-forwarded-for') || undefined;
     const userAgent = request.headers.get('user-agent') || undefined;
 
     const consentIds: string[] = [];

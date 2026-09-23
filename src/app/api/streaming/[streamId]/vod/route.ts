@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withStreamManagement } from '@/lib/streaming-auth';
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { streamId: string } }
-) {
+export async function POST(request: NextRequest, props: { params: Promise<{ streamId: string }> }) {
+  const params = await props.params;
   return withStreamManagement<any>(request, async (req) => {
     try {
       const { streamId } = params;
@@ -51,10 +49,8 @@ export async function POST(
   });
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { streamId: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ streamId: string }> }) {
+  const params = await props.params;
   return withStreamManagement<any>(request, async (req) => {
     try {
       const { streamId } = params;

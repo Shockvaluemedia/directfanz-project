@@ -3,7 +3,8 @@ import { withContentAccess } from '@/middleware/content-access';
 import { prisma } from '@/lib/prisma';
 
 // Download content with access control
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   return withContentAccess(request, params.id, async req => {
     try {
       const content = await prisma.content.findUnique({

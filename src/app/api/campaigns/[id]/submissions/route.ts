@@ -16,7 +16,8 @@ const createSubmissionSchema = z.object({
 });
 
 // GET /api/campaigns/[id]/submissions - List submissions for a campaign
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const { id: campaignId } = params;
     const { searchParams } = new URL(request.url);
@@ -105,7 +106,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 }
 
 // POST /api/campaigns/[id]/submissions - Submit content to a campaign
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   let session: any;
   try {
     const { id: campaignId } = params;

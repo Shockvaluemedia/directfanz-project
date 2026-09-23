@@ -5,13 +5,14 @@ import { notificationService } from '@/lib/notifications';
 import { logger } from '@/lib/logger';
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 // DELETE /api/notifications/[id] - Delete a notification
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+export async function DELETE(request: NextRequest, props: RouteParams) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions);
 
