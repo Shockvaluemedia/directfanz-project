@@ -96,6 +96,19 @@ export const POST = withApiHandler(
       );
     }
 
+    // Checked after the password so a banned account can't be told apart from
+    // a wrong password by an unauthenticated caller.
+    if (user.status === 'BANNED') {
+      throw new AppError(
+        ErrorCode.FORBIDDEN,
+        'This account has been suspended',
+        403,
+        undefined,
+        context.requestId,
+        user.id
+      );
+    }
+
     // Generate JWT token. Never fall back to a hardcoded secret — a known
     // signing key would let anyone forge tokens (including admin roles).
     const jwtSecret = process.env.JWT_SECRET || process.env.NEXTAUTH_SECRET;

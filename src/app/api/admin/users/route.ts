@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { logger } from '@/lib/logger';
 
 const userFilterSchema = z.object({
-  role: z.enum(['ARTIST', 'FAN']).optional(),
+  role: z.enum(['ARTIST', 'FAN', 'ADMIN']).optional(),
   status: z.enum(['active', 'suspended', 'all']).default('all'),
   limit: z.number().min(1).max(100).default(20),
   offset: z.number().min(0).default(0),
@@ -78,6 +78,10 @@ export async function GET(request: NextRequest) {
         id: user.id,
         email: user.email,
         displayName: user.displayName,
+        // The admin users page reads `name` and `isBanned` per row.
+        name: user.displayName,
+        status: user.status,
+        isBanned: user.status === 'BANNED',
         bio: user.bio,
         avatar: user.avatar,
         role: user.role,
@@ -118,6 +122,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: true,
         data: formattedUsers,
+        // The admin users page reads `users`; `data` is kept for other callers.
+        users: formattedUsers,
         pagination: {
           limit: params.limit,
           offset: params.offset,
