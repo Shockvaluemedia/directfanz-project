@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
-import { canViewStream, ticketPriceError } from '@/lib/stream-access';
+import { canViewStream, clientRecordingUrl, ticketPriceError } from '@/lib/stream-access';
 
 const updateStreamSchema = z.object({
   title: z.string().min(1).max(200).optional(),
@@ -91,6 +91,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ strea
       ...stream,
       tierIds: JSON.parse(stream.tierIds),
       streamKey: stream.artistId === session.user.id ? stream.streamKey : undefined,
+      recordingUrl: clientRecordingUrl(stream, session.user.id),
       currentViewers: stream.stream_viewers,
       stats: {
         totalViewers: stream._count.stream_viewers,

@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { generateSecureToken } from '@/lib/security';
 import { logger } from '@/lib/logger';
 import crypto from 'crypto';
-import { ticketPriceError } from '@/lib/stream-access';
+import { clientRecordingUrl, ticketPriceError } from '@/lib/stream-access';
 
 // Validation schemas
 const createStreamSchema = z.object({
@@ -149,8 +149,14 @@ export async function GET(request: NextRequest) {
           const durationMs = startedAt ? endedAt - startedAt : 0;
           const durationSeconds = Math.floor(durationMs / 1000);
 
+          const viewerId = session?.user?.id as string | undefined;
           return {
             ...stream,
+            // Discovery is open to anyone: the stream key would let them
+            // broadcast as the artist, and the raw recording URL would skip a
+            // party's ticket check.
+            streamKey: viewerId && stream.artistId === viewerId ? stream.streamKey : undefined,
+            recordingUrl: clientRecordingUrl(stream, viewerId),
             tierIds: JSON.parse(stream.tierIds),
             streamer: {
               id: stream.users.id,
