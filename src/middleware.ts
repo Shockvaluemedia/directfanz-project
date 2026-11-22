@@ -15,6 +15,7 @@ import { applySecurityHeaders } from '@/lib/security-headers';
 import { AdaptiveRateLimiter } from './lib/adaptive-rate-limiter';
 import { getToken } from 'next-auth/jwt';
 import { captureError } from '@/lib/sentry';
+import { parkedFeatureForPath } from '@/lib/parked-features';
 
 // Define adaptive rate limiters with different configurations
 const apiRateLimiter = new AdaptiveRateLimiter({
@@ -58,6 +59,15 @@ export async function middleware(request: NextRequest) {
   // Skip middleware for static assets and _next routes
   if (url.includes('/_next/') || url.includes('/static/') || url.includes('/favicon.ico')) {
     return NextResponse.next();
+  }
+
+  // Parked features (see src/lib/parked-features.ts) answer as if they did not exist.
+  if (parkedFeatureForPath(url)) {
+    const response = url.startsWith('/api/')
+      ? NextResponse.json({ error: 'Not found' }, { status: 404 })
+      : new NextResponse('Not found', { status: 404 });
+    applySecurityHeaders(response);
+    return response;
   }
 
   // For non-API routes, gate protected pages and apply browser security headers.

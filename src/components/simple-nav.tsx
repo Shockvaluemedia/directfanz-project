@@ -2,6 +2,12 @@
 
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
+import { isFeatureParked } from '@/lib/parked-features';
+
+// Campaigns are parked for launch; point the main link at the community home.
+const BROWSE_LINK = isFeatureParked('campaigns')
+  ? { href: '/community', label: 'Community' }
+  : { href: '/campaigns', label: 'Campaigns' };
 
 // Separate client component for sign out button
 function SignOutButton() {
@@ -35,10 +41,10 @@ export default function SimpleNav() {
             {/* Main Navigation */}
             <div className='flex space-x-4'>
               <Link
-                href='/campaigns'
+                href={BROWSE_LINK.href}
                 className='text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium'
               >
-                Campaigns
+                {BROWSE_LINK.label}
               </Link>
 
               {session && (
