@@ -27,15 +27,51 @@ model accounts {
 }
 
 model artists {
-  id                String   @id @default(cuid())
-  userId            String   @unique
-  stripeAccountId   String?  @unique
-  isStripeOnboarded Boolean  @default(false)
-  totalEarnings     Decimal  @default(0)
-  totalSubscribers  Int      @default(0)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  users             users    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                String       @id @default(cuid())
+  userId            String       @unique
+  stripeAccountId   String?      @unique
+  isStripeOnboarded Boolean      @default(false)
+  totalEarnings     Decimal      @default(0)
+  totalSubscribers  Int          @default(0)
+  /// The community the artist belongs to (see src/lib/community.ts).
+  communityId       String?
+  /// Place on the community home; 1 headlines. Null sorts last.
+  featuredRank      Int?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  users             users        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  communities       communities? @relation(fields: [communityId], references: [id], onDelete: SetNull)
+
+  @@index([communityId, featuredRank])
+}
+
+/// A curated group of artists with its own home page. Launch has one.
+model communities {
+  id             String           @id
+  slug           String           @unique
+  name           String
+  description    String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  artists        artists[]
+  artist_invites artist_invites[]
+}
+
+/// Single-use invite to sign up as an artist in a community. Only the code's
+/// SHA-256 is stored. email, when set, must match the sign-up email.
+model artist_invites {
+  id           String      @id
+  communityId  String
+  codeHash     String      @unique
+  email        String?
+  createdBy    String
+  expiresAt    DateTime
+  usedAt       DateTime?
+  usedByUserId String?
+  createdAt    DateTime    @default(now())
+  communities  communities @relation(fields: [communityId], references: [id], onDelete: Cascade)
+
+  @@index([communityId])
 }
 
 model campaign_analytics {

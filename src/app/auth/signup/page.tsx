@@ -31,6 +31,7 @@ export default function SignUpPage() {
     confirmPassword: '',
     displayName: '',
     role: 'FAN' as 'ARTIST' | 'FAN',
+    inviteCode: '',
     agreedToTerms: false,
     emailUpdates: true,
   });
@@ -111,6 +112,9 @@ export default function SignUpPage() {
           password: formData.password,
           displayName: formData.displayName,
           role: formData.role,
+          ...(formData.role === 'ARTIST' && formData.inviteCode.trim()
+            ? { inviteCode: formData.inviteCode.trim() }
+            : {}),
         }),
       });
 
@@ -449,6 +453,26 @@ export default function SignUpPage() {
             </div>
           </div>
         </div>
+
+        {/* Artists join by invite */}
+        {formData.role === 'ARTIST' && (
+          <div>
+            <label htmlFor='inviteCode' className='block text-sm font-semibold text-gray-700 mb-2'>
+              Artist invite code
+            </label>
+            <input
+              id='inviteCode'
+              type='text'
+              autoComplete='off'
+              required
+              value={formData.inviteCode}
+              onChange={e => setFormData({ ...formData, inviteCode: e.target.value })}
+              className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+              placeholder='From your invite'
+            />
+            <p className='mt-1 text-xs text-gray-500'>Artist accounts are by invite.</p>
+          </div>
+        )}
 
         {/* Terms and Privacy */}
         <div className='pt-4 space-y-4'>

@@ -68,11 +68,11 @@ export function toPublicParty(row: PartyRow): PublicParty {
   };
 }
 
-/** An artist's ticketed parties that are coming up or live, soonest first. */
-export async function listUpcomingParties(artistId: string): Promise<PublicParty[]> {
+/** One or more artists' ticketed parties that are coming up or live, soonest first. */
+export async function listUpcomingParties(artistId: string | string[]): Promise<PublicParty[]> {
   const rows = await prisma.live_streams.findMany({
     where: {
-      artistId,
+      artistId: Array.isArray(artistId) ? { in: artistId } : artistId,
       requiresPayment: true,
       paymentAmount: { gt: 0 },
       status: { in: UPCOMING_STATUSES },
