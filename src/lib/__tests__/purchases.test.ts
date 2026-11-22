@@ -287,3 +287,121 @@ describe('purchase webhook handlers', () => {
     expect(db.purchases.updateMany).not.toHaveBeenCalled();
   });
 });
+
+describe('drop purchases', () => {
+  const now = Date.now();
+  const drop = {
+    id: 'drop_1',
+    artistId: 'artist_1',
+    title: 'Never More: first single',
+    description: null,
+    priceType: 'PAY_WHAT_YOU_WANT',
+    price: { toString: () => '3' },
+    currency: 'usd',
+    startsAt: new Date(now - 60_000),
+    endsAt: new Date(now + 86_400_000),
+    quantityLimit: null,
+    soldCount: 0,
+    status: 'PUBLISHED',
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    db.drops.findUnique.mockResolvedValue(drop);
+    db.artists.findUnique.mockResolvedValue({
+      userId: 'artist_1',
+      stripeAccountId: 'acct_artist',
+      isStripeOnboarded: true,
+    });
+    db.purchases.findFirst.mockResolvedValue(null);
+    db.purchases.create.mockResolvedValue({});
+    db.purchases.update.mockResolvedValue({});
+    mockCustomer.mockResolvedValue('cus_1');
+    mockCreateSession.mockResolvedValue({ id: 'cs_drop', url: 'https://checkout.test/cs_drop' });
+  });
+
+  it('charges the amount the fan chose above the minimum', async () => {
+    await createPurchaseCheckout({
+      fan,
+      itemType: 'DROP',
+      itemId: 'drop_1',
+      amountCents: 1000,
+      baseUrl: 'https://app.test',
+    });
+
+    expect(db.purchases.create.mock.calls[0][0].data).toMatchObject({
+      itemType: 'DROP',
+      amount: 10,
+      platformFee: 0.5,
+    });
+    expect(mockCreateSession.mock.calls[0][0]).toMatchObject({
+      amountCents: 1000,
+      title: 'Never More: first single',
+    });
+  });
+
+  it('charges the minimum when the fan names no amount', async () => {
+    await createPurchaseCheckout({ fan, itemType: 'DROP', itemId: 'drop_1', baseUrl: '' });
+
+    expect(mockCreateSession.mock.calls[0][0].amountCents).toBe(300);
+  });
+
+  it('refuses an amount under the minimum', async () => {
+    await expect(
+      createPurchaseCheckout({
+        fan,
+        itemType: 'DROP',
+        itemId: 'drop_1',
+        amountCents: 100,
+        baseUrl: '',
+      })
+    ).rejects.toMatchObject({ status: 400 });
+    expect(db.purchases.create).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['not on sale yet', { startsAt: new Date(now + 60_000) }, 400],
+    ['sold out', { quantityLimit: 5, soldCount: 5 }, 400],
+    ['a draft', { status: 'DRAFT' }, 404],
+  ])('refuses a drop that is %s', async (_label, change, status) => {
+    db.drops.findUnique.mockResolvedValue({ ...drop, ...change });
+
+    await expect(
+      createPurchaseCheckout({ fan, itemType: 'DROP', itemId: 'drop_1', baseUrl: '' })
+    ).rejects.toMatchObject({ status });
+  });
+
+  it('refuses a fan-chosen amount on a fixed-price ticket', async () => {
+    await expect(
+      createPurchaseCheckout({
+        fan,
+        itemType: 'LIVE_STREAM_TICKET',
+        itemId: 'stream_1',
+        amountCents: 100,
+        baseUrl: '',
+      })
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it('counts a sale when a drop purchase is paid, and gives it back on refund', async () => {
+    const dropPurchase = { ...purchase, itemType: 'DROP', itemId: 'drop_1' };
+    db.purchases.findUnique.mockResolvedValue(dropPurchase);
+    db.purchases.updateMany.mockResolvedValue({ count: 1 });
+    db.artists.update.mockResolvedValue({});
+    db.drops.update.mockResolvedValue({});
+    db.drops.updateMany.mockResolvedValue({ count: 1 });
+
+    await handlePurchaseCheckoutPaid(session());
+    expect(db.drops.update).toHaveBeenCalledWith({
+      where: { id: 'drop_1' },
+      data: { soldCount: { increment: 1 } },
+    });
+
+    db.purchases.findUnique.mockResolvedValue({ ...dropPurchase, status: 'PAID' });
+    await handlePurchaseChargeRefunded({ refunded: true, payment_intent: 'pi_test_1' } as any);
+    expect(db.drops.updateMany).toHaveBeenCalledWith({
+      where: { id: 'drop_1', soldCount: { gt: 0 } },
+      data: { soldCount: { decrement: 1 } },
+    });
+  });
+});

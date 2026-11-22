@@ -286,6 +286,7 @@ model content {
   moderation_logs  moderation_logs[]
   playlist_items   playlist_items[]
   tiers            tiers[]            @relation("TierContent")
+  drop_content     drop_content[]
 
   @@index([artistId, visibility])
   @@index([type, visibility])
@@ -726,6 +727,42 @@ model purchases {
   @@index([itemType, itemId, status])
 }
 
+/// A drop: content sold once (a single, an EP, a bundle). Buying it unlocks its
+/// content for good. priceType: FIXED | PAY_WHAT_YOU_WANT (price is then the
+/// minimum). status: DRAFT | PUBLISHED | ARCHIVED.
+model drops {
+  id            String         @id
+  artistId      String
+  title         String
+  description   String?
+  priceType     String         @default("FIXED")
+  price         Decimal
+  currency      String         @default("usd")
+  startsAt      DateTime
+  endsAt        DateTime?
+  quantityLimit Int?
+  soldCount     Int            @default(0)
+  status        String         @default("DRAFT")
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  users         users          @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  drop_content  drop_content[]
+
+  @@index([artistId, status])
+  @@index([status, startsAt])
+}
+
+model drop_content {
+  dropId    String
+  contentId String
+  createdAt DateTime @default(now())
+  drops     drops    @relation(fields: [dropId], references: [id], onDelete: Cascade)
+  content   content  @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  @@id([dropId, contentId])
+  @@index([contentId])
+}
+
 /// Stripe webhook events already seen, keyed by Stripe's event id, so a
 /// redelivered event is never applied twice.
 /// status: PROCESSING | PROCESSED | FAILED
@@ -807,6 +844,7 @@ model users {
   stream_viewers                       stream_viewers[]
   subscriptions                        subscriptions[]
   purchases                            purchases[]
+  drops                                drops[]
   tiers                                tiers[]
   gdpr_requests                        gdpr_requests[]
   consent_records                      consent_records[]

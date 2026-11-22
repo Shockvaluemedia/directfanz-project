@@ -846,6 +846,8 @@ function createPrismaMock() {
     age_verifications: createMockModel(),
     price_optimizations: createMockModel(),
     purchases: createMockModel(),
+    drops: createMockModel(),
+    drop_content: createMockModel(),
     stripe_webhook_events: createMockModel(),
     verificationtokens: createMockModel(),
     refresh_tokens: createMockModel(),

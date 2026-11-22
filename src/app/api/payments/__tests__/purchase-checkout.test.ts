@@ -63,14 +63,23 @@ describe('POST /api/payments/purchase-checkout', () => {
     expect(mockCheckout).not.toHaveBeenCalled();
   });
 
-  it('rejects a client-supplied price and unknown item types', async () => {
-    const withPrice = await POST(
-      request({ itemType: 'LIVE_STREAM_TICKET', itemId: 'stream_1', amount: 0.01 })
-    );
-    const unknownType = await POST(request({ itemType: 'FREE_STUFF', itemId: 'x' }));
+  it('passes a pay-what-you-want amount to the server-side check in cents', async () => {
+    const res = await POST(request({ itemType: 'DROP', itemId: 'drop_1', amount: 7.5 }));
 
-    expect(withPrice.status).toBe(400);
+    expect(res.status).toBe(200);
+    expect(mockCheckout).toHaveBeenCalledWith(
+      expect.objectContaining({ itemType: 'DROP', itemId: 'drop_1', amountCents: 750 })
+    );
+  });
+
+  it('rejects unknown item types, non-positive amounts and extra fields', async () => {
+    const unknownType = await POST(request({ itemType: 'FREE_STUFF', itemId: 'x' }));
+    const negative = await POST(request({ itemType: 'DROP', itemId: 'd', amount: -1 }));
+    const extra = await POST(request({ itemType: 'DROP', itemId: 'd', artistId: 'a' }));
+
     expect(unknownType.status).toBe(400);
+    expect(negative.status).toBe(400);
+    expect(extra.status).toBe(400);
     expect(mockCheckout).not.toHaveBeenCalled();
   });
 

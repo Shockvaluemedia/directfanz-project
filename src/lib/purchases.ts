@@ -6,6 +6,7 @@ import {
   createOneTimeCheckoutSession,
   createOrRetrieveCustomer,
 } from '@/lib/stripe';
+import { DropError, getDropAvailability, resolveDropAmountCents } from '@/lib/drops';
 
 /**
  * One-time purchases: a fan pays once for an item (a drop, a presale, a
@@ -26,7 +27,7 @@ export const PURCHASE_STATUS = {
 /** Marks a Checkout Session / PaymentIntent as belonging to a purchase. */
 export const PURCHASE_METADATA_KIND = 'one_time_purchase';
 
-export const PURCHASE_ITEM_TYPES = ['LIVE_STREAM_TICKET'] as const;
+export const PURCHASE_ITEM_TYPES = ['DROP', 'LIVE_STREAM_TICKET'] as const;
 export type PurchaseItemType = (typeof PURCHASE_ITEM_TYPES)[number];
 
 export interface ResolvedPurchaseItem {
@@ -54,12 +55,63 @@ function decimalToCents(value: { toString(): string } | null | undefined): numbe
   return Math.round(parseFloat(value.toString()) * 100);
 }
 
-type ItemResolver = (itemId: string) => Promise<ResolvedPurchaseItem>;
+export interface ResolveItemOptions {
+  /** Amount the fan chose, in cents. Only pay-what-you-want items accept one. */
+  amountCents?: number;
+}
+
+type ItemResolver = (itemId: string, options: ResolveItemOptions) => Promise<ResolvedPurchaseItem>;
+
+const DROP_UNAVAILABLE_MESSAGES = {
+  not_started: 'This drop is not on sale yet',
+  ended: 'This drop is no longer on sale',
+  sold_out: 'This drop is sold out',
+  unavailable: 'Item not found',
+} as const;
 
 const itemResolvers: Record<PurchaseItemType, ItemResolver> = {
+  // A drop: fixed price, or pay-what-you-want at or above its minimum.
+  async DROP(itemId, { amountCents }) {
+    const drop = await prisma.drops.findUnique({ where: { id: itemId } });
+    if (!drop) {
+      throw new PurchaseError('Item not found', 404);
+    }
+
+    const availability = getDropAvailability(drop);
+    if (availability !== 'on_sale') {
+      throw new PurchaseError(
+        DROP_UNAVAILABLE_MESSAGES[availability],
+        availability === 'unavailable' ? 404 : 400
+      );
+    }
+
+    let resolvedCents: number;
+    try {
+      resolvedCents = resolveDropAmountCents(drop, amountCents);
+    } catch (error) {
+      if (error instanceof DropError) {
+        throw new PurchaseError(error.message, error.status);
+      }
+      throw error;
+    }
+
+    return {
+      artistId: drop.artistId,
+      title: drop.title,
+      description: drop.description ?? undefined,
+      amountCents: resolvedCents,
+      currency: drop.currency,
+      cancelPath: `/artist/${drop.artistId}?canceled=true`,
+    };
+  },
+
   // A ticket to a paid scheduled live stream (listening party). Stream access
   // is not yet gated on the ticket; that is a later change.
-  async LIVE_STREAM_TICKET(itemId) {
+  async LIVE_STREAM_TICKET(itemId, { amountCents: requested }) {
+    if (requested !== undefined) {
+      throw new PurchaseError('This item has a fixed price', 400);
+    }
+
     const stream = await prisma.live_streams.findUnique({ where: { id: itemId } });
 
     if (!stream) {
@@ -87,13 +139,14 @@ const itemResolvers: Record<PurchaseItemType, ItemResolver> = {
 
 export async function resolvePurchaseItem(
   itemType: PurchaseItemType,
-  itemId: string
+  itemId: string,
+  options: ResolveItemOptions = {}
 ): Promise<ResolvedPurchaseItem> {
   const resolver = itemResolvers[itemType];
   if (!resolver) {
     throw new PurchaseError('Unsupported item type', 400);
   }
-  return resolver(itemId);
+  return resolver(itemId, options);
 }
 
 /** True when the fan has a paid, unrefunded purchase of the item. */
@@ -113,6 +166,8 @@ export interface CreatePurchaseCheckoutInput {
   fan: { id: string; email: string; displayName: string };
   itemType: PurchaseItemType;
   itemId: string;
+  /** Pay-what-you-want amount in cents; omit for fixed-price items. */
+  amountCents?: number;
   baseUrl: string;
 }
 
@@ -124,7 +179,7 @@ export async function createPurchaseCheckout(
   input: CreatePurchaseCheckoutInput
 ): Promise<{ purchaseId: string; checkoutUrl: string }> {
   const { fan, itemType, itemId, baseUrl } = input;
-  const item = await resolvePurchaseItem(itemType, itemId);
+  const item = await resolvePurchaseItem(itemType, itemId, { amountCents: input.amountCents });
 
   if (item.artistId === fan.id) {
     throw new PurchaseError('You cannot buy your own item', 400);
@@ -280,6 +335,15 @@ export async function handlePurchaseCheckoutPaid(session: Stripe.Checkout.Sessio
     where: { userId: purchase.artistId },
     data: { totalEarnings: { increment: artistEarnings } },
   });
+
+  if (purchase.itemType === 'DROP') {
+    // Counted on payment, not at checkout. Two fans paying for the last unit
+    // at the same moment can both get it (see PR notes).
+    await prisma.drops.update({
+      where: { id: purchase.itemId },
+      data: { soldCount: { increment: 1 } },
+    });
+  }
 }
 
 /** checkout.session.async_payment_failed */
@@ -336,4 +400,11 @@ export async function handlePurchaseChargeRefunded(charge: Stripe.Charge): Promi
     where: { userId: purchase.artistId },
     data: { totalEarnings: { decrement: artistEarnings } },
   });
+
+  if (purchase.itemType === 'DROP') {
+    await prisma.drops.updateMany({
+      where: { id: purchase.itemId, soldCount: { gt: 0 } },
+      data: { soldCount: { decrement: 1 } },
+    });
+  }
 }

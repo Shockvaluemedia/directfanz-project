@@ -6,7 +6,14 @@ import jwt from 'jsonwebtoken';
 // Content access verification types
 export interface ContentAccessResult {
   hasAccess: boolean;
-  reason?: 'public' | 'owner' | 'subscription' | 'no_subscription' | 'invalid_tier' | 'not_found';
+  reason?:
+    | 'public'
+    | 'owner'
+    | 'subscription'
+    | 'purchase'
+    | 'no_subscription'
+    | 'invalid_tier'
+    | 'not_found';
   subscription?: {
     id: string;
     tierId: string;
@@ -37,6 +44,9 @@ export async function checkContentAccess(
             id: true,
             displayName: true,
           },
+        },
+        drop_content: {
+          select: { dropId: true },
         },
         tiers: {
           select: {
@@ -74,6 +84,20 @@ export async function checkContentAccess(
     // Content owner (artist) always has access
     if (contentWithUserAccess.artistId === userId) {
       return { hasAccess: true, reason: 'owner' };
+    }
+
+    // A paid (unrefunded) purchase of any drop containing this content unlocks it for good.
+    const dropIds = ((contentWithUserAccess as any).drop_content ?? []).map(
+      (d: { dropId: string }) => d.dropId
+    );
+    if (dropIds.length > 0) {
+      const purchase = await prisma.purchases.findFirst({
+        where: { fanId: userId, itemType: 'DROP', itemId: { in: dropIds }, status: 'PAID' },
+        select: { id: true },
+      });
+      if (purchase) {
+        return { hasAccess: true, reason: 'purchase' };
+      }
     }
 
     // Check if user has subscription to any of the content's tiers

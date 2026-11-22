@@ -5,11 +5,14 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { createPurchaseCheckout, PURCHASE_ITEM_TYPES, PurchaseError } from '@/lib/purchases';
 
-// The client names the item only. The price is always looked up on the server.
+// The client names the item. The price is looked up on the server; only a
+// pay-what-you-want item accepts an amount, which the server checks against
+// the item's minimum and maximum.
 const purchaseCheckoutSchema = z
   .object({
     itemType: z.enum(PURCHASE_ITEM_TYPES),
     itemId: z.string().min(1).max(200),
+    amount: z.number().finite().positive().optional(),
   })
   .strict();
 
@@ -22,7 +25,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { itemType, itemId } = purchaseCheckoutSchema.parse(body);
+    const { itemType, itemId, amount } = purchaseCheckoutSchema.parse(body);
 
     const user = await prisma.users.findUnique({ where: { id: session.user.id } });
 
@@ -36,6 +39,7 @@ export async function POST(request: NextRequest) {
       fan: { id: user.id, email: user.email, displayName: user.displayName },
       itemType,
       itemId,
+      amountCents: amount === undefined ? undefined : Math.round(amount * 100),
       baseUrl,
     });
 
