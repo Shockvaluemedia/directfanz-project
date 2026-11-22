@@ -6,8 +6,10 @@ import { checkContentAccess, verifyAccessToken } from '@/lib/content-access';
 type RequestWithUser = NextRequest & { userId: string };
 
 /**
- * Resolves who is asking: a content access token (`?token=` or
- * `x-access-token`) bound to this content, or the signed-in session.
+ * Resolves who is asking: a content access token in the `x-access-token`
+ * header bound to this content, or the signed-in session. Tokens are not read
+ * from the query string, so a paid file never has a URL that works when
+ * pasted into someone else's browser.
  * getServerSession is used rather than next-auth's getToken because the app
  * signs its own HS256 session JWTs, which getToken cannot decode.
  */
@@ -15,8 +17,7 @@ async function resolveUserId(
   request: NextRequest,
   contentId: string
 ): Promise<{ userId: string } | { error: 'invalid_token' | 'unauthenticated' }> {
-  const accessToken =
-    new URL(request.url).searchParams.get('token') || request.headers.get('x-access-token');
+  const accessToken = request.headers.get('x-access-token');
 
   if (accessToken) {
     const tokenData = verifyAccessToken(accessToken);

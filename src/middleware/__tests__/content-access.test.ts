@@ -2,7 +2,7 @@
  * The content-access middleware gates /stream and /download. It must read the
  * session through getServerSession (next-auth's getToken cannot decode this
  * app's HS256 session JWTs, so it used to 401 every signed-in user), honour a
- * content-bound access token, and map access results to the right statuses.
+ * content-bound access token sent as a header (never in the URL), and map access results to the right statuses.
  */
 import { NextRequest } from 'next/server';
 
@@ -55,12 +55,32 @@ describe('content-access middleware', () => {
     (checkContentAccess as jest.Mock).mockResolvedValue({ hasAccess: true, reason: 'subscription' });
     const handler = jest.fn(async () => new Response('ok'));
 
-    const response = await withStreamingAccess(req('http://localhost:3000/api/content/c1/stream?token=t1'), 'c1', handler);
+    const response = await withStreamingAccess(
+      req('http://localhost:3000/api/content/c1/stream', { 'x-access-token': 't1' }),
+      'c1',
+      handler
+    );
 
     expect(verifyAccessToken).toHaveBeenCalledWith('t1');
     expect(getServerSession).not.toHaveBeenCalled();
     expect(checkContentAccess).toHaveBeenCalledWith('fan-2', 'c1');
     expect(response.status).toBe(200);
+  });
+
+  it('ignores a token in the URL, so a pasted link carries no access', async () => {
+    (verifyAccessToken as jest.Mock).mockReturnValue({ userId: 'fan-2', contentId: 'c1' });
+    (getServerSession as jest.Mock).mockResolvedValue(null);
+    const handler = jest.fn();
+
+    const response = await withStreamingAccess(
+      req('http://localhost:3000/api/content/c1/stream?token=t1'),
+      'c1',
+      handler
+    );
+
+    expect(verifyAccessToken).not.toHaveBeenCalled();
+    expect(response.status).toBe(401);
+    expect(handler).not.toHaveBeenCalled();
   });
 
   it('rejects a token issued for different content', async () => {
