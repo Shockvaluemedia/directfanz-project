@@ -4,6 +4,7 @@ import { prisma } from './prisma';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { randomUUID } from 'crypto';
+import { artistSignupIsOpen, redeemArtistInvite } from './artist-invites';
 
 // Validation schemas
 export const signUpSchema = z.object({
@@ -11,6 +12,8 @@ export const signUpSchema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters'),
   displayName: z.string().min(2, 'Display name must be at least 2 characters'),
   role: z.enum(['ARTIST', 'FAN']),
+  /** Required for artists: artist sign-up is by invite (src/lib/community.ts). */
+  inviteCode: z.string().trim().min(1).max(200).optional(),
 });
 
 export const signInSchema = z.object({
@@ -178,12 +181,16 @@ export async function createUser(data: z.infer<typeof signUpSchema>) {
         },
       });
 
-      // Create artist profile if role is ARTIST
+      // Create artist profile if role is ARTIST. Artists join by invite.
       if (validatedData.role === 'ARTIST') {
+        const communityId = artistSignupIsOpen()
+          ? null
+          : await redeemArtistInvite(tx, validatedData.inviteCode, newUser.email, newUser.id);
         await tx.artists.create({
           data: {
             id: randomUUID(),
             userId: newUser.id,
+            communityId,
             updatedAt: new Date(),
           },
         });

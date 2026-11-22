@@ -93,7 +93,7 @@ NEXT_PUBLIC_CDN_URL=https://your-distribution.cloudfront.net
 STRIPE_SECRET_KEY=sk_live_your_live_secret_key
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_your_live_publishable_key
 STRIPE_WEBHOOK_SECRET=whsec_your_production_webhook_secret
-STRIPE_PLATFORM_FEE_PERCENT=5
+PLATFORM_FEE_PERCENT=10
 ```
 
 ### **Caching & Performance**

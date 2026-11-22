@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
+import { canViewStream, ticketPriceError } from '@/lib/stream-access';
 
 const updateStreamSchema = z.object({
   title: z.string().min(1).max(200).optional(),
@@ -76,10 +77,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ strea
     }
 
     // Check access permissions
-    const canView =
-      stream.isPublic ||
-      stream.artistId === session.user.id ||
-      (await checkStreamAccess(session.user.id, stream));
+    const canView = await canViewStream(session.user.id, stream);
 
     if (!canView) {
       return NextResponse.json(
@@ -153,6 +151,14 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ strea
 
     const body = await request.json();
     const validatedData = updateStreamSchema.parse(body);
+
+    const priceError = ticketPriceError(
+      validatedData.requiresPayment ?? existingStream.requiresPayment,
+      validatedData.paymentAmount ?? existingStream.paymentAmount
+    );
+    if (priceError) {
+      return NextResponse.json({ success: false, error: { message: priceError } }, { status: 400 });
+    }
 
     // Validate tier access if updating tiers
     if (validatedData.tierIds && validatedData.tierIds.length > 0) {
@@ -309,23 +315,4 @@ export async function DELETE(request: NextRequest, props: { params: Promise<{ st
       { status: 500 }
     );
   }
-}
-
-// Helper function to check stream access
-async function checkStreamAccess(userId: string, stream: any): Promise<boolean> {
-  if (stream.isPublic) return true;
-
-  const tierIds = JSON.parse(stream.tierIds);
-  if (tierIds.length === 0) return true;
-
-  // Check if user has subscription to any required tier
-  const hasAccess = await prisma.subscriptions.findFirst({
-    where: {
-      fanId: userId,
-      tierId: { in: tierIds },
-      status: 'ACTIVE',
-    },
-  });
-
-  return !!hasAccess;
 }

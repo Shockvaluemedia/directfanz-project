@@ -10,6 +10,8 @@ export const registerSchema = z.object({
     .min(2, 'Display name must be at least 2 characters')
     .max(50, 'Display name must be less than 50 characters'),
   role: z.enum(['ARTIST', 'FAN']).optional().default('FAN'),
+  /** Required for artists: artist sign-up is by invite (src/lib/community.ts). */
+  inviteCode: z.string().trim().min(1).max(200).optional(),
 });
 
 export const loginSchema = z.object({

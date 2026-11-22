@@ -74,8 +74,8 @@ export default function Home() {
             </div>
             <h3 className="text-xl font-semibold mb-2">Instant Payouts</h3>
             <p className="text-gray-400">
-              Get paid directly via Stripe Connect. Only 5% platform fee — you
-              keep 95% of your earnings.
+              Get paid directly via Stripe Connect. Only a 10% platform fee — you
+              keep 90% of your earnings.
             </p>
           </div>
         </div>
@@ -87,12 +87,12 @@ export default function Home() {
           Simple pricing for creators
         </h2>
         <p className="text-gray-400 text-center mb-16 max-w-xl mx-auto">
-          No upfront costs. No hidden fees. Just a 5% platform fee on your
+          No upfront costs. No hidden fees. Just a 10% platform fee on your
           earnings.
         </p>
         <div className="max-w-md mx-auto bg-gray-800/50 border border-gray-700 rounded-xl p-8 text-center">
           <div className="text-5xl font-bold mb-2">
-            5<span className="text-2xl text-gray-400">%</span>
+            10<span className="text-2xl text-gray-400">%</span>
           </div>
           <p className="text-gray-400 mb-6">platform fee on earnings</p>
           <ul className="text-left space-y-3 mb-8">

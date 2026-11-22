@@ -44,6 +44,8 @@ jest.mock('next-auth', () => ({
 
 // Mock Stripe service functions
 jest.mock('@/lib/stripe', () => ({
+  PLATFORM_FEE_RATE: 0.1,
+  calculatePlatformFeeCents: (cents: number) => Math.round(cents * 0.1),
   stripe: {
     webhooks: {
       constructEvent: jest.fn(),
@@ -56,6 +58,8 @@ jest.mock('@/lib/stripe', () => ({
 }));
 
 // Mock email notifications
+jest.mock('@/lib/marketing-events', () => ({ emitMarketingEvent: jest.fn() }));
+
 jest.mock('@/lib/notifications', () => ({
   sendEmail: jest.fn(),
 }));
@@ -353,6 +357,14 @@ describe('Payment Flow Integration Tests', () => {
           },
         },
       });
+
+      const { emitMarketingEvent } = jest.requireMock('@/lib/marketing-events');
+      expect(emitMarketingEvent).toHaveBeenCalledWith({
+        type: 'membership.started',
+        artistId: 'artist-123',
+        fanId: 'fan-123',
+        data: { tierId: 'tier-123', amount: '29.99', subscriptionId: 'sub_test_123' },
+      });
     });
   });
 
@@ -400,8 +412,8 @@ describe('Payment Flow Integration Tests', () => {
         },
       });
 
-      // Verify artist earnings update (amount - 5% platform fee)
-      const expectedEarnings = (2999 / 100) * 0.95; // $29.99 - 5% platform fee
+      // Verify artist earnings update (amount - 10% platform fee)
+      const expectedEarnings = (2999 / 100) * 0.9; // $29.99 - 10% platform fee
       expect(prisma.artists.update).toHaveBeenCalledWith({
         where: { userId: 'artist-123' },
         data: {
@@ -628,6 +640,15 @@ describe('Payment Flow Integration Tests', () => {
           },
         },
       });
+
+      const { emitMarketingEvent } = jest.requireMock('@/lib/marketing-events');
+      expect(emitMarketingEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'membership.cancelled',
+          artistId: 'artist-123',
+          data: { tierId: 'tier-123', subscriptionId: 'sub_test_123' },
+        })
+      );
     });
   });
 

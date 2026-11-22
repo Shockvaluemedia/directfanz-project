@@ -604,6 +604,7 @@ class EmailService {
         html: options.html,
         replyTo: this.config.replyTo,
         attachments: options.attachments,
+        headers: options.headers,
         customArgs: options.tags ? { tags: options.tags.join(',') } : undefined,
       };
 

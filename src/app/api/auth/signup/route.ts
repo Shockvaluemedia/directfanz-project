@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createUser, signUpSchema } from '@/lib/auth-utils';
+import { InviteError } from '@/lib/artist-invites';
 import { z } from 'zod';
 
 export async function POST(request: NextRequest) {
@@ -24,6 +25,10 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     console.error('Signup error:', error);
+
+    if (error instanceof InviteError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(

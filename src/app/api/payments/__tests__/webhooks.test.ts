@@ -21,10 +21,22 @@ jest.mock('@/lib/prisma', () => ({
     payment_failures: {
       create: jest.fn(),
     },
+    purchases: {
+      findUnique: jest.fn(),
+      updateMany: jest.fn(),
+    },
+    stripe_webhook_events: {
+      create: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+      updateMany: jest.fn(),
+    },
   },
 }));
 
 jest.mock('@/lib/stripe', () => ({
+  PLATFORM_FEE_RATE: 0.1,
+  calculatePlatformFeeCents: (cents: number) => Math.round(cents * 0.1),
   stripe: {
     webhooks: {
       constructEvent: jest.fn(),
@@ -159,7 +171,7 @@ describe('/api/payments/webhooks', () => {
         where: { userId: 'artist123' },
         data: {
           totalEarnings: {
-            increment: 9.5, // $10.00 - 5% platform fee
+            increment: 9, // $10.00 - 10% platform fee
           },
         },
       });
@@ -336,5 +348,154 @@ describe('/api/payments/webhooks', () => {
       expect(response.status).toBe(200);
       expect(data.received).toBe(true);
     });
+  });
+});
+
+describe('/api/payments/webhooks duplicate protection and purchases', () => {
+  const events = (mockPrisma as any).stripe_webhook_events;
+  const purchases = (mockPrisma as any).purchases;
+
+  function post() {
+    return POST(
+      createMockRequest('http://localhost:3000/api/payments/webhooks', {
+        method: 'POST',
+        body: JSON.stringify({ test: 'data' }),
+      })
+    );
+  }
+
+  const purchaseEvent = {
+    id: 'evt_purchase_1',
+    type: 'checkout.session.completed',
+    data: {
+      object: {
+        id: 'cs_test_1',
+        mode: 'payment',
+        payment_status: 'paid',
+        amount_total: 1000,
+        payment_intent: 'pi_test_1',
+        metadata: { kind: 'one_time_purchase', purchaseId: 'pur_1' },
+      },
+    },
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test123';
+    events.create.mockResolvedValue({});
+    events.update.mockResolvedValue({});
+  });
+
+  afterEach(() => {
+    delete process.env.STRIPE_WEBHOOK_SECRET;
+  });
+
+  it('records a purchase payment and marks the event processed', async () => {
+    mockStripe.webhooks.constructEvent.mockReturnValue(purchaseEvent as any);
+    purchases.findUnique.mockResolvedValue({
+      id: 'pur_1',
+      artistId: 'artist123',
+      amount: { toString: () => '10' },
+      platformFee: { toString: () => '1' },
+      status: 'PENDING',
+      stripeCheckoutSessionId: 'cs_test_1',
+    });
+    purchases.updateMany.mockResolvedValue({ count: 1 });
+
+    const response = await post();
+
+    expect(response.status).toBe(200);
+    expect(purchases.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: 'PAID' }) })
+    );
+    expect(mockPrisma.artists.update).toHaveBeenCalledWith({
+      where: { userId: 'artist123' },
+      data: { totalEarnings: { increment: 9 } },
+    });
+    // A purchase must never be treated as a subscription.
+    expect(mockPrisma.subscriptions.create).not.toHaveBeenCalled();
+    expect(events.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: 'PROCESSED' }) })
+    );
+  });
+
+  it('acknowledges a redelivered event without applying it again', async () => {
+    mockStripe.webhooks.constructEvent.mockReturnValue(purchaseEvent as any);
+    events.create.mockRejectedValue(Object.assign(new Error('dup'), { code: 'P2002' }));
+    events.findUnique.mockResolvedValue({
+      id: 'evt_purchase_1',
+      status: 'PROCESSED',
+      updatedAt: new Date(),
+    });
+
+    const response = await post();
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.duplicate).toBe(true);
+    expect(purchases.updateMany).not.toHaveBeenCalled();
+    expect(mockPrisma.artists.update).not.toHaveBeenCalled();
+  });
+
+  it('does not re-apply a duplicate subscription invoice payment', async () => {
+    mockStripe.webhooks.constructEvent.mockReturnValue({
+      id: 'evt_invoice_1',
+      type: 'invoice.payment_succeeded',
+      data: { object: { subscription: 'sub_1', amount_paid: 1000 } },
+    } as any);
+    events.create.mockRejectedValue(Object.assign(new Error('dup'), { code: 'P2002' }));
+    events.findUnique.mockResolvedValue({
+      id: 'evt_invoice_1',
+      status: 'PROCESSED',
+      updatedAt: new Date(),
+    });
+
+    const response = await post();
+
+    expect(response.status).toBe(200);
+    expect(mockPrisma.subscriptions.update).not.toHaveBeenCalled();
+    expect(mockPrisma.artists.update).not.toHaveBeenCalled();
+  });
+
+  it('asks Stripe to retry while another delivery is mid-flight', async () => {
+    mockStripe.webhooks.constructEvent.mockReturnValue(purchaseEvent as any);
+    events.create.mockRejectedValue(Object.assign(new Error('dup'), { code: 'P2002' }));
+    events.findUnique.mockResolvedValue({
+      id: 'evt_purchase_1',
+      status: 'PROCESSING',
+      updatedAt: new Date(),
+    });
+
+    const response = await post();
+
+    expect(response.status).toBe(409);
+    expect(purchases.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('marks the event failed and returns 500 so Stripe retries', async () => {
+    mockStripe.webhooks.constructEvent.mockReturnValue(purchaseEvent as any);
+    purchases.findUnique.mockRejectedValue(new Error('db down'));
+
+    const response = await post();
+
+    expect(response.status).toBe(500);
+    expect(events.update).toHaveBeenCalledWith({
+      where: { id: 'evt_purchase_1' },
+      data: { status: 'FAILED', lastError: 'db down' },
+    });
+  });
+
+  it('ignores a payment-mode session that is not one of our purchases', async () => {
+    mockStripe.webhooks.constructEvent.mockReturnValue({
+      id: 'evt_other',
+      type: 'checkout.session.completed',
+      data: { object: { id: 'cs_x', mode: 'payment', metadata: { fanId: 'f', tierId: 't' } } },
+    } as any);
+
+    const response = await post();
+
+    expect(response.status).toBe(200);
+    expect(mockPrisma.subscriptions.create).not.toHaveBeenCalled();
+    expect(purchases.updateMany).not.toHaveBeenCalled();
   });
 });

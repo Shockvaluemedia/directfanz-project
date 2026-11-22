@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withArtistApi } from '@/lib/api-auth';
 import { updateTier, deleteTier, getTiersByArtistId } from '@/lib/database';
 import { updateTierSchema } from '@/lib/validations';
+import { assertNoOtherActiveTier, MembershipError } from '@/lib/membership';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 
@@ -81,6 +82,11 @@ export async function PUT(request: NextRequest, props: RouteParams) {
         );
       }
 
+      // Turning a tier back on must not leave the artist with two memberships.
+      if (validatedData.isActive === true && !existingTier.isActive) {
+        await assertNoOtherActiveTier(req.user.id, existingTier.id);
+      }
+
       // Check for duplicate name if name is being updated
       if (validatedData.name && validatedData.name !== existingTier.name) {
         const existingTiers = await getTiersByArtistId(req.user.id);
@@ -108,6 +114,12 @@ export async function PUT(request: NextRequest, props: RouteParams) {
         data: updatedTier,
       });
     } catch (error) {
+      if (error instanceof MembershipError) {
+        return NextResponse.json(
+          { success: false, error: error.message },
+          { status: error.status }
+        );
+      }
       if (error instanceof z.ZodError) {
         return NextResponse.json(
           {

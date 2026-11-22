@@ -27,15 +27,51 @@ model accounts {
 }
 
 model artists {
-  id                String   @id @default(cuid())
-  userId            String   @unique
-  stripeAccountId   String?  @unique
-  isStripeOnboarded Boolean  @default(false)
-  totalEarnings     Decimal  @default(0)
-  totalSubscribers  Int      @default(0)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  users             users    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                String       @id @default(cuid())
+  userId            String       @unique
+  stripeAccountId   String?      @unique
+  isStripeOnboarded Boolean      @default(false)
+  totalEarnings     Decimal      @default(0)
+  totalSubscribers  Int          @default(0)
+  /// The community the artist belongs to (see src/lib/community.ts).
+  communityId       String?
+  /// Place on the community home; 1 headlines. Null sorts last.
+  featuredRank      Int?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  users             users        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  communities       communities? @relation(fields: [communityId], references: [id], onDelete: SetNull)
+
+  @@index([communityId, featuredRank])
+}
+
+/// A curated group of artists with its own home page. Launch has one.
+model communities {
+  id             String           @id
+  slug           String           @unique
+  name           String
+  description    String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  artists        artists[]
+  artist_invites artist_invites[]
+}
+
+/// Single-use invite to sign up as an artist in a community. Only the code's
+/// SHA-256 is stored. email, when set, must match the sign-up email.
+model artist_invites {
+  id           String      @id
+  communityId  String
+  codeHash     String      @unique
+  email        String?
+  createdBy    String
+  expiresAt    DateTime
+  usedAt       DateTime?
+  usedByUserId String?
+  createdAt    DateTime    @default(now())
+  communities  communities @relation(fields: [communityId], references: [id], onDelete: Cascade)
+
+  @@index([communityId])
 }
 
 model campaign_analytics {
@@ -286,6 +322,7 @@ model content {
   moderation_logs  moderation_logs[]
   playlist_items   playlist_items[]
   tiers            tiers[]            @relation("TierContent")
+  drop_content     drop_content[]
 
   @@index([artistId, visibility])
   @@index([type, visibility])
@@ -698,6 +735,95 @@ model subscriptions {
   @@index([fanId, artistId, status])
 }
 
+/// One-time purchases (drops, presales, listening-party tickets). Paid on the
+/// artist's Stripe Connect account through a "payment" mode Checkout Session.
+/// status: PENDING | PAID | FAILED | EXPIRED | REFUNDED
+model purchases {
+  id                      String    @id
+  fanId                   String
+  artistId                String
+  itemType                String
+  itemId                  String
+  title                   String
+  amount                  Decimal
+  currency                String    @default("usd")
+  platformFee             Decimal
+  status                  String    @default("PENDING")
+  stripeAccountId         String
+  stripeCheckoutSessionId String?   @unique
+  stripePaymentIntentId   String?   @unique
+  paidAt                  DateTime?
+  refundedAt              DateTime?
+  /// Listening-party tickets: when the "starting soon" email went out.
+  reminderSentAt          DateTime?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  users                   users     @relation(fields: [fanId], references: [id], onDelete: Cascade)
+
+  @@index([fanId, itemType, itemId, status])
+  @@index([artistId, status])
+  @@index([itemType, itemId, status])
+}
+
+/// A drop: content sold once (a single, an EP, a bundle). Buying it unlocks its
+/// content for good. priceType: FIXED | PAY_WHAT_YOU_WANT (price is then the
+/// minimum). status: DRAFT | PUBLISHED | ARCHIVED.
+model drops {
+  id                    String         @id
+  artistId              String
+  title                 String
+  description           String?
+  priceType             String         @default("FIXED")
+  price                 Decimal
+  currency              String         @default("usd")
+  startsAt              DateTime
+  /// Members-only presale: from here until startsAt, only fans with an active
+  /// membership of the artist may buy. Null means no presale.
+  presaleStartsAt       DateTime?
+  /// Percent off for fans with an active membership of the artist (1 to 90).
+  memberDiscountPercent Int?
+  endsAt                DateTime?
+  quantityLimit         Int?
+  soldCount             Int            @default(0)
+  /// Units held by checkouts still in progress (see src/lib/drops.ts reserveDropUnit).
+  reservedCount         Int            @default(0)
+  status                String         @default("DRAFT")
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  users                 users          @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  drop_content          drop_content[]
+
+  @@index([artistId, status])
+  @@index([status, startsAt])
+}
+
+model drop_content {
+  dropId    String
+  contentId String
+  createdAt DateTime @default(now())
+  drops     drops    @relation(fields: [dropId], references: [id], onDelete: Cascade)
+  content   content  @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  @@id([dropId, contentId])
+  @@index([contentId])
+}
+
+/// Stripe webhook events already seen, keyed by Stripe's event id, so a
+/// redelivered event is never applied twice.
+/// status: PROCESSING | PROCESSED | FAILED
+model stripe_webhook_events {
+  id          String    @id
+  type        String
+  status      String
+  attempts    Int       @default(1)
+  lastError   String?
+  processedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status, updatedAt])
+}
+
 model tiers {
   id              String          @id
   artistId        String
@@ -762,6 +888,11 @@ model users {
   stream_tips                          stream_tips[]
   stream_viewers                       stream_viewers[]
   subscriptions                        subscriptions[]
+  purchases                            purchases[]
+  drops                                drops[]
+  fanListMemberships                   fan_list_members[]         @relation("FanListFan")
+  fanListMembers                       fan_list_members[]         @relation("FanListArtist")
+  fanListAnnouncements                 fan_list_announcements[]
   tiers                                tiers[]
   gdpr_requests                        gdpr_requests[]
   consent_records                      consent_records[]
@@ -773,6 +904,72 @@ model users {
   @@index([displayName])
   @@index([role, lastSeenAt])
   @@index([status])
+}
+
+/// An artist's own fan list. A fan is on it only after opting in, and email
+/// and text messages are separate opt-ins: emailConsentedAt / smsConsentedAt
+/// record each yes, and leaving a channel sets its *UnsubscribedAt, so a fan
+/// who left is never contacted on that channel again unless they opt in again.
+/// smsConsentText keeps the exact wording the fan agreed to.
+/// source: SIGNUP | PURCHASE (where they first joined)
+model fan_list_members {
+  id                  String    @id
+  artistId            String
+  fanId               String
+  source              String    @default("SIGNUP")
+  emailConsentedAt    DateTime?
+  emailUnsubscribedAt DateTime?
+  smsPhone            String?
+  smsConsentedAt      DateTime?
+  smsConsentText      String?
+  smsUnsubscribedAt   DateTime?
+  unsubscribeToken    String    @unique
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  artist              users     @relation("FanListArtist", fields: [artistId], references: [id], onDelete: Cascade)
+  fan                 users     @relation("FanListFan", fields: [fanId], references: [id], onDelete: Cascade)
+
+  @@unique([artistId, fanId])
+  @@index([artistId, emailUnsubscribedAt])
+  @@index([smsPhone])
+  @@index([fanId])
+}
+
+/// Announcements an artist sent to their fan list (drops, listening parties).
+/// smsBody is set when the announcement also went out by text.
+model fan_list_announcements {
+  id                String   @id
+  artistId          String
+  subject           String
+  body              String
+  smsBody           String?
+  recipientCount    Int      @default(0)
+  failedCount       Int      @default(0)
+  smsRecipientCount Int      @default(0)
+  smsFailedCount    Int      @default(0)
+  createdAt         DateTime @default(now())
+  artist            users    @relation(fields: [artistId], references: [id], onDelete: Cascade)
+
+  @@index([artistId, createdAt])
+}
+
+/// Outbox for the marketing event feed (src/lib/marketing-events.ts). A row is
+/// written only while the feed is switched on. status: PENDING | SENT | FAILED.
+/// Rows hold contact details, so delivered and failed rows are pruned.
+model marketing_events {
+  id            String    @id
+  type          String
+  payload       Json
+  status        String    @default("PENDING")
+  attempts      Int       @default(0)
+  nextAttemptAt DateTime  @default(now())
+  lastError     String?
+  sentAt        DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([status, nextAttemptAt])
+  @@index([createdAt])
 }
 
 model follows {

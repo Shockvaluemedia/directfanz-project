@@ -25,6 +25,7 @@ import { StatsWidget, StatsGrid } from '@/components/ui/stats-widget';
 import { EnhancedCard, EnhancedCardHeader, EnhancedCardContent, EnhancedCardTitle } from '@/components/ui/enhanced-card';
 import { EnhancedButton, FloatingActionButton } from '@/components/ui/enhanced-button';
 import { Activity, Calendar, MessageSquare, Settings, Upload, Users, DollarSign, Music, Video, Trophy } from 'lucide-react';
+import { isFeatureParked } from '@/lib/parked-features';
 
 interface DashboardStats {
   totalSubscribers: number;
@@ -153,14 +154,19 @@ export default function ArtistDashboard() {
         color: 'bg-red-500',
         stats: 'Go live with fans',
       },
-      {
-        title: 'Campaigns & Challenges',
-        description: 'Create engaging fan campaigns',
-        href: '/dashboard/artist/campaigns',
-        icon: TrophyIcon,
-        color: 'bg-orange-500',
-        stats: 'Drive fan engagement',
-      },
+      // Campaigns are parked for launch (see src/lib/parked-features.ts).
+      ...(isFeatureParked('campaigns')
+        ? []
+        : [
+            {
+              title: 'Campaigns & Challenges',
+              description: 'Create engaging fan campaigns',
+              href: '/dashboard/artist/campaigns',
+              icon: TrophyIcon,
+              color: 'bg-orange-500',
+              stats: 'Drive fan engagement',
+            },
+          ]),
       {
         title: 'Messages',
         description: 'Chat with your fans',

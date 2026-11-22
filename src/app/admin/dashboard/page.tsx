@@ -20,6 +20,10 @@ import {
   XCircle,
   Brain,
 } from 'lucide-react';
+import { isFeatureParked } from '@/lib/parked-features';
+
+// AI insights are parked for launch (see src/lib/parked-features.ts).
+const AI_ON = !isFeatureParked('ai');
 
 interface DashboardStats {
   totalUsers: number;
@@ -196,17 +200,19 @@ export default function AdminDashboardPage() {
             <h1 className='text-3xl font-bold text-gray-900 mb-2'>Admin Dashboard</h1>
             <p className='text-gray-600'>Platform overview and management tools</p>
           </div>
-          <TouchButton
-            variant={showAIDashboard ? 'primary' : 'outline'}
-            onClick={() => setShowAIDashboard(!showAIDashboard)}
-            leftIcon={<Brain size={20} />}
-          >
-            {showAIDashboard ? 'Hide AI Insights' : 'Show AI Insights'}
-          </TouchButton>
+          {AI_ON && (
+            <TouchButton
+              variant={showAIDashboard ? 'primary' : 'outline'}
+              onClick={() => setShowAIDashboard(!showAIDashboard)}
+              leftIcon={<Brain size={20} />}
+            >
+              {showAIDashboard ? 'Hide AI Insights' : 'Show AI Insights'}
+            </TouchButton>
+          )}
         </div>
 
         {/* AI Insights Dashboard */}
-        {showAIDashboard && (
+        {AI_ON && showAIDashboard && (
           <div className='mb-8'>
             <AIInsightsDashboard />
           </div>

@@ -29,7 +29,7 @@ const FAQ = () => {
         {
           question: 'How much does DirectFanz take from my earnings?',
           answer:
-            'We only take a 5% platform fee - one of the lowest in the industry. Unlike other platforms that charge 20% or more, we believe creators should keep more of what they earn. There are no hidden fees, setup costs, or monthly charges.',
+            'We only take a 10% platform fee, well below the 20% or more many platforms charge. We believe creators should keep more of what they earn. There are no hidden fees, setup costs, or monthly charges.',
         },
         {
           question: 'How often can I get paid?',
@@ -272,7 +272,7 @@ const FAQ = () => {
               <p className='text-blue-100'>Expert Support</p>
             </div>
             <div>
-              <p className='text-3xl font-bold text-blue-200'>5%</p>
+              <p className='text-3xl font-bold text-blue-200'>10%</p>
               <p className='text-blue-100'>Platform Fee Only</p>
             </div>
           </div>

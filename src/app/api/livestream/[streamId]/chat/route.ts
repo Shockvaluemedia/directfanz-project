@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
+import { canViewStream } from '@/lib/stream-access';
 
 const sendMessageSchema = z.object({
   message: z.string().min(1).max(500),
@@ -29,6 +30,8 @@ export async function GET(request: NextRequest, props: { params: Promise<{ strea
         artistId: true,
         isPublic: true,
         tierIds: true,
+        requiresPayment: true,
+        paymentAmount: true,
         status: true,
       },
     });
@@ -40,17 +43,12 @@ export async function GET(request: NextRequest, props: { params: Promise<{ strea
       );
     }
 
-    // Check access for non-public streams
-    if (!stream.isPublic && session?.user?.id) {
-      const hasAccess =
-        stream.artistId === session.user.id || (await checkStreamAccess(session.user.id, stream));
-
-      if (!hasAccess) {
-        return NextResponse.json(
-          { success: false, error: { message: 'Access denied' } },
-          { status: 403 }
-        );
-      }
+    // Signed-out readers only see free public streams; tickets are checked too.
+    if (!(await canViewStream(session?.user?.id, stream))) {
+      return NextResponse.json(
+        { success: false, error: { message: 'Access denied' } },
+        { status: 403 }
+      );
     }
 
     const where: any = {
@@ -144,6 +142,8 @@ export async function POST(request: NextRequest, props: { params: Promise<{ stre
         artistId: true,
         isPublic: true,
         tierIds: true,
+        requiresPayment: true,
+        paymentAmount: true,
         status: true,
       },
     });
@@ -162,17 +162,12 @@ export async function POST(request: NextRequest, props: { params: Promise<{ stre
       );
     }
 
-    // Check access for non-public streams
-    if (!stream.isPublic && session?.user?.id) {
-      const hasAccess =
-        stream.artistId === session.user.id || (await checkStreamAccess(session.user.id, stream));
-
-      if (!hasAccess) {
-        return NextResponse.json(
-          { success: false, error: { message: 'Access denied' } },
-          { status: 403 }
-        );
-      }
+    // Signed-out readers only see free public streams; tickets are checked too.
+    if (!(await canViewStream(session?.user?.id, stream))) {
+      return NextResponse.json(
+        { success: false, error: { message: 'Access denied' } },
+        { status: 403 }
+      );
     }
 
     // Determine sender info
@@ -293,23 +288,4 @@ export async function POST(request: NextRequest, props: { params: Promise<{ stre
       { status: 500 }
     );
   }
-}
-
-// Helper function to check stream access (same as in stream route)
-async function checkStreamAccess(userId: string, stream: any): Promise<boolean> {
-  if (stream.isPublic) return true;
-
-  const tierIds = JSON.parse(stream.tierIds || '[]');
-  if (tierIds.length === 0) return true;
-
-  // Check if user has subscription to any required tier
-  const hasAccess = await prisma.subscriptions.findFirst({
-    where: {
-      fanId: userId,
-      tierId: { in: tierIds },
-      status: 'ACTIVE',
-    },
-  });
-
-  return !!hasAccess;
 }

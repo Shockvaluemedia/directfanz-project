@@ -10,7 +10,7 @@ const ComparisonTable = () => {
       items: [
         {
           feature: 'Platform Fee',
-          directFan: '5%',
+          directFan: '10%',
           onlyFans: '20%',
           patreon: '8-12%',
           fansly: '20%',
