@@ -44,8 +44,8 @@ jest.mock('next-auth', () => ({
 
 // Mock Stripe service functions
 jest.mock('@/lib/stripe', () => ({
-  PLATFORM_FEE_RATE: 0.05,
-  calculatePlatformFeeCents: (cents: number) => Math.round(cents * 0.05),
+  PLATFORM_FEE_RATE: 0.1,
+  calculatePlatformFeeCents: (cents: number) => Math.round(cents * 0.1),
   stripe: {
     webhooks: {
       constructEvent: jest.fn(),
@@ -402,8 +402,8 @@ describe('Payment Flow Integration Tests', () => {
         },
       });
 
-      // Verify artist earnings update (amount - 5% platform fee)
-      const expectedEarnings = (2999 / 100) * 0.95; // $29.99 - 5% platform fee
+      // Verify artist earnings update (amount - 10% platform fee)
+      const expectedEarnings = (2999 / 100) * 0.9; // $29.99 - 10% platform fee
       expect(prisma.artists.update).toHaveBeenCalledWith({
         where: { userId: 'artist-123' },
         data: {

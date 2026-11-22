@@ -35,8 +35,8 @@ jest.mock('@/lib/prisma', () => ({
 }));
 
 jest.mock('@/lib/stripe', () => ({
-  PLATFORM_FEE_RATE: 0.05,
-  calculatePlatformFeeCents: (cents: number) => Math.round(cents * 0.05),
+  PLATFORM_FEE_RATE: 0.1,
+  calculatePlatformFeeCents: (cents: number) => Math.round(cents * 0.1),
   stripe: {
     webhooks: {
       constructEvent: jest.fn(),
@@ -171,7 +171,7 @@ describe('/api/payments/webhooks', () => {
         where: { userId: 'artist123' },
         data: {
           totalEarnings: {
-            increment: 9.5, // $10.00 - 5% platform fee
+            increment: 9, // $10.00 - 10% platform fee
           },
         },
       });
@@ -396,7 +396,7 @@ describe('/api/payments/webhooks duplicate protection and purchases', () => {
       id: 'pur_1',
       artistId: 'artist123',
       amount: { toString: () => '10' },
-      platformFee: { toString: () => '0.5' },
+      platformFee: { toString: () => '1' },
       status: 'PENDING',
       stripeCheckoutSessionId: 'cs_test_1',
     });
@@ -410,7 +410,7 @@ describe('/api/payments/webhooks duplicate protection and purchases', () => {
     );
     expect(mockPrisma.artists.update).toHaveBeenCalledWith({
       where: { userId: 'artist123' },
-      data: { totalEarnings: { increment: 9.5 } },
+      data: { totalEarnings: { increment: 9 } },
     });
     // A purchase must never be treated as a subscription.
     expect(mockPrisma.subscriptions.create).not.toHaveBeenCalled();

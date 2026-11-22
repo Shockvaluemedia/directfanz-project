@@ -12,11 +12,33 @@ export const stripe = new Stripe(STRIPE_SECRET_KEY, {
   typescript: true,
 });
 
+/** Platform fee when PLATFORM_FEE_PERCENT is not set (owner's choice, Nov 2026). */
+export const DEFAULT_PLATFORM_FEE_PERCENT = 10;
+const MAX_PLATFORM_FEE_PERCENT = 50;
+
 /**
- * Platform fee taken on every payment, as a fraction (0.05 = 5%).
- * Single source of truth for subscriptions and one-time purchases.
+ * Read the platform fee percent from the environment. An unset, blank or
+ * out-of-range value falls back to the default rather than charging a fee
+ * nobody chose.
  */
-export const PLATFORM_FEE_RATE = 0.05;
+export function resolvePlatformFeePercent(raw: string | undefined): number {
+  if (raw === undefined || raw.trim() === '') return DEFAULT_PLATFORM_FEE_PERCENT;
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < 0 || value > MAX_PLATFORM_FEE_PERCENT) {
+    console.warn(
+      `Ignoring invalid PLATFORM_FEE_PERCENT; using ${DEFAULT_PLATFORM_FEE_PERCENT}%`
+    );
+    return DEFAULT_PLATFORM_FEE_PERCENT;
+  }
+  return value;
+}
+
+/**
+ * Platform fee taken on every payment, as a fraction (0.10 = 10%).
+ * Single source of truth for every checkout: memberships, drops, tickets and
+ * other one-time purchases. Set PLATFORM_FEE_PERCENT to change it.
+ */
+export const PLATFORM_FEE_RATE = resolvePlatformFeePercent(process.env.PLATFORM_FEE_PERCENT) / 100;
 
 /**
  * Platform fee in the smallest currency unit (cents) for an amount in cents.

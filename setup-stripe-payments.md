@@ -37,7 +37,7 @@ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_your_test_publishable_key
 STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret
 
 # Platform Settings
-STRIPE_PLATFORM_FEE_PERCENT=5
+PLATFORM_FEE_PERCENT=10
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
@@ -49,7 +49,7 @@ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_your_live_publishable_key
 STRIPE_WEBHOOK_SECRET=whsec_your_production_webhook_secret
 
 # Platform Settings
-STRIPE_PLATFORM_FEE_PERCENT=5
+PLATFORM_FEE_PERCENT=10
 NEXT_PUBLIC_APP_URL=https://your-domain.com
 ```
 

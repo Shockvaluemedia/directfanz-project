@@ -1,6 +1,6 @@
 jest.mock('@/lib/stripe', () => ({
-  PLATFORM_FEE_RATE: 0.05,
-  calculatePlatformFeeCents: (cents: number) => Math.round(cents * 0.05),
+  PLATFORM_FEE_RATE: 0.1,
+  calculatePlatformFeeCents: (cents: number) => Math.round(cents * 0.1),
   createOrRetrieveCustomer: jest.fn(),
   createOneTimeCheckoutSession: jest.fn(),
 }));
@@ -93,7 +93,7 @@ describe('createPurchaseCheckout', () => {
       itemType: 'LIVE_STREAM_TICKET',
       itemId: 'stream_1',
       amount: 12.5,
-      platformFee: 0.63,
+      platformFee: 1.25,
       status: 'PENDING',
       stripeAccountId: 'acct_artist',
     });
@@ -350,7 +350,7 @@ describe('drop purchases', () => {
     expect(db.purchases.create.mock.calls[0][0].data).toMatchObject({
       itemType: 'DROP',
       amount: 10,
-      platformFee: 0.5,
+      platformFee: 1,
     });
     expect(mockCreateSession.mock.calls[0][0]).toMatchObject({
       amountCents: 1000,
