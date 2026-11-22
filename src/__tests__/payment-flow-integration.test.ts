@@ -58,6 +58,8 @@ jest.mock('@/lib/stripe', () => ({
 }));
 
 // Mock email notifications
+jest.mock('@/lib/marketing-events', () => ({ emitMarketingEvent: jest.fn() }));
+
 jest.mock('@/lib/notifications', () => ({
   sendEmail: jest.fn(),
 }));
@@ -355,6 +357,14 @@ describe('Payment Flow Integration Tests', () => {
           },
         },
       });
+
+      const { emitMarketingEvent } = jest.requireMock('@/lib/marketing-events');
+      expect(emitMarketingEvent).toHaveBeenCalledWith({
+        type: 'membership.started',
+        artistId: 'artist-123',
+        fanId: 'fan-123',
+        data: { tierId: 'tier-123', amount: '29.99', subscriptionId: 'sub_test_123' },
+      });
     });
   });
 
@@ -630,6 +640,15 @@ describe('Payment Flow Integration Tests', () => {
           },
         },
       });
+
+      const { emitMarketingEvent } = jest.requireMock('@/lib/marketing-events');
+      expect(emitMarketingEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'membership.cancelled',
+          artistId: 'artist-123',
+          data: { tierId: 'tier-123', subscriptionId: 'sub_test_123' },
+        })
+      );
     });
   });
 

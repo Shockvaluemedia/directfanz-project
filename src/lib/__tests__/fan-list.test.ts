@@ -1,9 +1,14 @@
 jest.mock('@/lib/email-service', () => ({
   emailService: { sendEmail: jest.fn() },
 }));
+jest.mock('@/lib/marketing-events', () => ({
+  emitMarketingEvent: jest.fn(),
+  emitMarketingEvents: jest.fn(),
+}));
 
 import { prisma } from '@/lib/prisma';
 import { emailService } from '@/lib/email-service';
+import { emitMarketingEvent, emitMarketingEvents } from '@/lib/marketing-events';
 import {
   buildAnnouncementEmail,
   buildAnnouncementSms,
@@ -54,6 +59,8 @@ beforeEach(() => {
   db.fan_list_members.upsert.mockResolvedValue(member());
   db.fan_list_members.updateMany.mockResolvedValue({ count: 1 });
   db.follows.upsert.mockResolvedValue({});
+  db.follows.findUnique.mockResolvedValue(null);
+  db.fan_list_members.findUnique.mockResolvedValue(null);
   sendEmail.mockResolvedValue({ success: true });
 });
 
@@ -165,6 +172,71 @@ describe('inbound texts', () => {
       reply: null,
     });
     expect(db.fan_list_members.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('marketing feed', () => {
+  const emit = emitMarketingEvent as jest.Mock;
+  const types = () => emit.mock.calls.map(call => call[0].type);
+
+  it('a first join reports the follow and the email opt-in', async () => {
+    await joinFanList('artist_1', 'fan_1', 'PURCHASE', now);
+
+    expect(types()).toEqual(['fan.followed', 'email.opted_in']);
+    expect(emit.mock.calls[1][0]).toMatchObject({ data: { source: 'PURCHASE' } });
+  });
+
+  it('joining again while still subscribed and following reports nothing', async () => {
+    db.follows.findUnique.mockResolvedValue({ followerId: 'fan_1' });
+    db.fan_list_members.findUnique.mockResolvedValue(member());
+
+    await joinFanList('artist_1', 'fan_1', 'SIGNUP', now);
+
+    expect(emit).not.toHaveBeenCalled();
+  });
+
+  it('a text opt-in is reported', async () => {
+    process.env.SMS_PROVIDER = 'log';
+    db.follows.findUnique.mockResolvedValue({ followerId: 'fan_1' });
+
+    await optInToSms('artist_1', 'fan_1', '(312) 555-0100', now);
+
+    expect(types()).toEqual(['sms.opted_in']);
+  });
+
+  it('leaving reports both opt-outs, and the email link reports the email one', async () => {
+    await leaveFanList('artist_1', 'fan_1', now);
+    expect(types()).toEqual(['email.opted_out', 'sms.opted_out']);
+
+    emit.mockClear();
+    db.fan_list_members.updateMany.mockResolvedValue({ count: 0 });
+    await leaveFanList('artist_1', 'fan_1', now);
+    expect(emit).not.toHaveBeenCalled();
+
+    db.fan_list_members.updateMany.mockResolvedValue({ count: 1 });
+    db.fan_list_members.findUnique.mockResolvedValue({ ...member(), artist: { displayName: 'N' } });
+    await unsubscribeByToken('tok_1', now);
+    expect(emit.mock.calls[0][0]).toMatchObject({
+      type: 'email.opted_out',
+      artistId: 'artist_1',
+      fanId: 'fan_1',
+      data: { reason: 'unsubscribe_link' },
+    });
+  });
+
+  it('STOP reports an opt-out for every list the number was on', async () => {
+    db.fan_list_members.findMany.mockResolvedValue([
+      { artistId: 'artist_1', fanId: 'fan_1' },
+      { artistId: 'artist_2', fanId: 'fan_1' },
+    ]);
+
+    await handleInboundSms('+13125550100', 'STOP', now);
+
+    const events = (emitMarketingEvents as jest.Mock).mock.calls[0][0];
+    expect(events.map((e: any) => [e.type, e.artistId])).toEqual([
+      ['sms.opted_out', 'artist_1'],
+      ['sms.opted_out', 'artist_2'],
+    ]);
   });
 });
 

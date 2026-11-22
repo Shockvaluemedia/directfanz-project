@@ -424,7 +424,7 @@ export class ContentOptimizer {
     targetDevice?: string,
     targetConnection?: string
   ): OptimizationStrategy {
-    let adjustedStrategy = { ...strategy };
+    const adjustedStrategy = { ...strategy };
 
     // Adjust for mobile devices
     if (targetDevice === 'mobile') {

@@ -15,6 +15,7 @@ import {
   resolveDropAmountCents,
 } from '@/lib/drops';
 import { joinFanList } from '@/lib/fan-list';
+import { emitMarketingEvent, type MarketingEventType } from '@/lib/marketing-events';
 
 /**
  * One-time purchases: a fan pays once for an item (a drop, a presale, a
@@ -408,6 +409,27 @@ export async function handlePurchaseCheckoutPaid(session: Stripe.Checkout.Sessio
     }
     await confirmDropUnit(purchase.itemId, heldUnit);
   }
+
+  await emitMarketingEvent({
+    type: purchaseEventType(purchase.itemType),
+    artistId: purchase.artistId,
+    fanId: purchase.fanId,
+    data: {
+      purchaseId: purchase.id,
+      itemType: purchase.itemType,
+      itemId: purchase.itemId,
+      title: purchase.title,
+      amount: purchase.amount.toString(),
+      currency: purchase.currency,
+    },
+  });
+}
+
+/** The marketing feed event for a paid purchase of this kind of item. */
+function purchaseEventType(itemType: string): MarketingEventType {
+  if (itemType === 'DROP') return 'drop.purchased';
+  if (itemType === 'LIVE_STREAM_TICKET') return 'ticket.purchased';
+  return 'purchase.completed';
 }
 
 async function endPendingPurchase(

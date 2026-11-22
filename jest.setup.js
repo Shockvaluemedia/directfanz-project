@@ -852,6 +852,7 @@ function createPrismaMock() {
     follows: createMockModel(),
     fan_list_members: createMockModel(),
     fan_list_announcements: createMockModel(),
+    marketing_events: createMockModel(),
     verificationtokens: createMockModel(),
     refresh_tokens: createMockModel(),
     // Singular aliases (for tests that use singular names)

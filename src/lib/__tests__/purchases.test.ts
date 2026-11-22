@@ -6,9 +6,11 @@ jest.mock('@/lib/stripe', () => ({
 }));
 
 jest.mock('@/lib/fan-list', () => ({ joinFanList: jest.fn() }));
+jest.mock('@/lib/marketing-events', () => ({ emitMarketingEvent: jest.fn() }));
 
 import { prisma } from '@/lib/prisma';
 import { joinFanList } from '@/lib/fan-list';
+import { emitMarketingEvent } from '@/lib/marketing-events';
 import { createOneTimeCheckoutSession, createOrRetrieveCustomer } from '@/lib/stripe';
 import {
   createPurchaseCheckout,
@@ -244,6 +246,34 @@ describe('purchase webhook handlers', () => {
     await handlePurchaseCheckoutPaid(session());
 
     expect(db.artists.update).not.toHaveBeenCalled();
+    expect(emitMarketingEvent).not.toHaveBeenCalled();
+  });
+
+  it('tells the marketing feed once about a paid ticket', async () => {
+    db.purchases.findUnique.mockResolvedValue({
+      ...purchase,
+      itemType: 'LIVE_STREAM_TICKET',
+      itemId: 'stream_1',
+      title: 'Album listening party',
+      currency: 'usd',
+    });
+
+    await handlePurchaseCheckoutPaid(session());
+
+    expect(emitMarketingEvent).toHaveBeenCalledTimes(1);
+    expect(emitMarketingEvent).toHaveBeenCalledWith({
+      type: 'ticket.purchased',
+      artistId: 'artist_1',
+      fanId: 'fan_1',
+      data: {
+        purchaseId: 'pur_1',
+        itemType: 'LIVE_STREAM_TICKET',
+        itemId: 'stream_1',
+        title: 'Album listening party',
+        amount: '12.5',
+        currency: 'usd',
+      },
+    });
   });
 
   it('still records a payment that lands after its checkout failed or expired', async () => {
@@ -536,6 +566,7 @@ describe('drop purchases', () => {
     expect(sql).toContain('"soldCount" = "soldCount" + 1');
     expect(sql).toContain('"reservedCount" = GREATEST("reservedCount" - 1, 0)');
     expect(db.drops.update).not.toHaveBeenCalled();
+    expect((emitMarketingEvent as jest.Mock).mock.calls[0][0].type).toBe('drop.purchased');
 
     db.purchases.findUnique.mockResolvedValue({ ...dropPurchase, status: 'PAID' });
     await handlePurchaseChargeRefunded({ refunded: true, payment_intent: 'pi_test_1' } as any);

@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { emailService } from '@/lib/email-service';
 import { isSmsEnabled, MAX_SMS_LENGTH, normalizePhone, parseSmsKeyword, sendSms } from '@/lib/sms';
+import { emitMarketingEvent, emitMarketingEvents } from '@/lib/marketing-events';
 
 /**
  * The artist-owned fan list. Fans opt in to hear from an artist about drops
@@ -81,13 +82,22 @@ async function findArtist(artistId: string) {
   return artist;
 }
 
-/** Joining either channel also follows the artist. */
+/** Joining either channel also follows the artist. Tells the marketing feed about a new follow. */
 async function follow(fanId: string, artistId: string) {
+  const where = { followerId_followedId: { followerId: fanId, followedId: artistId } };
+  const existing = await prisma.follows.findUnique({ where });
   await prisma.follows.upsert({
-    where: { followerId_followedId: { followerId: fanId, followedId: artistId } },
+    where,
     create: { followerId: fanId, followedId: artistId },
     update: {},
   });
+  if (!existing) {
+    await emitMarketingEvent({ type: 'fan.followed', artistId, fanId });
+  }
+}
+
+function findMember(artistId: string, fanId: string) {
+  return prisma.fan_list_members.findUnique({ where: { artistId_fanId: { artistId, fanId } } });
 }
 
 /**
@@ -135,11 +145,15 @@ export async function joinFanList(
   }
   await findArtist(artistId);
 
+  const before = await findMember(artistId, fanId);
   const member = await upsertMember(artistId, fanId, source, {
     emailConsentedAt: now,
     emailUnsubscribedAt: null,
   });
   await follow(fanId, artistId);
+  if (!before || !isEmailSubscribed(before)) {
+    await emitMarketingEvent({ type: 'email.opted_in', artistId, fanId, data: { source }, now });
+  }
   return member;
 }
 
@@ -165,6 +179,7 @@ export async function optInToSms(
   }
 
   const artist = await findArtist(artistId);
+  const before = await findMember(artistId, fanId);
   const member = await upsertMember(artistId, fanId, 'SIGNUP', {
     smsPhone: phone,
     smsConsentedAt: now,
@@ -172,6 +187,9 @@ export async function optInToSms(
     smsUnsubscribedAt: null,
   });
   await follow(fanId, artistId);
+  if (!before || !isSmsSubscribed(before) || before.smsPhone !== phone) {
+    await emitMarketingEvent({ type: 'sms.opted_in', artistId, fanId, now });
+  }
 
   const confirmation = await sendSms(
     phone,
@@ -194,6 +212,15 @@ export async function optOutOfSms(
     where: { artistId, fanId, smsUnsubscribedAt: null, smsConsentedAt: { not: null } },
     data: { smsUnsubscribedAt: now },
   });
+  if (left.count > 0) {
+    await emitMarketingEvent({
+      type: 'sms.opted_out',
+      artistId,
+      fanId,
+      data: { reason: 'fan_request' },
+      now,
+    });
+  }
   return left.count > 0;
 }
 
@@ -203,10 +230,19 @@ export async function leaveFanList(
   fanId: string,
   now: Date = new Date()
 ): Promise<void> {
-  await prisma.fan_list_members.updateMany({
+  const left = await prisma.fan_list_members.updateMany({
     where: { artistId, fanId, emailUnsubscribedAt: null, emailConsentedAt: { not: null } },
     data: { emailUnsubscribedAt: now },
   });
+  if (left.count > 0) {
+    await emitMarketingEvent({
+      type: 'email.opted_out',
+      artistId,
+      fanId,
+      data: { reason: 'fan_request' },
+      now,
+    });
+  }
   await optOutOfSms(artistId, fanId, now);
 }
 
@@ -238,10 +274,19 @@ export async function unsubscribeByToken(
   if (!member) return null;
 
   if (!member.emailUnsubscribedAt) {
-    await prisma.fan_list_members.updateMany({
+    const left = await prisma.fan_list_members.updateMany({
       where: { id: member.id, emailUnsubscribedAt: null },
       data: { emailUnsubscribedAt: now },
     });
+    if (left.count > 0) {
+      await emitMarketingEvent({
+        type: 'email.opted_out',
+        artistId: member.artistId,
+        fanId: member.fanId,
+        data: { reason: 'unsubscribe_link' },
+        now,
+      });
+    }
   }
 
   return { artistName: member.artist.displayName };
@@ -268,10 +313,24 @@ export async function handleInboundSms(
 
   const phone = normalizePhone(fromInput);
   if (phone) {
+    const where = { smsPhone: phone, smsUnsubscribedAt: null };
+    const leaving = await prisma.fan_list_members.findMany({
+      where: { ...where, smsConsentedAt: { not: null } },
+      select: { artistId: true, fanId: true },
+    });
     await prisma.fan_list_members.updateMany({
-      where: { smsPhone: phone, smsUnsubscribedAt: null },
+      where,
       data: { smsUnsubscribedAt: now },
     });
+    await emitMarketingEvents(
+      (leaving ?? []).map(m => ({
+        type: 'sms.opted_out' as const,
+        artistId: m.artistId,
+        fanId: m.fanId,
+        data: { reason: 'stop_keyword' },
+        now,
+      }))
+    );
   }
   return { action: 'stop', reply: SMS_STOP_REPLY };
 }

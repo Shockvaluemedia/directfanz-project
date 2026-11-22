@@ -910,6 +910,25 @@ model fan_list_announcements {
   @@index([artistId, createdAt])
 }
 
+/// Outbox for the marketing event feed (src/lib/marketing-events.ts). A row is
+/// written only while the feed is switched on. status: PENDING | SENT | FAILED.
+/// Rows hold contact details, so delivered and failed rows are pruned.
+model marketing_events {
+  id            String    @id
+  type          String
+  payload       Json
+  status        String    @default("PENDING")
+  attempts      Int       @default(0)
+  nextAttemptAt DateTime  @default(now())
+  lastError     String?
+  sentAt        DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([status, nextAttemptAt])
+  @@index([createdAt])
+}
+
 model follows {
   id         String   @id @default(cuid())
   followerId String

@@ -15,6 +15,7 @@ import {
   handlePurchaseCheckoutPaid,
   isPurchaseCheckoutSession,
 } from '@/lib/purchases';
+import { emitMarketingEvent } from '@/lib/marketing-events';
 import Stripe from 'stripe';
 import crypto from 'crypto';
 
@@ -210,6 +211,15 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
             increment: 1,
           },
         },
+      });
+    }
+
+    if (isNewActiveSubscriber) {
+      await emitMarketingEvent({
+        type: 'membership.started',
+        artistId,
+        fanId,
+        data: { tierId, amount, subscriptionId },
       });
     }
 
@@ -420,6 +430,14 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
         },
       });
 
+      if (subscriptionRecord.status !== 'CANCELED') {
+        await emitMarketingEvent({
+          type: 'membership.cancelled',
+          artistId: subscriptionRecord.artistId,
+          fanId: subscriptionRecord.fanId,
+          data: { tierId: subscriptionRecord.tierId, subscriptionId: subscription.id },
+        });
+      }
     }
   } catch (error) {
     console.error('customer.subscription.deleted handler failed:', error);

@@ -434,7 +434,7 @@ export class ThumbnailGenerator {
 
     if (!width || !height) return;
 
-    let composite: sharp.OverlayOptions[] = [];
+    const composite: sharp.OverlayOptions[] = [];
 
     // Add text watermark
     if (watermark.text) {
