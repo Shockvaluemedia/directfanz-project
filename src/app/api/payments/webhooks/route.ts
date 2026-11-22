@@ -1,8 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
-import { stripe } from '@/lib/stripe';
+import { stripe, PLATFORM_FEE_RATE } from '@/lib/stripe';
 import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/lib/notifications';
+import {
+  claimWebhookEvent,
+  markWebhookEventFailed,
+  markWebhookEventProcessed,
+} from '@/lib/stripe-webhook-idempotency';
+import {
+  handlePurchaseChargeRefunded,
+  handlePurchaseCheckoutExpired,
+  handlePurchaseCheckoutFailed,
+  handlePurchaseCheckoutPaid,
+  isPurchaseCheckoutSession,
+} from '@/lib/purchases';
 import Stripe from 'stripe';
 import crypto from 'crypto';
 
@@ -31,31 +43,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
     }
 
-    // Handle the event
-    switch (event.type) {
-      case 'checkout.session.completed':
-        await handleCheckoutSessionCompleted(event.data.object as Stripe.Checkout.Session);
-        break;
+    // Never apply the same Stripe event twice (Stripe delivers at least once).
+    const claim = await claimWebhookEvent(event.id, event.type);
 
-      case 'invoice.payment_succeeded':
-        await handleInvoicePaymentSucceeded(event.data.object as Stripe.Invoice);
-        break;
-
-      case 'invoice.payment_failed':
-        await handleInvoicePaymentFailed(event.data.object as Stripe.Invoice);
-        break;
-
-      case 'customer.subscription.updated':
-        await handleSubscriptionUpdated(event.data.object as Stripe.Subscription);
-        break;
-
-      case 'customer.subscription.deleted':
-        await handleSubscriptionDeleted(event.data.object as Stripe.Subscription);
-        break;
-
-      default:
-        break;
+    if (claim === 'duplicate') {
+      return NextResponse.json({ received: true, duplicate: true });
     }
+
+    if (claim === 'in_progress') {
+      // Another delivery of this event is being handled right now. A non-2xx
+      // makes Stripe retry later, by which time it is PROCESSED or FAILED.
+      return NextResponse.json({ error: 'Event is already being processed' }, { status: 409 });
+    }
+
+    try {
+      await dispatchEvent(event);
+    } catch (error) {
+      await markWebhookEventFailed(event.id, error).catch(markError =>
+        console.error('Failed to record webhook failure:', markError)
+      );
+      throw error;
+    }
+
+    await markWebhookEventProcessed(event.id);
 
     return NextResponse.json({ received: true });
   } catch (error) {
@@ -63,6 +73,69 @@ export async function POST(request: NextRequest) {
     // not leave a paying customer without access.
     console.error('Stripe webhook handler failed:', error);
     return NextResponse.json({ error: 'Webhook handler failed' }, { status: 500 });
+  }
+}
+
+async function dispatchEvent(event: Stripe.Event) {
+  switch (event.type) {
+    case 'checkout.session.completed': {
+      const session = event.data.object as Stripe.Checkout.Session;
+      if (isPurchaseCheckoutSession(session)) {
+        await handlePurchaseCheckoutPaid(session);
+      } else if (session.mode !== 'payment') {
+        // Subscription checkout. A payment-mode session that isn't one of our
+        // purchases must never create a subscription.
+        await handleCheckoutSessionCompleted(session);
+      }
+      break;
+    }
+
+    case 'checkout.session.async_payment_succeeded': {
+      const session = event.data.object as Stripe.Checkout.Session;
+      if (isPurchaseCheckoutSession(session)) {
+        await handlePurchaseCheckoutPaid(session);
+      }
+      break;
+    }
+
+    case 'checkout.session.async_payment_failed': {
+      const session = event.data.object as Stripe.Checkout.Session;
+      if (isPurchaseCheckoutSession(session)) {
+        await handlePurchaseCheckoutFailed(session);
+      }
+      break;
+    }
+
+    case 'checkout.session.expired': {
+      const session = event.data.object as Stripe.Checkout.Session;
+      if (isPurchaseCheckoutSession(session)) {
+        await handlePurchaseCheckoutExpired(session);
+      }
+      break;
+    }
+
+    case 'charge.refunded':
+      await handlePurchaseChargeRefunded(event.data.object as Stripe.Charge);
+      break;
+
+    case 'invoice.payment_succeeded':
+      await handleInvoicePaymentSucceeded(event.data.object as Stripe.Invoice);
+      break;
+
+    case 'invoice.payment_failed':
+      await handleInvoicePaymentFailed(event.data.object as Stripe.Invoice);
+      break;
+
+    case 'customer.subscription.updated':
+      await handleSubscriptionUpdated(event.data.object as Stripe.Subscription);
+      break;
+
+    case 'customer.subscription.deleted':
+      await handleSubscriptionDeleted(event.data.object as Stripe.Subscription);
+      break;
+
+    default:
+      break;
   }
 }
 
@@ -193,7 +266,7 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
 
       // Update artist earnings
       const amount = invoice.amount_paid / 100; // Convert from cents
-      const platformFee = amount * 0.05; // 5% platform fee
+      const platformFee = amount * PLATFORM_FEE_RATE;
       const artistEarnings = amount - platformFee;
 
       await prisma.artists.update({

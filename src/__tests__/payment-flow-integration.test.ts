@@ -44,6 +44,8 @@ jest.mock('next-auth', () => ({
 
 // Mock Stripe service functions
 jest.mock('@/lib/stripe', () => ({
+  PLATFORM_FEE_RATE: 0.05,
+  calculatePlatformFeeCents: (cents: number) => Math.round(cents * 0.05),
   stripe: {
     webhooks: {
       constructEvent: jest.fn(),

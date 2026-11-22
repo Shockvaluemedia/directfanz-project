@@ -13,6 +13,19 @@ export const stripe = new Stripe(STRIPE_SECRET_KEY, {
 });
 
 /**
+ * Platform fee taken on every payment, as a fraction (0.05 = 5%).
+ * Single source of truth for subscriptions and one-time purchases.
+ */
+export const PLATFORM_FEE_RATE = 0.05;
+
+/**
+ * Platform fee in the smallest currency unit (cents) for an amount in cents.
+ */
+export function calculatePlatformFeeCents(amountCents: number): number {
+  return Math.round(amountCents * PLATFORM_FEE_RATE);
+}
+
+/**
  * Create a Stripe Connect account for an artist
  */
 export async function createStripeConnectAccount(
@@ -179,7 +192,9 @@ export async function createCheckoutSession(
           metadata,
         },
         payment_intent_data: {
-          application_fee_amount: Math.round(parseFloat(metadata.amount) * 100 * 0.05), // 5% platform fee
+          application_fee_amount: calculatePlatformFeeCents(
+            Math.round(parseFloat(metadata.amount) * 100)
+          ),
         },
       },
       {
@@ -190,6 +205,79 @@ export async function createCheckoutSession(
     return session.url!;
   } catch (error) {
     console.error('Error creating checkout session:', error);
+    throw new Error('Failed to create checkout session');
+  }
+}
+
+export interface OneTimeCheckoutParams {
+  /** Our purchases.id; also used as the Stripe idempotency key. */
+  purchaseId: string;
+  /** Shown on the Stripe Checkout page. */
+  title: string;
+  description?: string;
+  /** Total in the smallest currency unit (cents). */
+  amountCents: number;
+  currency: string;
+  customerId: string;
+  /** The artist's Stripe Connect account; the charge is made on it. */
+  stripeAccountId: string;
+  successUrl: string;
+  cancelUrl: string;
+  metadata: Record<string, string>;
+}
+
+/**
+ * Create a one-off ("payment" mode) Checkout Session on the artist's Connect
+ * account, with the platform fee taken as an application fee.
+ */
+export async function createOneTimeCheckoutSession(
+  params: OneTimeCheckoutParams
+): Promise<{ id: string; url: string }> {
+  if (!Number.isInteger(params.amountCents) || params.amountCents <= 0) {
+    throw new Error('amountCents must be a positive integer');
+  }
+
+  try {
+    const session = await stripe.checkout.sessions.create(
+      {
+        mode: 'payment',
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price_data: {
+              currency: params.currency,
+              unit_amount: params.amountCents,
+              product_data: {
+                name: params.title,
+                ...(params.description ? { description: params.description } : {}),
+              },
+            },
+            quantity: 1,
+          },
+        ],
+        customer: params.customerId,
+        client_reference_id: params.purchaseId,
+        success_url: params.successUrl,
+        cancel_url: params.cancelUrl,
+        metadata: params.metadata,
+        payment_intent_data: {
+          application_fee_amount: calculatePlatformFeeCents(params.amountCents),
+          metadata: params.metadata,
+        },
+      },
+      {
+        stripeAccount: params.stripeAccountId,
+        idempotencyKey: `purchase-checkout-${params.purchaseId}`,
+      }
+    );
+
+    if (!session.url) {
+      throw new Error('Stripe returned a checkout session without a URL');
+    }
+
+    return { id: session.id, url: session.url };
+  } catch (error) {
+    console.error('Error creating one-time checkout session:', error);
     throw new Error('Failed to create checkout session');
   }
 }

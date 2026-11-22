@@ -698,6 +698,50 @@ model subscriptions {
   @@index([fanId, artistId, status])
 }
 
+/// One-time purchases (drops, presales, listening-party tickets). Paid on the
+/// artist's Stripe Connect account through a "payment" mode Checkout Session.
+/// status: PENDING | PAID | FAILED | EXPIRED | REFUNDED
+model purchases {
+  id                      String    @id
+  fanId                   String
+  artistId                String
+  itemType                String
+  itemId                  String
+  title                   String
+  amount                  Decimal
+  currency                String    @default("usd")
+  platformFee             Decimal
+  status                  String    @default("PENDING")
+  stripeAccountId         String
+  stripeCheckoutSessionId String?   @unique
+  stripePaymentIntentId   String?   @unique
+  paidAt                  DateTime?
+  refundedAt              DateTime?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  users                   users     @relation(fields: [fanId], references: [id], onDelete: Cascade)
+
+  @@index([fanId, itemType, itemId, status])
+  @@index([artistId, status])
+  @@index([itemType, itemId, status])
+}
+
+/// Stripe webhook events already seen, keyed by Stripe's event id, so a
+/// redelivered event is never applied twice.
+/// status: PROCESSING | PROCESSED | FAILED
+model stripe_webhook_events {
+  id          String    @id
+  type        String
+  status      String
+  attempts    Int       @default(1)
+  lastError   String?
+  processedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status, updatedAt])
+}
+
 model tiers {
   id              String          @id
   artistId        String
@@ -762,6 +806,7 @@ model users {
   stream_tips                          stream_tips[]
   stream_viewers                       stream_viewers[]
   subscriptions                        subscriptions[]
+  purchases                            purchases[]
   tiers                                tiers[]
   gdpr_requests                        gdpr_requests[]
   consent_records                      consent_records[]
