@@ -10,6 +10,7 @@ import {
   confirmDropUnit,
   DropError,
   getDropAvailability,
+  isActiveMember,
   releaseDropUnit,
   reserveDropUnit,
   resolveDropAmountCents,
@@ -47,6 +48,8 @@ export interface ResolvedPurchaseItem {
   currency: string;
   /** Where the fan returns to if they cancel checkout. */
   cancelPath: string;
+  /** Bought in a members-only presale window. */
+  presale?: boolean;
 }
 
 /**
@@ -73,6 +76,8 @@ function decimalToCents(value: { toString(): string } | null | undefined): numbe
 export interface ResolveItemOptions {
   /** Amount the fan chose, in cents. Only pay-what-you-want items accept one. */
   amountCents?: number;
+  /** The buyer, for items only some fans may buy yet (a drop in presale). */
+  fanId?: string;
 }
 
 type ItemResolver = (itemId: string, options: ResolveItemOptions) => Promise<ResolvedPurchaseItem>;
@@ -86,14 +91,18 @@ const DROP_UNAVAILABLE_MESSAGES = {
 
 const itemResolvers: Record<PurchaseItemType, ItemResolver> = {
   // A drop: fixed price, or pay-what-you-want at or above its minimum.
-  async DROP(itemId, { amountCents }) {
+  async DROP(itemId, { amountCents, fanId }) {
     const drop = await prisma.drops.findUnique({ where: { id: itemId } });
     if (!drop) {
       throw new PurchaseError('Item not found', 404);
     }
 
     const availability = getDropAvailability(drop);
-    if (availability !== 'on_sale') {
+    const presale = availability === 'presale';
+    if (presale && !(fanId && (await isActiveMember(fanId, drop.artistId)))) {
+      throw new PurchaseError('This drop is in presale for members only', 403);
+    }
+    if (availability !== 'on_sale' && !presale) {
       throw new PurchaseError(
         DROP_UNAVAILABLE_MESSAGES[availability],
         availability === 'unavailable' ? 404 : 400
@@ -117,6 +126,7 @@ const itemResolvers: Record<PurchaseItemType, ItemResolver> = {
       amountCents: resolvedCents,
       currency: drop.currency,
       cancelPath: `/artist/${drop.artistId}?canceled=true`,
+      presale,
     };
   },
 
@@ -196,7 +206,10 @@ export async function createPurchaseCheckout(
   input: CreatePurchaseCheckoutInput
 ): Promise<{ purchaseId: string; checkoutUrl: string }> {
   const { fan, itemType, itemId, baseUrl } = input;
-  const item = await resolvePurchaseItem(itemType, itemId, { amountCents: input.amountCents });
+  const item = await resolvePurchaseItem(itemType, itemId, {
+    amountCents: input.amountCents,
+    fanId: fan.id,
+  });
 
   if (item.artistId === fan.id) {
     throw new PurchaseError('You cannot buy your own item', 400);
@@ -214,7 +227,7 @@ export async function createPurchaseCheckout(
   // A drop checkout holds one unit until it is paid, fails or expires, so the
   // last unit of a capped drop can't be sold twice.
   const holdsDropUnit = itemType === 'DROP';
-  if (holdsDropUnit && !(await reserveDropUnit(itemId))) {
+  if (holdsDropUnit && !(await reserveDropUnit(itemId, item.presale === true))) {
     throw new PurchaseError('This drop is sold out', 409);
   }
 

@@ -453,6 +453,56 @@ describe('drop purchases', () => {
     ).rejects.toMatchObject({ status });
   });
 
+  describe('in a members-only presale', () => {
+    const presaleDrop = {
+      ...drop,
+      presaleStartsAt: new Date(now - 60_000),
+      startsAt: new Date(now + 3_600_000),
+    };
+
+    beforeEach(() => {
+      db.drops.findUnique.mockResolvedValue(presaleDrop);
+    });
+
+    it('lets a member buy, holding the unit under the presale window', async () => {
+      db.subscriptions.findFirst.mockResolvedValue({ id: 'sub_1' });
+
+      await createPurchaseCheckout({ fan, itemType: 'DROP', itemId: 'drop_1', baseUrl: '' });
+
+      expect(db.subscriptions.findFirst.mock.calls[0][0].where).toEqual({
+        fanId: 'fan_1',
+        artistId: 'artist_1',
+        status: 'ACTIVE',
+      });
+      const sql = (db.$executeRaw.mock.calls[0][0] as string[]).join('?');
+      expect(sql).toContain('"presaleStartsAt" <= NOW()');
+      expect(db.$executeRaw.mock.calls[0][2]).toBe(true);
+      expect(mockCreateSession).toHaveBeenCalledTimes(1);
+    });
+
+    it('turns away a fan who is not a member', async () => {
+      db.subscriptions.findFirst.mockResolvedValue(null);
+
+      await expect(
+        createPurchaseCheckout({ fan, itemType: 'DROP', itemId: 'drop_1', baseUrl: '' })
+      ).rejects.toMatchObject({
+        status: 403,
+        message: 'This drop is in presale for members only',
+      });
+      expect(db.$executeRaw).not.toHaveBeenCalled();
+      expect(db.purchases.create).not.toHaveBeenCalled();
+    });
+
+    it('does not take a presale hold once the drop is on general sale', async () => {
+      db.drops.findUnique.mockResolvedValue({ ...presaleDrop, startsAt: new Date(now - 60_000) });
+
+      await createPurchaseCheckout({ fan, itemType: 'DROP', itemId: 'drop_1', baseUrl: '' });
+
+      expect(db.subscriptions.findFirst).not.toHaveBeenCalled();
+      expect(db.$executeRaw.mock.calls[0][2]).toBe(false);
+    });
+  });
+
   it('refuses a fan-chosen amount on a fixed-price ticket', async () => {
     await expect(
       createPurchaseCheckout({

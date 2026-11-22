@@ -4,6 +4,7 @@ import {
   createDropSchema,
   DropError,
   getDropAvailability,
+  isActiveMember,
   MAX_DROP_PAYMENT_CENTS,
   resolveDropAmountCents,
   toPublicDrop,
@@ -50,8 +51,57 @@ describe('getDropAvailability', () => {
     ],
     ['unavailable as a draft', { ...baseDrop, status: 'DRAFT' }, during, 'unavailable'],
     ['unavailable when archived', { ...baseDrop, status: 'ARCHIVED' }, during, 'unavailable'],
+    [
+      'in presale between the presale start and the public start',
+      { ...baseDrop, presaleStartsAt: new Date('2026-11-28T00:00:00Z') },
+      new Date('2026-11-30T00:00:00Z'),
+      'presale',
+    ],
+    [
+      'not started before the presale opens',
+      { ...baseDrop, presaleStartsAt: new Date('2026-11-28T00:00:00Z') },
+      new Date('2026-11-27T00:00:00Z'),
+      'not_started',
+    ],
+    [
+      'on sale to everyone once the public start passes',
+      { ...baseDrop, presaleStartsAt: new Date('2026-11-28T00:00:00Z') },
+      during,
+      'on_sale',
+    ],
+    [
+      'sold out in presale when members take every unit',
+      {
+        ...baseDrop,
+        presaleStartsAt: new Date('2026-11-28T00:00:00Z'),
+        quantityLimit: 10,
+        soldCount: 10,
+      },
+      new Date('2026-11-30T00:00:00Z'),
+      'sold_out',
+    ],
   ])('is %s', (_label, drop, now, expected) => {
     expect(getDropAvailability(drop as any, now as Date)).toBe(expected);
+  });
+});
+
+describe('isActiveMember', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('is true for an active membership of the artist, any tier', async () => {
+    db.subscriptions.findFirst.mockResolvedValue({ id: 'sub_1' });
+
+    await expect(isActiveMember('fan-1', 'artist-1')).resolves.toBe(true);
+    expect(db.subscriptions.findFirst.mock.calls[0][0].where).toEqual({
+      fanId: 'fan-1',
+      artistId: 'artist-1',
+      status: 'ACTIVE',
+    });
+  });
+
+  it('is false without one', async () => {
+    db.subscriptions.findFirst.mockResolvedValue(null);
+    await expect(isActiveMember('fan-1', 'artist-1')).resolves.toBe(false);
   });
 });
 
@@ -95,6 +145,7 @@ describe('createDropSchema', () => {
     ['an end before the start', { endsAt: '2026-11-30T00:00:00Z' }],
     ['no content', { contentIds: [] }],
     ['an unknown field', { soldCount: 5 }],
+    ['a presale that opens at or after the start', { presaleStartsAt: '2026-12-01T00:00:00Z' }],
   ])('rejects %s', (_label, change) => {
     expect(createDropSchema.safeParse({ ...valid, ...change }).success).toBe(false);
   });
@@ -177,6 +228,27 @@ describe('updateDrop', () => {
     await expect(
       updateDrop('artist-1', 'drop-1', { contentIds: ['content-2'] })
     ).rejects.toMatchObject({ status: 409 });
+  });
+
+  it('sets a presale window that opens before the public start', async () => {
+    db.drops.findUnique.mockResolvedValue(baseDrop);
+    const presaleStartsAt = new Date('2026-11-28T00:00:00Z');
+
+    await updateDrop('artist-1', 'drop-1', { presaleStartsAt });
+
+    expect(db.drops.update.mock.calls[0][0].data).toEqual({ presaleStartsAt });
+  });
+
+  it('refuses a presale that would open after a moved public start', async () => {
+    db.drops.findUnique.mockResolvedValue({
+      ...baseDrop,
+      presaleStartsAt: new Date('2026-11-28T00:00:00Z'),
+    });
+
+    await expect(
+      updateDrop('artist-1', 'drop-1', { startsAt: new Date('2026-11-27T00:00:00Z') })
+    ).rejects.toMatchObject({ status: 400 });
+    expect(db.drops.update).not.toHaveBeenCalled();
   });
 
   it('keeps the quantity cap at or above what has sold', async () => {

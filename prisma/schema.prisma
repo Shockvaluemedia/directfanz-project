@@ -733,24 +733,27 @@ model purchases {
 /// content for good. priceType: FIXED | PAY_WHAT_YOU_WANT (price is then the
 /// minimum). status: DRAFT | PUBLISHED | ARCHIVED.
 model drops {
-  id            String         @id
-  artistId      String
-  title         String
-  description   String?
-  priceType     String         @default("FIXED")
-  price         Decimal
-  currency      String         @default("usd")
-  startsAt      DateTime
-  endsAt        DateTime?
-  quantityLimit Int?
-  soldCount     Int            @default(0)
+  id              String         @id
+  artistId        String
+  title           String
+  description     String?
+  priceType       String         @default("FIXED")
+  price           Decimal
+  currency        String         @default("usd")
+  startsAt        DateTime
+  /// Members-only presale: from here until startsAt, only fans with an active
+  /// membership of the artist may buy. Null means no presale.
+  presaleStartsAt DateTime?
+  endsAt          DateTime?
+  quantityLimit   Int?
+  soldCount       Int            @default(0)
   /// Units held by checkouts still in progress (see src/lib/drops.ts reserveDropUnit).
-  reservedCount Int            @default(0)
-  status        String         @default("DRAFT")
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  users         users          @relation(fields: [artistId], references: [id], onDelete: Cascade)
-  drop_content  drop_content[]
+  reservedCount   Int            @default(0)
+  status          String         @default("DRAFT")
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  users           users          @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  drop_content    drop_content[]
 
   @@index([artistId, status])
   @@index([status, startsAt])

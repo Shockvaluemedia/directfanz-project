@@ -53,6 +53,7 @@ const dropFields = {
   priceType: z.enum(DROP_PRICE_TYPES),
   price: priceDollars,
   startsAt: z.coerce.date(),
+  presaleStartsAt: z.coerce.date().nullish(),
   endsAt: z.coerce.date().nullish(),
   quantityLimit: z.number().int().min(1).max(1_000_000).nullish(),
   contentIds: z.array(z.string().min(1)).min(1).max(50),
@@ -65,6 +66,10 @@ export const createDropSchema = z
   .refine(d => !d.endsAt || d.endsAt > d.startsAt, {
     message: 'endsAt must be after startsAt',
     path: ['endsAt'],
+  })
+  .refine(d => !d.presaleStartsAt || d.presaleStartsAt < d.startsAt, {
+    message: 'presaleStartsAt must be before startsAt',
+    path: ['presaleStartsAt'],
   });
 
 export const updateDropSchema = z
@@ -108,6 +113,7 @@ export async function createDrop(artistId: string, input: CreateDropInput) {
       priceType: input.priceType,
       price: toCents(input.price) / 100,
       startsAt: input.startsAt,
+      presaleStartsAt: input.presaleStartsAt ?? null,
       endsAt: input.endsAt ?? null,
       quantityLimit: input.quantityLimit ?? null,
       status: input.status ?? DROP_STATUS.DRAFT,
@@ -146,6 +152,11 @@ export async function updateDrop(artistId: string, dropId: string, input: Update
   if (endsAt && endsAt <= startsAt) {
     throw new DropError('endsAt must be after startsAt', 400);
   }
+  const presaleStartsAt =
+    input.presaleStartsAt === undefined ? drop.presaleStartsAt : input.presaleStartsAt;
+  if (presaleStartsAt && presaleStartsAt >= startsAt) {
+    throw new DropError('presaleStartsAt must be before startsAt', 400);
+  }
 
   if (input.contentIds) {
     await assertSellableContent(artistId, input.contentIds);
@@ -159,6 +170,9 @@ export async function updateDrop(artistId: string, dropId: string, input: Update
       ...(input.priceType !== undefined ? { priceType: input.priceType } : {}),
       ...(input.price !== undefined ? { price: toCents(input.price) / 100 } : {}),
       ...(input.startsAt !== undefined ? { startsAt: input.startsAt } : {}),
+      ...(input.presaleStartsAt !== undefined
+        ? { presaleStartsAt: input.presaleStartsAt ?? null }
+        : {}),
       ...(input.endsAt !== undefined ? { endsAt: input.endsAt ?? null } : {}),
       ...(input.quantityLimit !== undefined ? { quantityLimit: input.quantityLimit ?? null } : {}),
       ...(input.status !== undefined ? { status: input.status } : {}),
@@ -175,7 +189,17 @@ export async function updateDrop(artistId: string, dropId: string, input: Update
   });
 }
 
-export type DropAvailability = 'on_sale' | 'not_started' | 'ended' | 'sold_out' | 'unavailable';
+/**
+ * presale: in the members-only window before startsAt. Members may buy;
+ * everyone else sees it as coming soon.
+ */
+export type DropAvailability =
+  | 'on_sale'
+  | 'presale'
+  | 'not_started'
+  | 'ended'
+  | 'sold_out'
+  | 'unavailable';
 
 /** Units paid for plus units held by checkouts still in progress. */
 export function claimedUnits(drop: { soldCount: number; reservedCount?: number | null }): number {
@@ -186,6 +210,7 @@ export function getDropAvailability(
   drop: {
     status: string;
     startsAt: Date;
+    presaleStartsAt?: Date | null;
     endsAt: Date | null;
     quantityLimit: number | null;
     soldCount: number;
@@ -194,10 +219,20 @@ export function getDropAvailability(
   now: Date = new Date()
 ): DropAvailability {
   if (drop.status !== DROP_STATUS.PUBLISHED) return 'unavailable';
-  if (now < drop.startsAt) return 'not_started';
+  const inPresale = Boolean(drop.presaleStartsAt && now >= drop.presaleStartsAt);
+  if (now < drop.startsAt && !inPresale) return 'not_started';
   if (drop.endsAt && now >= drop.endsAt) return 'ended';
   if (drop.quantityLimit != null && claimedUnits(drop) >= drop.quantityLimit) return 'sold_out';
-  return 'on_sale';
+  return now < drop.startsAt ? 'presale' : 'on_sale';
+}
+
+/** A fan with an active membership (any tier) of the artist: who may buy in a presale. */
+export async function isActiveMember(fanId: string, artistId: string): Promise<boolean> {
+  const membership = await prisma.subscriptions.findFirst({
+    where: { fanId, artistId, status: 'ACTIVE' },
+    select: { id: true },
+  });
+  return Boolean(membership);
 }
 
 /**
@@ -245,6 +280,7 @@ export function toPublicDrop(drop: {
   price: { toString(): string };
   currency: string;
   startsAt: Date;
+  presaleStartsAt?: Date | null;
   endsAt: Date | null;
   quantityLimit: number | null;
   soldCount: number;
@@ -261,6 +297,7 @@ export function toPublicDrop(drop: {
     price: toCents(drop.price) / 100,
     currency: drop.currency,
     startsAt: drop.startsAt,
+    presaleStartsAt: drop.presaleStartsAt ?? null,
     endsAt: drop.endsAt,
     remaining:
       drop.quantityLimit != null ? Math.max(drop.quantityLimit - claimedUnits(drop), 0) : null,
@@ -278,15 +315,18 @@ export function toPublicDrop(drop: {
 
 /**
  * Hold one unit of a drop for a checkout. Returns false when the drop is not
- * on sale or every unit is already sold or held.
+ * on sale or every unit is already sold or held. `presale` lets the hold be
+ * taken in the presale window; the caller has already checked the fan is a
+ * member.
  */
-export async function reserveDropUnit(dropId: string): Promise<boolean> {
+export async function reserveDropUnit(dropId: string, presale = false): Promise<boolean> {
   const updated = await prisma.$executeRaw`
     UPDATE "drops"
     SET "reservedCount" = "reservedCount" + 1, "updatedAt" = NOW()
     WHERE "id" = ${dropId}
       AND "status" = 'PUBLISHED'
-      AND "startsAt" <= NOW()
+      AND ("startsAt" <= NOW()
+        OR (${presale} AND "presaleStartsAt" IS NOT NULL AND "presaleStartsAt" <= NOW()))
       AND ("endsAt" IS NULL OR "endsAt" > NOW())
       AND ("quantityLimit" IS NULL OR "soldCount" + "reservedCount" < "quantityLimit")
   `;
