@@ -494,6 +494,42 @@ describe('Authentication Integration Tests', () => {
         },
       });
     });
+
+    it('should lock an address after five wrong passwords and refuse it with 429', async () => {
+      const {
+        LoginGuard,
+        MemoryLoginGuardStore,
+        setLoginGuardForTests,
+      } = require('@/lib/login-guard');
+      setLoginGuardForTests(new LoginGuard(null, new MemoryLoginGuardStore()));
+      const bcrypt = require('bcryptjs');
+
+      const attempt = (password: string) =>
+        loginHandler(
+          new NextRequest('http://localhost:3000/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '203.0.113.7' },
+            body: JSON.stringify({ email: 'locked@example.com', password }),
+          })
+        );
+
+      try {
+        (prisma.users.findUnique as jest.Mock).mockResolvedValue(
+          createMockUser({ email: 'locked@example.com', password: 'hashed-password' })
+        );
+        for (let i = 0; i < 5; i++) {
+          bcrypt.compare.mockResolvedValueOnce(false);
+          expect((await attempt('wrong-password')).status).toBe(401);
+        }
+
+        bcrypt.compare.mockClear();
+        const response = await attempt('right-password');
+        expect(response.status).toBe(429);
+        expect(bcrypt.compare).not.toHaveBeenCalled();
+      } finally {
+        setLoginGuardForTests(null);
+      }
+    });
   });
 
   describe('Password Reset Flow', () => {

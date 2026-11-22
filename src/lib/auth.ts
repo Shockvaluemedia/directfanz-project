@@ -3,6 +3,7 @@ import type { JWT } from 'next-auth/jwt';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import { prisma } from './prisma';
+import { LOGIN_BLOCKED_ERROR, clientIpFromHeaders, getLoginGuard } from './login-guard';
 
 // Environment variable validation (skip during build)
 if (process.env.NODE_ENV === 'production' && typeof window === 'undefined') {
@@ -38,9 +39,19 @@ export const authOptions: NextAuthOptions = {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) {
           return null;
+        }
+
+        // Refuse before touching the database or bcrypt while the address is
+        // locked or this client has failed too often. The thrown message is
+        // what signIn() returns as `error`, so the sign-in page can explain it.
+        const guard = getLoginGuard();
+        const ip = clientIpFromHeaders(req?.headers as Record<string, string> | undefined);
+        const check = await guard.check(credentials.email, ip);
+        if (!check.allowed) {
+          throw new Error(LOGIN_BLOCKED_ERROR);
         }
 
         try {
@@ -51,14 +62,18 @@ export const authOptions: NextAuthOptions = {
           });
 
           if (!user || !user.password) {
+            await guard.recordFailure(credentials.email, ip);
             return null;
           }
 
           const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
 
           if (!isPasswordValid) {
+            await guard.recordFailure(credentials.email, ip);
             return null;
           }
+
+          await guard.recordSuccess(credentials.email);
 
           // Checked after the password so a banned account can't be told apart
           // from a wrong password by an unauthenticated caller.

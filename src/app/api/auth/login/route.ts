@@ -11,6 +11,7 @@ import {
 } from '@/lib/api-error-handler';
 import { AppError, ErrorCode } from '@/lib/errors';
 import { z } from 'zod';
+import { clientIpFromHeaders, getLoginGuard, loginBlockedMessage } from '@/lib/login-guard';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email format').min(1, 'Email is required'),
@@ -22,6 +23,21 @@ export const POST = withApiHandler(
     // Validate request body
     const body = await request.json();
     const { email, password } = validateApiRequest(loginSchema, body, context);
+
+    // Same sign-in limits as the NextAuth credentials provider, checked before
+    // the database or bcrypt run.
+    const guard = getLoginGuard();
+    const ip = clientIpFromHeaders(request.headers);
+    const check = await guard.check(email, ip);
+    if (!check.allowed) {
+      throw new AppError(
+        ErrorCode.RATE_LIMIT_EXCEEDED,
+        loginBlockedMessage(check.retryAfterSeconds),
+        429,
+        { retryAfterSeconds: check.retryAfterSeconds },
+        context.requestId
+      );
+    }
 
     // Find user by email with timeout protection
     const user = await Promise.race([
@@ -40,6 +56,7 @@ export const POST = withApiHandler(
     ]) as any;
 
     if (!user || !user.password) {
+      await guard.recordFailure(email, ip);
       // Track failed login (non-blocking)
       try {
         businessMetrics.track({
@@ -75,6 +92,7 @@ export const POST = withApiHandler(
     ]) as boolean;
 
     if (!isPasswordValid) {
+      await guard.recordFailure(email, ip);
       // Track failed login (non-blocking)
       try {
         businessMetrics.track({
@@ -95,6 +113,8 @@ export const POST = withApiHandler(
         context.requestId
       );
     }
+
+    await guard.recordSuccess(email);
 
     // Checked after the password so a banned account can't be told apart from
     // a wrong password by an unauthenticated caller.

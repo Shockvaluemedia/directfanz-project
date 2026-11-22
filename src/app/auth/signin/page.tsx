@@ -4,6 +4,7 @@ import React, { useState, Suspense } from 'react';
 import { signIn, getSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { LOGIN_BLOCKED_ERROR } from '@/lib/login-blocked';
 
 // Only allow post-login redirects to internal, root-relative paths. Reject
 // absolute URLs (https://evil), protocol-relative URLs (//evil), and backslash
@@ -38,7 +39,9 @@ function SignInContent() {
         redirect: false,
       });
 
-      if (result?.error) {
+      if (result?.error === LOGIN_BLOCKED_ERROR) {
+        setError('Too many sign-in attempts. Please wait 15 minutes and try again.');
+      } else if (result?.error) {
         setError('Invalid email or password');
       } else {
         await getSession();
