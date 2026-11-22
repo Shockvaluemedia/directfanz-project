@@ -5,7 +5,10 @@ jest.mock('@/lib/stripe', () => ({
   createOneTimeCheckoutSession: jest.fn(),
 }));
 
+jest.mock('@/lib/fan-list', () => ({ joinFanList: jest.fn() }));
+
 import { prisma } from '@/lib/prisma';
+import { joinFanList } from '@/lib/fan-list';
 import { createOneTimeCheckoutSession, createOrRetrieveCustomer } from '@/lib/stripe';
 import {
   createPurchaseCheckout,
@@ -356,6 +359,37 @@ describe('drop purchases', () => {
       amountCents: 1000,
       title: 'Never More: first single',
     });
+  });
+
+  it('adds the buyer to the artist’s fan list only when they ticked the box', async () => {
+    const join = joinFanList as jest.Mock;
+    join.mockResolvedValue({});
+
+    await createPurchaseCheckout({ fan, itemType: 'DROP', itemId: 'drop_1', baseUrl: '' });
+    expect(join).not.toHaveBeenCalled();
+
+    await createPurchaseCheckout({
+      fan,
+      itemType: 'DROP',
+      itemId: 'drop_1',
+      joinFanList: true,
+      baseUrl: '',
+    });
+    expect(join).toHaveBeenCalledWith('artist_1', 'fan_1', 'PURCHASE');
+  });
+
+  it('still opens checkout if adding the buyer to the fan list fails', async () => {
+    (joinFanList as jest.Mock).mockRejectedValue(new Error('db down'));
+
+    await expect(
+      createPurchaseCheckout({
+        fan,
+        itemType: 'DROP',
+        itemId: 'drop_1',
+        joinFanList: true,
+        baseUrl: '',
+      })
+    ).resolves.toMatchObject({ checkoutUrl: 'https://checkout.test/cs_drop' });
   });
 
   it('charges the minimum when the fan names no amount', async () => {

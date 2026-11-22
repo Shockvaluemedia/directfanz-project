@@ -847,6 +847,9 @@ model users {
   subscriptions                        subscriptions[]
   purchases                            purchases[]
   drops                                drops[]
+  fanListMemberships                   fan_list_members[]         @relation("FanListFan")
+  fanListMembers                       fan_list_members[]         @relation("FanListArtist")
+  fanListAnnouncements                 fan_list_announcements[]
   tiers                                tiers[]
   gdpr_requests                        gdpr_requests[]
   consent_records                      consent_records[]
@@ -858,6 +861,53 @@ model users {
   @@index([displayName])
   @@index([role, lastSeenAt])
   @@index([status])
+}
+
+/// An artist's own fan list. A fan is on it only after opting in, and email
+/// and text messages are separate opt-ins: emailConsentedAt / smsConsentedAt
+/// record each yes, and leaving a channel sets its *UnsubscribedAt, so a fan
+/// who left is never contacted on that channel again unless they opt in again.
+/// smsConsentText keeps the exact wording the fan agreed to.
+/// source: SIGNUP | PURCHASE (where they first joined)
+model fan_list_members {
+  id                  String    @id
+  artistId            String
+  fanId               String
+  source              String    @default("SIGNUP")
+  emailConsentedAt    DateTime?
+  emailUnsubscribedAt DateTime?
+  smsPhone            String?
+  smsConsentedAt      DateTime?
+  smsConsentText      String?
+  smsUnsubscribedAt   DateTime?
+  unsubscribeToken    String    @unique
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  artist              users     @relation("FanListArtist", fields: [artistId], references: [id], onDelete: Cascade)
+  fan                 users     @relation("FanListFan", fields: [fanId], references: [id], onDelete: Cascade)
+
+  @@unique([artistId, fanId])
+  @@index([artistId, emailUnsubscribedAt])
+  @@index([smsPhone])
+  @@index([fanId])
+}
+
+/// Announcements an artist sent to their fan list (drops, listening parties).
+/// smsBody is set when the announcement also went out by text.
+model fan_list_announcements {
+  id                String   @id
+  artistId          String
+  subject           String
+  body              String
+  smsBody           String?
+  recipientCount    Int      @default(0)
+  failedCount       Int      @default(0)
+  smsRecipientCount Int      @default(0)
+  smsFailedCount    Int      @default(0)
+  createdAt         DateTime @default(now())
+  artist            users    @relation(fields: [artistId], references: [id], onDelete: Cascade)
+
+  @@index([artistId, createdAt])
 }
 
 model follows {

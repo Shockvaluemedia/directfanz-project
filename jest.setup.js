@@ -849,6 +849,9 @@ function createPrismaMock() {
     drops: createMockModel(),
     drop_content: createMockModel(),
     stripe_webhook_events: createMockModel(),
+    follows: createMockModel(),
+    fan_list_members: createMockModel(),
+    fan_list_announcements: createMockModel(),
     verificationtokens: createMockModel(),
     refresh_tokens: createMockModel(),
     // Singular aliases (for tests that use singular names)

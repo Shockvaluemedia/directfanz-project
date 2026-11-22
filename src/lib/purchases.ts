@@ -14,6 +14,7 @@ import {
   reserveDropUnit,
   resolveDropAmountCents,
 } from '@/lib/drops';
+import { joinFanList } from '@/lib/fan-list';
 
 /**
  * One-time purchases: a fan pays once for an item (a drop, a presale, a
@@ -181,6 +182,8 @@ export interface CreatePurchaseCheckoutInput {
   itemId: string;
   /** Pay-what-you-want amount in cents; omit for fixed-price items. */
   amountCents?: number;
+  /** The fan ticked "join the artist's fan list" at checkout. */
+  joinFanList?: boolean;
   baseUrl: string;
 }
 
@@ -277,6 +280,13 @@ export async function createPurchaseCheckout(
       where: { id: purchaseId },
       data: { stripeCheckoutSessionId: session.id },
     });
+
+    if (input.joinFanList) {
+      // The fan opted in; a failure here must not block their checkout.
+      await joinFanList(item.artistId, fan.id, 'PURCHASE').catch(joinError =>
+        console.error('Failed to add buyer to fan list:', joinError)
+      );
+    }
 
     return { purchaseId, checkoutUrl: session.url };
   } catch (error) {

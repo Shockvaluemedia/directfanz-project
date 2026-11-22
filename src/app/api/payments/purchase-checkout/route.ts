@@ -13,6 +13,8 @@ const purchaseCheckoutSchema = z
     itemType: z.enum(PURCHASE_ITEM_TYPES),
     itemId: z.string().min(1).max(200),
     amount: z.number().finite().positive().optional(),
+    // The fan's opt-in to the artist's email list, from an unticked-by-default box.
+    joinFanList: z.boolean().optional(),
   })
   .strict();
 
@@ -25,7 +27,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { itemType, itemId, amount } = purchaseCheckoutSchema.parse(body);
+    const { itemType, itemId, amount, joinFanList } = purchaseCheckoutSchema.parse(body);
 
     const user = await prisma.users.findUnique({ where: { id: session.user.id } });
 
@@ -40,6 +42,7 @@ export async function POST(request: NextRequest) {
       itemType,
       itemId,
       amountCents: amount === undefined ? undefined : Math.round(amount * 100),
+      joinFanList,
       baseUrl,
     });
 
