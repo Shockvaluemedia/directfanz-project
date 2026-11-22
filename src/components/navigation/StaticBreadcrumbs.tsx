@@ -17,7 +17,7 @@ export default function StaticBreadcrumbs() {
   let currentPath = '';
   for (const segment of segments) {
     currentPath += `/${segment}`;
-    const name = segment.charAt(0).toUpperCase() + segment.slice(1);
+    let name = segment.charAt(0).toUpperCase() + segment.slice(1);
     breadcrumbs.push({ name, href: currentPath });
   }
 

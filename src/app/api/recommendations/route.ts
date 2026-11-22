@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
         },
       });
 
-      const recommendations: any = {
+      let recommendations: any = {
         artists: [],
         content: [],
         tiers: [],
