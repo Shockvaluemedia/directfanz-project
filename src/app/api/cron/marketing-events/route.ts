@@ -1,5 +1,5 @@
-import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
+import { checkCronAuth } from '@/lib/cron-auth';
 import { deliverDueMarketingEvents } from '@/lib/marketing-events';
 
 // Retries marketing events whose first send failed, with backoff, and prunes
@@ -9,18 +9,12 @@ import { deliverDueMarketingEvents } from '@/lib/marketing-events';
 
 export const dynamic = 'force-dynamic';
 
-function authorized(request: NextRequest, secret: string): boolean {
-  const given = Buffer.from(request.headers.get('authorization') ?? '');
-  const expected = Buffer.from(`Bearer ${secret}`);
-  return given.length === expected.length && crypto.timingSafeEqual(given, expected);
-}
-
 async function run(request: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) {
+  const auth = checkCronAuth(request.headers.get('authorization'));
+  if (auth === 'off') {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
-  if (!authorized(request, secret)) {
+  if (auth === 'unauthorized') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

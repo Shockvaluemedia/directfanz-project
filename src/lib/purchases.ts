@@ -132,7 +132,7 @@ const itemResolvers: Record<PurchaseItemType, ItemResolver> = {
     if (!stream) {
       throw new PurchaseError('Item not found', 404);
     }
-    if (stream.status === 'ENDED' || stream.status === 'CANCELED') {
+    if (['ENDED', 'CANCELED', 'CANCELLED'].includes(stream.status)) {
       throw new PurchaseError('This event is no longer on sale', 400);
     }
 

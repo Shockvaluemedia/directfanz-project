@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import { UserRole } from '@/types/database';
 import { AuthenticatedRequest, withApiAuth } from '@/lib/api-auth';
 import { prisma } from '@/lib/prisma';
+import { canViewStream, STREAM_ACCESS_SELECT } from '@/lib/stream-access';
 
 // Streaming-specific permissions
 export const STREAMING_PERMISSIONS = {
@@ -110,34 +111,14 @@ export async function checkStreamAccess(request: StreamAccessRequest): Promise<b
       }
     }
 
-    if (action === 'view') {
-      // Check subscription/tier access for private streams
+    if (action === 'view' || action === 'chat') {
+      // Chat is only for people who may watch. Ticketed streams need a ticket.
       const stream = await prisma.live_streams.findUnique({
         where: { id: streamId },
+        select: STREAM_ACCESS_SELECT,
       });
-      if (!stream) {
+      if (!stream || !(await canViewStream(userId, stream))) {
         return false;
-      }
-      // Public streams are accessible to anyone with the view permission
-      if (!stream.isPublic) {
-        // Stream owner always has access
-        if (stream.artistId === userId) {
-          return true;
-        }
-        // Parse tier IDs from the stream and check for active subscription
-        const tierIds: string[] = stream.tierIds ? JSON.parse(stream.tierIds) : [];
-        if (tierIds.length > 0) {
-          const activeSubscription = await prisma.subscriptions.findFirst({
-            where: {
-              fanId: userId,
-              tierId: { in: tierIds },
-              status: 'ACTIVE',
-            },
-          });
-          if (!activeSubscription) {
-            return false;
-          }
-        }
       }
     }
 

@@ -718,6 +718,8 @@ model purchases {
   stripePaymentIntentId   String?   @unique
   paidAt                  DateTime?
   refundedAt              DateTime?
+  /// Listening-party tickets: when the "starting soon" email went out.
+  reminderSentAt          DateTime?
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
   users                   users     @relation(fields: [fanId], references: [id], onDelete: Cascade)

@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { generateSecureToken } from '@/lib/security';
 import { logger } from '@/lib/logger';
 import crypto from 'crypto';
+import { ticketPriceError } from '@/lib/stream-access';
 
 // Validation schemas
 const createStreamSchema = z.object({
@@ -244,6 +245,11 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const validatedData = createStreamSchema.parse(body);
+
+    const priceError = ticketPriceError(validatedData.requiresPayment, validatedData.paymentAmount);
+    if (priceError) {
+      return NextResponse.json({ success: false, error: { message: priceError } }, { status: 400 });
+    }
 
     // Generate unique stream key
     const streamKey = generateSecureToken(32);
