@@ -125,17 +125,20 @@ export async function updateDrop(artistId: string, dropId: string, input: Update
     throw new DropError('Drop not found', 404);
   }
 
-  // Once someone has paid, what they bought must not change under them.
-  const sold = drop.soldCount > 0;
+  // Once someone has paid, or is paying, what they buy must not change under them.
+  const claimed = claimedUnits(drop);
   if (
-    sold &&
+    claimed > 0 &&
     (input.price !== undefined || input.priceType !== undefined || input.contentIds !== undefined)
   ) {
     throw new DropError('Price and content cannot change after the first sale', 409);
   }
 
-  if (input.quantityLimit != null && input.quantityLimit < drop.soldCount) {
-    throw new DropError('Quantity limit cannot be below the number already sold', 400);
+  if (input.quantityLimit != null && input.quantityLimit < claimed) {
+    throw new DropError(
+      'Quantity limit cannot be below the number already sold or in checkout',
+      400
+    );
   }
 
   const startsAt = input.startsAt ?? drop.startsAt;
@@ -174,6 +177,11 @@ export async function updateDrop(artistId: string, dropId: string, input: Update
 
 export type DropAvailability = 'on_sale' | 'not_started' | 'ended' | 'sold_out' | 'unavailable';
 
+/** Units paid for plus units held by checkouts still in progress. */
+export function claimedUnits(drop: { soldCount: number; reservedCount?: number | null }): number {
+  return drop.soldCount + (drop.reservedCount ?? 0);
+}
+
 export function getDropAvailability(
   drop: {
     status: string;
@@ -181,13 +189,14 @@ export function getDropAvailability(
     endsAt: Date | null;
     quantityLimit: number | null;
     soldCount: number;
+    reservedCount?: number | null;
   },
   now: Date = new Date()
 ): DropAvailability {
   if (drop.status !== DROP_STATUS.PUBLISHED) return 'unavailable';
   if (now < drop.startsAt) return 'not_started';
   if (drop.endsAt && now >= drop.endsAt) return 'ended';
-  if (drop.quantityLimit != null && drop.soldCount >= drop.quantityLimit) return 'sold_out';
+  if (drop.quantityLimit != null && claimedUnits(drop) >= drop.quantityLimit) return 'sold_out';
   return 'on_sale';
 }
 
@@ -239,6 +248,7 @@ export function toPublicDrop(drop: {
   endsAt: Date | null;
   quantityLimit: number | null;
   soldCount: number;
+  reservedCount?: number | null;
   status: string;
   drop_content?: Array<{ contentId: string }>;
 }) {
@@ -252,8 +262,64 @@ export function toPublicDrop(drop: {
     currency: drop.currency,
     startsAt: drop.startsAt,
     endsAt: drop.endsAt,
-    remaining: drop.quantityLimit != null ? Math.max(drop.quantityLimit - drop.soldCount, 0) : null,
+    remaining:
+      drop.quantityLimit != null ? Math.max(drop.quantityLimit - claimedUnits(drop), 0) : null,
     itemCount: drop.drop_content?.length ?? 0,
     availability: getDropAvailability(drop),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Stock. A checkout holds one unit (reservedCount) from the moment it is
+// created until it is paid (moves to soldCount) or fails or expires (released).
+// The hold is taken with one conditional UPDATE, so two fans can never both
+// get the last unit of a capped drop.
+// ---------------------------------------------------------------------------
+
+/**
+ * Hold one unit of a drop for a checkout. Returns false when the drop is not
+ * on sale or every unit is already sold or held.
+ */
+export async function reserveDropUnit(dropId: string): Promise<boolean> {
+  const updated = await prisma.$executeRaw`
+    UPDATE "drops"
+    SET "reservedCount" = "reservedCount" + 1, "updatedAt" = NOW()
+    WHERE "id" = ${dropId}
+      AND "status" = 'PUBLISHED'
+      AND "startsAt" <= NOW()
+      AND ("endsAt" IS NULL OR "endsAt" > NOW())
+      AND ("quantityLimit" IS NULL OR "soldCount" + "reservedCount" < "quantityLimit")
+  `;
+  return updated === 1;
+}
+
+/** Give back a unit held by a checkout that failed or expired. */
+export async function releaseDropUnit(dropId: string): Promise<void> {
+  await prisma.drops.updateMany({
+    where: { id: dropId, reservedCount: { gt: 0 } },
+    data: { reservedCount: { decrement: 1 } },
+  });
+}
+
+/**
+ * Count a paid unit as sold. When the checkout still held its unit, the hold
+ * becomes the sale. A payment that lands after its checkout already failed or
+ * expired had no hold; it is counted anyway, because the fan has paid.
+ */
+export async function confirmDropUnit(dropId: string, heldUnit: boolean): Promise<void> {
+  if (heldUnit) {
+    await prisma.$executeRaw`
+      UPDATE "drops"
+      SET "soldCount" = "soldCount" + 1,
+          "reservedCount" = GREATEST("reservedCount" - 1, 0),
+          "updatedAt" = NOW()
+      WHERE "id" = ${dropId}
+    `;
+    return;
+  }
+
+  await prisma.drops.update({
+    where: { id: dropId },
+    data: { soldCount: { increment: 1 } },
+  });
 }

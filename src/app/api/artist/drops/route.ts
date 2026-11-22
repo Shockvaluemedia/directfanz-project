@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
           ...toPublicDrop(drop),
           status: drop.status,
           soldCount: drop.soldCount,
+          reservedCount: drop.reservedCount,
           quantityLimit: drop.quantityLimit,
           contentIds: drop.drop_content.map(c => c.contentId),
         })),

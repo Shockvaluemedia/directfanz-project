@@ -223,6 +223,8 @@ export interface OneTimeCheckoutParams {
   stripeAccountId: string;
   successUrl: string;
   cancelUrl: string;
+  /** When the checkout stops accepting payment (Stripe minimum: 30 minutes). */
+  expiresAt?: Date;
   metadata: Record<string, string>;
 }
 
@@ -259,6 +261,7 @@ export async function createOneTimeCheckoutSession(
         client_reference_id: params.purchaseId,
         success_url: params.successUrl,
         cancel_url: params.cancelUrl,
+        ...(params.expiresAt ? { expires_at: Math.floor(params.expiresAt.getTime() / 1000) } : {}),
         metadata: params.metadata,
         payment_intent_data: {
           application_fee_amount: calculatePlatformFeeCents(params.amountCents),

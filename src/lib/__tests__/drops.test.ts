@@ -42,6 +42,12 @@ describe('getDropAvailability', () => {
       during,
       'sold_out',
     ],
+    [
+      'sold out when the last units are held by checkouts',
+      { ...baseDrop, quantityLimit: 100, soldCount: 98, reservedCount: 2 },
+      during,
+      'sold_out',
+    ],
     ['unavailable as a draft', { ...baseDrop, status: 'DRAFT' }, during, 'unavailable'],
     ['unavailable when archived', { ...baseDrop, status: 'ARCHIVED' }, during, 'unavailable'],
   ])('is %s', (_label, drop, now, expected) => {
@@ -180,6 +186,19 @@ describe('updateDrop', () => {
       status: 400,
     });
   });
+
+  it('counts checkouts in progress as claimed', async () => {
+    db.drops.findUnique.mockResolvedValue({ ...baseDrop, soldCount: 3, reservedCount: 2 });
+
+    await expect(updateDrop('artist-1', 'drop-1', { quantityLimit: 4 })).rejects.toMatchObject({
+      status: 400,
+    });
+
+    db.drops.findUnique.mockResolvedValue({ ...baseDrop, soldCount: 0, reservedCount: 1 });
+    await expect(updateDrop('artist-1', 'drop-1', { price: 1 })).rejects.toMatchObject({
+      status: 409,
+    });
+  });
 });
 
 describe('toPublicDrop', () => {
@@ -192,6 +211,9 @@ describe('toPublicDrop', () => {
     });
 
     expect(view).toMatchObject({ price: 3, remaining: 60, itemCount: 1 });
+    expect(
+      toPublicDrop({ ...baseDrop, quantityLimit: 100, soldCount: 40, reservedCount: 5 })
+    ).toMatchObject({ remaining: 55 });
     expect(view).not.toHaveProperty('drop_content');
   });
 });

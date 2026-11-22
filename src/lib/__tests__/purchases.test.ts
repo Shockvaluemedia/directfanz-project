@@ -181,6 +181,7 @@ describe('createPurchaseCheckout', () => {
 
   it('marks the purchase failed when Stripe checkout cannot be created', async () => {
     mockCreateSession.mockRejectedValue(new Error('Failed to create checkout session'));
+    db.purchases.updateMany.mockResolvedValue({ count: 1 });
 
     await expect(
       createPurchaseCheckout({
@@ -192,10 +193,12 @@ describe('createPurchaseCheckout', () => {
     ).rejects.toThrow('Failed to create checkout session');
 
     const id = db.purchases.create.mock.calls[0][0].data.id;
-    expect(db.purchases.update).toHaveBeenCalledWith({
-      where: { id },
+    expect(db.purchases.updateMany).toHaveBeenCalledWith({
+      where: { id, status: 'PENDING' },
       data: { status: 'FAILED' },
     });
+    // A ticket holds no drop unit, so there is nothing to give back.
+    expect(db.drops.updateMany).not.toHaveBeenCalled();
   });
 });
 
@@ -216,8 +219,9 @@ describe('purchase webhook handlers', () => {
   it('marks a paid purchase PAID and credits the artist net of the fee', async () => {
     await handlePurchaseCheckoutPaid(session());
 
+    expect(db.purchases.updateMany).toHaveBeenCalledTimes(1);
     expect(db.purchases.updateMany).toHaveBeenCalledWith({
-      where: { id: 'pur_1', status: { in: ['PENDING', 'FAILED', 'EXPIRED'] } },
+      where: { id: 'pur_1', status: 'PENDING' },
       data: {
         status: 'PAID',
         stripeCheckoutSessionId: 'cs_test_1',
@@ -237,6 +241,18 @@ describe('purchase webhook handlers', () => {
     await handlePurchaseCheckoutPaid(session());
 
     expect(db.artists.update).not.toHaveBeenCalled();
+  });
+
+  it('still records a payment that lands after its checkout failed or expired', async () => {
+    db.purchases.updateMany.mockResolvedValueOnce({ count: 0 }).mockResolvedValueOnce({ count: 1 });
+
+    await handlePurchaseCheckoutPaid(session());
+
+    expect(db.purchases.updateMany).toHaveBeenNthCalledWith(2, {
+      where: { id: 'pur_1', status: { in: ['FAILED', 'EXPIRED'] } },
+      data: expect.objectContaining({ status: 'PAID' }),
+    });
+    expect(db.artists.update).toHaveBeenCalledTimes(1);
   });
 
   it('waits for async payment when the session is not paid yet', async () => {
@@ -307,6 +323,8 @@ describe('drop purchases', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    db.$executeRaw.mockResolvedValue(1);
+    db.drops.updateMany.mockResolvedValue({ count: 1 });
     db.drops.findUnique.mockResolvedValue(drop);
     db.artists.findUnique.mockResolvedValue({
       userId: 'artist_1',
@@ -383,6 +401,93 @@ describe('drop purchases', () => {
     ).rejects.toMatchObject({ status: 400 });
   });
 
+  it('holds a unit of the drop for the checkout and expires the checkout after 31 minutes', async () => {
+    await createPurchaseCheckout({ fan, itemType: 'DROP', itemId: 'drop_1', baseUrl: '' });
+
+    expect(db.$executeRaw).toHaveBeenCalledTimes(1);
+    const sql = (db.$executeRaw.mock.calls[0][0] as string[]).join('?');
+    expect(sql).toContain('"reservedCount" = "reservedCount" + 1');
+    expect(sql).toContain('"soldCount" + "reservedCount" < "quantityLimit"');
+    expect(db.$executeRaw.mock.calls[0][1]).toBe('drop_1');
+
+    const expiresAt = mockCreateSession.mock.calls[0][0].expiresAt as Date;
+    expect(expiresAt.getTime() - Date.now()).toBeGreaterThan(30 * 60 * 1000);
+    expect(expiresAt.getTime() - Date.now()).toBeLessThanOrEqual(31 * 60 * 1000);
+  });
+
+  it('refuses the checkout when the last unit is already sold or held', async () => {
+    db.$executeRaw.mockResolvedValue(0);
+
+    await expect(
+      createPurchaseCheckout({ fan, itemType: 'DROP', itemId: 'drop_1', baseUrl: '' })
+    ).rejects.toMatchObject({ status: 409, message: 'This drop is sold out' });
+    expect(db.purchases.create).not.toHaveBeenCalled();
+    expect(mockCreateSession).not.toHaveBeenCalled();
+  });
+
+  it('sells the last unit to only one of two fans checking out at once', async () => {
+    // One unit left: the first conditional UPDATE takes it, the second finds none.
+    db.drops.findUnique.mockResolvedValue({ ...drop, quantityLimit: 1 });
+    db.$executeRaw.mockResolvedValueOnce(1).mockResolvedValueOnce(0);
+
+    const results = await Promise.allSettled([
+      createPurchaseCheckout({ fan, itemType: 'DROP', itemId: 'drop_1', baseUrl: '' }),
+      createPurchaseCheckout({
+        fan: { ...fan, id: 'fan_2' },
+        itemType: 'DROP',
+        itemId: 'drop_1',
+        baseUrl: '',
+      }),
+    ]);
+
+    expect(results.filter(r => r.status === 'fulfilled')).toHaveLength(1);
+    expect(results.filter(r => r.status === 'rejected')).toHaveLength(1);
+    expect(mockCreateSession).toHaveBeenCalledTimes(1);
+  });
+
+  it('gives the unit back when Stripe checkout cannot be created', async () => {
+    mockCreateSession.mockRejectedValue(new Error('Failed to create checkout session'));
+    db.purchases.updateMany.mockResolvedValue({ count: 1 });
+
+    await expect(
+      createPurchaseCheckout({ fan, itemType: 'DROP', itemId: 'drop_1', baseUrl: '' })
+    ).rejects.toThrow('Failed to create checkout session');
+
+    expect(db.drops.updateMany).toHaveBeenCalledWith({
+      where: { id: 'drop_1', reservedCount: { gt: 0 } },
+      data: { reservedCount: { decrement: 1 } },
+    });
+  });
+
+  it.each([
+    ['fails', handlePurchaseCheckoutFailed],
+    ['expires', handlePurchaseCheckoutExpired],
+  ])('gives the unit back when the checkout %s', async (_label, handler) => {
+    db.purchases.findUnique.mockResolvedValue({ ...purchase, itemType: 'DROP', itemId: 'drop_1' });
+    db.purchases.updateMany.mockResolvedValue({ count: 1 });
+
+    await handler(session());
+
+    expect(db.drops.updateMany).toHaveBeenCalledWith({
+      where: { id: 'drop_1', reservedCount: { gt: 0 } },
+      data: { reservedCount: { decrement: 1 } },
+    });
+  });
+
+  it('does not give a unit back twice for a repeated expiry', async () => {
+    db.purchases.findUnique.mockResolvedValue({
+      ...purchase,
+      itemType: 'DROP',
+      itemId: 'drop_1',
+      status: 'EXPIRED',
+    });
+    db.purchases.updateMany.mockResolvedValue({ count: 0 });
+
+    await handlePurchaseCheckoutExpired(session());
+
+    expect(db.drops.updateMany).not.toHaveBeenCalled();
+  });
+
   it('counts a sale when a drop purchase is paid, and gives it back on refund', async () => {
     const dropPurchase = { ...purchase, itemType: 'DROP', itemId: 'drop_1' };
     db.purchases.findUnique.mockResolvedValue(dropPurchase);
@@ -392,16 +497,40 @@ describe('drop purchases', () => {
     db.drops.updateMany.mockResolvedValue({ count: 1 });
 
     await handlePurchaseCheckoutPaid(session());
-    expect(db.drops.update).toHaveBeenCalledWith({
-      where: { id: 'drop_1' },
-      data: { soldCount: { increment: 1 } },
-    });
+    // The held unit becomes the sale in one statement.
+    const sql = (db.$executeRaw.mock.calls[0][0] as string[]).join('?');
+    expect(sql).toContain('"soldCount" = "soldCount" + 1');
+    expect(sql).toContain('"reservedCount" = GREATEST("reservedCount" - 1, 0)');
+    expect(db.drops.update).not.toHaveBeenCalled();
 
     db.purchases.findUnique.mockResolvedValue({ ...dropPurchase, status: 'PAID' });
     await handlePurchaseChargeRefunded({ refunded: true, payment_intent: 'pi_test_1' } as any);
     expect(db.drops.updateMany).toHaveBeenCalledWith({
       where: { id: 'drop_1', soldCount: { gt: 0 } },
       data: { soldCount: { decrement: 1 } },
+    });
+  });
+});
+
+describe('late drop payment', () => {
+  it('counts a drop paid after its checkout expired without touching held units', async () => {
+    jest.clearAllMocks();
+    db.purchases.findUnique.mockResolvedValue({
+      ...purchase,
+      itemType: 'DROP',
+      itemId: 'drop_1',
+      status: 'EXPIRED',
+    });
+    db.purchases.updateMany.mockResolvedValueOnce({ count: 0 }).mockResolvedValueOnce({ count: 1 });
+    db.artists.update.mockResolvedValue({});
+    db.drops.update.mockResolvedValue({});
+
+    await handlePurchaseCheckoutPaid(session());
+
+    expect(db.$executeRaw).not.toHaveBeenCalled();
+    expect(db.drops.update).toHaveBeenCalledWith({
+      where: { id: 'drop_1' },
+      data: { soldCount: { increment: 1 } },
     });
   });
 });

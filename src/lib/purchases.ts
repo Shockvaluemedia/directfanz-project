@@ -6,7 +6,14 @@ import {
   createOneTimeCheckoutSession,
   createOrRetrieveCustomer,
 } from '@/lib/stripe';
-import { DropError, getDropAvailability, resolveDropAmountCents } from '@/lib/drops';
+import {
+  confirmDropUnit,
+  DropError,
+  getDropAvailability,
+  releaseDropUnit,
+  reserveDropUnit,
+  resolveDropAmountCents,
+} from '@/lib/drops';
 
 /**
  * One-time purchases: a fan pays once for an item (a drop, a presale, a
@@ -39,6 +46,12 @@ export interface ResolvedPurchaseItem {
   /** Where the fan returns to if they cancel checkout. */
   cancelPath: string;
 }
+
+/**
+ * How long a fan has to finish paying. Stripe's minimum is 30 minutes; a
+ * minute more absorbs clock drift. A drop checkout holds a unit for this long.
+ */
+export const CHECKOUT_EXPIRY_MS = 31 * 60 * 1000;
 
 export class PurchaseError extends Error {
   constructor(
@@ -194,24 +207,43 @@ export async function createPurchaseCheckout(
     throw new PurchaseError('You already own this', 409);
   }
 
+  // A drop checkout holds one unit until it is paid, fails or expires, so the
+  // last unit of a capped drop can't be sold twice.
+  const holdsDropUnit = itemType === 'DROP';
+  if (holdsDropUnit && !(await reserveDropUnit(itemId))) {
+    throw new PurchaseError('This drop is sold out', 409);
+  }
+
   const purchaseId = crypto.randomUUID();
   const platformFeeCents = calculatePlatformFeeCents(item.amountCents);
 
-  await prisma.purchases.create({
-    data: {
-      id: purchaseId,
-      fanId: fan.id,
-      artistId: item.artistId,
-      itemType,
-      itemId,
-      title: item.title,
-      amount: item.amountCents / 100,
-      currency: item.currency,
-      platformFee: platformFeeCents / 100,
-      status: PURCHASE_STATUS.PENDING,
-      stripeAccountId: artist.stripeAccountId,
-    },
-  });
+  const releaseHold = async () => {
+    if (!holdsDropUnit) return;
+    await releaseDropUnit(itemId).catch(releaseError =>
+      console.error('Failed to release drop unit:', releaseError)
+    );
+  };
+
+  try {
+    await prisma.purchases.create({
+      data: {
+        id: purchaseId,
+        fanId: fan.id,
+        artistId: item.artistId,
+        itemType,
+        itemId,
+        title: item.title,
+        amount: item.amountCents / 100,
+        currency: item.currency,
+        platformFee: platformFeeCents / 100,
+        status: PURCHASE_STATUS.PENDING,
+        stripeAccountId: artist.stripeAccountId,
+      },
+    });
+  } catch (error) {
+    await releaseHold();
+    throw error;
+  }
 
   try {
     const customerId = await createOrRetrieveCustomer(
@@ -230,6 +262,7 @@ export async function createPurchaseCheckout(
       stripeAccountId: artist.stripeAccountId,
       successUrl: `${baseUrl}/dashboard/fan?purchase=success&session_id={CHECKOUT_SESSION_ID}`,
       cancelUrl: `${baseUrl}${item.cancelPath}`,
+      expiresAt: new Date(Date.now() + CHECKOUT_EXPIRY_MS),
       metadata: {
         kind: PURCHASE_METADATA_KIND,
         purchaseId,
@@ -247,9 +280,18 @@ export async function createPurchaseCheckout(
 
     return { purchaseId, checkoutUrl: session.url };
   } catch (error) {
-    await prisma.purchases
-      .update({ where: { id: purchaseId }, data: { status: PURCHASE_STATUS.FAILED } })
-      .catch(updateError => console.error('Failed to mark purchase failed:', updateError));
+    const failed = await prisma.purchases
+      .updateMany({
+        where: { id: purchaseId, status: PURCHASE_STATUS.PENDING },
+        data: { status: PURCHASE_STATUS.FAILED },
+      })
+      .catch(updateError => {
+        console.error('Failed to mark purchase failed:', updateError);
+        return { count: 0 };
+      });
+    if (failed.count === 1) {
+      await releaseHold();
+    }
     throw error;
   }
 }
@@ -310,19 +352,31 @@ export async function handlePurchaseCheckoutPaid(session: Stripe.Checkout.Sessio
   }
 
   // Only the first transition into PAID counts, so a duplicate or out-of-order
-  // event can't credit the artist twice.
-  const transitioned = await prisma.purchases.updateMany({
-    where: {
-      id: purchase.id,
-      status: { in: [PURCHASE_STATUS.PENDING, PURCHASE_STATUS.FAILED, PURCHASE_STATUS.EXPIRED] },
-    },
-    data: {
-      status: PURCHASE_STATUS.PAID,
-      stripeCheckoutSessionId: session.id,
-      stripePaymentIntentId: paymentIntentId(session),
-      paidAt: new Date(),
-    },
+  // event can't credit the artist twice. A purchase still PENDING holds its
+  // drop unit; one that already failed or expired gave it back.
+  const paidData = {
+    status: PURCHASE_STATUS.PAID,
+    stripeCheckoutSessionId: session.id,
+    stripePaymentIntentId: paymentIntentId(session),
+    paidAt: new Date(),
+  };
+
+  let heldUnit = true;
+  let transitioned = await prisma.purchases.updateMany({
+    where: { id: purchase.id, status: PURCHASE_STATUS.PENDING },
+    data: paidData,
   });
+
+  if (transitioned.count !== 1) {
+    heldUnit = false;
+    transitioned = await prisma.purchases.updateMany({
+      where: {
+        id: purchase.id,
+        status: { in: [PURCHASE_STATUS.FAILED, PURCHASE_STATUS.EXPIRED] },
+      },
+      data: paidData,
+    });
+  }
 
   if (transitioned.count !== 1) {
     return;
@@ -337,12 +391,29 @@ export async function handlePurchaseCheckoutPaid(session: Stripe.Checkout.Sessio
   });
 
   if (purchase.itemType === 'DROP') {
-    // Counted on payment, not at checkout. Two fans paying for the last unit
-    // at the same moment can both get it (see PR notes).
-    await prisma.drops.update({
-      where: { id: purchase.itemId },
-      data: { soldCount: { increment: 1 } },
-    });
+    if (!heldUnit) {
+      console.warn(
+        `Purchase ${purchase.id} was paid after its checkout ended; counting it without a held unit`
+      );
+    }
+    await confirmDropUnit(purchase.itemId, heldUnit);
+  }
+}
+
+async function endPendingPurchase(
+  session: Stripe.Checkout.Session,
+  status: typeof PURCHASE_STATUS.FAILED | typeof PURCHASE_STATUS.EXPIRED
+): Promise<void> {
+  const purchase = await findPurchaseForSession(session);
+  if (!purchase) return;
+
+  const transitioned = await prisma.purchases.updateMany({
+    where: { id: purchase.id, status: PURCHASE_STATUS.PENDING },
+    data: { status },
+  });
+
+  if (transitioned.count === 1 && purchase.itemType === 'DROP') {
+    await releaseDropUnit(purchase.itemId);
   }
 }
 
@@ -350,26 +421,14 @@ export async function handlePurchaseCheckoutPaid(session: Stripe.Checkout.Sessio
 export async function handlePurchaseCheckoutFailed(
   session: Stripe.Checkout.Session
 ): Promise<void> {
-  const purchase = await findPurchaseForSession(session);
-  if (!purchase) return;
-
-  await prisma.purchases.updateMany({
-    where: { id: purchase.id, status: PURCHASE_STATUS.PENDING },
-    data: { status: PURCHASE_STATUS.FAILED },
-  });
+  await endPendingPurchase(session, PURCHASE_STATUS.FAILED);
 }
 
 /** checkout.session.expired */
 export async function handlePurchaseCheckoutExpired(
   session: Stripe.Checkout.Session
 ): Promise<void> {
-  const purchase = await findPurchaseForSession(session);
-  if (!purchase) return;
-
-  await prisma.purchases.updateMany({
-    where: { id: purchase.id, status: PURCHASE_STATUS.PENDING },
-    data: { status: PURCHASE_STATUS.EXPIRED },
-  });
+  await endPendingPurchase(session, PURCHASE_STATUS.EXPIRED);
 }
 
 /** charge.refunded: a full refund takes the item back. */

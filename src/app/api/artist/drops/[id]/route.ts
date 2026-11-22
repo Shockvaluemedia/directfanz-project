@@ -19,6 +19,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
           ...toPublicDrop(drop),
           status: drop.status,
           soldCount: drop.soldCount,
+          reservedCount: drop.reservedCount,
           contentIds: drop.drop_content.map(c => c.contentId),
         },
       });

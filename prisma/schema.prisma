@@ -742,6 +742,8 @@ model drops {
   endsAt        DateTime?
   quantityLimit Int?
   soldCount     Int            @default(0)
+  /// Units held by checkouts still in progress (see src/lib/drops.ts reserveDropUnit).
+  reservedCount Int            @default(0)
   status        String         @default("DRAFT")
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt

@@ -13,6 +13,7 @@ CREATE TABLE "drops" (
     "endsAt" TIMESTAMP(3),
     "quantityLimit" INTEGER,
     "soldCount" INTEGER NOT NULL DEFAULT 0,
+    "reservedCount" INTEGER NOT NULL DEFAULT 0,
     "status" TEXT NOT NULL DEFAULT 'DRAFT',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
