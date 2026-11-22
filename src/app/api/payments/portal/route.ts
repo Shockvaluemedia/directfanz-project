@@ -3,11 +3,16 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { createCustomerPortalSession, createOrRetrieveCustomer } from '@/lib/stripe';
+import { getMemberPortalAccount, MembershipError } from '@/lib/membership';
 import { z } from 'zod';
 
-const portalSchema = z.object({
-  stripeAccountId: z.string(),
-});
+// The fan names the artist; the Stripe account comes from our database, so a
+// request can't open a portal on someone else's account.
+const portalSchema = z
+  .object({
+    artistId: z.string().min(1),
+  })
+  .strict();
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,7 +23,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { stripeAccountId } = portalSchema.parse(body);
+    const { artistId } = portalSchema.parse(body);
 
     // Get user details
     const user = await prisma.users.findUnique({
@@ -28,6 +33,8 @@ export async function POST(request: NextRequest) {
     if (!user || user.role !== 'FAN') {
       return NextResponse.json({ error: 'Only fans can access customer portal' }, { status: 403 });
     }
+
+    const stripeAccountId = await getMemberPortalAccount(user.id, artistId);
 
     // Create or retrieve customer
     const customerId = await createOrRetrieveCustomer(
@@ -46,6 +53,10 @@ export async function POST(request: NextRequest) {
       portalUrl,
     });
   } catch (error) {
+    if (error instanceof MembershipError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+
     console.error('Create portal session error:', error);
 
     if (error instanceof z.ZodError) {

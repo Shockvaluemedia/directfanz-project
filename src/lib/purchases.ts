@@ -99,7 +99,12 @@ const itemResolvers: Record<PurchaseItemType, ItemResolver> = {
 
     const availability = getDropAvailability(drop);
     const presale = availability === 'presale';
-    if (presale && !(fanId && (await isActiveMember(fanId, drop.artistId)))) {
+    // Membership only matters for a presale or a member discount; skip the lookup otherwise.
+    const member =
+      (presale || Boolean(drop.memberDiscountPercent)) && fanId
+        ? await isActiveMember(fanId, drop.artistId)
+        : false;
+    if (presale && !member) {
       throw new PurchaseError('This drop is in presale for members only', 403);
     }
     if (availability !== 'on_sale' && !presale) {
@@ -111,7 +116,7 @@ const itemResolvers: Record<PurchaseItemType, ItemResolver> = {
 
     let resolvedCents: number;
     try {
-      resolvedCents = resolveDropAmountCents(drop, amountCents);
+      resolvedCents = resolveDropAmountCents(drop, amountCents, { member });
     } catch (error) {
       if (error instanceof DropError) {
         throw new PurchaseError(error.message, error.status);

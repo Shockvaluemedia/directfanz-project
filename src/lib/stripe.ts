@@ -25,9 +25,7 @@ export function resolvePlatformFeePercent(raw: string | undefined): number {
   if (raw === undefined || raw.trim() === '') return DEFAULT_PLATFORM_FEE_PERCENT;
   const value = Number(raw);
   if (!Number.isFinite(value) || value < 0 || value > MAX_PLATFORM_FEE_PERCENT) {
-    console.warn(
-      `Ignoring invalid PLATFORM_FEE_PERCENT; using ${DEFAULT_PLATFORM_FEE_PERCENT}%`
-    );
+    console.warn(`Ignoring invalid PLATFORM_FEE_PERCENT; using ${DEFAULT_PLATFORM_FEE_PERCENT}%`);
     return DEFAULT_PLATFORM_FEE_PERCENT;
   }
   return value;
@@ -43,6 +41,14 @@ export const PLATFORM_FEE_RATE = resolvePlatformFeePercent(process.env.PLATFORM_
 /**
  * Platform fee in the smallest currency unit (cents) for an amount in cents.
  */
+/**
+ * The platform fee as Stripe's application_fee_percent (two decimals at most),
+ * for subscriptions, where Stripe takes the fee from every invoice.
+ */
+export function platformFeePercentForStripe(rate: number = PLATFORM_FEE_RATE): number {
+  return Math.round(rate * 10_000) / 100;
+}
+
 export function calculatePlatformFeeCents(amountCents: number): number {
   return Math.round(amountCents * PLATFORM_FEE_RATE);
 }
@@ -57,7 +63,7 @@ export async function createStripeConnectAccount(
   if (!process.env.STRIPE_SECRET_KEY) {
     throw new Error('STRIPE_SECRET_KEY is not configured');
   }
-  
+
   try {
     const account = await stripe.accounts.create({
       type: 'express',
@@ -210,13 +216,11 @@ export async function createCheckoutSession(
         success_url: successUrl,
         cancel_url: cancelUrl,
         metadata,
+        // Subscription checkouts take the fee as a percent on the subscription;
+        // Stripe refuses payment_intent_data in subscription mode.
         subscription_data: {
           metadata,
-        },
-        payment_intent_data: {
-          application_fee_amount: calculatePlatformFeeCents(
-            Math.round(parseFloat(metadata.amount) * 100)
-          ),
+          application_fee_percent: platformFeePercentForStripe(),
         },
       },
       {

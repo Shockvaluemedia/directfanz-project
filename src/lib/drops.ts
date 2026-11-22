@@ -54,6 +54,7 @@ const dropFields = {
   price: priceDollars,
   startsAt: z.coerce.date(),
   presaleStartsAt: z.coerce.date().nullish(),
+  memberDiscountPercent: z.number().int().min(1).max(90).nullish(),
   endsAt: z.coerce.date().nullish(),
   quantityLimit: z.number().int().min(1).max(1_000_000).nullish(),
   contentIds: z.array(z.string().min(1)).min(1).max(50),
@@ -114,6 +115,7 @@ export async function createDrop(artistId: string, input: CreateDropInput) {
       price: toCents(input.price) / 100,
       startsAt: input.startsAt,
       presaleStartsAt: input.presaleStartsAt ?? null,
+      memberDiscountPercent: input.memberDiscountPercent ?? null,
       endsAt: input.endsAt ?? null,
       quantityLimit: input.quantityLimit ?? null,
       status: input.status ?? DROP_STATUS.DRAFT,
@@ -135,7 +137,10 @@ export async function updateDrop(artistId: string, dropId: string, input: Update
   const claimed = claimedUnits(drop);
   if (
     claimed > 0 &&
-    (input.price !== undefined || input.priceType !== undefined || input.contentIds !== undefined)
+    (input.price !== undefined ||
+      input.priceType !== undefined ||
+      input.memberDiscountPercent !== undefined ||
+      input.contentIds !== undefined)
   ) {
     throw new DropError('Price and content cannot change after the first sale', 409);
   }
@@ -172,6 +177,9 @@ export async function updateDrop(artistId: string, dropId: string, input: Update
       ...(input.startsAt !== undefined ? { startsAt: input.startsAt } : {}),
       ...(input.presaleStartsAt !== undefined
         ? { presaleStartsAt: input.presaleStartsAt ?? null }
+        : {}),
+      ...(input.memberDiscountPercent !== undefined
+        ? { memberDiscountPercent: input.memberDiscountPercent ?? null }
         : {}),
       ...(input.endsAt !== undefined ? { endsAt: input.endsAt ?? null } : {}),
       ...(input.quantityLimit !== undefined ? { quantityLimit: input.quantityLimit ?? null } : {}),
@@ -240,11 +248,34 @@ export async function isActiveMember(fanId: string, artistId: string): Promise<b
  * the fan; a pay-what-you-want drop takes any amount from the minimum up to
  * MAX_DROP_PAYMENT_CENTS, defaulting to the minimum.
  */
-export function resolveDropAmountCents(
-  drop: { priceType: string; price: { toString(): string } },
-  requestedCents?: number
-): number {
+/**
+ * The drop's price (or pay-what-you-want minimum) for a member: the member
+ * discount off, never under Stripe's minimum charge.
+ */
+export function memberPriceCents(drop: {
+  price: { toString(): string };
+  memberDiscountPercent?: number | null;
+}): number {
   const priceCents = toCents(drop.price);
+  const discount = drop.memberDiscountPercent ?? 0;
+  if (discount <= 0) return priceCents;
+  return Math.max(MIN_DROP_PRICE_CENTS, Math.round((priceCents * (100 - discount)) / 100));
+}
+
+/**
+ * What the fan pays: the fixed price, or their chosen amount at or above the
+ * minimum. A member gets the member price (see memberPriceCents) instead.
+ */
+export function resolveDropAmountCents(
+  drop: {
+    priceType: string;
+    price: { toString(): string };
+    memberDiscountPercent?: number | null;
+  },
+  requestedCents?: number,
+  options: { member?: boolean } = {}
+): number {
+  const priceCents = options.member ? memberPriceCents(drop) : toCents(drop.price);
 
   if (drop.priceType !== 'PAY_WHAT_YOU_WANT') {
     if (requestedCents !== undefined) {
@@ -281,6 +312,7 @@ export function toPublicDrop(drop: {
   currency: string;
   startsAt: Date;
   presaleStartsAt?: Date | null;
+  memberDiscountPercent?: number | null;
   endsAt: Date | null;
   quantityLimit: number | null;
   soldCount: number;
@@ -298,6 +330,8 @@ export function toPublicDrop(drop: {
     currency: drop.currency,
     startsAt: drop.startsAt,
     presaleStartsAt: drop.presaleStartsAt ?? null,
+    memberDiscountPercent: drop.memberDiscountPercent ?? null,
+    memberPrice: drop.memberDiscountPercent ? memberPriceCents(drop) / 100 : null,
     endsAt: drop.endsAt,
     remaining:
       drop.quantityLimit != null ? Math.max(drop.quantityLimit - claimedUnits(drop), 0) : null,

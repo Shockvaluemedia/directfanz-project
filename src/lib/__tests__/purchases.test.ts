@@ -503,6 +503,41 @@ describe('drop purchases', () => {
     });
   });
 
+  describe('with a member discount', () => {
+    const discounted = { ...drop, priceType: 'FIXED', price: { toString: () => '10' } };
+
+    it('charges a member the member price, with the 10% fee on that price', async () => {
+      db.drops.findUnique.mockResolvedValue({ ...discounted, memberDiscountPercent: 20 });
+      db.subscriptions.findFirst.mockResolvedValue({ id: 'sub_1' });
+
+      await createPurchaseCheckout({ fan, itemType: 'DROP', itemId: 'drop_1', baseUrl: '' });
+
+      expect(mockCreateSession.mock.calls[0][0].amountCents).toBe(800);
+      expect(db.purchases.create.mock.calls[0][0].data).toMatchObject({
+        amount: 8,
+        platformFee: 0.8,
+      });
+    });
+
+    it('charges everyone else the full price', async () => {
+      db.drops.findUnique.mockResolvedValue({ ...discounted, memberDiscountPercent: 20 });
+      db.subscriptions.findFirst.mockResolvedValue(null);
+
+      await createPurchaseCheckout({ fan, itemType: 'DROP', itemId: 'drop_1', baseUrl: '' });
+
+      expect(mockCreateSession.mock.calls[0][0].amountCents).toBe(1000);
+    });
+
+    it('skips the membership lookup for a drop with no discount or presale', async () => {
+      db.drops.findUnique.mockResolvedValue(discounted);
+
+      await createPurchaseCheckout({ fan, itemType: 'DROP', itemId: 'drop_1', baseUrl: '' });
+
+      expect(db.subscriptions.findFirst).not.toHaveBeenCalled();
+      expect(mockCreateSession.mock.calls[0][0].amountCents).toBe(1000);
+    });
+  });
+
   it('refuses a fan-chosen amount on a fixed-price ticket', async () => {
     await expect(
       createPurchaseCheckout({

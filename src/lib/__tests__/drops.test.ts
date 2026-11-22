@@ -6,6 +6,7 @@ import {
   getDropAvailability,
   isActiveMember,
   MAX_DROP_PAYMENT_CENTS,
+  memberPriceCents,
   resolveDropAmountCents,
   toPublicDrop,
   updateDrop,
@@ -127,6 +128,33 @@ describe('resolveDropAmountCents', () => {
   });
 });
 
+describe('member discount', () => {
+  it('takes the discount off the price, rounded to the cent', () => {
+    expect(memberPriceCents({ price: price('3'), memberDiscountPercent: 20 })).toBe(240);
+    expect(memberPriceCents({ price: price('9.99'), memberDiscountPercent: 15 })).toBe(849);
+  });
+
+  it('never goes under Stripe’s minimum charge', () => {
+    expect(memberPriceCents({ price: price('1'), memberDiscountPercent: 90 })).toBe(50);
+  });
+
+  it('is the full price with no discount', () => {
+    expect(memberPriceCents({ price: price('3'), memberDiscountPercent: null })).toBe(300);
+  });
+
+  it('charges a member the member price on a fixed-price drop', () => {
+    const drop = { priceType: 'FIXED', price: price('10'), memberDiscountPercent: 20 };
+    expect(resolveDropAmountCents(drop, undefined, { member: true })).toBe(800);
+    expect(resolveDropAmountCents(drop)).toBe(1000);
+  });
+
+  it('lowers a member’s pay-what-you-want minimum', () => {
+    const drop = { priceType: 'PAY_WHAT_YOU_WANT', price: price('5'), memberDiscountPercent: 20 };
+    expect(resolveDropAmountCents(drop, 400, { member: true })).toBe(400);
+    expect(() => resolveDropAmountCents(drop, 400)).toThrow('at least $5.00');
+  });
+});
+
 describe('createDropSchema', () => {
   const valid = {
     title: 'Single',
@@ -146,6 +174,8 @@ describe('createDropSchema', () => {
     ['no content', { contentIds: [] }],
     ['an unknown field', { soldCount: 5 }],
     ['a presale that opens at or after the start', { presaleStartsAt: '2026-12-01T00:00:00Z' }],
+    ['a member discount over 90%', { memberDiscountPercent: 95 }],
+    ['a member discount that is not a whole percent', { memberDiscountPercent: 12.5 }],
   ])('rejects %s', (_label, change) => {
     expect(createDropSchema.safeParse({ ...valid, ...change }).success).toBe(false);
   });
@@ -221,6 +251,10 @@ describe('updateDrop', () => {
 
   it('locks price and content after the first sale', async () => {
     db.drops.findUnique.mockResolvedValue({ ...baseDrop, soldCount: 1 });
+
+    await expect(
+      updateDrop('artist-1', 'drop-1', { memberDiscountPercent: 50 })
+    ).rejects.toMatchObject({ status: 409 });
 
     await expect(updateDrop('artist-1', 'drop-1', { price: 1 })).rejects.toMatchObject({
       status: 409,
