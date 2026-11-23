@@ -32,7 +32,8 @@ on IVS).
 Plain settings (set by Terraform): `NODE_ENV`, `PORT`, `HOSTNAME`,
 `NEXTAUTH_URL`, `AWS_REGION`, `DB_HOST`, `DB_PORT`, `DB_NAME`, `REDIS_URL`,
 `AWS_S3_BUCKET_NAME` (and the same value as `S3_BUCKET_NAME`),
-`USE_LOCAL_STORAGE=false`, `IVS_PLAYBACK_KEY_PAIR_ARN` (once set), plus
+`USE_LOCAL_STORAGE=false`, `PLATFORM_FEE_PERCENT` (10, from
+`platform_fee_percent`), `IVS_PLAYBACK_KEY_PAIR_ARN` (once set), plus
 anything in `app_environment` (for example `FROM_EMAIL`).
 
 From the app secret (JSON keys, `app_secret_keys`): `NEXTAUTH_SECRET`,
@@ -124,9 +125,8 @@ terraform test   # mocked AWS provider; plans phase 1 and phase 2 offline
 
 ## Known limits
 
-- The image starts plain `next start`. `server.ts` (Next.js plus socket.io on
-  one port) can't start yet: it imports a missing `src/lib/aws-config` and
-  `socket.io` isn't a dependency, and the chat sign-in is a stub. Change the
-  Dockerfile `CMD` once an app PR fixes those.
+- The image runs `node dist/server.cjs` (Next.js plus socket.io on one port),
+  which `npm run build` makes only once PR #54 is merged; the chat sign-in fix
+  is in PR #57. Until #54 is in, the Docker build stops with a clear message.
 - One task only. A second copy needs a socket.io Redis adapter first.
 - `REDIS_URL` uses TLS (`rediss://`); the app's Redis client must accept it.

@@ -41,6 +41,8 @@ locals {
       AWS_S3_BUCKET_NAME = aws_s3_bucket.media.bucket
       S3_BUCKET_NAME     = aws_s3_bucket.media.bucket
       USE_LOCAL_STORAGE  = "false"
+      # Platform fee on every checkout path (owner's choice, Nov 22).
+      PLATFORM_FEE_PERCENT = tostring(var.platform_fee_percent)
     },
     var.ivs_playback_key_pair_arn == "" ? {} : {
       IVS_PLAYBACK_KEY_PAIR_ARN = var.ivs_playback_key_pair_arn

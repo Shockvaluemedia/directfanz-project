@@ -271,3 +271,14 @@ variable "db_access_max_seconds" {
     error_message = "Between 5 minutes and 8 hours."
   }
 }
+
+variable "platform_fee_percent" {
+  description = "Platform fee on every checkout, in percent (PLATFORM_FEE_PERCENT)."
+  type        = number
+  default     = 10
+
+  validation {
+    condition     = var.platform_fee_percent >= 0 && var.platform_fee_percent <= 50
+    error_message = "Between 0 and 50, the range the app accepts."
+  }
+}

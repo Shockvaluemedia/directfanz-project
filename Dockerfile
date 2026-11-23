@@ -55,6 +55,11 @@ RUN NODE_ENV=production \
     STRIPE_SECRET_KEY=sk_test_placeholder \
     STRIPE_PUBLISHABLE_KEY=pk_test_placeholder \
     npm run build
+# `npm run build` also bundles server.ts (Next.js + socket.io) into
+# dist/server.cjs. That build step arrives with PR #54; stop here with a clear
+# message if this code predates it.
+RUN test -f dist/server.cjs \
+  || { echo "dist/server.cjs missing: this build needs PR #54's build:server step" >&2; exit 1; }
 
 # --- runner: the image ECS runs ---
 FROM ${NODE_IMAGE} AS runner
@@ -74,6 +79,7 @@ COPY --from=builder --chown=node:node /app/node_modules/.prisma ./node_modules/.
 COPY --from=deps --chown=node:node /app/node_modules/prisma ./node_modules/prisma
 COPY --from=deps --chown=node:node /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder --chown=node:node /app/.next ./.next
+COPY --from=builder --chown=node:node /app/dist ./dist
 COPY --from=builder --chown=node:node /app/public ./public
 COPY --from=builder --chown=node:node /app/prisma ./prisma
 COPY --from=builder --chown=node:node /app/package.json /app/next.config.js ./
@@ -87,7 +93,5 @@ EXPOSE 3000
 # ECS runs an init process (initProcessEnabled in the task definition), and the
 # entrypoint execs Node, so SIGTERM reaches the app during rolling deploys.
 ENTRYPOINT ["/usr/local/bin/directfanz-entrypoint"]
-# Plain `next start` for now. server.ts (Next.js + socket.io on one port) can't
-# start yet: it imports a missing src/lib/aws-config and socket.io isn't a
-# dependency. Switch this CMD once an app PR fixes both and the chat sign-in.
-CMD ["node", "node_modules/next/dist/bin/next", "start", "-H", "0.0.0.0", "-p", "3000"]
+# Next.js and the socket.io chat on one port (`npm run start:server`).
+CMD ["node", "dist/server.cjs"]

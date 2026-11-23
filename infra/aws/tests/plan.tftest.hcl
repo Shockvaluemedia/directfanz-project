@@ -92,6 +92,10 @@ run "phase_1_test_address" {
     error_message = "The tunnel task role may only carry SSM session traffic."
   }
   assert {
+    condition     = local.app_env["PLATFORM_FEE_PERCENT"] == "10"
+    error_message = "Platform fee must be 10%."
+  }
+  assert {
     condition     = contains(var.app_secret_keys, "TOKEN_ENCRYPTION_KEY")
     error_message = "The refresh route needs TOKEN_ENCRYPTION_KEY."
   }
