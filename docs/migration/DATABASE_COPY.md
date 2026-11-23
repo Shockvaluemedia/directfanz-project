@@ -73,13 +73,15 @@ as it is until the rollback window ends.
 - **The source URL:** Supabase's _session pooler_ or direct connection on port
   5432. The transaction pooler on port 6543 doesn't work with `pg_dump`, and
   the scripts refuse it.
-- **A route to RDS.** RDS sits in private subnets with no public address, and
-  PR #56 doesn't yet include a way in. The ask is ECS Exec on the service (one
-  setting plus SSM permissions on the task role), so an SSM port forward from
-  Demetrius's machine reaches the database as `127.0.0.1:5432`. Then
+- **A route to RDS.** RDS sits in private subnets with no public address.
+  PR #56's move-day tunnel reaches it without any standing access: in a second
+  terminal run `infra/aws/scripts/db-tunnel.sh 120` (minutes, 4 hours at most;
+  Ctrl-C closes it early). It needs the AWS CLI v2, the Session Manager plugin,
+  terraform and jq. While it runs, Postgres answers on `127.0.0.1:5432`, so
   `TARGET_DATABASE_URL` uses host `127.0.0.1`, database `directfanz` and
-  `sslmode=require`. The login is in the RDS-managed secret; he reads it into
-  his own shell and nowhere else.
+  `sslmode=require`. The login is in the RDS-managed secret (`db_secret_arn`
+  output); he reads it into his own shell and nowhere else. Closing the script
+  stops the tunnel task.
 - **Connection strings stay in environment variables.** Set them in your own
   shell (`read -rs` keeps them out of history), never in a file in the repo, a
   chat or a ticket. The scripts move the password into a temporary file only
@@ -105,7 +107,7 @@ Run from a machine with the repo checked out at the code being deployed.
 
 ```bash
 read -rs SOURCE_DATABASE_URL && export SOURCE_DATABASE_URL   # Supabase, port 5432
-read -rs TARGET_DATABASE_URL && export TARGET_DATABASE_URL   # RDS via the port forward
+read -rs TARGET_DATABASE_URL && export TARGET_DATABASE_URL   # RDS via the tunnel
 
 scripts/migration/export.sh                          # 1. dry run: counts, versions
 ```

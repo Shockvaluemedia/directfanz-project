@@ -40,14 +40,13 @@ GitHub production environment, name servers then HTTPS, scheduled calls. This
 runbook adds the database, the test purchase, the cut-over and rollback in
 between.
 
-Two asks of PR #56 before step 7:
-
-- **A route to RDS for the database copy.** RDS is private and PR #56 has no
-  ECS Exec or bastion. Turning on ECS Exec for the service (one setting plus
-  SSM permissions on the task role) would let an SSM port forward from his
-  machine reach the database (DATABASE_COPY.md, "A route to RDS").
-- **`TOKEN_ENCRYPTION_KEY` in `app_secret_keys`.** The refresh route needs it
-  and PR #56's list doesn't have it (KEY_ROTATION_CHECKLIST.md).
+**Reaching the private database.** Every database step here (7 and 11) goes
+through PR #56's move-day tunnel, `infra/aws/scripts/db-tunnel.sh`: a
+separate one-off task with no secrets and its own role, which forwards
+`127.0.0.1:5432` on his machine to RDS and stops when the script ends or after
+the minutes given (4 hours at most). There is no standing shell access to the
+app service. Each run starts a small AWS task (a few cents), so it's part of
+the yes for the step it serves.
 
 ## Steps
 
@@ -107,7 +106,8 @@ Two asks of PR #56 before step 7:
 7. **Prepare the database (must happen before the first deploy).**
    The deploy workflow runs `prisma migrate deploy` before it rolls the
    service. On an empty database that builds the wrong schema (finding 2), so
-   the database is set up here first.
+   the database is set up here first. Steps 7.3 run from his machine with the
+   tunnel open in another terminal: `infra/aws/scripts/db-tunnel.sh 120`.
    1. **He does it:** run `scripts/migration/export.sh` (dry run, read-only)
       against Supabase from his machine. It lists every table's row count.
    2. **Decide copy path or fresh path. 🟡 YES** (DATABASE_COPY.md, "Choose a
@@ -162,8 +162,9 @@ Two asks of PR #56 before step 7:
 
 11. **Cut over. 🟡 YES (one session, about an hour)**
     1. Put the Vercel site in maintenance mode, so nothing writes.
-    2. Copy path only: empty the `directfanz` database from step 7's trial,
-       then the final copy in DATABASE_COPY.md order: export, import,
+    2. Copy path only, with the tunnel open (`infra/aws/scripts/db-tunnel.sh
+       120`): empty the `directfanz` database from step 7's trial, then the
+       final copy in DATABASE_COPY.md order: export, import,
        `verify.sh --live`, baseline, then "Deploy to AWS (manual)" with
        migrations on, then `check-schema.sh`. Any MISMATCH or DRIFT stops the
        cut-over here.

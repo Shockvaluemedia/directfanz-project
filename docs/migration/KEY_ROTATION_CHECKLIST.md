@@ -59,7 +59,7 @@ Tick each row at RUNBOOK step 4 (keys), 5 (IVS), 9 (Stripe test webhooks),
 | ☐ | `IVS_PLAYBACK_PRIVATE_KEY` | Signs fans' party playback tokens (P-384, ES384) | No | He, on his computer, at step 5 (below). Empty string until then | 5 |
 | ☐ | `MARKETING_WEBHOOK_SECRET` | Signed event feed to GoHighLevel | No | Empty string now. He makes it only when the feed is switched on | 4 |
 | ☐ | `SMS_INBOUND_TOKEN` | Guards the SMS reply webhook | No | Empty string now. He makes it only when an SMS provider is picked | 4 |
-| ☐ | `TOKEN_ENCRYPTION_KEY` | Refresh-token encryption in `/api/auth/refresh` (the route throws without it) | No | He: `openssl rand -hex 32`. **Not in PR #56's `app_secret_keys` yet**; ask the infra PR to add it, or the refresh route fails on AWS | 4 |
+| ☐ | `TOKEN_ENCRYPTION_KEY` | Refresh-token encryption in `/api/auth/refresh` (the route throws without it) | No | He: `openssl rand -hex 32` (in PR #56's `app_secret_keys`, so it must exist) | 4 |
 
 ### Set by Terraform or AWS, nobody types them
 
