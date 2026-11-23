@@ -24,6 +24,10 @@
 #  7. Fresh-database path: `prisma migrate deploy` on an empty database, then
 #     check-schema.sh, to show whether the migrations alone rebuild the schema.
 #     A difference is reported as a FINDING, not a failure of the copy scripts.
+#  8. Fresh start that keeps only the owner's accounts: export-accounts.sh and
+#     import-accounts.sh carry the users on one email domain (with their artist
+#     profile and sign-in links, tokens and Stripe ids emptied) into a database
+#     built with `prisma db push`, and nothing else.
 
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
@@ -40,7 +44,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     -h | --help)
-      sed -n '2,29p' "$0"
+      sed -n '2,33p' "$0"
       exit 0
       ;;
     *) die "unknown option: $1" ;;
@@ -135,6 +139,15 @@ admin "$SRC_PORT_N" directfanz "
       SELECT 'f' || g, 'u' || (g + 2), 'u1' FROM generate_series(1, 200) g;
     END IF;
   END \$\$;
+  -- The owner's own accounts (kept in a fresh start), and a look-alike domain that must not be:
+  INSERT INTO users (id, email, \"displayName\", \"updatedAt\", password, role) VALUES
+    ('d1', 'Owner@DB4Commerce.test', 'Owner', now(), '\$2b\$12\$ownerhashownerhashownerhash', 'ARTIST'),
+    ('d2', 'team@db4commerce.test', 'Team – é', now(), '\$2b\$12\$teamhashteamhashteamhash', 'FAN'),
+    ('d3', 'someone@db4commerce.test.evil', 'Not ours', now(), NULL, 'FAN');
+  INSERT INTO artists (id, \"userId\", \"stripeAccountId\", \"isStripeOnboarded\", \"totalEarnings\", \"updatedAt\")
+  VALUES ('a3', 'd1', 'acct_oldtest123', true, 99.50, now());
+  INSERT INTO accounts (id, \"userId\", type, provider, \"providerAccountId\", access_token, refresh_token)
+  VALUES ('x1', 'd2', 'oauth', 'google', 'google-123', 'old-access-token', 'old-refresh-token');
   -- Supabase-style extras that RDS does not have:
   CREATE ROLE authenticated NOLOGIN;
   ALTER TABLE users ENABLE ROW LEVEL SECURITY;
@@ -246,6 +259,45 @@ if [[ -n "$NEXT_DIR" ]]; then
     env DATABASE_URL="$F2_URL" PRISMA_HIDE_UPDATE_MESSAGE=1 bash -c \
     'cd "$1" && node_modules/.bin/prisma migrate deploy --schema "$2" 2>&1 | grep -q "No pending migrations"' _ "$REPO_ROOT" "$NEXT_DIR/schema.prisma"
 fi
+
+step "Fresh start, carrying only the accounts on one email domain"
+admin "$TGT_PORT_N" postgres "CREATE DATABASE carry" >/dev/null
+CARRY_URL="$(url "$TGT_PORT_N" carry)"
+CARRY_SCHEMA="$SCHEMA"
+[[ -n "$NEXT_DIR" ]] && CARRY_SCHEMA="$NEXT_DIR/schema.prisma"
+(cd "$REPO_ROOT" && env DATABASE_URL="$CARRY_URL" PRISMA_HIDE_UPDATE_MESSAGE=1 \
+  node_modules/.bin/prisma db push --skip-generate --schema "$CARRY_SCHEMA" >"$R/carry-push.log" 2>&1) ||
+  { cat "$R/carry-push.log" >&2; die "db push for the fresh start failed"; }
+ACC_DIR="$R/accounts"
+q_carry() { env PGPASSWORD="$PW" psql -X -A -t -h 127.0.0.1 -p "$TGT_PORT_N" -U postgres -d carry -c "$1"; }
+expect_ok "export-accounts lists the email domains" "$MIG_DIR/export-accounts.sh"
+expect_ok "export-accounts dry run for db4commerce.test" "$MIG_DIR/export-accounts.sh" --email-domain db4commerce.test
+[[ ! -e "$ACC_DIR" ]] && ok "accounts dry run wrote nothing"
+expect_fail "export-accounts refuses a domain with no users" "$MIG_DIR/export-accounts.sh" --email-domain nobody.test --execute --out "$R/none"
+expect_fail "export-accounts refuses a folder inside the repo" "$MIG_DIR/export-accounts.sh" --email-domain db4commerce.test --execute --out "$REPO_ROOT/.rehearsal-accounts"
+expect_ok "export-accounts --execute" "$MIG_DIR/export-accounts.sh" --email-domain db4commerce.test --execute --out "$ACC_DIR"
+if [[ ! -f "$ACC_DIR/users.csv" ]] || grep -qE 'example\.test|\.evil|old-access-token|old-refresh-token|acct_oldtest123' "$ACC_DIR"/*.csv; then
+  bad "the export holds other users, old tokens or old Stripe ids"
+else
+  ok "the export holds only the two accounts, with tokens and Stripe ids emptied"
+fi
+export TARGET_DATABASE_URL="$CARRY_URL"
+expect_ok "import-accounts check (rolled back)" "$MIG_DIR/import-accounts.sh" --dump-dir "$ACC_DIR"
+[[ "$(q_carry "SELECT count(*) FROM users")" == "0" ]] && ok "the check kept nothing"
+expect_fail "import-accounts refused without CONFIRM_TARGET_HOST" "$MIG_DIR/import-accounts.sh" --dump-dir "$ACC_DIR" --execute
+expect_ok "import-accounts --execute" env CONFIRM_TARGET_HOST=127.0.0.1 "$MIG_DIR/import-accounts.sh" --dump-dir "$ACC_DIR" --execute
+GOT="$(q_carry "SELECT (SELECT count(*) FROM users) || ' ' || (SELECT count(*) FROM artists) || ' ' || (SELECT count(*) FROM accounts)")"
+if [[ "$GOT" == "2 1 1" ]]; then ok "fresh database has exactly 2 users, 1 artist, 1 sign-in link"; else bad "unexpected counts on the fresh database: $GOT"; fi
+SRC_HASH="$(env PGPASSWORD="$PW" psql -X -A -t -h 127.0.0.1 -p "$SRC_PORT_N" -U postgres -d directfanz -c "SELECT password FROM users WHERE id = 'd1'")"
+[[ "$(q_carry "SELECT password FROM users WHERE id = 'd1'")" == "$SRC_HASH" ]] && ok "password hash carried unchanged (same password signs in)" || bad "password hash changed"
+[[ "$(q_carry "SELECT coalesce(\"stripeAccountId\", 'none') || ' ' || \"isStripeOnboarded\" || ' ' || (\"totalEarnings\" = 0) FROM artists")" == "none false true" ]] &&
+  ok "artist profile carried with Stripe reset" || bad "artist Stripe fields not reset"
+[[ "$(q_carry "SELECT provider || ' ' || coalesce(access_token, 'none') || ' ' || coalesce(refresh_token, 'none') FROM accounts")" == "google none none" ]] &&
+  ok "Google sign-in link carried without its old tokens" || bad "sign-in link tokens not emptied"
+expect_fail "import-accounts refuses to load the same users twice" env CONFIRM_TARGET_HOST=127.0.0.1 "$MIG_DIR/import-accounts.sh" --dump-dir "$ACC_DIR" --execute
+cp -r "$ACC_DIR" "$R/accounts-tampered"
+sed -i 's/Team/Tampered/' "$R/accounts-tampered/users.csv"
+expect_fail "import-accounts refuses altered files" "$MIG_DIR/import-accounts.sh" --dump-dir "$R/accounts-tampered"
 
 log ""
 log "Rehearsal finished: $PASS passed, $FAIL failed, $FINDINGS finding(s)."

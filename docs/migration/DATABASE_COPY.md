@@ -1,7 +1,13 @@
-# Copying the DirectFanz database to RDS
+# Setting up the DirectFanz database on RDS
 
-How to move today's Postgres data into the new RDS database, prove the copy is
-exact, and get Prisma's migration history right. The scripts live in
+**The plan (Demetrius, Nov 23, 2026): a fresh start.** The old database holds
+only test and demo data, so nothing moves to AWS except the user accounts he
+made on his own db4commerce email domain, with what they need to sign in. See
+"Fresh start with his accounts" below. The full copy path is kept further down
+for reference only; it is not the plan.
+
+How to build the new RDS database, carry those accounts over, and get Prisma's
+migration history right. The scripts live in
 `scripts/migration/`. Everything here is prepared, not run: no real database
 has been read, exported or written.
 
@@ -52,17 +58,20 @@ of the two paths below has to be done before the first deploy (RUNBOOK step
 7); after that the workflow's migration step works normally. The lasting fix is to
 squash the old migrations into one new baseline migration in its own PR.
 
-## Choose a path
+## What moves and what stays behind
 
-| | Copy path | Fresh path |
-| --- | --- | --- |
-| When | Supabase holds real accounts, purchases or content worth keeping | Only test data; the community is set up new (Nahvee first, then Never More) |
-| Steps | export, import, verify, baseline the old migrations, `migrate deploy` the new ones | `prisma db push` the merged schema, baseline every migration |
-| Downtime | Minutes of maintenance mode during the final copy | None |
+Chosen Nov 23: **fresh start, keeping only his own accounts.** The old database
+is never changed or deleted by any of this; Supabase stays as it is until the
+rollback window ends (RUNBOOK step 14).
 
-`export.sh`'s dry run prints every table's row count, which settles the
-choice. Demetrius decides; nothing is deleted either way, and Supabase stays
-as it is until the rollback window ends.
+| Moves to AWS, for each user on his db4commerce domain | Stays behind |
+| --- | --- |
+| The user row, password hash included, so the same email and password sign in | Every other user |
+| The artist profile, if any, with Stripe reset (no Connect account, not onboarded, earnings and subscriber count 0), so the artist reconnects Stripe test mode on AWS | Content, drops, purchases, subscriptions, follows, messages, comments, streams |
+| Google (or other) sign-in links, with every stored token emptied; only the provider and account id stay | Sessions and refresh tokens (dead anyway once the keys rotate), consent and age records |
+
+The community (Nahvee first, then Never More), the drops and the files are set
+up new on AWS (RUNBOOK step 9).
 
 ## Before running anything for real
 
@@ -99,9 +108,71 @@ from `SOURCE_DATABASE_URL` and `TARGET_DATABASE_URL` only.
 | `verify.sh` | Row count and an order-independent checksum of every row, per table, plus sequence values. Against the export's snapshot (`--dump-dir`) or both databases live (`--live`). | Nothing |
 | `check-schema.sh` | `prisma migrate status`, plus the SQL that would make the database match a schema file (printed, never applied). | Nothing |
 | `baseline.sh` | Refuses unless the database exactly matches the schema you name. `--execute` records the old migrations as applied, so `migrate deploy` runs only the newer ones. | `_prisma_migrations` only |
+| `export-accounts.sh` | **The plan.** Read-only on the source. Dry run: email domains with counts, then the accounts on `--email-domain` and what moves for each. `--execute`: three CSV files (users, artist profiles with Stripe reset, sign-in links with tokens emptied) in one read-only snapshot, with checksums. | A new folder outside the repo, mode 0700 |
+| `import-accounts.sh` | Checks the checksums, refuses a Supabase target and users already present. Without `--execute` the whole load runs in a transaction that is rolled back; `--execute` (with `CONFIRM_TARGET_HOST`) commits it. | The new database's `users`, `artists`, `accounts` |
 | `rehearse-local.sh` | The whole thing on two throwaway local Postgres servers, with guard and tamper tests. | A temp folder, deleted after |
 
-## Copy path, step by step
+## Fresh start with his accounts, step by step
+
+This is the plan. Run from his machine, with the repo checked out at the code
+being deployed and the tunnel open in a second terminal
+(`infra/aws/scripts/db-tunnel.sh 120`).
+
+**1. Read-only look at the old database (no yes needed beyond running it).**
+
+```bash
+read -rs SOURCE_DATABASE_URL && export SOURCE_DATABASE_URL   # Supabase, port 5432
+scripts/migration/export-accounts.sh                          # lists email domains with counts
+scripts/migration/export-accounts.sh --email-domain DOMAIN    # his accounts, one line each
+```
+
+The first run shows every email domain with how many users it has, so the
+exact db4commerce domain can be read off it. The second lists each account
+that would move (email, role, password or not, artist profile, sign-in
+providers) and how many users stay behind. Neither writes anything, here or
+on the source.
+
+**2. Save those accounts (still read-only on the source). 🟡 YES**
+
+```bash
+scripts/migration/export-accounts.sh --email-domain DOMAIN --execute --out ~/directfanz-accounts
+```
+
+The folder is private to his user and holds password hashes and emails, so it
+stays on his machine and is deleted after step 4.
+
+**3. Build the new database. 🟡 YES** (writes to RDS)
+
+```bash
+read -rs TARGET_DATABASE_URL && export TARGET_DATABASE_URL    # RDS via the tunnel
+DATABASE_URL="$TARGET_DATABASE_URL" npx prisma db push --skip-generate   # merged schema
+LAST=$(ls -1 prisma/migrations | grep -v toml | sort | tail -1)
+scripts/migration/baseline.sh --matches-schema prisma/schema.prisma --applied-through "$LAST"
+CONFIRM_TARGET_HOST=127.0.0.1 scripts/migration/baseline.sh \
+  --matches-schema prisma/schema.prisma --applied-through "$LAST" --execute
+scripts/migration/check-schema.sh                                        # must say IN STEP
+```
+
+**4. Load the accounts. 🟡 YES** (writes to RDS)
+
+```bash
+scripts/migration/import-accounts.sh --dump-dir ~/directfanz-accounts     # check, rolled back
+CONFIRM_TARGET_HOST=127.0.0.1 \
+  scripts/migration/import-accounts.sh --dump-dir ~/directfanz-accounts --execute
+rm -rf ~/directfanz-accounts
+```
+
+The check runs the whole load in one transaction and rolls it back, so types,
+constraints and counts are proven before anything is kept. It refuses altered
+files, a Supabase target and users that are already there. After this, every
+later release runs `prisma migrate deploy` normally.
+
+## Copy path, for reference only (not the plan)
+
+Kept in case the decision changes. It copies everything with `export.sh`,
+`import.sh`, `verify.sh` and `baseline.sh`.
+
+### Full copy, step by step
 
 Run from a machine with the repo checked out at the code being deployed.
 
@@ -138,22 +209,7 @@ If `baseline.sh` says the database doesn't match `schema-before.prisma`,
 Supabase has drifted from the repo. Stop there: compare the printed SQL with
 the repo and decide what is right before going further.
 
-## Fresh path, step by step
-
-```bash
-read -rs TARGET_DATABASE_URL && export TARGET_DATABASE_URL
-DATABASE_URL="$TARGET_DATABASE_URL" npx prisma db push --skip-generate   # merged schema
-LAST=$(ls -1 prisma/migrations | grep -v toml | sort | tail -1)
-scripts/migration/baseline.sh --matches-schema prisma/schema.prisma --applied-through "$LAST"
-CONFIRM_TARGET_HOST=127.0.0.1 scripts/migration/baseline.sh \
-  --matches-schema prisma/schema.prisma --applied-through "$LAST" --execute
-scripts/migration/check-schema.sh                                        # must say IN STEP
-```
-
-`prisma db push` writes to the database, so it needs the same yes as the
-import. After this, every later release runs `prisma migrate deploy` normally.
-
-## If verification fails
+## If verification fails (copy path)
 
 - **Before switching traffic:** don't switch. The old site is untouched.
   Empty the RDS database (drop and recreate its `public` schema, with
@@ -167,6 +223,17 @@ import. After this, every later release runs `prisma migrate deploy` normally.
 
 ## Rehearsed locally on Nov 23, 2026
 
+Fresh start (the plan), on a source seeded with 500 other users, two accounts
+on the chosen domain (one artist with a Stripe account and earnings, one with
+a Google link and stored tokens) and one look-alike domain: the export held
+exactly the two accounts, with the old tokens and Stripe id gone; the check
+kept nothing; the load gave a database built from PR #54's schema exactly 2
+users, 1 artist and 1 sign-in link; the password hash came across unchanged;
+loading twice, altered files and a missing confirm were all refused. With the
+rest below, 48 of 48 checks passed.
+
+Full copy path:
+
 `scripts/migration/rehearse-local.sh` on two throwaway Postgres 16 servers,
 with a source built by `prisma db push`, 742 sample rows (Unicode, JSON,
 decimals, nulls) and a Supabase-style policy:
@@ -176,7 +243,7 @@ decimals, nulls) and a Supabase-style policy:
   changed row being caught.
 - With `--next-prisma-dir` pointing at PR #54's `prisma/` folder as it stands:
   `migrate deploy` fails on `20261122_drop_presales` (finding 1).
-- With the same folder renamed as in the table above: 31 of 31 passed. The copy
+- With the same folder renamed as in the table above: every check passed. The copy
   was baselined, the eight new migrations applied, the result matched #54's
   schema, and every row was still there. The fresh path also passed.
 - Finding 2 reproduced: migrations alone differ from the schema by 101

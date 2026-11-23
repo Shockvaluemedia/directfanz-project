@@ -3,8 +3,13 @@
 The order of operations for moving DirectFanz from Vercel (and, most likely,
 Supabase) to the Shock Value AWS account, from merging the open work to the
 first real purchase. It follows the AWS plan ("DirectFanz on AWS: setup plan
-and monthly cost", Nov 22, 2026) and adds the database copy, the key rotation
-and rollback.
+and monthly cost", Nov 22, 2026) and adds the database, the key rotation and
+rollback.
+
+**Database plan (Demetrius, Nov 23, 2026): a fresh start.** The old data is
+test and demo data. Only the accounts on his own db4commerce email domain move
+over, with what they need to sign in; content, purchases and files start new.
+The old database is never changed or deleted by this runbook until step 14.
 
 **🟡 YES** marks a step that waits for Demetrius's explicit yes, because it
 changes AWS, Stripe, DNS, live data or the code, spends money, or can't be
@@ -15,7 +20,7 @@ anything real.
 Companion documents:
 
 - [DATABASE_COPY.md](./DATABASE_COPY.md): the database scripts, two findings,
-  copy path and fresh path.
+  the fresh start with his accounts (the plan) and the full copy (reference).
 - [KEY_ROTATION_CHECKLIST.md](./KEY_ROTATION_CHECKLIST.md): every key, where it
   goes, who makes it, what to revoke after.
 
@@ -29,10 +34,10 @@ separately.
 | Reposition, paywall, sign-in limits | PRs #54, #52, #55 | 1 |
 | Migration-order fix | PR #54's branch (finding 1 in DATABASE_COPY.md) | 1 |
 | Container, Connect webhook secret, headers, chat sign-in | Code-change PR(s) from the AWS plan | 2 |
-| Private S3 storage and the Blob-to-S3 file copy | Storage PR | 2, 8 |
+| Private S3 storage | Storage PR | 2 |
 | Listening parties on IVS | IVS PR | 2, 9 |
 | Network, RDS, Valkey, S3, ECS, load balancer, Route 53, HTTPS, schedules, alarms, deploy workflow | PR #56 (`infra/aws/`, `.github/workflows/deploy-aws.yml`) | 3 to 12 |
-| Database export, import, verify, baseline | This PR, `scripts/migration/` | 7, 11 |
+| Database build, account carry-over, baseline | This PR, `scripts/migration/` | 7 |
 
 Steps 3 to 12 follow PR #56's own order of approvals (`infra/aws/README.md`):
 state bucket and first apply on a test address, fresh keys, IVS playback key,
@@ -40,7 +45,7 @@ GitHub production environment, name servers then HTTPS, scheduled calls. This
 runbook adds the database, the test purchase, the cut-over and rollback in
 between.
 
-**Reaching the private database.** Every database step here (7 and 11) goes
+**Reaching the private database.** Every database step here (step 7) goes
 through PR #56's move-day tunnel, `infra/aws/scripts/db-tunnel.sh`: a
 separate one-off task with no secrets and its own role, which forwards
 `127.0.0.1:5432` on his machine to RDS and stops when the script ends or after
@@ -106,29 +111,34 @@ the yes for the step it serves.
 7. **Prepare the database (must happen before the first deploy).**
    The deploy workflow runs `prisma migrate deploy` before it rolls the
    service. On an empty database that builds the wrong schema (finding 2), so
-   the database is set up here first. Steps 7.3 run from his machine with the
-   tunnel open in another terminal: `infra/aws/scripts/db-tunnel.sh 120`.
-   1. **He does it:** run `scripts/migration/export.sh` (dry run, read-only)
-      against Supabase from his machine. It lists every table's row count.
-   2. **Decide copy path or fresh path. 🟡 YES** (DATABASE_COPY.md, "Choose a
-      path").
-   3. Fresh path: `prisma db push` and `baseline.sh` on the `directfanz`
-      database. **🟡 YES** This is final.
-      Copy path: a full trial copy into the `directfanz` database (export,
-      import, verify, baseline). **🟡 YES** It is redone for real at step 11.
+   the database is set up here first, as a fresh start
+   (DATABASE_COPY.md, "Fresh start with his accounts"). All of it runs from
+   his machine.
+   1. **He does it:** `scripts/migration/export-accounts.sh` against Supabase,
+      read-only. It lists every email domain with a count; then, with
+      `--email-domain`, each of his accounts that would move. Nothing is
+      written anywhere. Check: the list is exactly the accounts he expects.
+   2. **He does it. 🟡 YES** Save those accounts with `--execute` (still
+      read-only on Supabase) into a private folder on his machine.
+   3. **🟡 YES** With the tunnel open in another terminal
+      (`infra/aws/scripts/db-tunnel.sh 120`): `prisma db push`, `baseline.sh`
+      and `check-schema.sh` on the `directfanz` database.
+   4. **🟡 YES** `import-accounts.sh` (first as a check that rolls back, then
+      with `--execute`), then delete the local folder.
 
 ### Phase C: prove it on AWS before anyone sees it
 
 8. **First deploy on the load balancer's address. 🟡 YES**
    1. Run "Deploy to AWS (manual)" from `main`, with migrations on. He
-      approves the run in GitHub. On the copy path it applies only the
-      migrations newer than the baseline; on the fresh path it finds nothing
-      to do.
-   2. Copy real files from Vercel Blob to S3 with the storage PR's copy step
-      and update their addresses. **🟡 YES** (Blob stays as it is.)
+      approves the run in GitHub. After step 7's baseline it finds nothing to
+      do.
+   2. No file copy: content starts fresh, so nothing moves from Vercel Blob
+      (which stays as it is until step 14).
    3. Smoke test on the `load_balancer_url` output:
       - `GET /api/health` is 200.
-      - Sign up, sign in, sign out. An old session cookie is rejected.
+      - He signs in with one of his carried accounts and its old password.
+      - Sign up a new account, sign in, sign out. An old session cookie is
+        rejected.
       - An artist uploads a track; a fan without access gets no file; the
         download link expires.
       - Chat connects only when signed in.
@@ -161,13 +171,11 @@ the yes for the step it serves.
     hours, which is why the records were copied first).
 
 11. **Cut over. 🟡 YES (one session, about an hour)**
-    1. Put the Vercel site in maintenance mode, so nothing writes.
-    2. Copy path only, with the tunnel open (`infra/aws/scripts/db-tunnel.sh
-       120`): empty the `directfanz` database from step 7's trial, then the
-       final copy in DATABASE_COPY.md order: export, import,
-       `verify.sh --live`, baseline, then "Deploy to AWS (manual)" with
-       migrations on, then `check-schema.sh`. Any MISMATCH or DRIFT stops the
-       cut-over here.
+    1. Put the Vercel site in maintenance mode.
+    2. No data copy: the database was set up fresh at step 7. If he made a
+       new db4commerce account on the old site since then, carry it the same
+       way (steps 7.1, 7.2 and 7.4); the import refuses accounts that are
+       already there.
     3. Take the old apex and www records out of `existing_dns_records`, set
        `site_on_aws = true`, and apply.
     4. Smoke test again on `https://directfanz.io` (step 8's list).
@@ -177,8 +185,8 @@ the yes for the step it serves.
 
     Rollback, while the old setup is intact: put the old site records back in
     `existing_dns_records`, set `site_on_aws = false`, apply, and take Vercel
-    out of maintenance mode. Anything bought on AWS in between is in Stripe;
-    reconcile it from there.
+    out of maintenance mode. Anything done on AWS in between stays on AWS; it
+    is all test-mode until step 13.
 
 12. **Scheduled calls. 🟡 YES**
     Set `enable_schedules = true` and apply, then **he** copies `CRON_SECRET`
@@ -200,14 +208,15 @@ the yes for the step it serves.
     store (this kills every public file link shared before the paywall fix),
     old Stripe endpoints and keys, the old SendGrid key, GitHub's Vercel
     secrets and deploy workflow, and finally the Supabase project. Delete the
-    local export folders.
+    local accounts export folder.
 
 ## Who to call when a step fails
 
 | Symptom | Likely cause | First move |
 | --- | --- | --- |
-| `export.sh`: pg_dump too old | Supabase runs a newer Postgres | Install that client version, set `PG_BIN` |
-| `import.sh` refuses: target has tables | A rehearsal left data behind | Use a new scratch database, or empty it with his yes |
+| `psql` can't connect to Supabase | Transaction pooler (port 6543) or an old client | Use the session/direct connection on 5432; set `PG_BIN` to a newer client |
+| `export-accounts.sh`: no users on that domain | Domain typed differently | Copy it from the domain list the dry run prints |
+| `import-accounts.sh`: users already on the target | It was loaded before | Nothing to do; check by signing in |
 | `migrate deploy`: "relation drops does not exist" | #54's migration order not fixed | Finding 1 in DATABASE_COPY.md |
 | Deploy workflow fails at `migrate deploy` with P3005 "schema is not empty" | Baseline skipped | `baseline.sh`, step 7 |
 | Certificate stuck on Pending | Name servers not switched yet | Step 10.1, then wait |

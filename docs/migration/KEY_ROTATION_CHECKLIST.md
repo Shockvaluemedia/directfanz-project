@@ -117,11 +117,11 @@ line is **🟡 YES** and **he does it**, one at a time, in this order.
 | ☐ | Stripe | Delete the old webhook endpoints that pointed at the Vercel app; roll any secret key the Vercel project held | Old signing secrets and keys stop working |
 | ☐ | SendGrid | Delete the API key the Vercel project used | Only the new, Mail-Send-only key remains |
 | ☐ | Vercel | Remove all environment variables from the DirectFanz project, then pause or delete the project | Copies of the old (some leaked) values go away |
-| ☐ | Vercel | Delete the Blob store | Kills every public file link shared before the paywall fix. Files are already in S3 |
+| ☐ | Vercel | Delete the Blob store | Kills every public file link shared before the paywall fix. Nothing in it moves to AWS (fresh start), so he downloads any file he wants to keep first |
 | ☐ | Vercel | Revoke the account token used by GitHub Actions | Nothing can deploy to Vercel any more |
 | ☐ | GitHub | Delete repo secrets `NEXTAUTH_SECRET`, `JWT_SECRET`, `ENCRYPTION_KEY`, `DATABASE_URL`, `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`; retire `.github/workflows/vercel-deploy.yml` in its own PR | Leaked values gone from GitHub; the old deploy path closed |
 | ☐ | Supabase | After the rollback window, take a final backup, then pause or delete the project | Last copy of the old database |
-| ☐ | His computer | Delete the export folders (`~/directfanz-export-*`) and any `.pem` files | They hold user data and key halves |
+| ☐ | His computer | Delete any accounts export folder (`~/directfanz-accounts`) and any `.pem` files | They hold user data and key halves |
 | ☐ | AWS, Justice Informed account | Check RDS, ECS and Parameter Store for any DirectFanz leftovers (the Nov 21 check covered Shock Value only) | Closes the last open item from the key plan |
 
 ## Left as a separate decision
