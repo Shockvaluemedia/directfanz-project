@@ -1,0 +1,10 @@
+# Copy to backend.hcl (git-ignored) and run:
+#   terraform init -backend-config=backend.hcl
+#
+# The bucket must exist before init. A dedicated bucket keeps DirectFanz state
+# apart from BridgePoint's; creating it is a one-time step that needs approval.
+bucket       = "directfanz-terraform-state-958972795537"
+key          = "directfanz/prod/terraform.tfstate"
+region       = "us-east-1"
+encrypt      = true
+use_lockfile = true
