@@ -67,7 +67,7 @@ export const POST = withApiHandler(
         });
 
         if (role === 'ARTIST') {
-          const communityId = artistSignupIsOpen()
+          const invite = artistSignupIsOpen()
             ? null
             : await redeemArtistInvite(tx, inviteCode, email, created.id);
           await tx.artists.create({
@@ -77,7 +77,8 @@ export const POST = withApiHandler(
               isStripeOnboarded: false,
               totalEarnings: 0,
               totalSubscribers: 0,
-              communityId,
+              communityId: invite?.communityId ?? null,
+              featuredRank: invite?.featuredRank ?? null,
             },
           });
         }
