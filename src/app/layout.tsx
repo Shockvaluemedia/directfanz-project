@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from 'next';
+import { GeistSans } from 'geist/font/sans';
+import { GeistMono } from 'geist/font/mono';
 import './globals.css';
 import AuthSessionProvider from '@/components/providers/session-provider';
 import { WebSocketClientProvider } from '@/components/providers/WebSocketClientProvider';
@@ -31,13 +33,13 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
-  themeColor: '#ffffff',
+  themeColor: '#07070A',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang='en'>
-      <body className="font-sans">
+    <html lang='en' className={`${GeistSans.variable} ${GeistMono.variable}`}>
+      <body className='font-sans antialiased'>
         <AuthSessionProvider>
           <ToastProvider>
             <WebSocketClientProvider>
