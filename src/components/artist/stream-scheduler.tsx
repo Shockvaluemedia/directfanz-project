@@ -13,13 +13,12 @@ import {
   UsersIcon,
   PlayIcon,
   StopIcon,
-  XMarkIcon,
 } from '@heroicons/react/24/outline';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'react-hot-toast';
-import WebRTCBroadcaster from '@/components/livestream/webrtc-broadcaster';
+import { useRouter } from 'next/navigation';
 
 interface LiveStream {
   id: string;
@@ -68,8 +67,7 @@ export default function StreamScheduler() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingStream, setEditingStream] = useState<LiveStream | null>(null);
-  const [streamingModal, setStreamingModal] = useState<{ show: boolean; stream: LiveStream | null }>({ show: false, stream: null });
-  const [viewerCount, setViewerCount] = useState(0);
+  const router = useRouter();
   const [formData, setFormData] = useState<StreamFormData>({
     title: '',
     description: '',
@@ -159,23 +157,10 @@ export default function StreamScheduler() {
     }
   };
 
+  // Broadcasting happens on its own page, the only one where the browser
+  // allows the camera and microphone.
   const handleStartStream = (stream: LiveStream) => {
-    setStreamingModal({ show: true, stream });
-  };
-
-  const handleStreamStart = () => {
-    if (streamingModal.stream) {
-      updateStreamStatus(streamingModal.stream.id, 'LIVE');
-      toast.success('Stream started! You are now live.');
-    }
-  };
-
-  const handleStreamEnd = () => {
-    if (streamingModal.stream) {
-      updateStreamStatus(streamingModal.stream.id, 'ENDED');
-      setStreamingModal({ show: false, stream: null });
-      toast.success('Stream ended');
-    }
+    router.push(`/dashboard/artist/livestreams/${stream.id}/broadcast`);
   };
 
   const updateStreamStatus = async (streamId: string, status: string) => {
@@ -579,6 +564,16 @@ export default function StreamScheduler() {
                   {stream.status === 'LIVE' && (
                     <Button
                       size='sm'
+                      onClick={() => handleStartStream(stream)}
+                      className='flex items-center space-x-1'
+                    >
+                      <PlayIcon className='h-4 w-4' />
+                      <span>Broadcast</span>
+                    </Button>
+                  )}
+                  {stream.status === 'LIVE' && (
+                    <Button
+                      size='sm'
                       variant='outline'
                       onClick={() => handleEndStreamButton(stream.id)}
                       className='flex items-center space-x-1 border-red-300 text-red-600 hover:bg-red-50'
@@ -606,74 +601,6 @@ export default function StreamScheduler() {
             <PlusIcon className='h-5 w-5 mr-2' />
             Schedule Your First Stream
           </Button>
-        </div>
-      )}
-      
-      {/* WebRTC Streaming Modal */}
-      {streamingModal.show && streamingModal.stream && (
-        <div className='fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4'>
-          <div className='bg-white rounded-lg w-full max-w-6xl max-h-[95vh] overflow-hidden flex flex-col'>
-            {/* Modal Header */}
-            <div className='flex justify-between items-center p-6 border-b'>
-              <div>
-                <h2 className='text-2xl font-bold text-gray-900 flex items-center'>
-                  <VideoCameraIcon className='h-6 w-6 mr-2 text-red-600' />
-                  {streamingModal.stream.title}
-                </h2>
-                <p className='text-gray-600 mt-1'>Live Streaming Control Panel</p>
-              </div>
-              <div className='flex items-center space-x-4'>
-                <div className='flex items-center space-x-2 text-sm text-gray-600'>
-                  <UsersIcon className='h-4 w-4' />
-                  <span>{viewerCount} viewers</span>
-                </div>
-                <button
-                  onClick={() => setStreamingModal({ show: false, stream: null })}
-                  className='text-gray-400 hover:text-gray-600 p-2'
-                >
-                  <XMarkIcon className='h-6 w-6' />
-                </button>
-              </div>
-            </div>
-            
-            {/* WebRTC Broadcaster */}
-            <div className='flex-1 p-6 overflow-auto'>
-              <WebRTCBroadcaster
-                streamId={streamingModal.stream.id}
-                streamKey={streamingModal.stream.streamKey || ''}
-                onStreamStart={handleStreamStart}
-                onStreamEnd={handleStreamEnd}
-                onViewerCountChange={setViewerCount}
-              />
-            </div>
-            
-            {/* Stream Info Panel */}
-            <div className='bg-gray-50 p-4 border-t'>
-              <div className='grid grid-cols-2 md:grid-cols-4 gap-4 text-sm'>
-                <div>
-                  <span className='font-medium text-gray-700'>Stream ID:</span>
-                  <p className='text-gray-600 font-mono text-xs'>{streamingModal.stream.id}</p>
-                </div>
-                <div>
-                  <span className='font-medium text-gray-700'>Status:</span>
-                  <Badge className={getStatusBadge(streamingModal.stream.status)}>
-                    {streamingModal.stream.status}
-                  </Badge>
-                </div>
-                <div>
-                  <span className='font-medium text-gray-700'>Max Viewers:</span>
-                  <p className='text-gray-600'>{streamingModal.stream.maxViewers}</p>
-                </div>
-                <div>
-                  <span className='font-medium text-gray-700'>Access:</span>
-                  <p className='text-gray-600'>
-                    {streamingModal.stream.isPublic ? 'Public' : 'Private'}
-                    {streamingModal.stream.requiresPayment && ` • $${streamingModal.stream.paymentAmount}`}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       )}
     </div>
