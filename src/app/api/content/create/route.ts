@@ -9,6 +9,8 @@ import { logger } from '@/lib/logger';
 import { nanoid } from 'nanoid';
 import crypto from 'crypto';
 import { asMediaPath, isStorageRef, storageRefOwnershipError } from '@/lib/storage/refs';
+import { isKindForType } from '@/lib/media-kinds';
+import { parseStoredTags } from '@/lib/content-tags';
 
 // Accept a storage reference (s3://<bucket>/<key>, from /api/upload/confirm),
 // an absolute http(s) URL (older Blob files), or an app-relative path
@@ -34,6 +36,8 @@ const createContentSchema = z.object({
   format: z.string().min(1, 'Format is required'),
   tags: z.string().default(''),
   category: z.string().optional(),
+  /** Single, project track, short, documentary, film... (src/lib/media-kinds.ts). */
+  kind: z.string().max(40).optional(),
   isPremium: z.boolean().default(false),
   price: z.number().min(0).optional(),
   scheduledFor: z.string().datetime().optional(),
@@ -65,11 +69,12 @@ export async function POST(request: NextRequest) {
     const contentType = determineContentType(validatedData.format, validatedData.type);
     const contentId = nanoid();
 
-    const tags = validatedData.tags
-      .split(',')
-      .map(tag => tag.trim())
-      .filter(tag => tag.length > 0)
-      .join(',');
+    if (validatedData.kind !== undefined && !isKindForType(validatedData.kind, contentType)) {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, `Unknown kind for ${contentType.toLowerCase()} content`, 400);
+    }
+
+    // Stored as a JSON array, the form every reader parses.
+    const tags = JSON.stringify(parseStoredTags(validatedData.tags));
 
     // Subscriber-only content must be linked to at least one tier, otherwise the
     // access check (which grants access via a tier subscription) would lock it to
@@ -105,8 +110,10 @@ export async function POST(request: NextRequest) {
         thumbnailUrl: asMediaPath(validatedData.thumbnailUrl) || null,
         visibility: validatedData.visibility,
         fileSize: validatedData.fileSize,
-        duration: validatedData.duration || null,
+        // The column is whole seconds; browsers report fractions.
+        duration: validatedData.duration ? Math.round(validatedData.duration) : null,
         format: validatedData.format,
+        metadata: validatedData.kind ? JSON.stringify({ kind: validatedData.kind }) : null,
         tags: tags,
         ...(tierConnect ? { tiers: tierConnect } : {}),
         createdAt: validatedData.scheduledFor ? new Date(validatedData.scheduledFor) : new Date(),
@@ -129,6 +136,8 @@ export async function POST(request: NextRequest) {
         type: content.type,
         fileUrl: content.fileUrl,
         thumbnailUrl: content.thumbnailUrl,
+        duration: content.duration,
+        kind: validatedData.kind ?? null,
         visibility: content.visibility,
         createdAt: content.createdAt,
       },
@@ -176,7 +185,7 @@ function determineContentType(format: string, providedType?: string): string {
   }
 
   const imageFormats = ['jpeg', 'jpg', 'png', 'gif', 'webp', 'svg'];
-  const videoFormats = ['mp4', 'webm', 'avi', 'mov', 'mkv', 'wmv'];
+  const videoFormats = ['mp4', 'm4v', 'webm', 'avi', 'mov', 'quicktime', 'mkv', 'wmv'];
   const audioFormats = ['mp3', 'wav', 'flac', 'aac', 'ogg', 'mpeg'];
 
   const formatLower = format.toLowerCase();

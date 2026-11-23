@@ -6,6 +6,7 @@ import { logger } from '@/lib/logger';
 import { FileUploader } from '@/lib/upload';
 import { deleteStoredFile } from '@/lib/storage';
 import { withClientMediaUrls } from '@/lib/content-access';
+import { parseStoredTags } from '@/lib/content-tags';
 
 const listQuerySchema = z.object({
   page: z.string().optional().default('1'),
@@ -154,7 +155,7 @@ export async function GET(request: NextRequest) {
       // or for public items; gated items get the access-checked app URLs.
       const formattedContent = content.map(item => ({
         ...withClientMediaUrls(item, req.user.id),
-        tags: JSON.parse(item.tags),
+        tags: parseStoredTags(item.tags),
         commentCount: item._count.comments,
         _count: undefined,
       }));

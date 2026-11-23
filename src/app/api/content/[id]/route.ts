@@ -6,6 +6,8 @@ import { logger } from '@/lib/logger';
 import { FileUploader } from '@/lib/upload';
 import { checkContentAccess, withClientMediaUrls } from '@/lib/content-access';
 import { isStorageRef } from '@/lib/storage/refs';
+import { parseStoredTags } from '@/lib/content-tags';
+import { kindFromMetadata } from '@/lib/media-kinds';
 
 const updateSchema = z.object({
   title: z.string().min(1).max(200).optional(),
@@ -92,7 +94,9 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
                 : isStorageRef(content.thumbnailUrl)
                   ? `/api/content/${content.id}/thumbnail`
                   : content.thumbnailUrl,
-            tags: JSON.parse(content.tags),
+            tags: parseStoredTags(content.tags),
+            duration: content.duration,
+            kind: kindFromMetadata(content.metadata, content.type),
             createdAt: content.createdAt,
             totalViews: content.totalViews,
             totalLikes: content.totalLikes,
@@ -117,7 +121,8 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
         success: true,
         data: {
           ...withClientMediaUrls(content, req.user.id),
-          tags: JSON.parse(content.tags),
+          tags: parseStoredTags(content.tags),
+          kind: kindFromMetadata(content.metadata, content.type),
           hasAccess: true,
         },
       });

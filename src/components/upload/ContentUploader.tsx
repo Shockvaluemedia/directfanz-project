@@ -17,7 +17,11 @@ import {
   EyeIcon,
   Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
-import { getPresignedUrl, uploadFileWithProgress, validateFile } from '@/lib/upload-utils';
+import { getPresignedUrl, uploadFileWithProgress } from '@/lib/upload-utils';
+import { FILE_SIZE_LIMITS } from '@/lib/upload-policy';
+import { kindsForType, suggestKind, type MediaKind } from '@/lib/media-kinds';
+import { isLikelyUnplayableInBrowsers } from '@/lib/playback-recovery';
+import { readAudioDuration, readVideoDetails } from '@/lib/video-poster';
 
 interface FileUpload {
   id: string;
@@ -29,12 +33,18 @@ interface FileUpload {
   preview?: string;
   dimensions?: { width: number; height: number };
   duration?: number;
+  /** A frame grabbed from a video, uploaded as its poster. */
+  posterBlob?: Blob;
+  /** Where the poster was stored (saved as the content's thumbnail). */
+  posterUrl?: string;
 }
 
 interface ContentMetadata {
   title: string;
   description: string;
   category: string;
+  /** Single, project track, short, documentary, film... */
+  kind: MediaKind | '';
   tags: string[];
   visibility: 'PUBLIC' | 'SUBSCRIBERS' | 'PREMIUM';
   price?: number;
@@ -64,6 +74,7 @@ const ContentUploader: React.FC = () => {
     title: '',
     description: '',
     category: '',
+    kind: '',
     tags: [],
     visibility: 'PUBLIC',
     allowComments: true,
@@ -160,10 +171,27 @@ const ContentUploader: React.FC = () => {
         }
       );
 
+      // A video's poster frame goes up as a small image of its own. It is
+      // optional: if it fails, the video still uploads, just without a still.
+      let posterUrl: string | undefined;
+      if (upload.posterBlob) {
+        try {
+          const posterFile = new File([upload.posterBlob], 'poster.jpg', { type: 'image/jpeg' });
+          const posterInfo = await getPresignedUrl({
+            fileName: posterFile.name,
+            fileType: posterFile.type,
+            fileSize: posterFile.size,
+          });
+          posterUrl = await uploadFileWithProgress(posterFile, posterInfo.data);
+        } catch (posterError) {
+          console.warn('Poster upload failed; continuing without one', posterError);
+        }
+      }
+
       setUploads(prev => 
         prev.map(u => 
           u.id === upload.id 
-            ? { ...u, status: 'success', progress: 100, url: fileUrl } 
+            ? { ...u, status: 'success', progress: 100, url: fileUrl, posterUrl } 
             : u
         )
       );
@@ -223,6 +251,14 @@ const ContentUploader: React.FC = () => {
 
   const openMetadataModal = (uploadId: string | null = null) => {
     setCurrentUploadId(uploadId);
+    const upload = uploadId ? uploads.find(u => u.id === uploadId) : undefined;
+    if (upload) {
+      // Start from a sensible kind (a 2-minute video is likely a short); the artist can change it.
+      setMetadata(prev => ({
+        ...prev,
+        kind: suggestKind(determineContentType(upload.file), upload.duration) ?? '',
+      }));
+    }
     setMetadataModalOpen(true);
   };
 
@@ -234,6 +270,7 @@ const ContentUploader: React.FC = () => {
       title: '',
       description: '',
       category: '',
+      kind: '',
       tags: [],
       visibility: 'PUBLIC',
       allowComments: true,
@@ -265,14 +302,17 @@ const ContentUploader: React.FC = () => {
     }
 
     try {
-      // Prepare content data for API. Note: the client-side blob preview is not a
-      // persisted URL, so we don't send it as a thumbnail; the storage layer
-      // returns a real thumbnail when one is generated.
+      // Prepare content data for API. The client-side blob preview is not a
+      // persisted URL; a video's uploaded poster frame is, and becomes the
+      // thumbnail fans see before they press play.
       const contentData = {
         title: metadata.title,
         description: metadata.description,
         type: determineContentType(upload.file),
         fileUrl: upload.url,
+        ...(upload.posterUrl ? { thumbnailUrl: upload.posterUrl } : {}),
+        ...(upload.duration ? { duration: Math.round(upload.duration) } : {}),
+        ...(metadata.kind ? { kind: metadata.kind } : {}),
         visibility: gated ? 'SUBSCRIBERS_ONLY' : 'PUBLIC',
         tierIds: gated ? selectedTierIds : [],
         fileSize: upload.file.size,
@@ -412,7 +452,7 @@ const ContentUploader: React.FC = () => {
               </div>
               <div className="text-xs text-gray-500">
                 JPG, PNG, GIF, WebP<br />
-                Max: 50MB
+                Max: {FILE_SIZE_LIMITS.IMAGE / (1024 * 1024)}MB
               </div>
               
               <div className="flex items-center space-x-2">
@@ -420,8 +460,8 @@ const ContentUploader: React.FC = () => {
                 <span className="font-medium text-gray-700">Videos</span>
               </div>
               <div className="text-xs text-gray-500">
-                MP4, MOV, AVI, WebM<br />
-                Max: 2GB
+                MP4, M4V, MOV, WebM<br />
+                Max: {(FILE_SIZE_LIMITS.VIDEO / (1024 * 1024)).toLocaleString()}MB. MP4 (H.264) plays in every browser.
               </div>
               
               <div className="flex items-center space-x-2">
@@ -430,7 +470,7 @@ const ContentUploader: React.FC = () => {
               </div>
               <div className="text-xs text-gray-500">
                 MP3, WAV, FLAC, AAC<br />
-                Max: 100MB
+                Max: {FILE_SIZE_LIMITS.AUDIO / (1024 * 1024)}MB
               </div>
               
               <div className="flex items-center space-x-2">
@@ -438,8 +478,8 @@ const ContentUploader: React.FC = () => {
                 <span className="font-medium text-gray-700">Documents</span>
               </div>
               <div className="text-xs text-gray-500">
-                PDF, DOC, TXT<br />
-                Max: 25MB
+                PDF, TXT<br />
+                Max: {FILE_SIZE_LIMITS.DOCUMENT / (1024 * 1024)}MB
               </div>
             </div>
           </div>
@@ -800,6 +840,33 @@ const ContentUploader: React.FC = () => {
                       <option value="OTHER">Other</option>
                     </select>
                   </div>
+
+                  {currentUpload &&
+                    Object.keys(kindsForType(determineContentType(currentUpload.file))).length > 0 && (
+                      <div>
+                        <label htmlFor="releaseKind" className="block text-sm font-medium text-gray-700 mb-2">
+                          {determineContentType(currentUpload.file) === 'VIDEO' ? 'Video type' : 'Release type'}
+                        </label>
+                        <select
+                          id="releaseKind"
+                          value={metadata.kind}
+                          onChange={(e) => setMetadata({ ...metadata, kind: e.target.value as MediaKind | '' })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                          <option value="">Not set</option>
+                          {Object.entries(kindsForType(determineContentType(currentUpload.file))).map(([value, label]) => (
+                            <option key={value} value={value}>
+                              {label}
+                            </option>
+                          ))}
+                        </select>
+                        {isLikelyUnplayableInBrowsers(currentUpload.file.type) && (
+                          <p className="mt-2 text-xs text-amber-700">
+                            Some browsers can&apos;t play this format. Exporting as MP4 (H.264 video, AAC audio) plays everywhere.
+                          </p>
+                        )}
+                      </div>
+                    )}
                 </div>
                 
                 <div>
@@ -971,7 +1038,21 @@ const getFileIcon = (fileType: string) => {
   return DocumentIcon;
 };
 
-const generatePreview = async (file: File): Promise<{ preview?: string; dimensions?: { width: number; height: number }; duration?: number }> => {
+const generatePreview = async (
+  file: File
+): Promise<{ preview?: string; dimensions?: { width: number; height: number }; duration?: number; posterBlob?: Blob }> => {
+  if (file.type.startsWith('video/')) {
+    const details = await readVideoDetails(file);
+    return {
+      dimensions: details.dimensions,
+      duration: details.duration,
+      posterBlob: details.poster,
+      preview: details.poster ? URL.createObjectURL(details.poster) : undefined,
+    };
+  }
+  if (file.type.startsWith('audio/')) {
+    return { duration: await readAudioDuration(file) };
+  }
   return new Promise((resolve) => {
     if (file.type.startsWith('image/')) {
       // Use HTMLImageElement constructor instead of Image to avoid Next.js conflict
