@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { FileUploader } from '@/lib/upload';
 import { checkContentAccess, withClientMediaUrls } from '@/lib/content-access';
+import { isStorageRef } from '@/lib/storage/refs';
 
 const updateSchema = z.object({
   title: z.string().min(1).max(200).optional(),
@@ -85,7 +86,12 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
             type: content.type,
             visibility: content.visibility,
             artistId: content.artistId,
-            thumbnailUrl: content.type === 'IMAGE' ? null : content.thumbnailUrl,
+            thumbnailUrl:
+              content.type === 'IMAGE' || !content.thumbnailUrl
+                ? null
+                : isStorageRef(content.thumbnailUrl)
+                  ? `/api/content/${content.id}/thumbnail`
+                  : content.thumbnailUrl,
             tags: JSON.parse(content.tags),
             createdAt: content.createdAt,
             totalViews: content.totalViews,
@@ -303,14 +309,14 @@ export async function DELETE(request: NextRequest, props: { params: Promise<{ id
         where: { id: contentId },
       });
 
-      // Delete files from Vercel Blob storage
+      // Delete the stored files (only those in the owner's own prefix)
       try {
         if (content.fileUrl) {
-          await FileUploader.deleteFromBlob(content.fileUrl);
+          await FileUploader.deleteFromStorage(content.fileUrl, content.artistId);
         }
 
         if (content.thumbnailUrl) {
-          await FileUploader.deleteFromBlob(content.thumbnailUrl);
+          await FileUploader.deleteFromStorage(content.thumbnailUrl, content.artistId);
         }
       } catch (storageError) {
         // Log error but don't fail the request - database deletion succeeded

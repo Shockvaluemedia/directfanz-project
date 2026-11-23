@@ -2,15 +2,22 @@ import { createReadStream, type Stats } from 'fs';
 import { stat } from 'fs/promises';
 import path from 'path';
 import { Readable } from 'stream';
+import { getObjectStorage, keyFromStorageRef, isStorageRef, signedUrlTtl } from '@/lib/storage';
 
 /**
- * Serves paywalled media through the app instead of handing clients the raw
- * storage URL, which is permanent, public, and shareable.
+ * Serves paywalled media only after the caller's route has checked access.
  *
- * A stored `fileUrl` is either a public Vercel Blob URL (proxied with a
- * server-side fetch that forwards Range requests) or a local-disk path written
- * by the dev uploaders (read from disk with Range support). Artists control
- * `fileUrl` and `format`, so:
+ * A stored `fileUrl` is one of:
+ * - a private S3 reference (`s3://<bucket>/<key>`): answered with a redirect
+ *   to a short-lived signed link, with the response type and disposition
+ *   fixed by the signature, so bytes go straight from S3 to the viewer;
+ * - an older public Vercel Blob URL (proxied with a server-side fetch that
+ *   forwards Range requests) until the copy script has moved it to S3;
+ * - a local-disk path written by the dev uploaders (read from disk with Range
+ *   support).
+ *
+ * Artists control `fileUrl` and `format`, so:
+ * - S3 references are pinned to the configured bucket (AWS_S3_BUCKET_NAME);
  * - remote hosts are pinned to this deployment's own Blob store (derived from
  *   BLOB_READ_WRITE_TOKEN) plus MEDIA_PROXY_ALLOWED_HOSTS, never a shared
  *   suffix that any tenant can obtain, and never http;
@@ -53,7 +60,10 @@ const SAFE_MEDIA_BY_EXT: Record<string, string> = {
 };
 const SAFE_MEDIA_TYPES = new Set(Object.values(SAFE_MEDIA_BY_EXT));
 
-export type MediaSource = { kind: 'remote'; url: URL } | { kind: 'local'; filePath: string };
+export type MediaSource =
+  | { kind: 'object'; key: string }
+  | { kind: 'remote'; url: URL }
+  | { kind: 'local'; filePath: string };
 
 export interface ProxyOptions {
   /** Preferred Content-Type; only honoured if it is on the safe media list. */
@@ -63,6 +73,8 @@ export interface ProxyOptions {
   head?: boolean;
   /** Defaults to `private, no-store`; ungated files may opt into caching. */
   cacheControl?: string;
+  /** Lifetime of a signed S3 link; defaults by disposition (stream vs download). */
+  signedUrlTtlSeconds?: number;
 }
 
 /** Enough of a request for the proxy: Range header and an optional abort signal. */
@@ -174,6 +186,11 @@ function safeDecode(value: string): string | null {
  */
 export function resolveMediaSource(fileUrl: string): MediaSource | null {
   if (!fileUrl) return null;
+
+  if (isStorageRef(fileUrl)) {
+    const key = keyFromStorageRef(fileUrl);
+    return key ? { kind: 'object', key } : null;
+  }
 
   let pathname = fileUrl;
   if (/^https?:\/\//i.test(fileUrl)) {
@@ -289,6 +306,41 @@ function baseHeaders(options: ProxyOptions, requestedType: string | null | undef
 
 const PASS_THROUGH_STATUSES = new Set([200, 206, 304, 416]);
 
+/**
+ * Redirects to a short-lived signed GET link. The signature pins the response
+ * Content-Type (safe table or opaque), Content-Disposition and Cache-Control,
+ * so a shared link is only good for minutes and S3 can never be talked into
+ * serving an artist's HTML as a page. The redirect itself is never cached.
+ */
+async function redirectToObject(
+  source: Extract<MediaSource, { kind: 'object' }>,
+  options: ProxyOptions
+): Promise<Response> {
+  const storage = getObjectStorage();
+  if (!storage) return new Response('Media storage unavailable', { status: 502 });
+
+  const headers = baseHeaders(options, options.contentType);
+  const ttl =
+    options.signedUrlTtlSeconds ??
+    (options.disposition === 'inline' ? signedUrlTtl.stream() : signedUrlTtl.download());
+  const location = await storage.presignGet(source.key, {
+    expiresIn: ttl,
+    contentType: headers['content-type'],
+    contentDisposition: headers['content-disposition'],
+    cacheControl: headers['cache-control'],
+  });
+
+  return new Response(null, {
+    status: 302,
+    headers: {
+      location,
+      'cache-control': 'private, no-store',
+      'referrer-policy': 'no-referrer',
+      'x-content-type-options': 'nosniff',
+    },
+  });
+}
+
 async function proxyRemote(
   request: ProxyRequest,
   source: Extract<MediaSource, { kind: 'remote' }>,
@@ -374,6 +426,7 @@ export function proxyMedia(
   source: MediaSource,
   options: ProxyOptions
 ): Promise<Response> {
+  if (source.kind === 'object') return redirectToObject(source, options);
   return source.kind === 'remote'
     ? proxyRemote(request, source, options)
     : proxyLocal(request, source, options);

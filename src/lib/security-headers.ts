@@ -1,14 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { storageOrigin } from '@/lib/storage/refs';
 
 export class SecurityHeadersManager {
   private static getCSPHeader(): string {
+    // The private media bucket: browsers upload to it directly with signed
+    // links and play media from signed links the app redirects to.
+    const storage = storageOrigin();
+    const withStorage = (directive: string) => (storage ? `${directive} ${storage}` : directive);
     const csp = [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://www.google.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: https: blob:",
-      "connect-src 'self' https://api.stripe.com wss:",
+      withStorage("connect-src 'self' https://api.stripe.com wss:"),
+      withStorage("media-src 'self' blob:"),
       "frame-src https://js.stripe.com",
       "object-src 'none'",
       "base-uri 'self'",
