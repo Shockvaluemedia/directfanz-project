@@ -10,6 +10,8 @@ import {
   ScarcityMeter,
   StagePill,
 } from './primitives';
+import { formatRuntime } from './media';
+import { MediaStage } from './media-stage';
 import { Countdown, LocalTime } from './time';
 import { isPayWhatYouWant, type StageDrop, type StageTier, type StageViewer } from './types';
 
@@ -167,9 +169,29 @@ function TimerFor({ drop }: { drop: StageDrop }) {
   return null;
 }
 
-/** A single drop: artwork on the left, the decision on the right. */
+/** What the poster says when there is no trailer to play. */
+function playerNote(drop: StageDrop, owned: boolean): string {
+  if (owned) return 'In your library';
+  switch (drop.availability) {
+    case 'not_started':
+      return 'Premieres when the drop opens';
+    case 'presale':
+      return 'Members can watch first';
+    case 'on_sale':
+      return 'Unlocks when you buy';
+    default:
+      return 'No longer available';
+  }
+}
+
+/**
+ * A single drop: the media on the left, the decision on the right. Music
+ * shows square artwork; video shows a 16:9 player slot with its poster.
+ */
 export function DropView({ drop, artistAvatar, viewer, owned, tier }: DropViewProps) {
   const status = AVAILABILITY[drop.availability];
+  const video = drop.media.kind === 'video';
+  const runtime = formatRuntime(drop.media.runtimeSeconds);
   const buyable =
     !owned &&
     (drop.availability === 'on_sale' || (drop.availability === 'presale' && viewer.isMember));
@@ -185,20 +207,35 @@ export function DropView({ drop, artistAvatar, viewer, owned, tier }: DropViewPr
           <ArrowLeft aria-hidden className='h-4 w-4' /> Community
         </Link>
 
-        <div className='mt-6 grid gap-10 lg:grid-cols-[1.05fr_1fr] lg:gap-16'>
+        <div
+          className={`mt-6 grid gap-10 lg:gap-16 ${video ? 'lg:grid-cols-[1.45fr_1fr]' : 'lg:grid-cols-[1.05fr_1fr]'}`}
+        >
           <div className='lg:sticky lg:top-24 lg:self-start'>
-            <div className='relative aspect-square overflow-hidden rounded-media border border-stage-line shadow-[0_40px_120px_-40px_rgba(142,125,255,0.45)]'>
-              <Artwork
-                src={drop.artwork ?? artistAvatar}
-                name={drop.title}
-                rounded='rounded-none'
+            {video ? (
+              <MediaStage
+                media={drop.media}
+                title={drop.title}
+                fallbackArt={drop.artwork ?? artistAvatar}
+                note={playerNote(drop, owned)}
               />
-            </div>
+            ) : (
+              <div className='relative aspect-square overflow-hidden rounded-media border border-stage-line shadow-[0_40px_120px_-40px_rgba(142,125,255,0.45)]'>
+                <Artwork
+                  src={drop.artwork ?? artistAvatar}
+                  name={drop.title}
+                  rounded='rounded-none'
+                />
+              </div>
+            )}
           </div>
 
           <div className='stage-rise'>
             <div className='flex flex-wrap items-center gap-3'>
               <StagePill tone={status.tone}>{status.label}</StagePill>
+              <StagePill>
+                {drop.media.format}
+                {runtime ? ` · ${runtime}` : ''}
+              </StagePill>
               {isPayWhatYouWant(drop) && <StagePill>Name your price</StagePill>}
             </div>
 
@@ -233,9 +270,10 @@ export function DropView({ drop, artistAvatar, viewer, owned, tier }: DropViewPr
                   <Layers aria-hidden className='h-4 w-4' /> In this drop
                 </dt>
                 <dd className='mt-1 font-semibold text-stage-text'>
-                  {drop.itemCount > 0
-                    ? `${drop.itemCount} ${drop.itemCount === 1 ? 'item' : 'items'}, yours to keep`
-                    : 'Yours to keep'}
+                  {drop.itemCount > 1
+                    ? `${drop.media.format}, ${drop.itemCount} items`
+                    : drop.media.format}
+                  <span className='block text-xs font-normal text-stage-subtle'>Yours to keep</span>
                 </dd>
               </div>
               <div className='bg-stage-surface p-4'>
@@ -253,7 +291,7 @@ export function DropView({ drop, artistAvatar, viewer, owned, tier }: DropViewPr
 
             {drop.description && (
               <div className='mt-12 max-w-xl'>
-                <Eyebrow>About this drop</Eyebrow>
+                <Eyebrow>{video ? 'About this release' : 'About this drop'}</Eyebrow>
                 <p className='mt-3 whitespace-pre-line leading-relaxed text-stage-muted'>
                   {drop.description}
                 </p>

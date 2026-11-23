@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ArrowUpRight, Radio } from 'lucide-react';
 import { Artwork, AVAILABILITY, formatMoney, ScarcityMeter, StagePill } from './primitives';
+import { MediaBadge } from './media-stage';
 import { LocalTime } from './time';
 import { isPayWhatYouWant, type StageArtist, type StageDrop, type StageParty } from './types';
 
@@ -46,18 +47,19 @@ export function DropPrice({ drop, size = 'md' }: { drop: StageDrop; size?: 'md' 
   );
 }
 
-/** A drop as a piece of media first, a product second. */
+/** A drop as a piece of media first, a product second. Video shows its 16:9 poster. */
 export function DropCard({ drop }: { drop: StageDrop }) {
   const status = AVAILABILITY[drop.availability];
   const ended = drop.availability === 'sold_out' || drop.availability === 'ended';
+  const video = drop.media.kind === 'video';
   return (
     <Link
       href={`/drops/${drop.id}`}
       className='group flex h-full flex-col overflow-hidden rounded-media border border-stage-line bg-stage-surface transition-colors duration-300 ease-stage hover:border-stage-line-strong'
     >
-      <div className='relative aspect-square overflow-hidden'>
+      <div className={`relative overflow-hidden ${video ? 'aspect-video' : 'aspect-square'}`}>
         <Artwork
-          src={drop.artwork}
+          src={(video ? drop.media.poster : null) ?? drop.artwork}
           name={drop.title}
           rounded='rounded-none'
           className='transition-transform duration-500 ease-stage group-hover:scale-[1.03] motion-reduce:transform-none'
@@ -65,6 +67,7 @@ export function DropCard({ drop }: { drop: StageDrop }) {
         <div className='absolute left-3 top-3'>
           <StagePill tone={status.tone}>{status.label}</StagePill>
         </div>
+        <MediaBadge media={drop.media} className='absolute bottom-3 left-3' />
       </div>
       <div className='flex flex-1 flex-col gap-3 p-5'>
         <div>
@@ -173,8 +176,46 @@ export function ArtistTile({ artist }: { artist: StageArtist }) {
       </div>
       <p className='mt-3 font-semibold text-stage-text'>{artist.displayName}</p>
       <p className='text-sm text-stage-subtle transition-colors group-hover:text-stage-pulse'>
-        Membership and drops
+        Membership and releases
       </p>
     </Link>
+  );
+}
+
+/**
+ * Drops grouped by medium: music in a square grid, film and video in a wider
+ * 16:9 grid. A group only shows when it has something in it.
+ */
+export function ReleaseGrid({ drops }: { drops: StageDrop[] }) {
+  const music = drops.filter(drop => drop.media.kind === 'music');
+  const video = drops.filter(drop => drop.media.kind === 'video');
+  const both = music.length > 0 && video.length > 0;
+  return (
+    <div className='space-y-12'>
+      {music.length > 0 && (
+        <div>
+          {both && <h3 className='mb-5 text-lg font-semibold text-stage-text'>Music</h3>}
+          <ul className='grid gap-5 sm:grid-cols-2 lg:grid-cols-3'>
+            {music.map(drop => (
+              <li key={drop.id}>
+                <DropCard drop={drop} />
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {video.length > 0 && (
+        <div>
+          {both && <h3 className='mb-5 text-lg font-semibold text-stage-text'>Film and video</h3>}
+          <ul className='grid gap-5 md:grid-cols-2'>
+            {video.map(drop => (
+              <li key={drop.id}>
+                <DropCard drop={drop} />
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
   );
 }

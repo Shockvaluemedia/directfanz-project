@@ -2,7 +2,8 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { isActiveMember, toPublicDrop } from '@/lib/drops';
-import type { StageDrop, StageTier, StageViewer } from './types';
+import { describeMedia } from './media';
+import type { StageDrop, StageMedia, StageTier, StageViewer } from './types';
 
 /**
  * Read-only helpers that turn existing library results into stage view
@@ -20,7 +21,8 @@ export function toStageDrop(
   artistName: string,
   artwork: string | null,
   /** The cap, when the caller has the raw row (the public shape leaves it out). */
-  quantityLimit: number | null = null
+  quantityLimit: number | null = null,
+  media: StageMedia = describeMedia([])
 ): StageDrop {
   return {
     id: drop.id,
@@ -40,7 +42,26 @@ export function toStageDrop(
     itemCount: drop.itemCount,
     availability: drop.availability,
     artwork,
+    media,
   };
+}
+
+/** Music or video, format and poster for each drop, read from its attached content. */
+export async function getDropMedia(dropIds: string[]): Promise<Map<string, StageMedia>> {
+  const media = new Map<string, StageMedia>();
+  if (dropIds.length === 0) return media;
+  const rows = await prisma.drop_content.findMany({
+    where: { dropId: { in: dropIds } },
+    orderBy: { createdAt: 'asc' },
+    select: {
+      dropId: true,
+      content: { select: { type: true, thumbnailUrl: true, duration: true } },
+    },
+  });
+  const byDrop = new Map<string, (typeof rows)[number]['content'][]>();
+  for (const row of rows) byDrop.set(row.dropId, [...(byDrop.get(row.dropId) ?? []), row.content]);
+  for (const id of dropIds) media.set(id, describeMedia(byDrop.get(id) ?? []));
+  return media;
 }
 
 /** The artist's active membership tier (the first, if more than one is active). */

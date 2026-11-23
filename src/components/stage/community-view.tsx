@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
-import { ArtistTile, DropCard, PartyCard } from './cards';
+import { ArtistTile, PartyCard, ReleaseGrid } from './cards';
+import { FormatStrip } from './format-strip';
 import {
   Artwork,
   Eyebrow,
@@ -66,7 +67,12 @@ function headlinerMoment(
       title: drop.title,
       countdownTo: null,
       label: drop.availability === 'presale' ? 'Members presale is open' : 'Out now',
-      cta: drop.availability === 'presale' ? 'Get it early' : 'Get the drop',
+      cta:
+        drop.availability === 'presale'
+          ? 'Get it early'
+          : drop.media.kind === 'video'
+            ? 'Watch it first'
+            : 'Get the drop',
     };
   }
   const candidates: NextMoment[] = [];
@@ -76,7 +82,7 @@ function headlinerMoment(
       href: `/drops/${drop.id}`,
       title: drop.title,
       countdownTo: dropAt,
-      label: 'Drop opens in',
+      label: drop.media.kind === 'video' ? 'Premieres in' : 'Drop opens in',
       cta: 'See the drop',
     });
   }
@@ -86,7 +92,7 @@ function headlinerMoment(
       href: `/parties/${party.id}`,
       title: party.title,
       countdownTo: partyAt,
-      label: 'Listening party in',
+      label: 'Party starts in',
       cta: 'Get a ticket',
     });
   }
@@ -228,6 +234,8 @@ export function CommunityView({
         </section>
       )}
 
+      <FormatStrip />
+
       {community.description && (
         <section className='border-b border-stage-line'>
           <p className='mx-auto max-w-7xl px-4 py-10 text-xl leading-relaxed text-stage-muted sm:px-6 sm:text-2xl lg:px-8'>
@@ -238,14 +246,8 @@ export function CommunityView({
 
       {drops.length > 0 && (
         <section className='mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24'>
-          <SectionHeader eyebrow='Drops' title='Get it before anyone else' />
-          <ul className='grid gap-5 sm:grid-cols-2 lg:grid-cols-3'>
-            {drops.map(drop => (
-              <li key={drop.id}>
-                <DropCard drop={drop} />
-              </li>
-            ))}
-          </ul>
+          <SectionHeader eyebrow='Releases' title='Get it before anyone else' />
+          <ReleaseGrid drops={drops} />
         </section>
       )}
 
@@ -253,13 +255,13 @@ export function CommunityView({
         <section className='border-y border-stage-line bg-stage-base'>
           <div className='mx-auto grid max-w-7xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[1fr_1.4fr] lg:px-8 lg:py-24'>
             <div>
-              <Eyebrow>Listening parties</Eyebrow>
+              <Eyebrow>Listening parties and premieres</Eyebrow>
               <h2 className='mt-2 text-3xl font-bold tracking-tight text-stage-text sm:text-4xl'>
-                Hear it first, together
+                Hear it and see it first, together
               </h2>
               <p className='mt-4 max-w-md text-stage-muted'>
-                Live premieres hosted by the artist, with chat. Ticket holders get a reminder an
-                hour before doors.
+                New music and new film, premiered live by the artist, with chat. Ticket holders get
+                a reminder an hour before doors.
               </p>
             </div>
             <ul className='space-y-3'>
@@ -288,7 +290,7 @@ export function CommunityView({
 
       {drops.length === 0 && parties.length === 0 && (
         <section className='mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8'>
-          <p className='text-stage-muted'>The first drop is on its way. Check back soon.</p>
+          <p className='text-stage-muted'>The first release is on its way. Check back soon.</p>
         </section>
       )}
     </div>

@@ -4,7 +4,13 @@ import { prisma } from '@/lib/prisma';
 import { DROP_STATUS, toPublicDrop } from '@/lib/drops';
 import { listUpcomingParties } from '@/lib/parties';
 import { MembershipView } from '@/components/stage/membership-view';
-import { getActiveTier, getViewer, toStageDrop, viewerIsMember } from '@/components/stage/server';
+import {
+  getActiveTier,
+  getDropMedia,
+  getViewer,
+  toStageDrop,
+  viewerIsMember,
+} from '@/components/stage/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,13 +58,21 @@ export default async function MembershipPage({ params }: MembershipPageProps) {
     listUpcomingParties(artist.id),
   ]);
 
+  const media = await getDropMedia(dropRows.map(drop => drop.id));
+
   return (
     <MembershipView
       artist={artist}
       tier={tier}
       viewer={{ signedIn: viewer.signedIn, isFan: viewer.isFan, isMember }}
       drops={dropRows.map(drop =>
-        toStageDrop(toPublicDrop(drop), artist.displayName, artist.avatar, drop.quantityLimit)
+        toStageDrop(
+          toPublicDrop(drop),
+          artist.displayName,
+          artist.avatar,
+          drop.quantityLimit,
+          media.get(drop.id)
+        )
       )}
       parties={parties}
     />

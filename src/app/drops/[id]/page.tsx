@@ -4,7 +4,13 @@ import { prisma } from '@/lib/prisma';
 import { DROP_STATUS, toPublicDrop } from '@/lib/drops';
 import { hasPaidPurchase } from '@/lib/purchases';
 import { DropView } from '@/components/stage/drop-view';
-import { getActiveTier, getViewer, toStageDrop, viewerIsMember } from '@/components/stage/server';
+import {
+  getActiveTier,
+  getDropMedia,
+  getViewer,
+  toStageDrop,
+  viewerIsMember,
+} from '@/components/stage/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,15 +49,22 @@ export default async function DropPage({ params }: DropPageProps) {
   const { drop, artist } = loaded;
 
   const viewer = await getViewer();
-  const [owned, isMember, tier] = await Promise.all([
+  const [owned, isMember, tier, media] = await Promise.all([
     viewer.userId ? hasPaidPurchase(viewer.userId, 'DROP', drop.id) : Promise.resolve(false),
     viewerIsMember(viewer.userId, drop.artistId),
     getActiveTier(drop.artistId),
+    getDropMedia([drop.id]),
   ]);
 
   return (
     <DropView
-      drop={toStageDrop(toPublicDrop(drop), artist?.displayName ?? '', null, drop.quantityLimit)}
+      drop={toStageDrop(
+        toPublicDrop(drop),
+        artist?.displayName ?? '',
+        null,
+        drop.quantityLimit,
+        media.get(drop.id)
+      )}
       artistAvatar={artist?.avatar ?? null}
       viewer={{ signedIn: viewer.signedIn, isFan: viewer.isFan, isMember }}
       owned={owned}

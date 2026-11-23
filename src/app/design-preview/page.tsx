@@ -61,6 +61,58 @@ const baseDrop: StageDrop = {
   itemCount: 3,
   availability: 'presale',
   artwork: null,
+  media: { kind: 'music', format: 'Single', poster: null, runtimeSeconds: null, previewUrl: null },
+};
+
+const videoDrop: StageDrop = {
+  ...baseDrop,
+  id: 'sample-video',
+  artistId: neverMore.id,
+  artistName: 'Never More',
+  title: 'Sample Short Film',
+  description:
+    'Sample description. A short film shot around the single, with a behind-the-scenes cut.',
+  priceType: 'FIXED',
+  price: 8,
+  memberPrice: 6,
+  memberDiscountPercent: 25,
+  presaleStartsAt: null,
+  startsAt: at(-20),
+  quantityLimit: null,
+  remaining: null,
+  itemCount: 2,
+  availability: 'on_sale',
+  media: {
+    kind: 'video',
+    format: 'Short',
+    poster: null,
+    runtimeSeconds: 14 * 60,
+    previewUrl: null,
+  },
+};
+
+const documentary: StageDrop = {
+  ...baseDrop,
+  id: 'sample-documentary',
+  title: 'Sample Documentary',
+  description: 'Sample description. A year in the studio, ahead of the debut project.',
+  priceType: 'FIXED',
+  price: 12,
+  memberPrice: 9,
+  memberDiscountPercent: 25,
+  presaleStartsAt: at(24 * 5),
+  startsAt: at(24 * 7),
+  quantityLimit: null,
+  remaining: null,
+  itemCount: 1,
+  availability: 'not_started',
+  media: {
+    kind: 'video',
+    format: 'Documentary',
+    poster: null,
+    runtimeSeconds: 52 * 60,
+    previewUrl: null,
+  },
 };
 
 const drops: StageDrop[] = [
@@ -72,6 +124,7 @@ const drops: StageDrop[] = [
     artistName: 'Never More',
     title: 'Second Sample',
     priceType: 'FIXED',
+    media: { ...baseDrop.media, format: 'Project' },
     price: 7,
     memberPrice: null,
     memberDiscountPercent: null,
@@ -89,6 +142,8 @@ const drops: StageDrop[] = [
     remaining: 0,
     quantityLimit: 250,
   },
+  videoDrop,
+  documentary,
 ];
 
 const parties: StageParty[] = [
@@ -125,7 +180,7 @@ const VIEWS: Record<string, { label: string; render: () => React.ReactNode }> = 
         community={{
           name: 'Sample Community',
           description:
-            'Sample community description: one roster, drops before streaming, release-night parties.',
+            'Sample community description: one roster, music and film before streaming, release-night premieres.',
         }}
         headliner={nahvee}
         artists={roster}
@@ -166,6 +221,30 @@ const VIEWS: Record<string, { label: string; render: () => React.ReactNode }> = 
         drop={{ ...baseDrop, availability: 'on_sale', startsAt: at(-5) }}
         artistAvatar={null}
         viewer={{ signedIn: false, isFan: false, isMember: false }}
+        owned={false}
+        tier={tier}
+      />
+    ),
+  },
+  'drop-video': {
+    label: 'Video drop, on sale',
+    render: () => (
+      <DropView
+        drop={videoDrop}
+        artistAvatar={null}
+        viewer={{ ...fan, isMember: false }}
+        owned={false}
+        tier={tier}
+      />
+    ),
+  },
+  'drop-documentary': {
+    label: 'Documentary, before the premiere',
+    render: () => (
+      <DropView
+        drop={documentary}
+        artistAvatar={null}
+        viewer={{ ...fan, isMember: false }}
         owned={false}
         tier={tier}
       />

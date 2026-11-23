@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { ArrowLeft, Check } from 'lucide-react';
-import { DropCard, PartyCard } from './cards';
+import { PartyCard, ReleaseGrid } from './cards';
 import { MembershipJoinButton } from './checkout';
 import { Artwork, Eyebrow, formatMoney, StagePill } from './primitives';
 import type { StageArtist, StageDrop, StageParty, StageTier, StageViewer } from './types';
@@ -27,7 +27,7 @@ function Pass({
   viewer: MembershipViewProps['viewer'];
 }) {
   const perks = [
-    'Presale access before every public drop',
+    'Early access to every release, music and video',
     'Member pricing on drops when the artist sets it',
     'Directly supports the artist every month',
   ];
@@ -123,20 +123,16 @@ export function MembershipView({ artist, tier, viewer, drops, parties }: Members
 
         {drops.length > 0 && (
           <section className='mt-24'>
-            <Eyebrow>Drops</Eyebrow>
-            <ul className='mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3'>
-              {drops.map(drop => (
-                <li key={drop.id}>
-                  <DropCard drop={drop} />
-                </li>
-              ))}
-            </ul>
+            <Eyebrow>Releases</Eyebrow>
+            <div className='mt-6'>
+              <ReleaseGrid drops={drops} />
+            </div>
           </section>
         )}
 
         {parties.length > 0 && (
           <section className='mt-16'>
-            <Eyebrow>Listening parties</Eyebrow>
+            <Eyebrow>Listening parties and premieres</Eyebrow>
             <ul className='mt-6 grid gap-3 lg:grid-cols-2'>
               {parties.map(party => (
                 <li key={party.id}>
