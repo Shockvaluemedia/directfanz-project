@@ -404,3 +404,66 @@ describe('proxyMedia (local disk)', () => {
     expect(response.headers.get('cache-control')).toBe('public, max-age=31536000, immutable');
   });
 });
+
+describe('proxyMedia (private S3 object)', () => {
+  // Imported lazily so the rest of this file keeps its module state.
+  const storage = () => require('@/lib/storage') as typeof import('@/lib/storage');
+  const BUCKET = 'df-media-test';
+
+  beforeEach(() => {
+    process.env.AWS_S3_BUCKET_NAME = BUCKET;
+    storage().setObjectStorageForTests(new (storage().MemoryObjectStorage)(BUCKET));
+  });
+  afterEach(() => {
+    storage().setObjectStorageForTests(undefined);
+    delete process.env.AWS_S3_BUCKET_NAME;
+  });
+
+  it('resolves storage references in our bucket only', () => {
+    expect(resolveMediaSource(`s3://${BUCKET}/content/a1/x.mp3`)).toEqual({
+      kind: 'object',
+      key: 'content/a1/x.mp3',
+    });
+    expect(resolveMediaSource('s3://other-bucket/content/a1/x.mp3')).toBeNull();
+    expect(resolveMediaSource(`s3://${BUCKET}/content/../x.mp3`)).toBeNull();
+  });
+
+  it('answers with an uncacheable redirect to a short-lived inline link', async () => {
+    const res = await proxyMedia(
+      request(),
+      { kind: 'object', key: 'content/a1/x.mp3' },
+      { contentType: 'audio/mpeg', disposition: 'inline' }
+    );
+    expect(res.status).toBe(302);
+    expect(res.headers.get('cache-control')).toBe('private, no-store');
+    expect(res.headers.get('referrer-policy')).toBe('no-referrer');
+    const location = new URL(res.headers.get('location')!);
+    expect(location.searchParams.get('action')).toBe('get');
+    expect(location.searchParams.get('contentType')).toBe('audio/mpeg');
+    expect(location.searchParams.get('contentDisposition')).toBe('inline');
+    expect(location.searchParams.get('expiresIn')).toBe('3600');
+  });
+
+  it('serves anything off the safe list as an opaque attachment with a short link', async () => {
+    const res = await proxyMedia(
+      request(),
+      { kind: 'object', key: 'content/a1/page.html' },
+      { contentType: 'text/html', disposition: { attachment: 'page.html' } }
+    );
+    const location = new URL(res.headers.get('location')!);
+    expect(location.searchParams.get('contentType')).toBe('application/octet-stream');
+    expect(location.searchParams.get('contentDisposition')).toMatch(/^attachment/);
+    expect(location.searchParams.get('expiresIn')).toBe('300');
+  });
+
+  it('fails closed when storage is not configured', async () => {
+    storage().setObjectStorageForTests(null);
+    const res = await proxyMedia(
+      request(),
+      { kind: 'object', key: 'content/a1/x.mp3' },
+      { contentType: 'audio/mpeg', disposition: 'inline' }
+    );
+    expect(res.status).toBe(502);
+    expect(res.headers.get('location')).toBeFalsy();
+  });
+});

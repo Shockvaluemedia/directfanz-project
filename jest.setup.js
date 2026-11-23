@@ -1116,29 +1116,6 @@ jest.mock('prom-client', () => ({
   },
 }));
 
-// Mock Vercel Blob storage
-jest.mock('@vercel/blob', () => {
-  return {
-    put: jest.fn().mockResolvedValue({
-      url: 'https://mock-blob.vercel-storage.com/test-file',
-      pathname: 'test-file',
-      contentType: 'image/jpeg',
-      contentDisposition: 'inline',
-    }),
-    del: jest.fn().mockResolvedValue(undefined),
-    head: jest.fn().mockResolvedValue({
-      url: 'https://mock-blob.vercel-storage.com/test-file',
-      size: 12345,
-      uploadedAt: new Date(),
-      contentType: 'image/jpeg',
-    }),
-    list: jest.fn().mockResolvedValue({
-      blobs: [],
-      cursor: undefined,
-      hasMore: false,
-    }),
-  };
-});
 
 // Mock FFmpeg
 jest.mock('fluent-ffmpeg', () => {

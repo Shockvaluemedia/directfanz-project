@@ -17,7 +17,7 @@ jest.mock('@vercel/blob', () => ({
     cursor: undefined,
     hasMore: false,
   }),
-}));
+}), { virtual: true });
 
 // Mock FFmpeg
 jest.mock('fluent-ffmpeg', () => {

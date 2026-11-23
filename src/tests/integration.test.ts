@@ -57,7 +57,7 @@ jest.mock('@vercel/blob', () => ({
   del: jest.fn().mockResolvedValue(undefined),
   head: jest.fn().mockResolvedValue({ url: 'https://mock-blob.vercel-storage.com/test-file', size: 12345, uploadedAt: new Date() }),
   list: jest.fn().mockResolvedValue({ blobs: [], cursor: undefined, hasMore: false }),
-}));
+}), { virtual: true });
 
 // Mock prisma
 jest.mock('../lib/prisma', () => ({
