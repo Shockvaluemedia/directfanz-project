@@ -4,6 +4,8 @@ import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { sendNotification } from '@/lib/notifications';
+import { fileUrlField } from '@/lib/storage/validation';
+import { storageRefOwnershipError } from '@/lib/storage/refs';
 // WebSocket instance - optional, only available when running with custom server
 const webSocketInstance: {
   emitToConversation: (...args: unknown[]) => void;
@@ -14,7 +16,7 @@ const sendMessageSchema = z.object({
   recipientId: z.string().cuid(),
   content: z.string().min(1).max(1000),
   type: z.enum(['text', 'image', 'audio']).default('text'),
-  attachmentUrl: z.string().url().optional(),
+  attachmentUrl: fileUrlField().optional(),
 });
 
 const getMessagesSchema = z.object({
@@ -31,6 +33,13 @@ export async function POST(request: NextRequest) {
       const validatedData = sendMessageSchema.parse(body);
 
       const { recipientId, content, type, attachmentUrl } = validatedData;
+
+      // An attachment from storage must be the sender's own upload; otherwise
+      // anyone could send themselves someone else's private file and open it.
+      const attachmentError = storageRefOwnershipError(attachmentUrl, req.user.id);
+      if (attachmentError) {
+        return NextResponse.json({ error: attachmentError }, { status: 400 });
+      }
 
       // Check if recipient exists and has appropriate role
       const recipient = await prisma.users.findUnique({

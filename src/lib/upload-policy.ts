@@ -35,11 +35,40 @@ export const FILE_SIZE_LIMITS = {
   DOCUMENT: 25 * 1024 * 1024, // 25MB
 } as const;
 
+/**
+ * What an upload is for decides where it is stored and who may read it:
+ * - content: an artist's paid or gated media (private, behind content access)
+ * - image: avatars, covers, banners and thumbnails (readable by anyone)
+ * - submission: a fan's challenge or campaign entry (readable by anyone)
+ * - attachment: a direct-message attachment (only that conversation)
+ */
+export const UPLOAD_PURPOSES = {
+  content: { area: 'content', categories: ['AUDIO', 'VIDEO', 'IMAGE', 'DOCUMENT'], artistOnly: true },
+  image: { area: 'public', categories: ['IMAGE'], artistOnly: false },
+  submission: { area: 'public', categories: ['AUDIO', 'VIDEO', 'IMAGE'], artistOnly: false },
+  attachment: { area: 'private', categories: ['IMAGE', 'AUDIO'], artistOnly: false },
+} as const;
+
+export type UploadPurpose = keyof typeof UPLOAD_PURPOSES;
+
+export function isUploadPurpose(value: unknown): value is UploadPurpose {
+  return typeof value === 'string' && Object.prototype.hasOwnProperty.call(UPLOAD_PURPOSES, value);
+}
+
+/** True when files of this type may be uploaded for this purpose. */
+export function purposeAllowsType(purpose: UploadPurpose, fileType: string): boolean {
+  const info = SUPPORTED_FILE_TYPES[fileType as keyof typeof SUPPORTED_FILE_TYPES];
+  return Boolean(info) && (UPLOAD_PURPOSES[purpose].categories as readonly string[]).includes(info.category);
+}
+
 export interface UploadRequest {
   fileName: string;
   fileType: string;
   fileSize: number;
+  /** The uploading user (an artist for content uploads). */
   artistId: string;
+  /** Defaults to content. */
+  purpose?: UploadPurpose;
 }
 
 /** Large files go up in parts straight to storage, never through the app. */
@@ -55,7 +84,10 @@ export interface MultipartUploadPlan {
 export interface UploadResponse {
   /** Single-PUT link; empty when the upload is multipart. */
   uploadUrl: string;
-  /** Storage reference to save on the content row once the upload is confirmed. */
+  /**
+   * What to save once the upload is confirmed: an s3:// reference for content
+   * files, or an /api/media/ path for files the browser loads directly.
+   */
   fileUrl: string;
   key: string;
   /** Exact Content-Type the PUT must send (it is part of the signature). */

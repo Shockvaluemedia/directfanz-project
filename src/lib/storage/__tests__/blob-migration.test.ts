@@ -82,7 +82,8 @@ describe('Blob to S3 migration', () => {
 
   it('keeps safe Blob paths as keys and hashes the rest', () => {
     expect(keyForBlobUrl(ownFile)).toBe('content/a1/audio/song.mp3');
-    expect(keyForBlobUrl(thumb)).toMatch(/^migrated\/[0-9a-f]{32}\.jpg$/);
+    expect(keyForBlobUrl(thumb)).toMatch(/^content\/migrated\/[0-9a-f]{32}\.jpg$/);
+    expect(keyForBlobUrl(ownFile, 'public')).toMatch(/^public\/migrated\/[0-9a-f]{32}\.mp3$/);
   });
 
   it('dry run plans without fetching or writing', async () => {
@@ -91,8 +92,7 @@ describe('Blob to S3 migration', () => {
     expect(fetchImpl).not.toHaveBeenCalled();
     expect(report.dryRun).toBe(true);
     expect(report.files.map(f => f.url).sort()).toEqual([avatar, ownFile, thumb].sort());
-    expect(report.rowsRewritten).toBe(3); // two fileUrl rows + one thumbnail
-    expect(report.rowsLeftOnBlob).toBe(1); // the avatar
+    expect(report.rowsRewritten).toBe(4); // two fileUrl rows, one thumbnail, one avatar
     expect(report.skipped).toEqual([expect.objectContaining({ url: foreign })]);
     expect(tables.content[0].fileUrl).toBe(ownFile);
   });
@@ -107,16 +107,26 @@ describe('Blob to S3 migration', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(3);
     expect(tables.content[0].fileUrl).toBe(`s3://${BUCKET}/content/a1/audio/song.mp3`);
     expect(tables.content[1].fileUrl).toBe(`s3://${BUCKET}/content/a1/audio/song.mp3`);
-    expect(String(tables.content[0].thumbnailUrl)).toMatch(new RegExp(`^s3://${BUCKET}/migrated/`));
+    // Browser-loaded columns become /api/media/ paths in the right area.
+    expect(String(tables.content[0].thumbnailUrl)).toMatch(/^\/api\/media\/content\/migrated\/[0-9a-f]{32}\.jpg$/);
+    expect(String(tables.users[0].avatar)).toMatch(/^\/api\/media\/public\/migrated\/[0-9a-f]{32}\.png$/);
     expect(tables.content[2].fileUrl).toBe(foreign);
-    expect(tables.users[0].avatar).toBe(avatar);
     expect((await storage.headObject('content/a1/audio/song.mp3'))?.size).toBe(10);
 
-    // Rerun: content rows already point at S3; the avatar is still on Blob and already copied.
+    // Rerun: nothing left on this deployment's Blob store.
     const second = await migrateBlobToS3({ db: fakeDb(tables), storage, apply: true, fetchImpl });
-    expect(second.files.map(f => f.url)).toEqual([avatar]);
+    expect(second.files).toEqual([]);
     expect(second.copied).toBe(0);
-    expect(second.alreadyPresent).toBe(1);
+  });
+
+  it('copies a file used in two areas once per area', async () => {
+    tables.users[0].avatar = thumb; // the same Blob file as a content thumbnail
+    const storage = new MemoryObjectStorage(BUCKET);
+    const fetchImpl = fakeFetch({ [ownFile]: 'song-bytes', [thumb]: 'jpg' });
+    const report = await migrateBlobToS3({ db: fakeDb(tables), storage, apply: true, fetchImpl });
+    expect(report.copied).toBe(3);
+    expect(String(tables.users[0].avatar)).toMatch(/^\/api\/media\/public\//);
+    expect(String(tables.content[0].thumbnailUrl)).toMatch(/^\/api\/media\/content\//);
   });
 
   it('records a failed copy and leaves its rows alone', async () => {

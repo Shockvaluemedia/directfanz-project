@@ -2,9 +2,11 @@
  * Storage references, free of any AWS SDK import so middleware (edge) and
  * client-shaping code can use them.
  *
- * Files live in one private S3 bucket. The database stores a reference of the
- * form `s3://<bucket>/<key>`, never a URL a browser could fetch. Readers turn a
- * reference into a short-lived signed link only after an access check.
+ * Files live in one private S3 bucket. The database stores either a reference
+ * of the form `s3://<bucket>/<key>` (paid media, never sent to a browser) or a
+ * media path `/api/media/<key>` (files the browser loads directly). Either way
+ * the bytes are only reachable through a short-lived signed link handed out
+ * after an access check.
  *
  * Every helper pins references to the configured bucket (AWS_S3_BUCKET_NAME), the
  * same fail-closed rule the media proxy applies to Blob hosts: a reference to
@@ -60,31 +62,100 @@ export function keyFromStorageRef(value: string | null | undefined): string | nu
   return isSafeKey(key) ? key : null;
 }
 
-/** Every key a user uploads lives under this prefix. */
-export function userKeyPrefix(userId: string): string {
-  return `content/${userId}/`;
+/**
+ * Where a key lives decides who may read it:
+ * - `content/<userId>/...`: paid or gated media. Stored as an s3:// reference
+ *   (content files, recordings) or, for content thumbnails, as a media path
+ *   that /api/media serves only after the owning row's access check.
+ * - `public/<userId>/...`: avatars, covers, banners, stream thumbnails and
+ *   other images meant for anyone. Stored as a media path.
+ * - `private/<userId>/...`: message attachments. Stored as a media path that
+ *   only the uploader and the people in that conversation can open.
+ */
+export const KEY_AREAS = ['content', 'public', 'private'] as const;
+export type KeyArea = (typeof KEY_AREAS)[number];
+
+export function keyArea(key: string): KeyArea | null {
+  const area = key.split('/')[0];
+  return (KEY_AREAS as readonly string[]).includes(area) ? (area as KeyArea) : null;
 }
 
+/** Every key a user uploads lives under one of these prefixes. */
+export function userKeyPrefix(userId: string, area: KeyArea = 'content'): string {
+  return `${area}/${userId}/`;
+}
+
+/** True when the key sits in the user's own folder of any area. */
 export function isKeyOwnedBy(key: string, userId: string): boolean {
-  return Boolean(userId) && isSafeKey(key) && key.startsWith(userKeyPrefix(userId));
+  if (!userId || !isSafeKey(key)) return false;
+  const area = keyArea(key);
+  return area !== null && key.startsWith(userKeyPrefix(userId, area));
 }
 
 /**
- * Content routes accept a file reference from the client. A storage reference
- * must point into the configured bucket and into the caller's own prefix, so
- * one artist can never publish another artist's paid file under a free row.
+ * The browser-facing form of a stored file: an app path served by
+ * /api/media, which checks access by area and then redirects to a short-lived
+ * signed link. Columns the browser loads directly (avatars, covers, message
+ * attachments, thumbnails) store this, so every API that returns them hands
+ * out something that works without per-route mapping.
+ */
+export const MEDIA_PATH_PREFIX = '/api/media/';
+
+export function isMediaPath(value: string | null | undefined): boolean {
+  return typeof value === 'string' && value.startsWith(MEDIA_PATH_PREFIX);
+}
+
+export function toMediaPath(key: string): string {
+  if (!isSafeKey(key)) throw new Error('Invalid storage key');
+  return `${MEDIA_PATH_PREFIX}${key}`;
+}
+
+export function keyFromMediaPath(value: string | null | undefined): string | null {
+  if (!value || !isMediaPath(value)) return null;
+  const key = value.slice(MEDIA_PATH_PREFIX.length);
+  return isSafeKey(key) && keyArea(key) !== null ? key : null;
+}
+
+/** The key behind either stored form, or null. */
+export function storageKeyOf(value: string | null | undefined): string | null {
+  return keyFromStorageRef(value) ?? keyFromMediaPath(value);
+}
+
+/** True for either stored form (whether or not it is valid). */
+export function isStoredFile(value: string | null | undefined): boolean {
+  return isStorageRef(value) || isMediaPath(value);
+}
+
+/**
+ * Routes accept file references from the client. A stored file must point
+ * into the configured bucket and into the caller's own folder, so one user can
+ * never attach another user's paid file or private attachment to a row they
+ * control (which would hand it out under their own access rules). A public
+ * media path is the one exception: it is readable by anyone anyway.
  * Returns an error message, or null when the value is acceptable (including
- * every non-storage value, which the route validates as before).
+ * every value that is not a stored file, which the route validates as before).
  */
 export function storageRefOwnershipError(
   value: string | null | undefined,
   userId: string
 ): string | null {
-  if (!isStorageRef(value)) return null;
-  const key = keyFromStorageRef(value);
+  if (!isStoredFile(value)) return null;
+  const key = storageKeyOf(value);
   if (!key) return 'File reference does not point at this app’s storage';
+  if (isMediaPath(value) && keyArea(key) === 'public') return null;
   if (!isKeyOwnedBy(key, userId)) return 'File reference belongs to another account';
   return null;
+}
+
+/**
+ * Normalises a client-supplied thumbnail or image reference to the stored
+ * media path form. An s3:// reference (what upload confirmation returns for
+ * content) becomes the matching media path; anything else is unchanged.
+ */
+export function asMediaPath(value: string | null | undefined): string | null | undefined {
+  if (!isStorageRef(value)) return value;
+  const key = keyFromStorageRef(value);
+  return key ? toMediaPath(key) : value;
 }
 
 /**

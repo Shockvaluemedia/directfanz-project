@@ -2,16 +2,17 @@ import { createHash } from 'crypto';
 import { Readable } from 'stream';
 import type { ReadableStream as WebReadableStream } from 'stream/web';
 import { mimeFromExtension, ownBlobStoreHost } from '@/lib/media-proxy';
-import { isSafeKey, toStorageRef } from './refs';
+import { isSafeKey, toMediaPath, toStorageRef, type KeyArea } from './refs';
 import type { ObjectStorage } from './types';
 
 /**
  * One-off move of files from Vercel Blob (public) into the private S3 bucket.
  *
  * It is driven by the database, not by a Blob listing: every column that may
- * hold a Blob URL is scanned, each distinct URL is copied once, and the
- * columns the app can serve from S3 are rewritten to the storage reference.
- * Nothing is deleted from Blob; switching Blob off is a separate, later step.
+ * hold a Blob URL is scanned, each distinct URL is copied once per storage
+ * area, and every row is repointed at S3. After a clean run nothing in the
+ * database refers to Blob, so Blob can be switched off. Nothing is deleted
+ * from Blob; switching it off is a separate, later step.
  *
  * The default is a dry run, which makes no network calls and writes nothing.
  */
@@ -19,29 +20,31 @@ import type { ObjectStorage } from './types';
 export interface MigrationColumn {
   model: string;
   column: string;
+  /** Storage area the copy goes into, which decides who may read it. */
+  area: KeyArea;
   /**
-   * True when the app serves this column from S3 references (through an
-   * access-checked route). Other columns are copied but left pointing at Blob,
-   * because the browser loads them directly and has no route for S3 yet.
+   * What the row stores afterwards: an s3:// reference for media that only
+   * access-checked routes serve, or an /api/media/ path for files the browser
+   * loads directly.
    */
-  rewrite: boolean;
+  store: 'ref' | 'path';
 }
 
 export const MIGRATION_COLUMNS: MigrationColumn[] = [
-  { model: 'content', column: 'fileUrl', rewrite: true },
-  { model: 'content', column: 'thumbnailUrl', rewrite: true },
-  { model: 'live_streams', column: 'recordingUrl', rewrite: true },
-  { model: 'live_streams', column: 'thumbnailUrl', rewrite: false },
-  { model: 'stream_recordings', column: 'videoUrl', rewrite: false },
-  { model: 'stream_recordings', column: 'audioUrl', rewrite: false },
-  { model: 'stream_recordings', column: 'thumbnailUrl', rewrite: false },
-  { model: 'challenge_submissions', column: 'contentUrl', rewrite: false },
-  { model: 'challenge_submissions', column: 'thumbnailUrl', rewrite: false },
-  { model: 'messages', column: 'attachmentUrl', rewrite: false },
-  { model: 'campaigns', column: 'bannerImage', rewrite: false },
-  { model: 'playlists', column: 'coverImage', rewrite: false },
-  { model: 'users', column: 'avatar', rewrite: false },
-  { model: 'users', column: 'image', rewrite: false },
+  { model: 'content', column: 'fileUrl', area: 'content', store: 'ref' },
+  { model: 'content', column: 'thumbnailUrl', area: 'content', store: 'path' },
+  { model: 'live_streams', column: 'recordingUrl', area: 'content', store: 'ref' },
+  { model: 'stream_recordings', column: 'videoUrl', area: 'content', store: 'ref' },
+  { model: 'stream_recordings', column: 'audioUrl', area: 'content', store: 'ref' },
+  { model: 'live_streams', column: 'thumbnailUrl', area: 'public', store: 'path' },
+  { model: 'stream_recordings', column: 'thumbnailUrl', area: 'public', store: 'path' },
+  { model: 'challenge_submissions', column: 'contentUrl', area: 'public', store: 'path' },
+  { model: 'challenge_submissions', column: 'thumbnailUrl', area: 'public', store: 'path' },
+  { model: 'campaigns', column: 'bannerImage', area: 'public', store: 'path' },
+  { model: 'playlists', column: 'coverImage', area: 'public', store: 'path' },
+  { model: 'users', column: 'avatar', area: 'public', store: 'path' },
+  { model: 'users', column: 'image', area: 'public', store: 'path' },
+  { model: 'messages', column: 'attachmentUrl', area: 'private', store: 'path' },
 ];
 
 /** The slice of a Prisma model delegate the migration uses. */
@@ -73,8 +76,9 @@ export interface MigrationOptions {
 
 export interface PlannedFile {
   url: string;
+  area: KeyArea;
   key: string;
-  references: { model: string; column: string; rewrite: boolean; rows: number }[];
+  references: { model: string; column: string; store: 'ref' | 'path'; rows: number }[];
 }
 
 export interface MigrationReport {
@@ -86,8 +90,6 @@ export interface MigrationReport {
   alreadyPresent: number;
   failed: { url: string; error: string }[];
   rowsRewritten: number;
-  /** Copied but still pointing at Blob (no S3 route for that column yet). */
-  rowsLeftOnBlob: number;
 }
 
 const PAGE = 500;
@@ -116,11 +118,12 @@ export function blobUrlProblem(value: string, hosts: Set<string>): string | null
 }
 
 /**
- * The S3 key for a Blob URL: the Blob pathname when it is a key the app could
- * have written (uploads keep their content/<userId>/ prefix, so ownership
- * checks still hold), otherwise a stable hashed name under migrated/.
+ * The S3 key for a Blob URL in a storage area. Content files keep their Blob
+ * pathname when it is a content/<userId>/ key the app wrote (so ownership
+ * checks still hold); everything else gets a stable hashed name under
+ * <area>/migrated/, which no user owns.
  */
-export function keyForBlobUrl(value: string): string {
+export function keyForBlobUrl(value: string, area: KeyArea = 'content'): string {
   const url = new URL(value);
   let pathname: string;
   try {
@@ -128,10 +131,10 @@ export function keyForBlobUrl(value: string): string {
   } catch {
     pathname = '';
   }
-  if (isSafeKey(pathname)) return pathname;
+  if (area === 'content' && pathname.startsWith('content/') && isSafeKey(pathname)) return pathname;
   const ext = (pathname.match(/\.([A-Za-z0-9]{1,8})$/)?.[1] ?? 'bin').toLowerCase();
   const digest = createHash('sha256').update(value).digest('hex').slice(0, 32);
-  return `migrated/${digest}.${ext}`;
+  return `${area}/migrated/${digest}.${ext}`;
 }
 
 async function scanColumn(
@@ -206,12 +209,11 @@ export async function migrateBlobToS3(options: MigrationOptions): Promise<Migrat
     alreadyPresent: 0,
     failed: [],
     rowsRewritten: 0,
-    rowsLeftOnBlob: 0,
   };
 
-  // 1. Plan: every distinct Blob URL and where it is referenced.
+  // 1. Plan: every distinct Blob URL per storage area, and where it is referenced.
   const byUrl = new Map<string, PlannedFile>();
-  for (const { model: modelName, column, rewrite } of MIGRATION_COLUMNS) {
+  for (const { model: modelName, column, area, store } of MIGRATION_COLUMNS) {
     const model = options.db[modelName];
     if (!model) {
       log(`skip ${modelName}.${column}: model not available`);
@@ -224,11 +226,12 @@ export async function migrateBlobToS3(options: MigrationOptions): Promise<Migrat
         report.skipped.push({ url: row.value, reason: problem, model: modelName, column });
         continue;
       }
-      const file = byUrl.get(row.value) ?? { url: row.value, key: keyForBlobUrl(row.value), references: [] };
+      const id = `${area} ${row.value}`;
+      const file = byUrl.get(id) ?? { url: row.value, area, key: keyForBlobUrl(row.value, area), references: [] };
       const ref = file.references.find(r => r.model === modelName && r.column === column);
       if (ref) ref.rows += 1;
-      else file.references.push({ model: modelName, column, rewrite, rows: 1 });
-      byUrl.set(row.value, file);
+      else file.references.push({ model: modelName, column, store, rows: 1 });
+      byUrl.set(id, file);
     }
     log(`scanned ${modelName}.${column}: ${rows.length} Blob reference(s)`);
   }
@@ -236,10 +239,7 @@ export async function migrateBlobToS3(options: MigrationOptions): Promise<Migrat
 
   if (!options.apply || !storage) {
     for (const file of report.files) {
-      for (const ref of file.references) {
-        if (ref.rewrite) report.rowsRewritten += ref.rows;
-        else report.rowsLeftOnBlob += ref.rows;
-      }
+      for (const ref of file.references) report.rowsRewritten += ref.rows;
     }
     return report;
   }
@@ -259,16 +259,12 @@ export async function migrateBlobToS3(options: MigrationOptions): Promise<Migrat
         continue;
       }
 
-      const ref = toStorageRef(file.key, storage.bucket);
       for (const reference of file.references) {
-        if (!reference.rewrite) {
-          report.rowsLeftOnBlob += reference.rows;
-          continue;
-        }
+        const value = reference.store === 'ref' ? toStorageRef(file.key, storage.bucket) : toMediaPath(file.key);
         const model = options.db[reference.model]!;
         const { count } = await model.updateMany({
           where: { [reference.column]: file.url },
-          data: { [reference.column]: ref },
+          data: { [reference.column]: value },
         });
         report.rowsRewritten += count;
       }

@@ -52,7 +52,8 @@ const contentRateLimiter = new AdaptiveRateLimiter({
 // block the IP for every /api route. Stream/download are already gated by
 // session + subscription checks on each request, so they get a dedicated,
 // generous limiter with burst and adaptive behaviour off.
-const MEDIA_ROUTE = /^\/api\/content\/[^/]+\/(stream|download)$/;
+// Media loads (playback chunks, images on busy pages) get the roomier media limit.
+const MEDIA_ROUTE = /^\/api\/(content\/[^/]+\/(stream|download|thumbnail)$|media\/)/;
 const mediaRateLimiter = new AdaptiveRateLimiter({
   windowMs: 60 * 1000, // 1 minute
   maxRequests: 600, // ~10 chunk requests per second

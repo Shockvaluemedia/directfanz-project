@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { nanoid } from 'nanoid';
 import crypto from 'crypto';
-import { isStorageRef, storageRefOwnershipError } from '@/lib/storage/refs';
+import { asMediaPath, isStorageRef, storageRefOwnershipError } from '@/lib/storage/refs';
 
 // Accept a storage reference (s3://<bucket>/<key>, from /api/upload/confirm),
 // an absolute http(s) URL (older Blob files), or an app-relative path
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
         description: validatedData.description || null,
         type: contentType,
         fileUrl: validatedData.fileUrl,
-        thumbnailUrl: validatedData.thumbnailUrl || null,
+        thumbnailUrl: asMediaPath(validatedData.thumbnailUrl) || null,
         visibility: validatedData.visibility,
         fileSize: validatedData.fileSize,
         duration: validatedData.duration || null,

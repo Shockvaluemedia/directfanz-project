@@ -31,8 +31,10 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.id || session.user.role !== 'ARTIST') {
-      throw new UnauthorizedError('Artist authentication required');
+    // Any signed-in user may confirm their own upload; content (paid media)
+    // keys are additionally limited to artists inside confirmDirectUpload.
+    if (!session?.user?.id) {
+      throw new UnauthorizedError('Authentication required');
     }
 
     const body = await request.json();
@@ -45,6 +47,7 @@ export async function POST(request: NextRequest) {
         userId: session.user.id,
         key: validatedData.key,
         fileType: validatedData.fileType,
+        isArtist: session.user.role === 'ARTIST',
         multipart: validatedData.multipart,
       });
 

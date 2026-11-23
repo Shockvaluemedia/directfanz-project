@@ -12,6 +12,7 @@ import {
   type User,
   type Message,
 } from '../types/websocket';
+import { storageRefOwnershipError } from '@/lib/storage/refs';
 
 export class WebSocketHandler {
   private io: SocketIOServer<
@@ -204,6 +205,12 @@ export class WebSocketHandler {
     // Basic validation
     if (!data.recipientId || !data.content.trim()) {
       socket.emit('error', 'Invalid message data');
+      return;
+    }
+
+    // An attachment from storage must be the sender's own upload (see /api/media).
+    if (data.attachmentUrl && storageRefOwnershipError(data.attachmentUrl, userId)) {
+      socket.emit('error', 'Invalid attachment');
       return;
     }
 

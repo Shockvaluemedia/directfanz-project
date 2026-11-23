@@ -5,6 +5,7 @@ import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { randomUUID } from 'crypto';
 import { artistSignupIsOpen, redeemArtistInvite } from './artist-invites';
+import { fileUrlField } from '@/lib/storage/validation';
 
 // Validation schemas
 export const signUpSchema = z.object({
@@ -24,7 +25,7 @@ export const signInSchema = z.object({
 export const updateProfileSchema = z.object({
   displayName: z.string().min(2, 'Display name must be at least 2 characters').optional(),
   bio: z.string().max(500, 'Bio must be less than 500 characters').optional(),
-  avatar: z.string().url('Invalid avatar URL').optional(),
+  avatar: fileUrlField('Invalid avatar URL').optional(),
   socialLinks: z.record(z.string().url('Invalid URL')).optional(),
 });
 

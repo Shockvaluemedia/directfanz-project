@@ -1,7 +1,9 @@
 #!/usr/bin/env tsx
 /**
  * Copies files referenced in the database from Vercel Blob into the private
- * S3 bucket and rewrites the references the app can serve from S3.
+ * S3 bucket and repoints every row at S3 (paid media as s3:// references,
+ * images and attachments as /api/media/ paths). After a clean run nothing in
+ * the database refers to Blob, so Blob can be switched off.
  *
  * Dry run by default: reads the database, prints the plan, and makes no
  * network calls and no writes. Nothing is ever deleted from Blob.
@@ -73,7 +75,6 @@ async function main() {
     console.log(`Target bucket:          ${bucket ?? '(AWS_S3_BUCKET_NAME not set)'}`);
     console.log(`Distinct Blob files:    ${report.files.length}`);
     console.log(`Rows to point at S3:    ${report.rowsRewritten}${apply ? ' (rewritten)' : ''}`);
-    console.log(`Rows left on Blob:      ${report.rowsLeftOnBlob} (copied, but no S3 route for that column yet)`);
     if (apply) {
       console.log(`Copied:                 ${report.copied}`);
       console.log(`Already in S3:          ${report.alreadyPresent}`);

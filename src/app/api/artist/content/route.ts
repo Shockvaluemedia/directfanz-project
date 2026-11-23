@@ -4,25 +4,26 @@ import { SUPPORTED_FILE_TYPES } from '@/lib/s3';
 import { notifyNewContent } from '@/lib/notifications';
 import { z } from 'zod';
 import crypto from 'crypto';
-import { storageRefOwnershipError } from '@/lib/storage/refs';
+import { asMediaPath, storageRefOwnershipError } from '@/lib/storage/refs';
 import {
   withArtistApiHandler,
   ApiRequestContext,
   validateApiRequest
 } from '@/lib/api-error-handler';
 import { AppError, ErrorCode } from '@/lib/errors';
+import { fileUrlField } from '@/lib/storage/validation';
 
 const createContentSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title too long'),
   description: z.string().optional(),
-  fileUrl: z.string().url('Invalid file URL'),
+  fileUrl: fileUrlField(),
   fileSize: z.number().positive('File size must be positive'),
   format: z.string().min(1, 'Format is required'),
   duration: z.number().optional(),
   tags: z.array(z.string()).default([]),
   tierIds: z.array(z.string()).default([]),
   visibility: z.enum(['PUBLIC', 'PRIVATE', 'TIER_LOCKED']).default('PRIVATE'),
-  thumbnailUrl: z.string().url().optional(),
+  thumbnailUrl: fileUrlField().optional(),
 });
 
 export const POST = withArtistApiHandler(
@@ -84,7 +85,8 @@ export const POST = withArtistApiHandler(
         description: validatedData.description,
         type: contentType,
         fileUrl: validatedData.fileUrl,
-        thumbnailUrl: validatedData.thumbnailUrl,
+        // Thumbnails are loaded by the browser, so they are stored as media paths.
+        thumbnailUrl: asMediaPath(validatedData.thumbnailUrl),
         fileSize: validatedData.fileSize,
         duration: validatedData.duration,
         format: validatedData.format,

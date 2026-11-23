@@ -1,7 +1,7 @@
 import { logger } from '@/lib/logger';
 import { MemoryObjectStorage } from './memory-storage';
 import { S3ObjectStorage } from './s3-storage';
-import { isKeyOwnedBy, keyFromStorageRef, storageBucket, storageRegion } from './refs';
+import { isKeyOwnedBy, storageBucket, storageKeyOf, storageRegion } from './refs';
 import type { ObjectStorage } from './types';
 
 export * from './refs';
@@ -67,7 +67,7 @@ export const signedUrlTtl = {
  * are left alone: Blob is retired once the copy script has run.
  */
 export async function deleteStoredFile(ref: string | null | undefined, ownerId: string): Promise<void> {
-  const key = keyFromStorageRef(ref);
+  const key = storageKeyOf(ref);
   if (!key) return;
   if (!isKeyOwnedBy(key, ownerId)) {
     logger.warn('Refusing to delete a stored file outside the owner’s prefix', { ownerId });

@@ -4,7 +4,10 @@
 import { S3Client } from '@aws-sdk/client-s3';
 import {
   MemoryObjectStorage,
+  asMediaPath,
   deleteStoredFile,
+  keyFromMediaPath,
+  toMediaPath,
   isKeyOwnedBy,
   isSafeKey,
   keyFromStorageRef,
@@ -66,6 +69,23 @@ describe('storage references', () => {
     expect(storageRefOwnershipError(undefined, 'u1')).toBeNull();
   });
 
+  it('turns keys into media paths and back, only for known areas', () => {
+    expect(toMediaPath('public/u1/image/a.png')).toBe('/api/media/public/u1/image/a.png');
+    expect(keyFromMediaPath('/api/media/private/u1/audio/a.mp3')).toBe('private/u1/audio/a.mp3');
+    expect(keyFromMediaPath('/api/media/other/u1/a.mp3')).toBeNull();
+    expect(keyFromMediaPath('/api/media/public/../x')).toBeNull();
+    expect(asMediaPath(`s3://${BUCKET}/content/u1/image/t.jpg`)).toBe('/api/media/content/u1/image/t.jpg');
+    expect(asMediaPath('https://x.example/t.jpg')).toBe('https://x.example/t.jpg');
+  });
+
+  it('checks ownership of media paths, except public ones', () => {
+    expect(storageRefOwnershipError('/api/media/private/u2/audio/a.mp3', 'u1')).toMatch(/another account/);
+    expect(storageRefOwnershipError('/api/media/content/u2/image/t.jpg', 'u1')).toMatch(/another account/);
+    expect(storageRefOwnershipError('/api/media/private/u1/audio/a.mp3', 'u1')).toBeNull();
+    expect(storageRefOwnershipError('/api/media/public/u2/image/a.png', 'u1')).toBeNull();
+    expect(storageRefOwnershipError('/api/media/nowhere/u1/a.png', 'u1')).toMatch(/storage/);
+  });
+
   it('derives the bucket origin for the CSP', () => {
     expect(storageOrigin()).toBe(`https://${BUCKET}.s3.us-east-1.amazonaws.com`);
     process.env.S3_MEDIA_ENDPOINT = 'http://localhost:9000';
@@ -122,7 +142,7 @@ describe('direct uploads', () => {
   it('confirms an uploaded object and returns its reference', async () => {
     const key = newUploadKey('a1', 'audio/mpeg');
     await storage.putObject(key, Buffer.alloc(1000), { contentType: 'audio/mpeg' });
-    const confirmed = await confirmDirectUpload({ userId: 'a1', key, fileType: 'audio/mpeg' });
+    const confirmed = await confirmDirectUpload({ userId: 'a1', key, fileType: 'audio/mpeg', isArtist: true });
     expect(confirmed.fileUrl).toBe(`s3://${BUCKET}/${key}`);
     expect(confirmed.fileSize).toBe(1000);
   });
@@ -130,7 +150,7 @@ describe('direct uploads', () => {
   it("refuses to confirm another artist's key", async () => {
     const key = newUploadKey('a2', 'audio/mpeg');
     await storage.putObject(key, Buffer.alloc(10), { contentType: 'audio/mpeg' });
-    await expect(confirmDirectUpload({ userId: 'a1', key, fileType: 'audio/mpeg' })).rejects.toMatchObject({
+    await expect(confirmDirectUpload({ userId: 'a1', key, fileType: 'audio/mpeg', isArtist: true })).rejects.toMatchObject({
       status: 403,
     });
     expect(await storage.headObject(key)).not.toBeNull();
@@ -139,13 +159,13 @@ describe('direct uploads', () => {
   it('deletes an object that is over the limit for its type', async () => {
     const key = newUploadKey('a1', 'image/jpeg');
     await storage.putObject(key, Buffer.alloc(11 * MB), { contentType: 'image/jpeg' });
-    await expect(confirmDirectUpload({ userId: 'a1', key, fileType: 'image/jpeg' })).rejects.toThrow(/size limit/);
+    await expect(confirmDirectUpload({ userId: 'a1', key, fileType: 'image/jpeg', isArtist: true })).rejects.toThrow(/size limit/);
     expect(await storage.headObject(key)).toBeNull();
   });
 
   it('reports a missing object as 404', async () => {
     await expect(
-      confirmDirectUpload({ userId: 'a1', key: newUploadKey('a1', 'audio/mpeg'), fileType: 'audio/mpeg' })
+      confirmDirectUpload({ userId: 'a1', key: newUploadKey('a1', 'audio/mpeg'), fileType: 'audio/mpeg', isArtist: true })
     ).rejects.toMatchObject({ status: 404 });
   });
 
@@ -165,6 +185,7 @@ describe('direct uploads', () => {
       userId: 'a1',
       key: plan.key,
       fileType: 'video/mp4',
+      isArtist: true,
       multipart: { uploadId, parts },
     });
     expect(confirmed.fileSize).toBe(1000 + 10 * (parts.length - 1));
@@ -183,6 +204,7 @@ describe('direct uploads', () => {
         userId: 'a1',
         key: plan.key,
         fileType: 'video/mp4',
+        isArtist: true,
         multipart: { uploadId, parts: [{ partNumber: 2, etag: '"x"' }] },
       })
     ).rejects.toThrow(/incomplete/);
@@ -197,6 +219,46 @@ describe('direct uploads', () => {
     await deleteStoredFile('https://store.public.blob.vercel-storage.com/content/a1/x.mp3', 'a1');
     expect(await storage.headObject('content/a1/x.mp3')).toBeNull();
     expect(await storage.headObject('content/a2/y.mp3')).not.toBeNull();
+  });
+
+  it('stores avatars and other images as public media paths, for any signed-in user', async () => {
+    const plan = await createDirectUpload({
+      fileName: 'me.png',
+      fileType: 'image/png',
+      fileSize: 1000,
+      artistId: 'fan-1',
+      purpose: 'image',
+    });
+    expect(plan.key).toMatch(/^public\/fan-1\/image\//);
+    expect(plan.fileUrl).toBe(`/api/media/${plan.key}`);
+    await storage.putObject(plan.key, Buffer.alloc(1000), { contentType: 'image/png' });
+    const confirmed = await confirmDirectUpload({ userId: 'fan-1', key: plan.key, fileType: 'image/png', isArtist: false });
+    expect(confirmed.fileUrl).toBe(`/api/media/${plan.key}`);
+  });
+
+  it('keeps message attachments in the private area and limits their types', async () => {
+    const plan = await createDirectUpload({
+      fileName: 'a.mp3',
+      fileType: 'audio/mpeg',
+      fileSize: 10,
+      artistId: 'fan-1',
+      purpose: 'attachment',
+    });
+    expect(plan.key).toMatch(/^private\/fan-1\/audio\//);
+    await expect(
+      createDirectUpload({ fileName: 'v.mp4', fileType: 'video/mp4', fileSize: 10, artistId: 'fan-1', purpose: 'attachment' })
+    ).rejects.toThrow(/does not accept/);
+    await expect(
+      createDirectUpload({ fileName: 'v.mp4', fileType: 'video/mp4', fileSize: 10, artistId: 'fan-1', purpose: 'image' })
+    ).rejects.toThrow(/does not accept/);
+  });
+
+  it('only lets artists confirm paid content uploads', async () => {
+    const key = newUploadKey('fan-1', 'audio/mpeg');
+    await storage.putObject(key, Buffer.alloc(10), { contentType: 'audio/mpeg' });
+    await expect(
+      confirmDirectUpload({ userId: 'fan-1', key, fileType: 'audio/mpeg', isArtist: false })
+    ).rejects.toMatchObject({ status: 403 });
   });
 
   it('reports storage as not configured when there is none', async () => {

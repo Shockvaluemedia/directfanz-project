@@ -7,6 +7,7 @@ import { FileUploader, ContentType } from '@/lib/upload';
 import { LocalFileUploader } from '@/lib/local-storage';
 import { getObjectStorage } from '@/lib/storage';
 import { createDirectUpload, StorageNotConfiguredError, UploadRejectedError } from '@/lib/storage/uploads';
+import { asMediaPath } from '@/lib/storage/refs';
 // AI content moderation - stub until AI module is fully configured
 interface ModerationResult {
   approved: boolean;
@@ -168,7 +169,7 @@ export async function POST(request: NextRequest) {
           description: validatedData.description,
           type: contentType,
           fileUrl: uploadResult.fileUrl,
-          thumbnailUrl: uploadResult.thumbnailUrl,
+          thumbnailUrl: asMediaPath(uploadResult.thumbnailUrl),
           fileSize: uploadResult.fileSize,
           duration: uploadResult.duration,
           format: uploadResult.format,

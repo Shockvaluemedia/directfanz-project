@@ -1,6 +1,9 @@
 import { randomUUID } from 'crypto';
 import {
   FILE_SIZE_LIMITS,
+  UPLOAD_PURPOSES,
+  purposeAllowsType,
+  type UploadPurpose,
   MULTIPART_PART_BYTES,
   MULTIPART_THRESHOLD_BYTES,
   SUPPORTED_FILE_TYPES,
@@ -9,7 +12,7 @@ import {
   type UploadResponse,
 } from '@/lib/upload-policy';
 import { getObjectStorage, signedUrlTtl } from './index';
-import { isKeyOwnedBy, toStorageRef, userKeyPrefix } from './refs';
+import { isKeyOwnedBy, keyArea, toMediaPath, toStorageRef, userKeyPrefix, type KeyArea } from './refs';
 import type { CompletedPart, ObjectStorage } from './types';
 
 export class StorageNotConfiguredError extends Error {
@@ -42,13 +45,26 @@ function fileInfo(fileType: string) {
 }
 
 /**
- * A fresh, unguessable key under the user's own prefix. The extension comes
- * from the validated type, never from the client's file name.
+ * A fresh, unguessable key under the user's own folder for the purpose. The
+ * extension comes from the validated type, never from the client's file name.
  */
-export function newUploadKey(userId: string, fileType: string): string {
+export function newUploadKey(userId: string, fileType: string, purpose: UploadPurpose = 'content'): string {
   const info = fileInfo(fileType);
   if (!info) throw new UploadRejectedError(`Unsupported file type: ${fileType}`);
-  return `${userKeyPrefix(userId)}${info.category.toLowerCase()}/${Date.now()}-${randomUUID()}.${info.extension}`;
+  const area = UPLOAD_PURPOSES[purpose].area;
+  return `${userKeyPrefix(userId, area)}${info.category.toLowerCase()}/${Date.now()}-${randomUUID()}.${info.extension}`;
+}
+
+/** What a row stores for a key: content keeps s3:// references, the rest media paths. */
+export function storedValueForKey(key: string, bucket: string): string {
+  return keyArea(key) === 'content' ? toStorageRef(key, bucket) : toMediaPath(key);
+}
+
+/** Categories each storage area accepts (the union of its purposes). */
+function areaAllowsType(area: KeyArea, fileType: string): boolean {
+  return (Object.keys(UPLOAD_PURPOSES) as UploadPurpose[]).some(
+    purpose => UPLOAD_PURPOSES[purpose].area === area && purposeAllowsType(purpose, fileType)
+  );
 }
 
 /**
@@ -61,13 +77,17 @@ export async function createDirectUpload({
   fileType,
   fileSize,
   artistId,
+  purpose = 'content',
 }: UploadRequest): Promise<UploadResponse> {
   const errors = validateFileUpload(fileName, fileType, fileSize);
   if (errors.length > 0) throw new UploadRejectedError(errors.join('; '));
+  if (!purposeAllowsType(purpose, fileType)) {
+    throw new UploadRejectedError(`This kind of upload does not accept ${fileType} files`);
+  }
 
   const storage = requireStorage();
-  const key = newUploadKey(artistId, fileType);
-  const fileUrl = toStorageRef(key, storage.bucket);
+  const key = newUploadKey(artistId, fileType, purpose);
+  const fileUrl = storedValueForKey(key, storage.bucket);
   const expiresIn = signedUrlTtl.upload();
 
   if (fileSize < MULTIPART_THRESHOLD_BYTES) {
@@ -96,6 +116,8 @@ export interface ConfirmUploadInput {
   userId: string;
   key: string;
   fileType: string;
+  /** Content uploads (paid media) are for artists only. */
+  isArtist: boolean;
   multipart?: { uploadId: string; parts: CompletedPart[] };
 }
 
@@ -118,6 +140,13 @@ export async function confirmDirectUpload(input: ConfirmUploadInput): Promise<Co
   }
   const info = fileInfo(input.fileType);
   if (!info) throw new UploadRejectedError(`Unsupported file type: ${input.fileType}`);
+  const area = keyArea(input.key);
+  if (!area || !areaAllowsType(area, input.fileType)) {
+    throw new UploadRejectedError('File type is not allowed for this upload');
+  }
+  if (area === 'content' && !input.isArtist) {
+    throw new UploadRejectedError('Artist account required', 403);
+  }
   if (!input.key.endsWith(`.${info.extension}`)) {
     throw new UploadRejectedError('File type does not match the upload');
   }
@@ -151,7 +180,7 @@ export async function confirmDirectUpload(input: ConfirmUploadInput): Promise<Co
 
   return {
     key: input.key,
-    fileUrl: toStorageRef(input.key, storage.bucket),
+    fileUrl: storedValueForKey(input.key, storage.bucket),
     fileSize: head.size,
     uploadedAt: head.lastModified ?? new Date(),
   };

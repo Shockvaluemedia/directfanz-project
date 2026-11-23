@@ -1,9 +1,12 @@
 import { uploadDirect, type DirectUploadInfo } from '@/lib/direct-upload';
+import type { UploadPurpose } from '@/lib/upload-policy';
 
 export interface UploadConfig {
   fileName: string;
   fileType: string;
   fileSize: number;
+  /** content (default, artists), image (avatars, covers), submission or attachment. */
+  purpose?: UploadPurpose;
 }
 
 export interface PresignedUrlResponse {

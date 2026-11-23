@@ -3,8 +3,9 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { deleteFile } from '@/lib/s3';
-import { storageRefOwnershipError } from '@/lib/storage/refs';
+import { asMediaPath, storageRefOwnershipError } from '@/lib/storage/refs';
 import { z } from 'zod';
+import { fileUrlField } from '@/lib/storage/validation';
 
 const updateContentSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title too long').optional(),
@@ -12,7 +13,7 @@ const updateContentSchema = z.object({
   tags: z.array(z.string()).optional(),
   tierIds: z.array(z.string()).optional(),
   isPublic: z.boolean().optional(),
-  thumbnailUrl: z.string().url().optional(),
+  thumbnailUrl: fileUrlField().optional(),
 });
 
 export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
@@ -129,7 +130,7 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
           { status: 400 }
         );
       }
-      updateData.thumbnailUrl = validatedData.thumbnailUrl;
+      updateData.thumbnailUrl = asMediaPath(validatedData.thumbnailUrl);
     }
 
     // Handle tier updates

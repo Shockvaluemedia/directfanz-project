@@ -2,7 +2,7 @@ import { createReadStream, type Stats } from 'fs';
 import { stat } from 'fs/promises';
 import path from 'path';
 import { Readable } from 'stream';
-import { getObjectStorage, keyFromStorageRef, isStorageRef, signedUrlTtl } from '@/lib/storage';
+import { getObjectStorage, isStoredFile, signedUrlTtl, storageKeyOf } from '@/lib/storage';
 
 /**
  * Serves paywalled media only after the caller's route has checked access.
@@ -187,8 +187,8 @@ function safeDecode(value: string): string | null {
 export function resolveMediaSource(fileUrl: string): MediaSource | null {
   if (!fileUrl) return null;
 
-  if (isStorageRef(fileUrl)) {
-    const key = keyFromStorageRef(fileUrl);
+  if (isStoredFile(fileUrl)) {
+    const key = storageKeyOf(fileUrl);
     return key ? { kind: 'object', key } : null;
   }
 

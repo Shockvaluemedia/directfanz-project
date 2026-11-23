@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { UserIcon, CameraIcon, CheckIcon } from '@heroicons/react/24/outline';
 import { useApiMutation, useApi } from '@/hooks/use-api';
 import { LoadingSpinner } from '@/components/ui/loading';
+import { getPresignedUrl, uploadFileWithProgress } from '@/lib/upload-utils';
 
 interface ProfileData {
   displayName: string;
@@ -117,18 +118,14 @@ export default function ProfileForm({ initialData, userRole, onSuccess }: Profil
       // Upload avatar if selected
       let avatarUrl = formData.avatar;
       if (avatarFile) {
-        const uploadFormData = new FormData();
-        uploadFormData.append('file', avatarFile);
-
-        const uploadResponse = await fetch('/api/upload', {
-          method: 'POST',
-          body: uploadFormData,
+        // Straight to storage as a public image; the result is an /api/media/ path.
+        const presigned = await getPresignedUrl({
+          fileName: avatarFile.name,
+          fileType: avatarFile.type,
+          fileSize: avatarFile.size,
+          purpose: 'image',
         });
-
-        if (uploadResponse.ok) {
-          const uploadResult = await uploadResponse.json();
-          avatarUrl = uploadResult.url;
-        }
+        avatarUrl = await uploadFileWithProgress(avatarFile, presigned.data);
       }
 
       await updateProfile({
