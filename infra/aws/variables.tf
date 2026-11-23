@@ -124,6 +124,7 @@ variable "app_secret_keys" {
     "NEXTAUTH_SECRET",
     "JWT_SECRET",
     "ENCRYPTION_KEY",
+    "TOKEN_ENCRYPTION_KEY",
     "STRIPE_SECRET_KEY",
     "STRIPE_PUBLISHABLE_KEY",
     "STRIPE_WEBHOOK_SECRET",
@@ -250,4 +251,23 @@ variable "github_deploy_environment" {
   description = "GitHub Actions environment whose jobs may assume the deploy role. Give it required reviewers."
   type        = string
   default     = "production"
+}
+
+# --- Move-day database tunnel (db-access.tf) -------------------------------
+
+variable "db_access_image" {
+  description = "Small public image the one-off tunnel task runs. It only needs `sleep`; ECS adds the SSM agent."
+  type        = string
+  default     = "public.ecr.aws/amazonlinux/amazonlinux:2023-minimal"
+}
+
+variable "db_access_max_seconds" {
+  description = "Longest a tunnel task may live before it stops itself."
+  type        = number
+  default     = 14400
+
+  validation {
+    condition     = var.db_access_max_seconds >= 300 && var.db_access_max_seconds <= 28800
+    error_message = "Between 5 minutes and 8 hours."
+  }
 }

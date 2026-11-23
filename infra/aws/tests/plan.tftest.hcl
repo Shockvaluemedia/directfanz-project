@@ -83,6 +83,18 @@ run "phase_1_test_address" {
     condition     = aws_db_instance.main.publicly_accessible == false && aws_db_instance.main.manage_master_user_password
     error_message = "Database must be private with an RDS-managed password."
   }
+  assert {
+    condition     = aws_ecs_service.app.enable_execute_command != true
+    error_message = "No shell access into the app service; use the one-off tunnel task."
+  }
+  assert {
+    condition     = alltrue([for a in jsondecode(aws_iam_role_policy.db_access.policy).Statement[0].Action : startswith(a, "ssmmessages:")])
+    error_message = "The tunnel task role may only carry SSM session traffic."
+  }
+  assert {
+    condition     = contains(var.app_secret_keys, "TOKEN_ENCRYPTION_KEY")
+    error_message = "The refresh route needs TOKEN_ENCRYPTION_KEY."
+  }
 }
 
 run "phase_2_https_and_cutover" {

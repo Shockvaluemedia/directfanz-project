@@ -23,6 +23,7 @@ on IVS).
 | Listening parties | `app.tf` | Task role may create and manage only IVS channels tagged `Project=directfanz`. Playback key pair is made by hand (below). |
 | Domain | `dns.tf` | Route 53 zone for directfanz.io, copied records, ACM certificate for apex and www, CAA, and (at cutover) apex/www aliases to the load balancer. www redirects to the apex. |
 | Scheduled calls and IVS events | `schedules.tf` | EventBridge POSTs `/api/cron/marketing-events` every 5 min and `/api/cron/party-reminders` every 10 min, and forwards IVS "Stream Start"/"Stream End" events to `/api/webhooks/ivs` (so OBS-only parties go live and end by themselves), all with `Authorization: Bearer <CRON_SECRET>`. Off until switched on. |
+| Move-day database tunnel | `db-access.tf` + `scripts/db-tunnel.sh` | No standing access. A one-off ARM task (no secrets, SSM-only role, own security group) that the script starts with ECS Exec, port-forwards to RDS through, and stops on exit. It also stops itself after the time given (4 hours at most). |
 | Alerts | `monitoring.tf` | $100 monthly budget (80% actual, 100% forecast) and alarms for no healthy task, memory over 85%, 5xx bursts and low database storage, by email. |
 | Deploys | `deploy-role.tf` + `.github/workflows/deploy-aws.yml` | GitHub OIDC role usable only from this repo's `production` environment. Manual workflow from `main` only. |
 
@@ -35,7 +36,7 @@ Plain settings (set by Terraform): `NODE_ENV`, `PORT`, `HOSTNAME`,
 anything in `app_environment` (for example `FROM_EMAIL`).
 
 From the app secret (JSON keys, `app_secret_keys`): `NEXTAUTH_SECRET`,
-`JWT_SECRET`, `ENCRYPTION_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`,
+`JWT_SECRET`, `ENCRYPTION_KEY`, `TOKEN_ENCRYPTION_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`,
 `STRIPE_WEBHOOK_SECRET`, `STRIPE_CONNECT_WEBHOOK_SECRET`, `SENDGRID_API_KEY`,
 `CRON_SECRET`, `MARKETING_WEBHOOK_SECRET`, `SMS_INBOUND_TOKEN`,
 `IVS_PLAYBACK_PRIVATE_KEY`. Every key listed must exist in the secret (an
@@ -95,6 +96,22 @@ the site's own address, which is right here because one task serves both.
     ```
 12. **Budget tag.** In Billing, activate the `Project` cost allocation tag so
     the budget counts DirectFanz resources.
+
+## Reaching the database (move day)
+
+RDS has no public address, and the app service has no shell access. For the
+data copy in `docs/migration/DATABASE_COPY.md`, open a tunnel from your own
+machine (needs the AWS CLI v2, the Session Manager plugin, terraform and jq):
+
+```bash
+infra/aws/scripts/db-tunnel.sh 120     # minutes; Ctrl-C closes it early
+```
+
+While it runs, Postgres answers on `127.0.0.1:5432` (set `LOCAL_PORT` to use
+another). `TARGET_DATABASE_URL` then uses host `127.0.0.1`, database
+`directfanz` and `sslmode=require`, with the login from the RDS-managed secret
+(`db_secret_arn` output), read into your own shell only. Closing the script
+stops the task; nothing keeps listening. Each run costs a few cents.
 
 ## Checks you can run without AWS access
 

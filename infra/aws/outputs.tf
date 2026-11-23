@@ -57,3 +57,33 @@ output "cron_connection_name" {
   description = "EventBridge connection whose Bearer value is set by hand (README.md)."
   value       = var.enable_schedules ? aws_cloudwatch_event_connection.cron[0].name : null
 }
+
+output "db_address" {
+  description = "Private RDS address (the tunnel forwards to it)."
+  value       = aws_db_instance.main.address
+}
+
+output "db_secret_arn" {
+  description = "RDS-managed secret holding the database login."
+  value       = local.db_secret_arn
+}
+
+output "db_access_task_definition_family" {
+  description = "One-off tunnel task for the move-day data copy (scripts/db-tunnel.sh)."
+  value       = aws_ecs_task_definition.db_access.family
+}
+
+output "db_access_security_group_id" {
+  description = "Security group for the tunnel task."
+  value       = aws_security_group.db_access.id
+}
+
+output "aws_region" {
+  description = "Region the stack runs in."
+  value       = var.aws_region
+}
+
+output "db_access_max_seconds" {
+  description = "Longest a tunnel may stay open (scripts/db-tunnel.sh enforces it)."
+  value       = var.db_access_max_seconds
+}
