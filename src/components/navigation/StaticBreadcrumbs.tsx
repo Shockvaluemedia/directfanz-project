@@ -2,17 +2,14 @@
 
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
+import { isStagePath } from '@/components/navigation/stage-routes';
 
 export default function StaticBreadcrumbs() {
   const pathname = usePathname();
 
-  // Only show breadcrumbs if not on homepage. Stage pages (community, drops,
-  // parties, membership) carry their own back link and run edge to edge.
-  const STAGE_PREFIXES = ['/community', '/drops', '/parties', '/membership', '/design-preview'];
-  if (
-    pathname === '/' ||
-    STAGE_PREFIXES.some(prefix => pathname === prefix || pathname?.startsWith(prefix + '/'))
-  ) {
+  // No breadcrumbs on the homepage or the stage pages (community, drops,
+  // parties, membership), which carry their own back link and run edge to edge.
+  if (isStagePath(pathname)) {
     return null;
   }
 
