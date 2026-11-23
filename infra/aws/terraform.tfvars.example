@@ -20,6 +20,11 @@ existing_dns_records = {
 ivs_playback_key_pair_arn = ""
 
 # Extra non-secret settings for the app.
+# Full list of setting names: "Environment variables the app receives" in README.md.
 app_environment = {
-  # FROM_EMAIL = "hello@directfanz.io"
+  # FROM_EMAIL                 = "hello@directfanz.io"
+  # FROM_NAME                  = "DirectFanz"
+  # APPLICATION_FEE_PERCENTAGE = "10"
+  # SMS_PROVIDER               = ""   # unset = texts off
+  # MARKETING_WEBHOOK_URL      = ""   # unset = feed off; must be https
 }
