@@ -3,6 +3,7 @@ import {
   DeleteChannelCommand,
   GetStreamKeyCommand,
   IvsClient,
+  TagResourceCommand,
 } from '@aws-sdk/client-ivs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '@/lib/prisma';
@@ -23,10 +24,18 @@ import { logger } from '@/lib/logger';
  *   because a private channel nobody can be given a token for is useless.
  * - IVS_REGION: optional; falls back to AWS_REGION, then us-east-1.
  * - IVS_CHANNEL_TYPE: optional; BASIC (default) or STANDARD.
- * - IVS_EVENTS_SECRET: shared secret on the EventBridge API destination that
- *   posts IVS stream state changes to /api/webhooks/ivs.
- * AWS credentials come from the task role, never from the app's settings.
+ * - IVS_EVENTS_SECRET: optional Bearer secret on the EventBridge API
+ *   destination that posts IVS stream state changes to /api/webhooks/ivs.
+ *   Falls back to CRON_SECRET, so the cron routes' EventBridge connection can
+ *   be reused.
+ * AWS credentials come from the task role, never from the app's settings. The
+ * task role may only create and manage IVS resources tagged
+ * Project=directfanz (infra/aws/app.tf), so every channel and stream key made
+ * here carries that tag.
  */
+
+/** The tag the task role's IVS permissions are scoped to. */
+export const IVS_PROJECT_TAG = { Project: 'directfanz' } as const;
 
 /** How long a playback token stays valid for starting playback. */
 export const PLAYBACK_TOKEN_TTL_SECONDS = 10 * 60;
@@ -102,14 +111,26 @@ export async function ensurePartyChannel(stream: IvsChannelFields): Promise<IvsC
       type: channelType(),
       latencyMode: 'LOW',
       authorized: true,
-      tags: { app: 'directfanz', streamId: stream.id },
+      tags: { ...IVS_PROJECT_TAG, streamId: stream.id },
     })
   );
 
   const channel = created.channel;
   const streamKeyArn = created.streamKey?.arn;
   if (!channel?.arn || !channel.playbackUrl || !channel.ingestEndpoint || !streamKeyArn) {
+    if (channel?.arn) await deletePartyChannel(channel.arn);
     throw new Error('IVS returned an incomplete channel');
+  }
+
+  // The stream key must carry the project tag too, or the task role may not
+  // read it back for the artist.
+  try {
+    await ivsClient().send(
+      new TagResourceCommand({ resourceArn: streamKeyArn, tags: { ...IVS_PROJECT_TAG } })
+    );
+  } catch (error) {
+    await deletePartyChannel(channel.arn);
+    throw error;
   }
 
   const fields = {

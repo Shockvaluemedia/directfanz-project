@@ -9,11 +9,16 @@ export const runtime = 'nodejs';
 /**
  * POST /api/webhooks/ivs - "IVS Stream State Change" events, sent by an
  * EventBridge rule through an API destination whose connection adds
- * `Authorization: Bearer <IVS_EVENTS_SECRET>`. Marks a party live when its
- * stream starts and over when it ends. Off (404) until the secret is set.
+ * `Authorization: Bearer <secret>`, where the secret is IVS_EVENTS_SECRET or,
+ * when that is unset, CRON_SECRET (so the cron routes' EventBridge connection
+ * can be reused). Marks a party live when its stream starts and over when it
+ * ends. Off (404) until one of them is set.
  */
 export async function POST(request: NextRequest) {
-  const auth = checkCronAuth(request.headers.get('authorization'), process.env.IVS_EVENTS_SECRET);
+  const auth = checkCronAuth(
+    request.headers.get('authorization'),
+    process.env.IVS_EVENTS_SECRET || process.env.CRON_SECRET
+  );
   if (auth === 'off') return NextResponse.json({ error: 'Not found' }, { status: 404 });
   if (auth === 'unauthorized') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

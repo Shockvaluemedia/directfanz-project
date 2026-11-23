@@ -15,6 +15,7 @@ import { POST } from '../ivs/route';
 
 const apply = applyIvsStreamEvent as jest.Mock;
 const original = process.env.IVS_EVENTS_SECRET;
+const originalCron = process.env.CRON_SECRET;
 
 function request(authorization: string | null, body: unknown = {}) {
   return {
@@ -29,12 +30,15 @@ function request(authorization: string | null, body: unknown = {}) {
 beforeEach(() => {
   jest.clearAllMocks();
   process.env.IVS_EVENTS_SECRET = 'events-secret';
+  delete process.env.CRON_SECRET;
   apply.mockResolvedValue('live');
 });
 
 afterAll(() => {
   if (original === undefined) delete process.env.IVS_EVENTS_SECRET;
   else process.env.IVS_EVENTS_SECRET = original;
+  if (originalCron === undefined) delete process.env.CRON_SECRET;
+  else process.env.CRON_SECRET = originalCron;
 });
 
 describe('POST /api/webhooks/ivs', () => {
@@ -45,9 +49,17 @@ describe('POST /api/webhooks/ivs', () => {
     expect(apply).not.toHaveBeenCalled();
   });
 
+  it('uses CRON_SECRET when no events secret is set', async () => {
+    delete process.env.IVS_EVENTS_SECRET;
+    process.env.CRON_SECRET = 'cron-secret';
+    expect(((await POST(request('Bearer events-secret'))) as any).status).toBe(401);
+    const response: any = await POST(request('Bearer cron-secret', { source: 'aws.ivs' }));
+    expect(response.status).toBe(200);
+  });
+
   it('refuses a wrong or missing secret', async () => {
-    expect((await POST(request('Bearer wrong')) as any).status).toBe(401);
-    expect((await POST(request(null)) as any).status).toBe(401);
+    expect(((await POST(request('Bearer wrong'))) as any).status).toBe(401);
+    expect(((await POST(request(null))) as any).status).toBe(401);
     expect(apply).not.toHaveBeenCalled();
   });
 

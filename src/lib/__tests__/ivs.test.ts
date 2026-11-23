@@ -9,6 +9,7 @@ jest.mock('@aws-sdk/client-ivs', () => {
     CreateChannelCommand: class CreateChannelCommand extends Command {},
     DeleteChannelCommand: class DeleteChannelCommand extends Command {},
     GetStreamKeyCommand: class GetStreamKeyCommand extends Command {},
+    TagResourceCommand: class TagResourceCommand extends Command {},
   };
 });
 
@@ -108,6 +109,13 @@ describe('ensurePartyChannel', () => {
       type: 'BASIC',
       latencyMode: 'LOW',
       authorized: true,
+      tags: { Project: 'directfanz', streamId: 'stream_1' },
+    });
+    // The task role only reaches stream keys tagged Project=directfanz.
+    expect(send.mock.calls[1][0].constructor.name).toBe('TagResourceCommand');
+    expect(send.mock.calls[1][0].input).toEqual({
+      resourceArn: KEY_ARN,
+      tags: { Project: 'directfanz' },
     });
     const saved = db.live_streams.updateMany.mock.calls[0][0];
     expect(saved.where).toEqual({ id: 'stream_1', ivsChannelArn: null });
@@ -121,14 +129,25 @@ describe('ensurePartyChannel', () => {
   });
 
   it('deletes its own channel when another request saved one first', async () => {
-    send.mockResolvedValueOnce(createdChannel).mockResolvedValueOnce({});
+    send.mockResolvedValueOnce(createdChannel).mockResolvedValue({});
     db.live_streams.updateMany.mockResolvedValue({ count: 0 });
     const winner = { ...savedRow, ivsChannelArn: 'arn:aws:ivs:us-east-1:1:channel/winner' };
     db.live_streams.findUnique.mockResolvedValue(winner);
 
     await expect(ensurePartyChannel(emptyRow)).resolves.toEqual(winner);
-    expect(send.mock.calls[1][0].constructor.name).toBe('DeleteChannelCommand');
-    expect(send.mock.calls[1][0].input).toEqual({ arn: CHANNEL_ARN });
+    expect(send.mock.calls[2][0].constructor.name).toBe('DeleteChannelCommand');
+    expect(send.mock.calls[2][0].input).toEqual({ arn: CHANNEL_ARN });
+  });
+
+  it('deletes the channel again when the stream key cannot be tagged', async () => {
+    send
+      .mockResolvedValueOnce(createdChannel)
+      .mockRejectedValueOnce(new Error('AccessDenied'))
+      .mockResolvedValueOnce({});
+
+    await expect(ensurePartyChannel(emptyRow)).rejects.toThrow('AccessDenied');
+    expect(send.mock.calls[2][0].constructor.name).toBe('DeleteChannelCommand');
+    expect(db.live_streams.updateMany).not.toHaveBeenCalled();
   });
 
   it('refuses when IVS is not configured', async () => {
@@ -158,7 +177,10 @@ describe('playback tokens', () => {
     const { token, expiresAt } = createPlaybackToken(CHANNEL_ARN, { now });
 
     expect(jwt.decode(token, { complete: true })?.header.alg).toBe('ES384');
-    const claims = jwt.verify(token, publicKey, { algorithms: ['ES384'], clockTimestamp: now.getTime() / 1000 }) as any;
+    const claims = jwt.verify(token, publicKey, {
+      algorithms: ['ES384'],
+      clockTimestamp: now.getTime() / 1000,
+    }) as any;
     expect(claims['aws:channel-arn']).toBe(CHANNEL_ARN);
     expect(claims['aws:access-control-allow-origin']).toBe('https://directfanz.io');
     expect(claims.exp).toBe(now.getTime() / 1000 + 600);
@@ -194,7 +216,10 @@ describe('hideIvsFields', () => {
       ivsPlaybackUrl: undefined,
       ivsStreamKeyArn: undefined,
     });
-    expect(hideIvsFields({ artistId: 'artist_1' }, null)).toHaveProperty('ivsChannelArn', undefined);
+    expect(hideIvsFields({ artistId: 'artist_1' }, null)).toHaveProperty(
+      'ivsChannelArn',
+      undefined
+    );
   });
 });
 
@@ -209,7 +234,11 @@ describe('IVS stream events', () => {
   });
 
   it('marks the party live when the stream starts', async () => {
-    db.live_streams.findUnique.mockResolvedValue({ id: 'stream_1', status: 'SCHEDULED', startedAt: null });
+    db.live_streams.findUnique.mockResolvedValue({
+      id: 'stream_1',
+      status: 'SCHEDULED',
+      startedAt: null,
+    });
 
     await expect(applyIvsStreamEvent(event('Stream Start'), now)).resolves.toBe('live');
     expect(db.live_streams.findUnique).toHaveBeenCalledWith({
@@ -224,14 +253,22 @@ describe('IVS stream events', () => {
 
   it('keeps the first start time when the stream comes back', async () => {
     const started = new Date('2026-12-05T20:00:00Z');
-    db.live_streams.findUnique.mockResolvedValue({ id: 'stream_1', status: 'ENDED', startedAt: started });
+    db.live_streams.findUnique.mockResolvedValue({
+      id: 'stream_1',
+      status: 'ENDED',
+      startedAt: started,
+    });
 
     await applyIvsStreamEvent(event('Stream Start'), now);
     expect(db.live_streams.update.mock.calls[0][0].data.startedAt).toBe(started);
   });
 
   it('marks the party over when the stream ends', async () => {
-    db.live_streams.findUnique.mockResolvedValue({ id: 'stream_1', status: 'LIVE', startedAt: now });
+    db.live_streams.findUnique.mockResolvedValue({
+      id: 'stream_1',
+      status: 'LIVE',
+      startedAt: now,
+    });
 
     await expect(applyIvsStreamEvent(event('Stream End'), now)).resolves.toBe('ended');
     expect(db.live_streams.update.mock.calls[0][0].data).toEqual({
@@ -242,10 +279,16 @@ describe('IVS stream events', () => {
   });
 
   it('leaves cancelled parties, other events and other sources alone', async () => {
-    db.live_streams.findUnique.mockResolvedValue({ id: 'stream_1', status: 'CANCELLED', startedAt: null });
+    db.live_streams.findUnique.mockResolvedValue({
+      id: 'stream_1',
+      status: 'CANCELLED',
+      startedAt: null,
+    });
     await expect(applyIvsStreamEvent(event('Stream Start'), now)).resolves.toBe('ignored');
     await expect(applyIvsStreamEvent(event('Session Created'), now)).resolves.toBe('ignored');
-    await expect(applyIvsStreamEvent(event('Stream Start', { source: 'evil' }), now)).resolves.toBe('ignored');
+    await expect(applyIvsStreamEvent(event('Stream Start', { source: 'evil' }), now)).resolves.toBe(
+      'ignored'
+    );
     expect(db.live_streams.update).not.toHaveBeenCalled();
   });
 
