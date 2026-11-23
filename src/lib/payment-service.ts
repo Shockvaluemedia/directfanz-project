@@ -2,6 +2,7 @@ import Stripe from 'stripe';
 import { logger } from './logger';
 import { emailService } from './email-service';
 import { prisma } from '@/lib/prisma';
+import { resolvePlatformFeePercent } from './stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2023-10-16',
@@ -40,7 +41,8 @@ const paymentConfig: PaymentConfig = {
   stripePublishableKey: process.env.STRIPE_PUBLISHABLE_KEY!,
   webhookSecret: process.env.STRIPE_WEBHOOK_SECRET!,
   currency: process.env.CURRENCY || 'usd',
-  applicationFee: parseFloat(process.env.APPLICATION_FEE_PERCENTAGE || '10'),
+  // Same setting and validation as every checkout path (default 10).
+  applicationFee: resolvePlatformFeePercent(process.env.PLATFORM_FEE_PERCENT),
 };
 
 class PaymentService {
