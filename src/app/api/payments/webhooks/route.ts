@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
-import { stripe, PLATFORM_FEE_RATE } from '@/lib/stripe';
+import { PLATFORM_FEE_RATE } from '@/lib/stripe';
 import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/lib/notifications';
 import {
@@ -16,14 +16,20 @@ import {
   isPurchaseCheckoutSession,
 } from '@/lib/purchases';
 import { emitMarketingEvent } from '@/lib/marketing-events';
+import { isStripeWebhookConfigured, verifyStripeWebhook } from '@/lib/stripe-webhook-verify';
 import Stripe from 'stripe';
 import crypto from 'crypto';
 
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
-
-
+/**
+ * Stripe webhook endpoint for both the platform endpoint
+ * (STRIPE_WEBHOOK_SECRET) and the Connect endpoint
+ * (STRIPE_CONNECT_WEBHOOK_SECRET). Payments are direct charges on the
+ * artist's connected account, so checkout, charge, invoice and subscription
+ * events reach us from the Connect endpoint with `event.account` set; every
+ * handler then checks the record belongs to that connected account.
+ */
 export async function POST(request: NextRequest) {
-  if (!process.env.STRIPE_WEBHOOK_SECRET) {
+  if (!isStripeWebhookConfigured()) {
     return NextResponse.json({ error: 'Stripe webhook not configured' }, { status: 500 });
   }
   
@@ -36,12 +42,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing stripe-signature header' }, { status: 400 });
     }
 
-    let event: Stripe.Event;
-
-    try {
-      event = stripe.webhooks.constructEvent(body, signature, webhookSecret!);
-    } catch {
+    const verified = verifyStripeWebhook(body, signature);
+    if (!verified) {
       return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
+    }
+
+    const { event, source } = verified;
+    const connectedAccountId = event.account ?? null;
+
+    if (source === 'connect' && !connectedAccountId) {
+      // A Connect endpoint only ever sends connected-account events.
+      return NextResponse.json({ error: 'Connect event without an account' }, { status: 400 });
     }
 
     // Never apply the same Stripe event twice (Stripe delivers at least once).
@@ -58,7 +69,7 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      await dispatchEvent(event);
+      await dispatchEvent(event, connectedAccountId);
     } catch (error) {
       await markWebhookEventFailed(event.id, error).catch(markError =>
         console.error('Failed to record webhook failure:', markError)
@@ -77,16 +88,16 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function dispatchEvent(event: Stripe.Event) {
+async function dispatchEvent(event: Stripe.Event, connectedAccountId: string | null) {
   switch (event.type) {
     case 'checkout.session.completed': {
       const session = event.data.object as Stripe.Checkout.Session;
       if (isPurchaseCheckoutSession(session)) {
-        await handlePurchaseCheckoutPaid(session);
+        await handlePurchaseCheckoutPaid(session, connectedAccountId);
       } else if (session.mode !== 'payment') {
         // Subscription checkout. A payment-mode session that isn't one of our
         // purchases must never create a subscription.
-        await handleCheckoutSessionCompleted(session);
+        await handleCheckoutSessionCompleted(session, connectedAccountId);
       }
       break;
     }
@@ -94,7 +105,7 @@ async function dispatchEvent(event: Stripe.Event) {
     case 'checkout.session.async_payment_succeeded': {
       const session = event.data.object as Stripe.Checkout.Session;
       if (isPurchaseCheckoutSession(session)) {
-        await handlePurchaseCheckoutPaid(session);
+        await handlePurchaseCheckoutPaid(session, connectedAccountId);
       }
       break;
     }
@@ -102,7 +113,7 @@ async function dispatchEvent(event: Stripe.Event) {
     case 'checkout.session.async_payment_failed': {
       const session = event.data.object as Stripe.Checkout.Session;
       if (isPurchaseCheckoutSession(session)) {
-        await handlePurchaseCheckoutFailed(session);
+        await handlePurchaseCheckoutFailed(session, connectedAccountId);
       }
       break;
     }
@@ -110,13 +121,23 @@ async function dispatchEvent(event: Stripe.Event) {
     case 'checkout.session.expired': {
       const session = event.data.object as Stripe.Checkout.Session;
       if (isPurchaseCheckoutSession(session)) {
-        await handlePurchaseCheckoutExpired(session);
+        await handlePurchaseCheckoutExpired(session, connectedAccountId);
       }
       break;
     }
 
     case 'charge.refunded':
-      await handlePurchaseChargeRefunded(event.data.object as Stripe.Charge);
+      await handlePurchaseChargeRefunded(event.data.object as Stripe.Charge, connectedAccountId);
+      break;
+
+    case 'account.updated':
+      await handleConnectedAccountUpdated(event.data.object as Stripe.Account, connectedAccountId);
+      break;
+
+    case 'account.application.deauthorized':
+      if (connectedAccountId) {
+        await handleConnectedAccountDeauthorized(connectedAccountId);
+      }
       break;
 
     case 'invoice.payment_succeeded':
@@ -140,13 +161,59 @@ async function dispatchEvent(event: Stripe.Event) {
   }
 }
 
-async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
+/**
+ * account.updated on a connected account: keep the artist's "can take
+ * payments" flag in step with Stripe, so checkout opens as soon as onboarding
+ * finishes and closes if Stripe disables charges.
+ */
+async function handleConnectedAccountUpdated(
+  account: Stripe.Account,
+  connectedAccountId: string | null
+) {
+  const accountId = connectedAccountId ?? account.id;
+  if (!accountId || account.id !== accountId) {
+    console.error('account.updated for an account other than the one that sent it; ignoring');
+    return;
+  }
+  const onboarded = Boolean(account.details_submitted && account.charges_enabled);
+  await prisma.artists.updateMany({
+    where: { stripeAccountId: accountId, isStripeOnboarded: !onboarded },
+    data: { isStripeOnboarded: onboarded },
+  });
+}
+
+/** The artist disconnected their account from the platform: stop selling. */
+async function handleConnectedAccountDeauthorized(connectedAccountId: string) {
+  await prisma.artists.updateMany({
+    where: { stripeAccountId: connectedAccountId },
+    data: { isStripeOnboarded: false },
+  });
+}
+
+async function handleCheckoutSessionCompleted(
+  session: Stripe.Checkout.Session,
+  connectedAccountId: string | null
+) {
   try {
     if (!session.metadata) {
       return;
     }
 
     const { fanId, artistId, tierId, amount } = session.metadata;
+
+    if (connectedAccountId) {
+      // The session ran on a connected account: it must be that artist's.
+      const artist = await prisma.artists.findUnique({
+        where: { userId: artistId },
+        select: { stripeAccountId: true },
+      });
+      if (!artist || artist.stripeAccountId !== connectedAccountId) {
+        console.error(
+          `Subscription checkout ${session.id} came from an account that is not artist ${artistId}'s; ignoring`
+        );
+        return;
+      }
+    }
     const subscriptionId = session.subscription as string;
 
     // A fan may re-subscribe to a tier they previously cancelled. The

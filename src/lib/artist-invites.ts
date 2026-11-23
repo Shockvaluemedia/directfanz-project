@@ -38,6 +38,10 @@ export const createInviteSchema = z
     communityId: z.string().min(1),
     email: z.string().trim().toLowerCase().email().nullish(),
     expiresInDays: z.number().int().min(1).max(90).optional(),
+    /** The lineup slot, as the admin names it (for example the artist's name). */
+    label: z.string().trim().min(1).max(80).nullish(),
+    /** Home-page place the artist takes on joining; 1 headlines. */
+    featuredRank: z.number().int().min(1).max(10_000).nullish(),
   })
   .strict();
 
@@ -66,20 +70,35 @@ export async function createArtistInvite(
       communityId: community.id,
       codeHash: hashInviteCode(code),
       email: input.email ?? null,
+      label: input.label ?? null,
+      featuredRank: input.featuredRank ?? null,
       createdBy,
       expiresAt,
     },
-    select: { id: true, communityId: true, email: true, expiresAt: true },
+    select: {
+      id: true,
+      communityId: true,
+      email: true,
+      label: true,
+      featuredRank: true,
+      expiresAt: true,
+    },
   });
   return { ...invite, code };
 }
 
 type InviteTx = Pick<typeof prisma, 'artist_invites'>;
 
+export interface RedeemedInvite {
+  communityId: string;
+  /** Home-page place the invite gives the new artist, if it names one. */
+  featuredRank: number | null;
+}
+
 /**
  * Use an invite for a new artist account, inside the sign-up transaction.
- * Returns the community the artist joins. Claimed with a conditional update,
- * so two sign-ups can't share one code.
+ * Returns the community the artist joins and their place in it. Claimed with
+ * a conditional update, so two sign-ups can't share one code.
  */
 export async function redeemArtistInvite(
   tx: InviteTx,
@@ -87,12 +106,19 @@ export async function redeemArtistInvite(
   email: string,
   userId: string,
   now: Date = new Date()
-): Promise<string> {
+): Promise<RedeemedInvite> {
   if (!code) throw new InviteError('Artist sign-up is by invite only', 403);
 
   const invite = await tx.artist_invites.findUnique({
     where: { codeHash: hashInviteCode(code) },
-    select: { id: true, communityId: true, email: true, expiresAt: true, usedAt: true },
+    select: {
+      id: true,
+      communityId: true,
+      email: true,
+      featuredRank: true,
+      expiresAt: true,
+      usedAt: true,
+    },
   });
   if (!invite || invite.usedAt || invite.expiresAt <= now) {
     throw new InviteError('This invite is not valid', 403);
@@ -108,5 +134,5 @@ export async function redeemArtistInvite(
   if (claimed.count !== 1) {
     throw new InviteError('This invite is not valid', 403);
   }
-  return invite.communityId;
+  return { communityId: invite.communityId, featuredRank: invite.featuredRank ?? null };
 }

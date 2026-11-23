@@ -344,7 +344,27 @@ function paymentIntentId(session: Stripe.Checkout.Session): string | null {
   return typeof pi === 'string' ? pi : pi.id;
 }
 
-async function findPurchaseForSession(session: Stripe.Checkout.Session) {
+/**
+ * A Connect event (one with `event.account`) may only touch purchases made on
+ * that connected account. Events without an account (platform endpoint, or a
+ * local test) skip the check.
+ */
+function belongsToAccount(
+  purchase: { id: string; stripeAccountId: string },
+  connectedAccountId: string | null | undefined
+): boolean {
+  if (!connectedAccountId) return true;
+  if (purchase.stripeAccountId === connectedAccountId) return true;
+  console.error(
+    `Purchase ${purchase.id} belongs to another Stripe account than the event's; ignoring`
+  );
+  return false;
+}
+
+async function findPurchaseForSession(
+  session: Stripe.Checkout.Session,
+  connectedAccountId?: string | null
+) {
   const purchaseId = session.metadata?.purchaseId;
   if (!purchaseId) return null;
 
@@ -355,6 +375,8 @@ async function findPurchaseForSession(session: Stripe.Checkout.Session) {
     return null;
   }
 
+  if (!belongsToAccount(purchase, connectedAccountId)) return null;
+
   if (purchase.stripeCheckoutSessionId && purchase.stripeCheckoutSessionId !== session.id) {
     console.error(`Checkout session ${session.id} does not match purchase ${purchaseId}; ignoring`);
     return null;
@@ -364,13 +386,16 @@ async function findPurchaseForSession(session: Stripe.Checkout.Session) {
 }
 
 /** checkout.session.completed / checkout.session.async_payment_succeeded */
-export async function handlePurchaseCheckoutPaid(session: Stripe.Checkout.Session): Promise<void> {
+export async function handlePurchaseCheckoutPaid(
+  session: Stripe.Checkout.Session,
+  connectedAccountId?: string | null
+): Promise<void> {
   if (session.payment_status !== 'paid') {
     // Delayed payment method: wait for checkout.session.async_payment_succeeded.
     return;
   }
 
-  const purchase = await findPurchaseForSession(session);
+  const purchase = await findPurchaseForSession(session, connectedAccountId);
   if (!purchase) return;
 
   const amountCents = session.amount_total ?? decimalToCents(purchase.amount);
@@ -452,9 +477,10 @@ function purchaseEventType(itemType: string): MarketingEventType {
 
 async function endPendingPurchase(
   session: Stripe.Checkout.Session,
-  status: typeof PURCHASE_STATUS.FAILED | typeof PURCHASE_STATUS.EXPIRED
+  status: typeof PURCHASE_STATUS.FAILED | typeof PURCHASE_STATUS.EXPIRED,
+  connectedAccountId?: string | null
 ): Promise<void> {
-  const purchase = await findPurchaseForSession(session);
+  const purchase = await findPurchaseForSession(session, connectedAccountId);
   if (!purchase) return;
 
   const transitioned = await prisma.purchases.updateMany({
@@ -469,20 +495,25 @@ async function endPendingPurchase(
 
 /** checkout.session.async_payment_failed */
 export async function handlePurchaseCheckoutFailed(
-  session: Stripe.Checkout.Session
+  session: Stripe.Checkout.Session,
+  connectedAccountId?: string | null
 ): Promise<void> {
-  await endPendingPurchase(session, PURCHASE_STATUS.FAILED);
+  await endPendingPurchase(session, PURCHASE_STATUS.FAILED, connectedAccountId);
 }
 
 /** checkout.session.expired */
 export async function handlePurchaseCheckoutExpired(
-  session: Stripe.Checkout.Session
+  session: Stripe.Checkout.Session,
+  connectedAccountId?: string | null
 ): Promise<void> {
-  await endPendingPurchase(session, PURCHASE_STATUS.EXPIRED);
+  await endPendingPurchase(session, PURCHASE_STATUS.EXPIRED, connectedAccountId);
 }
 
 /** charge.refunded: a full refund takes the item back. */
-export async function handlePurchaseChargeRefunded(charge: Stripe.Charge): Promise<void> {
+export async function handlePurchaseChargeRefunded(
+  charge: Stripe.Charge,
+  connectedAccountId?: string | null
+): Promise<void> {
   if (!charge.refunded) {
     // Partial refund: the fan keeps the item.
     return;
@@ -494,6 +525,7 @@ export async function handlePurchaseChargeRefunded(charge: Stripe.Charge): Promi
 
   const purchase = await prisma.purchases.findUnique({ where: { stripePaymentIntentId: piId } });
   if (!purchase) return;
+  if (!belongsToAccount(purchase, connectedAccountId)) return;
 
   const transitioned = await prisma.purchases.updateMany({
     where: { id: purchase.id, status: PURCHASE_STATUS.PAID },

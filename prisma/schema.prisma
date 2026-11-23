@@ -59,11 +59,15 @@ model communities {
 
 /// Single-use invite to sign up as an artist in a community. Only the code's
 /// SHA-256 is stored. email, when set, must match the sign-up email.
+/// label names the lineup slot (an artist name as the admin typed it) and
+/// featuredRank is the place the artist gets on the home page when they join.
 model artist_invites {
   id           String      @id
   communityId  String
   codeHash     String      @unique
   email        String?
+  label        String?
+  featuredRank Int?
   createdBy    String
   expiresAt    DateTime
   usedAt       DateTime?
@@ -72,6 +76,7 @@ model artist_invites {
   communities  communities @relation(fields: [communityId], references: [id], onDelete: Cascade)
 
   @@index([communityId])
+  @@index([communityId, label])
 }
 
 model campaign_analytics {

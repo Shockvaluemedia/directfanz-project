@@ -65,7 +65,29 @@ describe('invite-only artist sign-up', () => {
     expect(db.artist_invites.findUnique.mock.calls[0][0].where).toEqual({
       codeHash: hashInviteCode('code-1'),
     });
-    expect(db.artists.create.mock.calls[0][0].data).toMatchObject({ communityId: 'com-1' });
+    expect(db.artists.create.mock.calls[0][0].data).toMatchObject({
+      communityId: 'com-1',
+      featuredRank: null,
+    });
+  });
+
+  it('gives the artist the home-page place their invite names', async () => {
+    db.artist_invites.findUnique.mockResolvedValue({
+      id: 'inv-1',
+      communityId: 'com-1',
+      email: null,
+      featuredRank: 1,
+      expiresAt: new Date(Date.now() + 86_400_000),
+      usedAt: null,
+    });
+
+    const res = await register(request({ ...artist, inviteCode: 'code-1' }));
+
+    expect(res.status).toBe(200);
+    expect(db.artists.create.mock.calls[0][0].data).toMatchObject({
+      communityId: 'com-1',
+      featuredRank: 1,
+    });
   });
 
   it('still lets fans sign up without an invite', async () => {
