@@ -1,6 +1,6 @@
 // @ts-ignore - socket.io types may not be installed
 import { Server as SocketIOServer } from 'socket.io';
-import { getToken } from 'next-auth/jwt';
+import { authenticateSocket } from '@/lib/socket-auth';
 import { UserRole } from '@/types/database';
 import { checkStreamAccess, hasStreamingPermission } from '@/lib/streaming-auth';
 import { prisma } from '@/lib/prisma';
@@ -38,33 +38,16 @@ export function initializeStreamingWebSocket(io: SocketIOServer) {
   const streamingNamespace = io.of('/streaming');
 
   // Authentication middleware for streaming namespace
+  // Authentication: the real NextAuth session, as on the main namespace.
   streamingNamespace.use(async (socket: any, next: (err?: Error) => void) => {
     try {
-      const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace('Bearer ', '');
-      
-      if (!token) {
-        return next(new Error('Authentication required'));
-      }
+      const user = await authenticateSocket(socket.handshake);
+      if (!user) return next(new Error('Authentication required'));
 
-      // Verify JWT token
-      const decoded = await getToken({
-        req: {
-          headers: {
-            authorization: `Bearer ${token}`,
-          },
-        } as any,
-        secret: process.env.NEXTAUTH_SECRET,
-      });
-
-      if (!decoded || !decoded.id) {
-        return next(new Error('Invalid token'));
-      }
-
-      // Attach user data to socket
       socket.data = {
-        userId: decoded.id as string,
-        userRole: decoded.role as UserRole,
-        userName: decoded.name as string,
+        userId: user.id,
+        userRole: user.role as UserRole,
+        userName: user.name,
       } as StreamingSocketData;
 
       next();

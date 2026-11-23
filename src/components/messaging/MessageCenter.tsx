@@ -35,6 +35,7 @@ import { useSession } from 'next-auth/react';
 import { toast } from 'react-hot-toast';
 import EmojiPicker from 'emoji-picker-react';
 import { cn } from '@/lib/utils';
+import { getSocketUrl } from '@/lib/socket-url';
 
 // Types
 interface Message {
@@ -121,7 +122,7 @@ export default function MessageCenter() {
   useEffect(() => {
     if (!session?.user?.id) return;
 
-    const newSocket = io(process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3000', {
+    const newSocket = io(getSocketUrl(), {
       auth: {
         token: session.accessToken, // Assuming you have access token in session
       },

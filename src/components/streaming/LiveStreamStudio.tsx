@@ -42,6 +42,7 @@ import { useSession } from 'next-auth/react';
 import { toast } from 'react-hot-toast';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { getSocketUrl } from '@/lib/socket-url';
 
 // Types
 interface StreamConfig {
@@ -159,7 +160,7 @@ export default function LiveStreamStudio() {
   useEffect(() => {
     if (!session?.user?.id) return;
 
-    const newSocket = io(process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3000', {
+    const newSocket = io(getSocketUrl(), {
       auth: {
         token: session.accessToken,
       },
