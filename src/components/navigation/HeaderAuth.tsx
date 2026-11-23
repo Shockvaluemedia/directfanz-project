@@ -9,18 +9,18 @@ export default function HeaderAuth() {
   const { data: session, status } = useSession();
 
   if (status === 'loading') {
-    return <div className="h-9 w-24 animate-pulse rounded-lg bg-gray-100" aria-hidden />;
+    return <div className="h-9 w-24 animate-pulse rounded-control bg-white/5" aria-hidden />;
   }
 
   if (session?.user) {
     return (
-      <div className="flex items-center space-x-4">
-        <Link href="/dashboard" className="font-medium text-gray-600 hover:text-gray-900">
+      <div className="flex items-center gap-2 sm:gap-4">
+        <Link href="/dashboard" className="px-2 py-2 text-sm font-medium text-stage-muted transition-colors hover:text-stage-text">
           Dashboard
         </Link>
         <button
           onClick={() => signOut({ callbackUrl: '/' })}
-          className="rounded-lg bg-gray-100 px-4 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-200"
+          className="rounded-control border border-stage-line-strong px-4 py-2 text-sm font-medium text-stage-text transition-colors hover:border-white/30"
         >
           Sign out
         </button>
@@ -29,13 +29,13 @@ export default function HeaderAuth() {
   }
 
   return (
-    <div className="flex items-center space-x-4">
-      <Link href="/auth/signin" className="font-medium text-gray-600 hover:text-gray-900">
+    <div className="flex items-center gap-2 sm:gap-4">
+      <Link href="/auth/signin" className="px-2 py-2 text-sm font-medium text-stage-muted transition-colors hover:text-stage-text">
         Sign In
       </Link>
       <Link
         href="/auth/signup"
-        className="rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white transition-colors hover:bg-indigo-700"
+        className="rounded-control bg-stage-pulse px-4 py-2 text-sm font-semibold text-stage-ink transition-colors hover:bg-stage-pulse-strong"
       >
         Sign Up
       </Link>

@@ -6,8 +6,13 @@ import Link from 'next/link';
 export default function StaticBreadcrumbs() {
   const pathname = usePathname();
 
-  // Only show breadcrumbs if not on homepage
-  if (pathname === '/') {
+  // Only show breadcrumbs if not on homepage. Stage pages (community, drops,
+  // parties, membership) carry their own back link and run edge to edge.
+  const STAGE_PREFIXES = ['/community', '/drops', '/parties', '/membership', '/design-preview'];
+  if (
+    pathname === '/' ||
+    STAGE_PREFIXES.some(prefix => pathname === prefix || pathname?.startsWith(prefix + '/'))
+  ) {
     return null;
   }
 
