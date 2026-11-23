@@ -17,8 +17,8 @@ import {
   toStorageRef,
 } from '@/lib/storage';
 import { S3ObjectStorage } from '@/lib/storage/s3-storage';
-import { confirmDirectUpload, createDirectUpload, newUploadKey } from '@/lib/storage/uploads';
-import { MULTIPART_PART_BYTES, MULTIPART_THRESHOLD_BYTES } from '@/lib/upload-policy';
+import { confirmDirectUpload, createDirectUpload, newUploadKey, signUploadParts } from '@/lib/storage/uploads';
+import { FILE_SIZE_LIMITS, MULTIPART_PART_BYTES, MULTIPART_THRESHOLD_BYTES, maxPartsFor } from '@/lib/upload-policy';
 
 const BUCKET = 'df-media-test';
 const MB = 1024 * 1024;
@@ -330,5 +330,77 @@ describe('client media URLs for S3-backed rows', () => {
     expect(out.fileUrl).toBe('/api/content/c1/stream');
     expect(out.thumbnailUrl).toBe('/api/content/c1/thumbnail');
     expect(JSON.stringify(out)).not.toContain('s3://');
+  });
+});
+
+describe('long video uploads', () => {
+  let storage: MemoryObjectStorage;
+
+  beforeEach(() => {
+    process.env.AWS_S3_BUCKET_NAME = BUCKET;
+    storage = new MemoryObjectStorage(BUCKET);
+    setObjectStorageForTests(storage);
+  });
+  afterEach(() => {
+    setObjectStorageForTests(undefined);
+    delete process.env.AWS_S3_BUCKET_NAME;
+  });
+
+  it('accepts a feature-length film up to the video limit, and fits the fileSize column', async () => {
+    expect(FILE_SIZE_LIMITS.VIDEO).toBeLessThanOrEqual(2_147_483_647);
+    const plan = await createDirectUpload({
+      fileName: 'documentary.mp4',
+      fileType: 'video/mp4',
+      fileSize: 1800 * MB,
+      artistId: 'a1',
+    });
+    expect(plan.multipart?.parts).toHaveLength(Math.ceil((1800 * MB) / MULTIPART_PART_BYTES));
+    await expect(
+      createDirectUpload({ fileName: 'too-big.mp4', fileType: 'video/mp4', fileSize: FILE_SIZE_LIMITS.VIDEO + 1, artistId: 'a1' })
+    ).rejects.toThrow(/limit/);
+  });
+
+  it('accepts .m4v exports from Apple tools', async () => {
+    const plan = await createDirectUpload({ fileName: 'short.m4v', fileType: 'video/x-m4v', fileSize: 5 * MB, artistId: 'a1' });
+    expect(plan.key).toMatch(/\/video\/.+\.m4v$/);
+  });
+
+  it('re-signs part links for the owner of an open upload', async () => {
+    const plan = await createDirectUpload({
+      fileName: 'film.mp4',
+      fileType: 'video/mp4',
+      fileSize: MULTIPART_THRESHOLD_BYTES + 40 * MB,
+      artistId: 'a1',
+    });
+    const links = await signUploadParts({
+      userId: 'a1',
+      isArtist: true,
+      key: plan.key,
+      fileType: 'video/mp4',
+      uploadId: plan.multipart!.uploadId,
+      partNumbers: [5, 6, 6],
+    });
+    expect(links.map(l => l.partNumber)).toEqual([5, 6]);
+    expect(new URL(links[0].url).searchParams.get('partNumber')).toBe('5');
+  });
+
+  it("refuses to sign parts of someone else's upload, or for a fan in the paid area", async () => {
+    const key = newUploadKey('a2', 'video/mp4');
+    await expect(
+      signUploadParts({ userId: 'a1', isArtist: true, key, fileType: 'video/mp4', uploadId: 'u', partNumbers: [1] })
+    ).rejects.toMatchObject({ status: 403 });
+    const own = newUploadKey('f1', 'video/mp4');
+    await expect(
+      signUploadParts({ userId: 'f1', isArtist: false, key: own, fileType: 'video/mp4', uploadId: 'u', partNumbers: [1] })
+    ).rejects.toMatchObject({ status: 403 });
+  });
+
+  it('refuses part numbers outside the limit for the type, or a type that does not match the key', async () => {
+    const key = newUploadKey('a1', 'video/mp4');
+    const base = { userId: 'a1', isArtist: true, key, fileType: 'video/mp4', uploadId: 'u' };
+    await expect(signUploadParts({ ...base, partNumbers: [0] })).rejects.toThrow(/part numbers/);
+    await expect(signUploadParts({ ...base, partNumbers: [maxPartsFor('video/mp4') + 1] })).rejects.toThrow(/part numbers/);
+    await expect(signUploadParts({ ...base, partNumbers: [] })).rejects.toThrow(/part numbers/);
+    await expect(signUploadParts({ ...base, fileType: 'video/webm', partNumbers: [1] })).rejects.toThrow(/not allowed/);
   });
 });

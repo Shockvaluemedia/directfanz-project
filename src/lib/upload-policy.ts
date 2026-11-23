@@ -15,6 +15,7 @@ export const SUPPORTED_FILE_TYPES = {
   'video/mp4': { extension: 'mp4', category: 'VIDEO' },
   'video/webm': { extension: 'webm', category: 'VIDEO' },
   'video/quicktime': { extension: 'mov', category: 'VIDEO' },
+  'video/x-m4v': { extension: 'm4v', category: 'VIDEO' },
 
   // Images
   'image/jpeg': { extension: 'jpg', category: 'IMAGE' },
@@ -30,7 +31,10 @@ export const SUPPORTED_FILE_TYPES = {
 // File size limits (in bytes)
 export const FILE_SIZE_LIMITS = {
   AUDIO: 100 * 1024 * 1024, // 100MB
-  VIDEO: 500 * 1024 * 1024, // 500MB
+  // Long-form video (documentaries, films). Kept under content.fileSize's
+  // 32-bit column limit (2,147,483,647 bytes); a 90-minute film exported as
+  // H.264 MP4 at about 3 Mbps is roughly 2 GB.
+  VIDEO: 2000 * 1024 * 1024, // 2000MB
   IMAGE: 10 * 1024 * 1024, // 10MB
   DOCUMENT: 25 * 1024 * 1024, // 25MB
 } as const;
@@ -74,6 +78,14 @@ export interface UploadRequest {
 /** Large files go up in parts straight to storage, never through the app. */
 export const MULTIPART_THRESHOLD_BYTES = 64 * 1024 * 1024;
 export const MULTIPART_PART_BYTES = 16 * 1024 * 1024;
+/** Most part links the browser may ask to have re-signed in one request. */
+export const MAX_PART_LINKS_PER_REQUEST = 50;
+
+/** Largest part number a file of this type can need. */
+export function maxPartsFor(fileType: string): number {
+  const info = SUPPORTED_FILE_TYPES[fileType as keyof typeof SUPPORTED_FILE_TYPES];
+  return info ? Math.ceil(FILE_SIZE_LIMITS[info.category] / MULTIPART_PART_BYTES) : 0;
+}
 
 export interface MultipartUploadPlan {
   uploadId: string;
