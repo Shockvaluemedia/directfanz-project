@@ -1,5 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+/**
+ * The one page where the browser may use the camera and microphone: the
+ * artist's listening party broadcast page. Everywhere else they stay off.
+ */
+export const BROADCAST_PAGE_PATTERN = /^\/dashboard\/artist\/livestreams\/[^/]+\/broadcast\/?$/;
+
+export function permissionsPolicyFor(pathname?: string): string {
+  const media =
+    pathname && BROADCAST_PAGE_PATTERN.test(pathname)
+      ? 'camera=(self), microphone=(self)'
+      : 'camera=(), microphone=()';
+  return `${media}, geolocation=(), payment=()`;
+}
+
 export class SecurityHeadersManager {
   private static getCSPHeader(): string {
     const csp = [
@@ -8,7 +22,10 @@ export class SecurityHeadersManager {
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: https: blob:",
-      "connect-src 'self' https://api.stripe.com wss:",
+      // Amazon IVS: party playback (HLS) and the browser broadcaster's ingest.
+      "connect-src 'self' https://api.stripe.com wss: https://*.live-video.net",
+      "media-src 'self' blob: https://*.live-video.net",
+      "worker-src 'self' blob:",
       "frame-src https://js.stripe.com",
       "object-src 'none'",
       "base-uri 'self'",
@@ -19,7 +36,7 @@ export class SecurityHeadersManager {
     return csp.join('; ');
   }
 
-  static getSecurityHeaders(): Record<string, string> {
+  static getSecurityHeaders(pathname?: string): Record<string, string> {
     return {
       // Content Security Policy
       'Content-Security-Policy': this.getCSPHeader(),
@@ -40,7 +57,7 @@ export class SecurityHeadersManager {
       'Referrer-Policy': 'strict-origin-when-cross-origin',
       
       // Permissions Policy
-      'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+      'Permissions-Policy': permissionsPolicyFor(pathname),
       
       // Remove server information
       'Server': '',
@@ -48,8 +65,8 @@ export class SecurityHeadersManager {
     };
   }
 
-  static applySecurityHeaders(response: NextResponse): NextResponse {
-    const headers = this.getSecurityHeaders();
+  static applySecurityHeaders(response: NextResponse, pathname?: string): NextResponse {
+    const headers = this.getSecurityHeaders(pathname);
     
     Object.entries(headers).forEach(([key, value]) => {
       response.headers.set(key, value);
@@ -104,8 +121,8 @@ export function securityMiddleware(request: NextRequest) {
 }
 
 // Standalone exports for middleware compatibility
-export function applySecurityHeaders(response: NextResponse): NextResponse {
-  return SecurityHeadersManager.applySecurityHeaders(response);
+export function applySecurityHeaders(response: NextResponse, pathname?: string): NextResponse {
+  return SecurityHeadersManager.applySecurityHeaders(response, pathname);
 }
 
 export function getSecurityConfig() {
