@@ -1,8 +1,8 @@
 # DirectFanz stage design direction
 
 November 2026. Applies to the fan-facing pages of the repositioned product:
-the community home, drop and presale pages, membership, listening parties and
-every checkout entry point. Builds on `DESIGN.md` (archetype "creator economy
+the home page (which opens on the community), drop and presale pages,
+membership, listening parties and premieres, and every checkout entry point. Builds on `DESIGN.md` (archetype "creator economy
 stage") and does not replace it.
 
 ## The brief
@@ -15,6 +15,30 @@ enterprise level." Two jobs at once:
 - **Enterprise** comes from restraint and consistency: one type family, one
   accent, stepped dark surfaces, hairline borders, real focus states, honest
   numbers, and the same component doing the same job everywhere.
+
+## What DirectFanz is for
+
+DirectFanz is where an artist's music and film come out first: singles and
+projects, and shorts, documentaries, films and other video work. Every page
+treats a video release as a first-class release, not an attachment.
+
+- **Positioning line:** "Music and film, released here first." The format strip
+  under the hero names the formats: Singles, Projects (music); Shorts,
+  Documentaries, Films (video).
+- **Releases, not just drops:** the community and membership pages group
+  releases by medium. Music sits in a square grid; film and video in a wider
+  16:9 grid. A group only appears when it has something in it.
+- **Format labels:** every release shows its format, with runtime for video
+  ("Short · 13 min"). Today the format is read from the attached files (one
+  track is a Single, more are a Project; a video up to 40 minutes is a Short,
+  longer is a Film, several videos are a Series). Documentary needs an explicit
+  format field, which the video work can add.
+- **Video drop page:** a 16:9 player slot replaces the square artwork. It plays a
+  public trailer when one exists, and otherwise shows the poster with a plain
+  note ("Unlocks when you buy", "Premieres when the drop opens"). The full film
+  never streams from the sales page.
+- **Premieres:** listening parties are presented as "listening parties and
+  premieres", so a film premiere fits the same live room.
 
 ## What the research pointed to
 
@@ -68,8 +92,12 @@ never fetch fonts from the network).
 - Radius: 10px for media and cards, 6px for controls (from `DESIGN.md`).
 - Community home order: headliner hero (Nahvee) first, then drops, listening
   parties, then the rest of the roster. Nahvee is never a card among cards.
-- Drop page: artwork left (sticky on desktop), decision right: status, title,
-  price, timer, stock, buy panel, details.
+- Drop page: media left (sticky on desktop), decision right: status, format,
+  title, price, timer, stock, buy panel, details. Music uses square artwork;
+  video uses a wider column with the 16:9 player slot.
+- Header: the dark glass header shows on fan pages (home, community, drops,
+  parties, membership). Dashboards, settings and sign-in keep the light app
+  header.
 - Mobile: a sticky buy bar with title, price and one button on buyable drops;
   `scroll-padding-bottom` keeps focused fields clear of it.
 
@@ -87,7 +115,9 @@ stops; the pages are complete without it.
 - `Countdown`, `LocalTime`: fan's own time zone; one calm screen-reader summary
   instead of a ticking stream.
 - `DropCard`, `PartyCard`, `ArtistTile`, `ScarcityMeter`, `Artwork` (initials
-  monogram when there is no art).
+  monogram when there is no art), `ReleaseGrid` (music and video groups).
+- `MediaBadge` (format and runtime), `MediaStage` (16:9 player slot),
+  `FormatStrip` (the formats DirectFanz is built for).
 - `DropBuyPanel`, `TicketBuyPanel`, `MembershipJoinButton`: call the existing
   checkout routes only. The server decides every price.
 - Views: `CommunityView`, `DropView`, `PartyView`, `MembershipView`, all fed

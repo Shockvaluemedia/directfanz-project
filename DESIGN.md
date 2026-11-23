@@ -55,7 +55,8 @@ The shared arsenal design system lives in `Shockvaluemedia/svm-operator-core/doc
 
 ## Stage System (fan-facing pages)
 
-The community home, drops, presales, membership and listening parties use the
+The home page, community, drops (music and video), presales, membership,
+listening parties and premieres use the
 stage tokens and components described in
 [`docs/design/stage-design-direction.md`](docs/design/stage-design-direction.md):
 Geist type, near-black stepped surfaces, one electric violet accent
