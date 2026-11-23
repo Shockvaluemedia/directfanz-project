@@ -126,6 +126,16 @@ the yes for the step it serves.
    4. **🟡 YES** `import-accounts.sh` (first as a check that rolls back, then
       with `--execute`), then delete the local folder.
 
+   Move-day checklist for the database, in this order, each on its own yes:
+
+   - [ ] **🟡 YES 1. Save his accounts** to a private folder on his computer
+     (`export-accounts.sh --execute`). Supabase is only read.
+   - [ ] **🟡 YES 2. Build the new AWS database** (`prisma db push`,
+     `baseline.sh --execute`, `check-schema.sh` says IN STEP). Opens the
+     tunnel, a few cents.
+   - [ ] **🟡 YES 3. Load his accounts** (`import-accounts.sh` check, then
+     `--execute`), then delete the local folder. Opens the tunnel, a few cents.
+
 ### Phase C: prove it on AWS before anyone sees it
 
 8. **First deploy on the load balancer's address. 🟡 YES**
