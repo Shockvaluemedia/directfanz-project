@@ -220,7 +220,7 @@ variable "ivs_playback_key_pair_arn" {
 # --- Scheduled calls -------------------------------------------------------
 
 variable "enable_schedules" {
-  description = "Create the EventBridge schedules that call the cron routes. Turn on once the site answers on HTTPS."
+  description = "Create the EventBridge schedules that call the cron routes, and the rule that forwards IVS stream start/end events to the app. Turn on once the site answers on HTTPS."
   type        = bool
   default     = false
 }

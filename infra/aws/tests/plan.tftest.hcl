@@ -72,7 +72,7 @@ run "phase_1_test_address" {
     error_message = "Phase 1 must not point the domain at AWS."
   }
   assert {
-    condition     = length(aws_cloudwatch_event_rule.cron) == 0
+    condition     = length(aws_cloudwatch_event_rule.cron) == 0 && length(aws_cloudwatch_event_rule.ivs_stream_state) == 0
     error_message = "Schedules stay off until switched on."
   }
   assert {
@@ -109,5 +109,13 @@ run "phase_2_https_and_cutover" {
   assert {
     condition     = aws_cloudwatch_event_rule.cron["marketing-events"].schedule_expression == "rate(5 minutes)" && aws_cloudwatch_event_rule.cron["party-reminders"].schedule_expression == "rate(10 minutes)"
     error_message = "Cron cadence must match the plan."
+  }
+  assert {
+    condition     = jsondecode(aws_cloudwatch_event_rule.ivs_stream_state[0].event_pattern).source == ["aws.ivs"] && jsondecode(aws_cloudwatch_event_rule.ivs_stream_state[0].event_pattern)["detail-type"] == ["IVS Stream State Change"]
+    error_message = "IVS stream state changes must be forwarded."
+  }
+  assert {
+    condition     = aws_cloudwatch_event_api_destination.ivs_events[0].invocation_endpoint == "https://directfanz.io/api/webhooks/ivs" && aws_cloudwatch_event_api_destination.ivs_events[0].http_method == "POST"
+    error_message = "IVS events must POST to /api/webhooks/ivs."
   }
 }

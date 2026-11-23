@@ -22,7 +22,7 @@ on IVS).
 | Files | `storage.tf` | Private S3 bucket, all public access blocked, TLS only, encrypted, versioned (old versions gone after 30 days), CORS for signed browser uploads. |
 | Listening parties | `app.tf` | Task role may create and manage only IVS channels tagged `Project=directfanz`. Playback key pair is made by hand (below). |
 | Domain | `dns.tf` | Route 53 zone for directfanz.io, copied records, ACM certificate for apex and www, CAA, and (at cutover) apex/www aliases to the load balancer. www redirects to the apex. |
-| Scheduled calls | `schedules.tf` | EventBridge POSTs `/api/cron/marketing-events` every 5 min and `/api/cron/party-reminders` every 10 min with `Authorization: Bearer <CRON_SECRET>`. Off until switched on. |
+| Scheduled calls and IVS events | `schedules.tf` | EventBridge POSTs `/api/cron/marketing-events` every 5 min and `/api/cron/party-reminders` every 10 min, and forwards IVS "Stream Start"/"Stream End" events to `/api/webhooks/ivs` (so OBS-only parties go live and end by themselves), all with `Authorization: Bearer <CRON_SECRET>`. Off until switched on. |
 | Alerts | `monitoring.tf` | $100 monthly budget (80% actual, 100% forecast) and alarms for no healthy task, memory over 85%, 5xx bursts and low database storage, by email. |
 | Deploys | `deploy-role.tf` + `.github/workflows/deploy-aws.yml` | GitHub OIDC role usable only from this repo's `production` environment. Manual workflow from `main` only. |
 
@@ -46,7 +46,9 @@ entrypoint (`docker/entrypoint.sh`) turns these into `DATABASE_URL` with
 `sslmode=require`.
 
 Browser-visible values (`NEXT_PUBLIC_*`) are baked in at image build time and
-come from GitHub environment variables in the deploy workflow.
+come from GitHub environment variables in the deploy workflow. The browser
+finds the chat server through `NEXT_PUBLIC_WEBSOCKET_URL`; left unset it uses
+the site's own address, which is right here because one task serves both.
 
 ## Order of steps (each needs a yes)
 
@@ -83,7 +85,7 @@ come from GitHub environment variables in the deploy workflow.
    the certificate, then serves HTTPS.
 10. **Cutover.** Remove the old apex/www site records from
     `existing_dns_records`, set `site_on_aws = true`, and apply.
-11. **Scheduled calls.** Set `enable_schedules = true` and apply, then copy the
+11. **Scheduled calls and IVS events.** Set `enable_schedules = true` and apply, then copy the
     cron secret into the EventBridge connection once (the value never enters
     Terraform):
     ```bash
@@ -111,4 +113,3 @@ terraform test   # mocked AWS provider; plans phase 1 and phase 2 offline
   Dockerfile `CMD` once an app PR fixes those.
 - One task only. A second copy needs a socket.io Redis adapter first.
 - `REDIS_URL` uses TLS (`rediss://`); the app's Redis client must accept it.
-- IVS stream-state events (party live or ended) are left to the IVS app code.
