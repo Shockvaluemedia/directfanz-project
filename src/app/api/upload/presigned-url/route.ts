@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { generatePresignedUrl, validateFileUpload } from '@/lib/s3';
+import { getObjectStorage } from '@/lib/storage';
+import { StorageNotConfiguredError, UploadRejectedError } from '@/lib/storage/uploads';
 import { UnauthorizedError, ValidationError } from '@/lib/api-error-handler';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
@@ -34,8 +36,8 @@ export async function POST(request: NextRequest) {
       throw new ValidationError('File validation failed');
     }
 
-    // Check if we're using local storage for development
-    const useLocalStorage = process.env.USE_LOCAL_STORAGE === 'true';
+    // Local development without a bucket keeps using the on-disk uploader.
+    const useLocalStorage = process.env.USE_LOCAL_STORAGE === 'true' || !getObjectStorage();
     
     let uploadInfo: any;
     if (useLocalStorage) {
@@ -48,7 +50,8 @@ export async function POST(request: NextRequest) {
         useLocalStorage: true,
       };
     } else {
-      // Generate presigned URL for S3
+      // Signed link(s) straight to the private bucket: one PUT for small
+      // files, one per part for large ones. The app never sees the bytes.
       uploadInfo = await generatePresignedUrl({
         fileName: validatedData.fileName,
         fileType: validatedData.fileType,
@@ -84,6 +87,14 @@ export async function POST(request: NextRequest) {
         { error: error.message },
         { status: 401 }
       );
+    }
+
+    if (error instanceof UploadRejectedError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+
+    if (error instanceof StorageNotConfiguredError) {
+      return NextResponse.json({ error: 'Storage is not configured' }, { status: 503 });
     }
 
     if (error instanceof ValidationError) {

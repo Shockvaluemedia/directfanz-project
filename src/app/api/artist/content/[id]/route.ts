@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { deleteFile, extractKeyFromUrl } from '@/lib/s3';
+import { deleteFile } from '@/lib/s3';
+import { storageRefOwnershipError } from '@/lib/storage/refs';
 import { z } from 'zod';
 
 const updateContentSchema = z.object({
@@ -120,8 +121,16 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
     if (validatedData.description !== undefined) updateData.description = validatedData.description;
     if (validatedData.tags !== undefined) updateData.tags = validatedData.tags;
     if (validatedData.isPublic !== undefined) updateData.isPublic = validatedData.isPublic;
-    if (validatedData.thumbnailUrl !== undefined)
+    if (validatedData.thumbnailUrl !== undefined) {
+      const refError = storageRefOwnershipError(validatedData.thumbnailUrl, session.user.id);
+      if (refError) {
+        return NextResponse.json(
+          { error: { code: 'VALIDATION_ERROR', message: refError } },
+          { status: 400 }
+        );
+      }
       updateData.thumbnailUrl = validatedData.thumbnailUrl;
+    }
 
     // Handle tier updates
     if (validatedData.tierIds !== undefined) {
@@ -199,13 +208,11 @@ export async function DELETE(request: NextRequest, props: { params: Promise<{ id
 
     // Delete file from S3
     try {
-      const fileKey = extractKeyFromUrl(existingContent.fileUrl);
-      await deleteFile(fileKey);
+      await deleteFile(existingContent.fileUrl, session.user.id);
 
       // Delete thumbnail if exists
       if (existingContent.thumbnailUrl) {
-        const thumbnailKey = extractKeyFromUrl(existingContent.thumbnailUrl);
-        await deleteFile(thumbnailKey);
+        await deleteFile(existingContent.thumbnailUrl, session.user.id);
       }
     } catch (s3Error) {
       console.error('S3 deletion error:', s3Error);

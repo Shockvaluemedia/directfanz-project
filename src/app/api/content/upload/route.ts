@@ -5,6 +5,8 @@ import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { FileUploader, ContentType } from '@/lib/upload';
 import { LocalFileUploader } from '@/lib/local-storage';
+import { getObjectStorage } from '@/lib/storage';
+import { createDirectUpload, StorageNotConfiguredError, UploadRejectedError } from '@/lib/storage/uploads';
 // AI content moderation - stub until AI module is fully configured
 interface ModerationResult {
   approved: boolean;
@@ -24,9 +26,9 @@ const moderateContent = async (_content: unknown, _type?: string, _userId?: stri
   recommendations: [],
 });
 
-// Use local storage if AWS is not configured
-const USE_LOCAL_STORAGE = !process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_S3_BUCKET_NAME;
-const UploaderClass = USE_LOCAL_STORAGE ? LocalFileUploader : FileUploader;
+// Without object storage configured (local development), files go to disk.
+const storageIsLocal = () => !getObjectStorage();
+const uploaderClass = () => (storageIsLocal() ? LocalFileUploader : FileUploader);
 
 const uploadSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title too long'),
@@ -85,7 +87,7 @@ export async function POST(request: NextRequest) {
 
       // Step 1: AI Content Moderation (unless skipped by admin)
       let moderationResult: ModerationResult | null = null;
-      const contentType = UploaderClass.getContentType(file);
+      const contentType = uploaderClass().getContentType(file);
       
       if (!validatedData.skipModeration) {
         logger.info('Running AI content moderation', {
@@ -144,7 +146,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Step 2: Upload and process file
-      const uploadResult = await UploaderClass.uploadFile(file, req.user.id);
+      const uploadResult = await uploaderClass().uploadFile(file, req.user.id);
 
       // Determine content status based on moderation
       const contentStatus = moderationResult 
@@ -308,34 +310,29 @@ export async function PUT(request: NextRequest) {
       }
 
       // For local storage, we don't use presigned URLs
-      if (USE_LOCAL_STORAGE) {
+      if (storageIsLocal()) {
         return NextResponse.json({
           error: 'Presigned URLs not supported with local storage. Use direct upload via POST /api/content/upload'
         }, { status: 400 });
       }
 
-      // Validate file type and size
-      const file = { name: fileName, size: fileSize } as File;
-      const detectedContentType = FileUploader.getContentType(file);
-      const validation = FileUploader.validateFile(file, detectedContentType);
-
-      if (!validation.isValid) {
-        return NextResponse.json({ error: validation.error }, { status: 400 });
-      }
-
-      // Generate unique key and presigned URL
-      const key = FileUploader.generateFileKey(req.user.id, detectedContentType, fileName);
-      const uploadUrl = `/api/upload?key=${encodeURIComponent(key)}`; // Direct upload endpoint
-
-      return NextResponse.json({
-        success: true,
-        data: {
-          uploadUrl,
-          key,
-          contentType: detectedContentType,
-        },
+      // contentType is the file's MIME type; the link only accepts that type
+      // and this exact size, straight to the private bucket.
+      const upload = await createDirectUpload({
+        fileName: String(fileName),
+        fileType: String(contentType),
+        fileSize: Number(fileSize),
+        artistId: req.user.id,
       });
+
+      return NextResponse.json({ success: true, data: upload });
     } catch (error) {
+      if (error instanceof UploadRejectedError) {
+        return NextResponse.json({ error: error.message }, { status: error.status });
+      }
+      if (error instanceof StorageNotConfiguredError) {
+        return NextResponse.json({ error: 'Storage is not configured' }, { status: 503 });
+      }
       logger.error('Presigned URL generation error', { userId: req.user?.id }, error as Error);
 
       return NextResponse.json({ error: 'Failed to generate upload URL' }, { status: 500 });

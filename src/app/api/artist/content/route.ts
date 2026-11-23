@@ -4,6 +4,7 @@ import { SUPPORTED_FILE_TYPES } from '@/lib/s3';
 import { notifyNewContent } from '@/lib/notifications';
 import { z } from 'zod';
 import crypto from 'crypto';
+import { storageRefOwnershipError } from '@/lib/storage/refs';
 import {
   withArtistApiHandler,
   ApiRequestContext,
@@ -28,6 +29,14 @@ export const POST = withArtistApiHandler(
   async (context: ApiRequestContext, userId: string, request: NextRequest) => {
     const body = await request.json();
     const validatedData = validateApiRequest(createContentSchema, body, context);
+
+    // A storage reference (s3://...) must be one of this artist's own uploads.
+    const refError =
+      storageRefOwnershipError(validatedData.fileUrl, userId) ??
+      storageRefOwnershipError(validatedData.thumbnailUrl, userId);
+    if (refError) {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, refError, 400, undefined, context.requestId, userId);
+    }
 
     // Determine content type from format
     const contentType = Object.entries(SUPPORTED_FILE_TYPES).find(

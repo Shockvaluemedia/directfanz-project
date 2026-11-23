@@ -23,6 +23,8 @@
     "vercel:deploy": "vercel deploy --prod"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "3.1160.0",
+    "@aws-sdk/s3-request-presigner": "3.1160.0",
     "@heroicons/react": "^2.2.0",
     "@next-auth/prisma-adapter": "^1.0.7",
     "@prisma/client": "^5.7.1",
@@ -36,7 +38,6 @@
     "@stripe/stripe-js": "^2.4.0",
     "@tanstack/react-query": "^5.90.21",
     "@types/glob": "^8.1.0",
-    "@vercel/blob": "^0.27.3",
     "autoprefixer": "^10.4.23",
     "bcryptjs": "^2.4.3",
     "chart.js": "^4.5.1",

@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { FileUploader } from '@/lib/upload';
-import { del } from '@vercel/blob';
+import { deleteStoredFile } from '@/lib/storage';
 import { withClientMediaUrls } from '@/lib/content-access';
 
 const listQuerySchema = z.object({
@@ -415,14 +415,14 @@ export async function DELETE(request: NextRequest) {
         where: { id: contentId },
       });
 
-      // Delete actual files from Vercel Blob storage
+      // Delete the stored files (only those in this artist's own prefix)
       if (existingContent.fileUrl) {
         const filesToDelete = [existingContent.fileUrl, existingContent.thumbnailUrl].filter(Boolean) as string[];
 
         await Promise.allSettled(
           filesToDelete.map(async (url) => {
-            await del(url);
-            logger.info('Blob file deleted', { contentId, url });
+            await deleteStoredFile(url, req.user.id);
+            logger.info('Stored file deleted', { contentId });
           })
         );
       }

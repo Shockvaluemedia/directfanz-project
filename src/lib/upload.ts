@@ -1,4 +1,5 @@
-import { put, del } from '@vercel/blob';
+import { deleteStoredFile } from '@/lib/storage';
+import { storeServerFile } from '@/lib/storage/uploads';
 import sharp from 'sharp';
 import { lookup as mimeTypeLookup } from 'mime-types';
 import path from 'path';
@@ -12,6 +13,13 @@ const MAX_FILE_SIZES = {
   VIDEO: 500 * 1024 * 1024, // 500MB for video
   DOCUMENT: 50 * 1024 * 1024, // 50MB for documents
 };
+
+/**
+ * Files sent through the app (multipart form POST) are held in memory while
+ * they are processed, so audio and video over this size must use the direct
+ * upload flow (/api/upload/presigned-url), which goes straight to storage.
+ */
+export const SERVER_UPLOAD_MAX_BYTES = 32 * 1024 * 1024;
 
 const ALLOWED_EXTENSIONS = {
   IMAGE: ['.jpg', '.jpeg', '.png', '.gif', '.webp'],
@@ -88,34 +96,29 @@ export class FileUploader {
   }
 
   /**
-   * Upload buffer to Vercel Blob
+   * Store a buffer in the private bucket and return its storage reference.
    */
-  static async uploadToBlob(
+  static async uploadToStorage(
     buffer: Buffer,
     key: string,
     contentType: string,
   ): Promise<string> {
     try {
-      const blob = await put(key, buffer, {
-        access: 'public',
-        contentType,
-        addRandomSuffix: false,
-      });
-      return blob.url;
+      return await storeServerFile(key, buffer, contentType);
     } catch (error) {
-      console.error('Blob upload error:', error);
+      console.error('Storage upload error:', error);
       throw new Error('Failed to upload file to storage');
     }
   }
 
   /**
-   * Delete file from Vercel Blob
+   * Delete a stored file. Only files in the owner's own prefix are removed.
    */
-  static async deleteFromBlob(url: string): Promise<void> {
+  static async deleteFromStorage(fileRef: string, ownerId: string): Promise<void> {
     try {
-      await del(url);
+      await deleteStoredFile(fileRef, ownerId);
     } catch (error) {
-      console.error('Blob delete error:', error);
+      console.error('Storage delete error:', error);
       throw new Error('Failed to delete file from storage');
     }
   }
@@ -146,10 +149,10 @@ export class FileUploader {
       .jpeg({ quality: 80 })
       .toBuffer();
 
-    const url = await this.uploadToBlob(optimizedBuffer, key, 'image/jpeg');
+    const url = await this.uploadToStorage(optimizedBuffer, key, 'image/jpeg');
 
     const thumbnailKey = key.replace(/\.[^/.]+$/, '-thumb.jpg');
-    const thumbnailUrl = await this.uploadToBlob(thumbnailBuffer, thumbnailKey, 'image/jpeg');
+    const thumbnailUrl = await this.uploadToStorage(thumbnailBuffer, thumbnailKey, 'image/jpeg');
 
     return {
       url,
@@ -161,7 +164,7 @@ export class FileUploader {
   }
 
   /**
-   * Upload audio file (no server-side transcoding — Vercel serverless has no ffmpeg)
+   * Upload audio file (no server-side transcoding here)
    */
   static async processAudio(
     buffer: Buffer,
@@ -170,12 +173,12 @@ export class FileUploader {
     url: string;
     fileSize: number;
   }> {
-    const url = await this.uploadToBlob(buffer, key, 'audio/mpeg');
+    const url = await this.uploadToStorage(buffer, key, 'audio/mpeg');
     return { url, fileSize: buffer.length };
   }
 
   /**
-   * Upload video file (no server-side transcoding — Vercel serverless has no ffmpeg)
+   * Upload video file (no server-side transcoding here)
    */
   static async processVideo(
     buffer: Buffer,
@@ -184,7 +187,7 @@ export class FileUploader {
     url: string;
     fileSize: number;
   }> {
-    const url = await this.uploadToBlob(buffer, key, 'video/mp4');
+    const url = await this.uploadToStorage(buffer, key, 'video/mp4');
     return { url, fileSize: buffer.length };
   }
 
@@ -200,6 +203,15 @@ export class FileUploader {
 
     if (!validation.isValid) {
       throw new Error(validation.error);
+    }
+
+    if (
+      (contentType === ContentType.AUDIO || contentType === ContentType.VIDEO) &&
+      file.size > SERVER_UPLOAD_MAX_BYTES
+    ) {
+      throw new Error(
+        `Audio and video over ${SERVER_UPLOAD_MAX_BYTES / 1024 / 1024}MB must use direct upload (/api/upload/presigned-url)`
+      );
     }
 
     const key = this.generateFileKey(userId, contentType, file.name);
@@ -238,7 +250,7 @@ export class FileUploader {
       }
 
       case ContentType.DOCUMENT: {
-        const docUrl = await this.uploadToBlob(
+        const docUrl = await this.uploadToStorage(
           buffer,
           key,
           mimeTypeLookup(file.name) || 'application/octet-stream'

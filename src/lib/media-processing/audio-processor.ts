@@ -18,12 +18,12 @@ import path from 'path';
 import { logger } from '../logger';
 import { mediaProcessor, type ProcessingJob } from './core';
 
-// Alias for S3 upload functionality (now uses Vercel Blob via core)
+// Stores a processed file in the private bucket; returns its storage reference.
 const uploadToS3 = async (key: string, filePath: string) => {
   const data = await fs.readFile(filePath);
-  const { put } = await import('@vercel/blob');
-  const blob = await put(key, data, { access: 'public' });
-  return blob.url;
+  const { storeServerFile } = await import('@/lib/storage/uploads');
+  const { mimeFromExtension } = await import('@/lib/media-proxy');
+  return storeServerFile(key, data, mimeFromExtension(filePath));
 };
 
 // Audio Processing Configuration
