@@ -1,13 +1,22 @@
+// Must load first: sets up the Node globals (AsyncLocalStorage) that Next's
+// server modules expect, before the chat code pulls any of them in.
+import 'next/dist/server/node-environment';
 import { createServer } from 'node:http';
 import next from 'next';
-import { Server as SocketIOServer } from 'socket.io';
 import { parse } from 'node:url';
+import { basename } from 'node:path';
 import { initializeSocket } from './src/lib/socket-server';
 import { logger } from './src/lib/logger';
-import { isRunningInECS, loadAWSConfiguration } from './src/lib/aws-config';
 
+/**
+ * Production server: Next.js and the Socket.IO chat on one port.
+ *
+ * Built by `npm run build:server` into dist/server.cjs and started with
+ * `npm run start:server`. Settings come from the environment (on AWS, ECS
+ * injects them from Secrets Manager and Terraform); nothing is fetched here.
+ */
 const dev = process.env.NODE_ENV !== 'production';
-const hostname = isRunningInECS() ? '0.0.0.0' : 'localhost';
+const hostname = process.env.HOSTNAME || (dev ? 'localhost' : '0.0.0.0');
 const port = parseInt(process.env.PORT || '3000', 10);
 
 // Prepare Next.js app
@@ -15,31 +24,6 @@ const nextApp = next({ dev, hostname, port });
 const nextHandler = nextApp.getRequestHandler();
 
 export default async function createCustomServer() {
-  // Load AWS configuration if running in production
-  if (process.env.NODE_ENV === 'production' && isRunningInECS()) {
-    try {
-      logger.info('Loading AWS configuration from Parameter Store...');
-      const config = await loadAWSConfiguration();
-      
-      // Set environment variables from Parameter Store
-      if (config.databaseUrl) process.env.DATABASE_URL = config.databaseUrl;
-      if (config.redisUrl) process.env.REDIS_URL = config.redisUrl;
-      if (config.nextAuthSecret) process.env.NEXTAUTH_SECRET = config.nextAuthSecret;
-      if (config.stripeSecretKey) process.env.STRIPE_SECRET_KEY = config.stripeSecretKey;
-      if (config.openAiApiKey) process.env.OPENAI_API_KEY = config.openAiApiKey;
-      if (config.sendGridApiKey) process.env.SENDGRID_API_KEY = config.sendGridApiKey;
-      if (config.sentryDsn) process.env.SENTRY_DSN = config.sentryDsn;
-      if (config.encryptionKey) process.env.ENCRYPTION_KEY = config.encryptionKey;
-      if (config.jwtSecret) process.env.JWT_SECRET = config.jwtSecret;
-      
-      logger.info('AWS configuration loaded successfully');
-    } catch (error) {
-      logger.warn('Failed to load AWS configuration, using environment variables', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
-    }
-  }
-
   await nextApp.prepare();
 
   // Create HTTP server
@@ -93,16 +77,13 @@ export default async function createCustomServer() {
 }
 
 // Start server if this file is run directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Start when run directly (tsx server.ts, or node dist/server.cjs).
+if (/^server\.(ts|js|cjs|mjs)$/.test(basename(process.argv[1] ?? ''))) {
   createCustomServer()
     .then(({ httpServer }) => {
       httpServer.listen(port, hostname, () => {
         logger.info(`🚀 Server ready on http://${hostname}:${port}`);
-        logger.info('📡 WebSocket and WebRTC signaling server active');
-        
-        if (isRunningInECS()) {
-          logger.info('🐳 Running in AWS ECS environment');
-        }
+        logger.info('📡 WebSocket server active');
       });
     })
     .catch(err => {

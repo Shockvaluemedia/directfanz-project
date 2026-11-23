@@ -124,3 +124,6 @@ logs/
 # TypeScript incremental build info (build artifact)
 tsconfig.tsbuildinfo
 *.tsbuildinfo
+
+# Bundled custom server (npm run build:server)
+/dist
