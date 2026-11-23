@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { canViewStream, ticketPriceError } from '@/lib/stream-access';
+import { deletePartyChannel, hideIvsFields } from '@/lib/ivs';
 
 const updateStreamSchema = z.object({
   title: z.string().min(1).max(200).optional(),
@@ -89,6 +90,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ strea
     // Don't expose stream key to non-owners
     const responseStream = {
       ...stream,
+      ...hideIvsFields(stream, session.user.id),
       tierIds: JSON.parse(stream.tierIds),
       streamKey: stream.artistId === session.user.id ? stream.streamKey : undefined,
       currentViewers: stream.stream_viewers,
@@ -290,6 +292,7 @@ export async function DELETE(request: NextRequest, props: { params: Promise<{ st
         id: params.streamId,
       },
     });
+    await deletePartyChannel(existingStream.ivsChannelArn);
 
     logger.info('Livestream deleted', {
       streamId: params.streamId,

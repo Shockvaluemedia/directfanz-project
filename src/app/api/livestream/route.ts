@@ -7,6 +7,7 @@ import { generateSecureToken } from '@/lib/security';
 import { logger } from '@/lib/logger';
 import crypto from 'crypto';
 import { ticketPriceError } from '@/lib/stream-access';
+import { ensurePartyChannel, hideIvsFields, isIvsEnabled } from '@/lib/ivs';
 
 // Validation schemas
 const createStreamSchema = z.object({
@@ -151,6 +152,7 @@ export async function GET(request: NextRequest) {
 
           return {
             ...stream,
+            ...hideIvsFields(stream, session?.user?.id),
             tierIds: JSON.parse(stream.tierIds),
             streamer: {
               id: stream.users.id,
@@ -290,6 +292,20 @@ export async function POST(request: NextRequest) {
         updatedAt: new Date(),
       },
     });
+
+    // A ticketed party gets its private IVS channel now, so fans can be given
+    // playback the moment it goes live. Not fatal: the broadcast page creates
+    // it on first open if this fails.
+    if (isIvsEnabled() && stream.requiresPayment) {
+      try {
+        await ensurePartyChannel(stream);
+      } catch (ivsError) {
+        logger.warn('IVS channel not created at scheduling', {
+          streamId: stream.id,
+          error: ivsError instanceof Error ? ivsError.message : String(ivsError),
+        });
+      }
+    }
 
     logger.info('Livestream created', {
       streamId: stream.id,
