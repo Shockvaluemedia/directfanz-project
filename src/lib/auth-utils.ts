@@ -184,14 +184,15 @@ export async function createUser(data: z.infer<typeof signUpSchema>) {
 
       // Create artist profile if role is ARTIST. Artists join by invite.
       if (validatedData.role === 'ARTIST') {
-        const communityId = artistSignupIsOpen()
+        const invite = artistSignupIsOpen()
           ? null
           : await redeemArtistInvite(tx, validatedData.inviteCode, newUser.email, newUser.id);
         await tx.artists.create({
           data: {
             id: randomUUID(),
             userId: newUser.id,
-            communityId,
+            communityId: invite?.communityId ?? null,
+            featuredRank: invite?.featuredRank ?? null,
             updatedAt: new Date(),
           },
         });

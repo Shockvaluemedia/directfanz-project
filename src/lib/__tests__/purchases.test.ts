@@ -337,6 +337,56 @@ describe('purchase webhook handlers', () => {
   });
 });
 
+describe('purchase webhook handlers on a Connect account', () => {
+  const onArtistAccount = { ...purchase, stripeAccountId: 'acct_artist' };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    db.purchases.findUnique.mockResolvedValue(onArtistAccount);
+    db.purchases.updateMany.mockResolvedValue({ count: 1 });
+    db.artists.update.mockResolvedValue({});
+  });
+
+  it('marks a purchase paid when the event comes from its own account', async () => {
+    await handlePurchaseCheckoutPaid(session(), 'acct_artist');
+
+    expect(db.purchases.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'pur_1', status: 'PENDING' } })
+    );
+  });
+
+  it('ignores a paid event from another connected account', async () => {
+    await handlePurchaseCheckoutPaid(session(), 'acct_someone_else');
+
+    expect(db.purchases.updateMany).not.toHaveBeenCalled();
+    expect(db.artists.update).not.toHaveBeenCalled();
+  });
+
+  it('ignores expiry and refunds from another connected account', async () => {
+    await handlePurchaseCheckoutExpired(session(), 'acct_someone_else');
+    await handlePurchaseChargeRefunded(
+      { refunded: true, payment_intent: 'pi_test_1' } as any,
+      'acct_someone_else'
+    );
+
+    expect(db.purchases.updateMany).not.toHaveBeenCalled();
+    expect(db.artists.update).not.toHaveBeenCalled();
+  });
+
+  it('refunds a purchase when the event comes from its own account', async () => {
+    db.purchases.findUnique.mockResolvedValue({ ...onArtistAccount, status: 'PAID' });
+
+    await handlePurchaseChargeRefunded(
+      { refunded: true, payment_intent: 'pi_test_1' } as any,
+      'acct_artist'
+    );
+
+    expect(db.purchases.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: 'REFUNDED' }) })
+    );
+  });
+});
+
 describe('drop purchases', () => {
   const now = Date.now();
   const drop = {

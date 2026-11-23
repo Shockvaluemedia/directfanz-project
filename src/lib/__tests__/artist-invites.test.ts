@@ -62,7 +62,7 @@ describe('using an invite at sign-up', () => {
 
     await expect(
       redeemArtistInvite(db, ' code-1 ', 'artist@example.com', 'user-1', now)
-    ).resolves.toBe('com-1');
+    ).resolves.toEqual({ communityId: 'com-1', featuredRank: null });
     expect(db.artist_invites.findUnique.mock.calls[0][0].where).toEqual({
       codeHash: hashInviteCode('code-1'),
     });
@@ -100,7 +100,7 @@ describe('using an invite at sign-up', () => {
 
     await expect(
       redeemArtistInvite(db, 'code-1', 'Nahvee@Example.com', 'user-1', now)
-    ).resolves.toBe('com-1');
+    ).resolves.toEqual({ communityId: 'com-1', featuredRank: null });
   });
 
   it('lets only one of two sign-ups use the same code', async () => {

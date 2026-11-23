@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { EyeIcon, EyeSlashIcon, CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline';
 import { UserIcon, MicrophoneIcon, HeartIcon, CameraIcon } from '@heroicons/react/24/solid';
+import { readInviteFromHash } from '@/lib/invite-link';
 
 // Password validation helpers
 const passwordChecks = {
@@ -52,6 +53,16 @@ export default function SignUpPage() {
   });
 
   const router = useRouter();
+
+  // An artist invite link carries its code in the fragment (#invite=...),
+  // which never reaches the server. Fill it in, pick the artist role, and
+  // drop the code from the address bar.
+  useEffect(() => {
+    const code = readInviteFromHash(window.location.hash);
+    if (!code) return;
+    setFormData(prev => ({ ...prev, role: 'ARTIST', inviteCode: code }));
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+  }, []);
 
   // Real-time validation
   useEffect(() => {
