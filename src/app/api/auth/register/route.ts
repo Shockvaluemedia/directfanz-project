@@ -9,12 +9,13 @@ import {
   validateApiRequest
 } from '@/lib/api-error-handler';
 import { AppError, ErrorCode } from '@/lib/errors';
+import { artistSignupIsOpen, InviteError, redeemArtistInvite } from '@/lib/artist-invites';
 
 export const POST = withApiHandler(
   async (context: ApiRequestContext, request: NextRequest) => {
     // Parse and validate request body
     const body = await request.json();
-    const { email, password, displayName, role = 'FAN' } = validateApiRequest(
+    const { email, password, displayName, role = 'FAN', inviteCode } = validateApiRequest(
       registerSchema,
       body,
       context
@@ -35,33 +36,65 @@ export const POST = withApiHandler(
       );
     }
 
+    // Artists join by invite; refuse early, before any work.
+    if (role === 'ARTIST' && !artistSignupIsOpen() && !inviteCode) {
+      throw new AppError(
+        ErrorCode.FORBIDDEN,
+        'Artist sign-up is by invite only',
+        403,
+        undefined,
+        context.requestId
+      );
+    }
+
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Create user
-    const user = await prisma.users.create({
-      data: {
-        id: randomUUID(),
-        email,
-        password: hashedPassword,
-        displayName,
-        role: role as 'ARTIST' | 'FAN',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    });
+    // Create the user, and for an artist the profile and the used invite, together.
+    let user;
+    try {
+      user = await prisma.$transaction(async tx => {
+        const created = await tx.users.create({
+          data: {
+            id: randomUUID(),
+            email,
+            password: hashedPassword,
+            displayName,
+            role: role as 'ARTIST' | 'FAN',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        });
 
-    // If user is an artist, create artist profile
-    if (role === 'ARTIST') {
-      await prisma.artists.create({
-        data: {
-          id: randomUUID(),
-          userId: user.id,
-          isStripeOnboarded: false,
-          totalEarnings: 0,
-          totalSubscribers: 0,
-        },
+        if (role === 'ARTIST') {
+          const invite = artistSignupIsOpen()
+            ? null
+            : await redeemArtistInvite(tx, inviteCode, email, created.id);
+          await tx.artists.create({
+            data: {
+              id: randomUUID(),
+              userId: created.id,
+              isStripeOnboarded: false,
+              totalEarnings: 0,
+              totalSubscribers: 0,
+              communityId: invite?.communityId ?? null,
+              featuredRank: invite?.featuredRank ?? null,
+            },
+          });
+        }
+        return created;
       });
+    } catch (error) {
+      if (error instanceof InviteError) {
+        throw new AppError(
+          ErrorCode.FORBIDDEN,
+          error.message,
+          error.status,
+          undefined,
+          context.requestId
+        );
+      }
+      throw error;
     }
 
     // Return user data (without password)

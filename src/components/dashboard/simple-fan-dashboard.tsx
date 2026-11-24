@@ -4,6 +4,11 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import SimpleNav from '@/components/simple-nav';
+import { isFeatureParked } from '@/lib/parked-features';
+
+// Campaigns are parked for launch: skip loading them (and the demo fallback)
+// and hide their tiles and sections.
+const CAMPAIGNS_ON = !isFeatureParked('campaigns');
 
 // Demo data for fallback when API is unavailable
 function getDemoFanCampaigns(): Campaign[] {
@@ -20,7 +25,7 @@ function getDemoFanCampaigns(): Campaign[] {
       userSubmissions: 3,
     },
     {
-      id: 'demo-2', 
+      id: 'demo-2',
       title: 'Fan Art Showcase',
       type: 'ART_CONTEST',
       status: 'ACTIVE',
@@ -32,7 +37,7 @@ function getDemoFanCampaigns(): Campaign[] {
     },
     {
       id: 'demo-3',
-      title: 'Cover Song Competition', 
+      title: 'Cover Song Competition',
       type: 'MUSIC_CONTEST',
       status: 'COMPLETED',
       endDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
@@ -64,18 +69,20 @@ export default function SimpleFanDashboard() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        console.log('SimpleFanDashboard: Attempting to load campaigns...', { hasSession: !!session });
-        
+        console.log('SimpleFanDashboard: Attempting to load campaigns...', {
+          hasSession: !!session,
+        });
+
         // Try to load fan campaigns
         const response = await fetch('/api/fan/campaigns', {
           credentials: 'include', // Include cookies/session
           headers: {
-            'Content-Type': 'application/json'
-          }
+            'Content-Type': 'application/json',
+          },
         });
-        
+
         console.log('SimpleFanDashboard: API response status:', response.status);
-        
+
         if (response.ok) {
           const data = await response.json();
           console.log('SimpleFanDashboard: Campaign data loaded:', data);
@@ -84,7 +91,9 @@ export default function SimpleFanDashboard() {
           console.log('SimpleFanDashboard: Unauthorized - using demo data');
           setCampaigns(getDemoFanCampaigns());
         } else if (response.status === 500) {
-          console.log('SimpleFanDashboard: Server error - using demo data while API is being fixed');
+          console.log(
+            'SimpleFanDashboard: Server error - using demo data while API is being fixed'
+          );
           setCampaigns(getDemoFanCampaigns());
         } else {
           console.error('SimpleFanDashboard: API error:', response.status, response.statusText);
@@ -99,7 +108,7 @@ export default function SimpleFanDashboard() {
       }
     };
 
-    if (session) {
+    if (session && CAMPAIGNS_ON) {
       console.log('SimpleFanDashboard: Session found, loading data...', session.user);
       loadData();
     } else {
@@ -137,7 +146,9 @@ export default function SimpleFanDashboard() {
             Welcome back, {session?.user?.name || 'Fan'}! 🎵
           </h1>
           <p className='text-pink-100 text-lg'>
-            Join artist campaigns, discover amazing content, and connect with the community.
+            {CAMPAIGNS_ON
+              ? 'Join artist campaigns, discover amazing content, and connect with the community.'
+              : 'Catch the latest drops and listening parties from the community.'}
           </p>
         </div>
       </div>
@@ -158,31 +169,48 @@ export default function SimpleFanDashboard() {
             </div>
           </Link>
 
-          <Link
-            href='/campaigns'
-            className='bg-white rounded-lg p-6 shadow hover:shadow-md transition-shadow'
-          >
-            <div className='flex items-center gap-3'>
-              <span className='text-2xl'>🏆</span>
-              <div>
-                <h3 className='font-semibold'>Discover Campaigns</h3>
-                <p className='text-sm text-gray-600'>Find new campaigns</p>
-              </div>
-            </div>
-          </Link>
+          {CAMPAIGNS_ON ? (
+            <>
+              <Link
+                href='/campaigns'
+                className='bg-white rounded-lg p-6 shadow hover:shadow-md transition-shadow'
+              >
+                <div className='flex items-center gap-3'>
+                  <span className='text-2xl'>🏆</span>
+                  <div>
+                    <h3 className='font-semibold'>Discover Campaigns</h3>
+                    <p className='text-sm text-gray-600'>Find new campaigns</p>
+                  </div>
+                </div>
+              </Link>
 
-          <Link
-            href='/dashboard/fan/campaigns'
-            className='bg-white rounded-lg p-6 shadow hover:shadow-md transition-shadow'
-          >
-            <div className='flex items-center gap-3'>
-              <span className='text-2xl'>👥</span>
-              <div>
-                <h3 className='font-semibold'>My Campaigns</h3>
-                <p className='text-sm text-gray-600'>{campaigns.length} active</p>
+              <Link
+                href='/dashboard/fan/campaigns'
+                className='bg-white rounded-lg p-6 shadow hover:shadow-md transition-shadow'
+              >
+                <div className='flex items-center gap-3'>
+                  <span className='text-2xl'>👥</span>
+                  <div>
+                    <h3 className='font-semibold'>My Campaigns</h3>
+                    <p className='text-sm text-gray-600'>{campaigns.length} active</p>
+                  </div>
+                </div>
+              </Link>
+            </>
+          ) : (
+            <Link
+              href='/community'
+              className='bg-white rounded-lg p-6 shadow hover:shadow-md transition-shadow'
+            >
+              <div className='flex items-center gap-3'>
+                <span className='text-2xl'>🎟️</span>
+                <div>
+                  <h3 className='font-semibold'>Community</h3>
+                  <p className='text-sm text-gray-600'>Drops and listening parties</p>
+                </div>
               </div>
-            </div>
-          </Link>
+            </Link>
+          )}
 
           <Link
             href='/messages'
@@ -211,88 +239,92 @@ export default function SimpleFanDashboard() {
           </Link>
         </div>
 
-        {/* My Campaigns */}
-        <div className='mb-12'>
-          <h2 className='text-2xl font-bold mb-6'>My Campaigns</h2>
+        {CAMPAIGNS_ON && (
+          <>
+            {/* My Campaigns */}
+            <div className='mb-12'>
+              <h2 className='text-2xl font-bold mb-6'>My Campaigns</h2>
 
-          {campaigns.length === 0 ? (
-            <div className='bg-white rounded-lg p-8 text-center shadow'>
-              <span className='text-4xl mb-4 block'>🏆</span>
-              <h3 className='text-lg font-semibold mb-2'>No campaigns yet</h3>
-              <p className='text-gray-600 mb-4'>
-                Join artist campaigns to showcase your creativity
-              </p>
-              <Link
-                href='/campaigns'
-                className='bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-colors'
-              >
-                Discover Campaigns
-              </Link>
-            </div>
-          ) : (
-            <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
-              {campaigns.map(campaign => (
-                <div
-                  key={campaign.id}
-                  className='bg-white rounded-lg p-6 shadow hover:shadow-md transition-shadow'
-                >
-                  <div className='flex items-center gap-2 mb-3'>
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        campaign.status === 'ACTIVE'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}
-                    >
-                      {campaign.status}
-                    </span>
-                  </div>
-
-                  <h4 className='font-semibold text-gray-900 text-sm mb-2'>{campaign.title}</h4>
-
-                  <p className='text-xs text-gray-600 mb-3'>by {campaign.artist.name}</p>
-
-                  <div className='flex items-center justify-between text-xs text-gray-600 mb-4'>
-                    <div>📝 {campaign.userSubmissions} submissions</div>
-                    <div>📅 Ends {new Date(campaign.endDate).toLocaleDateString()}</div>
-                  </div>
-
+              {campaigns.length === 0 ? (
+                <div className='bg-white rounded-lg p-8 text-center shadow'>
+                  <span className='text-4xl mb-4 block'>🏆</span>
+                  <h3 className='text-lg font-semibold mb-2'>No campaigns yet</h3>
+                  <p className='text-gray-600 mb-4'>
+                    Join artist campaigns to showcase your creativity
+                  </p>
                   <Link
-                    href={`/campaigns/${campaign.id}`}
-                    className='block w-full text-center bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm font-medium transition-colors'
+                    href='/campaigns'
+                    className='bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-colors'
                   >
-                    View Campaign
+                    Discover Campaigns
                   </Link>
                 </div>
-              ))}
+              ) : (
+                <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
+                  {campaigns.map(campaign => (
+                    <div
+                      key={campaign.id}
+                      className='bg-white rounded-lg p-6 shadow hover:shadow-md transition-shadow'
+                    >
+                      <div className='flex items-center gap-2 mb-3'>
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            campaign.status === 'ACTIVE'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}
+                        >
+                          {campaign.status}
+                        </span>
+                      </div>
+
+                      <h4 className='font-semibold text-gray-900 text-sm mb-2'>{campaign.title}</h4>
+
+                      <p className='text-xs text-gray-600 mb-3'>by {campaign.artist.name}</p>
+
+                      <div className='flex items-center justify-between text-xs text-gray-600 mb-4'>
+                        <div>📝 {campaign.userSubmissions} submissions</div>
+                        <div>📅 Ends {new Date(campaign.endDate).toLocaleDateString()}</div>
+                      </div>
+
+                      <Link
+                        href={`/campaigns/${campaign.id}`}
+                        className='block w-full text-center bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm font-medium transition-colors'
+                      >
+                        View Campaign
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        {/* Stats Summary */}
-        <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6'>
-          <div className='bg-white rounded-lg p-6 shadow text-center'>
-            <div className='text-2xl font-bold text-purple-600'>{campaigns.length}</div>
-            <div className='text-sm text-gray-600'>Active Campaigns</div>
-          </div>
+            {/* Stats Summary */}
+            <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6'>
+              <div className='bg-white rounded-lg p-6 shadow text-center'>
+                <div className='text-2xl font-bold text-purple-600'>{campaigns.length}</div>
+                <div className='text-sm text-gray-600'>Active Campaigns</div>
+              </div>
 
-          <div className='bg-white rounded-lg p-6 shadow text-center'>
-            <div className='text-2xl font-bold text-green-600'>
-              {campaigns.reduce((sum, c) => sum + c.userSubmissions, 0)}
+              <div className='bg-white rounded-lg p-6 shadow text-center'>
+                <div className='text-2xl font-bold text-green-600'>
+                  {campaigns.reduce((sum, c) => sum + c.userSubmissions, 0)}
+                </div>
+                <div className='text-sm text-gray-600'>Total Submissions</div>
+              </div>
+
+              <div className='bg-white rounded-lg p-6 shadow text-center'>
+                <div className='text-2xl font-bold text-yellow-600'>0</div>
+                <div className='text-sm text-gray-600'>Featured Content</div>
+              </div>
+
+              <div className='bg-white rounded-lg p-6 shadow text-center'>
+                <div className='text-2xl font-bold text-pink-600'>0</div>
+                <div className='text-sm text-gray-600'>Active Subscriptions</div>
+              </div>
             </div>
-            <div className='text-sm text-gray-600'>Total Submissions</div>
-          </div>
-
-          <div className='bg-white rounded-lg p-6 shadow text-center'>
-            <div className='text-2xl font-bold text-yellow-600'>0</div>
-            <div className='text-sm text-gray-600'>Featured Content</div>
-          </div>
-
-          <div className='bg-white rounded-lg p-6 shadow text-center'>
-            <div className='text-2xl font-bold text-pink-600'>0</div>
-            <div className='text-sm text-gray-600'>Active Subscriptions</div>
-          </div>
-        </div>
+          </>
+        )}
       </div>
     </div>
   );

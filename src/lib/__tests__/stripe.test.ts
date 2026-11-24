@@ -45,6 +45,11 @@ import {
   createCheckoutSession,
   createOrRetrieveCustomer,
   createCustomerPortalSession,
+  calculatePlatformFeeCents,
+  DEFAULT_PLATFORM_FEE_PERCENT,
+  PLATFORM_FEE_RATE,
+  platformFeePercentForStripe,
+  resolvePlatformFeePercent,
 } from '../stripe';
 
 describe('Stripe Integration', () => {
@@ -223,9 +228,7 @@ describe('Stripe Integration', () => {
           metadata,
           subscription_data: {
             metadata,
-          },
-          payment_intent_data: {
-            application_fee_amount: 50, // 5% of $10.00
+            application_fee_percent: 10,
           },
         },
         {
@@ -233,6 +236,14 @@ describe('Stripe Integration', () => {
         }
       );
       expect(result).toBe('https://checkout.stripe.com/test');
+    });
+  });
+
+  describe('platformFeePercentForStripe', () => {
+    it('turns the fee rate into a percent with at most two decimals', () => {
+      expect(platformFeePercentForStripe(0.1)).toBe(10);
+      expect(platformFeePercentForStripe(0.075)).toBe(7.5);
+      expect(platformFeePercentForStripe(0.12345)).toBe(12.35);
     });
   });
 
@@ -301,5 +312,24 @@ describe('Stripe Integration', () => {
       );
       expect(result).toBe('https://billing.stripe.com/test');
     });
+  });
+});
+
+describe('platform fee', () => {
+  it('defaults to 10% on every checkout', () => {
+    expect(DEFAULT_PLATFORM_FEE_PERCENT).toBe(10);
+    expect(PLATFORM_FEE_RATE).toBe(0.1);
+    expect(calculatePlatformFeeCents(1000)).toBe(100);
+    expect(calculatePlatformFeeCents(333)).toBe(33);
+  });
+
+  it('reads PLATFORM_FEE_PERCENT and ignores values nobody would choose', () => {
+    expect(resolvePlatformFeePercent(undefined)).toBe(10);
+    expect(resolvePlatformFeePercent('')).toBe(10);
+    expect(resolvePlatformFeePercent('7.5')).toBe(7.5);
+    expect(resolvePlatformFeePercent('0')).toBe(0);
+    expect(resolvePlatformFeePercent('abc')).toBe(10);
+    expect(resolvePlatformFeePercent('-1')).toBe(10);
+    expect(resolvePlatformFeePercent('80')).toBe(10);
   });
 });

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { EyeIcon, EyeSlashIcon, CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline';
 import { UserIcon, MicrophoneIcon, HeartIcon, CameraIcon } from '@heroicons/react/24/solid';
+import { readInviteFromHash } from '@/lib/invite-link';
 
 // Password validation helpers
 const passwordChecks = {
@@ -31,6 +32,7 @@ export default function SignUpPage() {
     confirmPassword: '',
     displayName: '',
     role: 'FAN' as 'ARTIST' | 'FAN',
+    inviteCode: '',
     agreedToTerms: false,
     emailUpdates: true,
   });
@@ -51,6 +53,16 @@ export default function SignUpPage() {
   });
 
   const router = useRouter();
+
+  // An artist invite link carries its code in the fragment (#invite=...),
+  // which never reaches the server. Fill it in, pick the artist role, and
+  // drop the code from the address bar.
+  useEffect(() => {
+    const code = readInviteFromHash(window.location.hash);
+    if (!code) return;
+    setFormData(prev => ({ ...prev, role: 'ARTIST', inviteCode: code }));
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+  }, []);
 
   // Real-time validation
   useEffect(() => {
@@ -111,6 +123,9 @@ export default function SignUpPage() {
           password: formData.password,
           displayName: formData.displayName,
           role: formData.role,
+          ...(formData.role === 'ARTIST' && formData.inviteCode.trim()
+            ? { inviteCode: formData.inviteCode.trim() }
+            : {}),
         }),
       });
 
@@ -449,6 +464,26 @@ export default function SignUpPage() {
             </div>
           </div>
         </div>
+
+        {/* Artists join by invite */}
+        {formData.role === 'ARTIST' && (
+          <div>
+            <label htmlFor='inviteCode' className='block text-sm font-semibold text-gray-700 mb-2'>
+              Artist invite code
+            </label>
+            <input
+              id='inviteCode'
+              type='text'
+              autoComplete='off'
+              required
+              value={formData.inviteCode}
+              onChange={e => setFormData({ ...formData, inviteCode: e.target.value })}
+              className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+              placeholder='From your invite'
+            />
+            <p className='mt-1 text-xs text-gray-500'>Artist accounts are by invite.</p>
+          </div>
+        )}
 
         {/* Terms and Privacy */}
         <div className='pt-4 space-y-4'>

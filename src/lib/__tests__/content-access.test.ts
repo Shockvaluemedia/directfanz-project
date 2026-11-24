@@ -26,6 +26,9 @@ jest.mock('../prisma', () => ({
     tiers: {
       findMany: jest.fn(),
     },
+    purchases: {
+      findFirst: jest.fn(),
+    },
   },
 }));
 
@@ -300,5 +303,54 @@ describe('Content Access Control', () => {
       expect(result.gatedContent).toBe(7); // 10 total - 3 public
       expect(result.subscriptions).toHaveLength(1);
     });
+  });
+});
+
+describe('checkContentAccess with drops', () => {
+  const dropContent = {
+    id: 'content-1',
+    artistId: 'artist-1',
+    visibility: 'PRIVATE',
+    tiers: [],
+    drop_content: [{ dropId: 'drop-1' }, { dropId: 'drop-2' }],
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('grants access to a fan who bought a drop containing the content', async () => {
+    (prisma.content.findUnique as jest.Mock).mockResolvedValue(dropContent);
+    ((prisma as any).purchases.findFirst as jest.Mock).mockResolvedValue({ id: 'pur-1' });
+
+    const result = await checkContentAccess('fan-1', 'content-1');
+
+    expect(result).toEqual({ hasAccess: true, reason: 'purchase' });
+    expect((prisma as any).purchases.findFirst).toHaveBeenCalledWith({
+      where: {
+        fanId: 'fan-1',
+        itemType: 'DROP',
+        itemId: { in: ['drop-1', 'drop-2'] },
+        status: 'PAID',
+      },
+      select: { id: true },
+    });
+  });
+
+  it('denies a fan without a paid purchase', async () => {
+    (prisma.content.findUnique as jest.Mock).mockResolvedValue(dropContent);
+    ((prisma as any).purchases.findFirst as jest.Mock).mockResolvedValue(null);
+
+    const result = await checkContentAccess('fan-1', 'content-1');
+
+    expect(result.hasAccess).toBe(false);
+  });
+
+  it('does not look up purchases for content outside any drop', async () => {
+    (prisma.content.findUnique as jest.Mock).mockResolvedValue({ ...dropContent, drop_content: [] });
+
+    await checkContentAccess('fan-1', 'content-1');
+
+    expect((prisma as any).purchases.findFirst).not.toHaveBeenCalled();
   });
 });

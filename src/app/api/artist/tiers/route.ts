@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withArtistApi } from '@/lib/api-auth';
 import { getTiersByArtistId, createTier } from '@/lib/database';
 import { createTierSchema } from '@/lib/validations';
+import { assertNoOtherActiveTier, MembershipError } from '@/lib/membership';
 import { z } from 'zod';
 
 // GET /api/artist/tiers - Get all tiers for the authenticated artist
@@ -36,6 +37,9 @@ export async function POST(request: NextRequest) {
       // Validate request body
       const validatedData = createTierSchema.parse(body);
 
+      // One membership per artist.
+      await assertNoOtherActiveTier(req.user.id);
+
       // Check if artist already has a tier with the same name
       const existingTiers = await getTiersByArtistId(req.user.id);
       const duplicateName = existingTiers.find(
@@ -68,6 +72,12 @@ export async function POST(request: NextRequest) {
         { status: 201 }
       );
     } catch (error) {
+      if (error instanceof MembershipError) {
+        return NextResponse.json(
+          { success: false, error: error.message },
+          { status: error.status }
+        );
+      }
       if (error instanceof z.ZodError) {
         return NextResponse.json(
           {
