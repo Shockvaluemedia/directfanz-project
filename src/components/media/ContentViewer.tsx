@@ -6,6 +6,7 @@ import { AudioPlayer } from './AudioPlayer';
 import { ImageViewer } from './ImageViewer';
 import { ContentAccessControl } from './ContentAccessControl';
 import { CommentSystem } from '../comments/CommentSystem';
+import { MEDIA_KINDS, formatRuntime, type MediaKind } from '@/lib/media-kinds';
 
 interface ContentViewerProps {
   contentId: string;
@@ -24,6 +25,10 @@ interface ContentData {
   /** Raw storage URL, only sent for public content or to the owner. */
   fileUrl?: string;
   thumbnailUrl?: string;
+  /** Single, documentary, film... (src/lib/media-kinds.ts). */
+  kind?: MediaKind;
+  /** Whole seconds. */
+  duration?: number;
   visibility: string;
   tags: string[];
   createdAt: string;
@@ -72,6 +77,8 @@ function toContentData(raw: any): ContentData {
     downloadUrl: raw.downloadUrl,
     fileUrl: raw.fileUrl,
     thumbnailUrl: raw.thumbnailUrl ?? undefined,
+    kind: raw.kind && raw.kind in MEDIA_KINDS ? raw.kind : undefined,
+    duration: typeof raw.duration === 'number' && raw.duration > 0 ? raw.duration : undefined,
     visibility: raw.visibility ?? 'PUBLIC',
     tags: Array.isArray(raw.tags) ? raw.tags : [],
     createdAt: raw.createdAt,
@@ -182,8 +189,13 @@ export function ContentViewer({ contentId, className, onSubscribe }: ContentView
     );
   }
 
+  const releaseLabel = [content.kind ? MEDIA_KINDS[content.kind] : null, formatRuntime(content.duration)]
+    .filter(Boolean)
+    .join(' · ');
+
   return (
     <div className={`space-y-6 ${className}`}>
+      {releaseLabel && <p className='text-sm text-muted-foreground'>{releaseLabel}</p>}
       <ContentAccessControl content={content} onSubscribe={onSubscribe}>
         {renderMediaPlayer}
       </ContentAccessControl>

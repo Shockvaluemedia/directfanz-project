@@ -1,6 +1,8 @@
 import { randomUUID } from 'crypto';
 import {
   FILE_SIZE_LIMITS,
+  MAX_PART_LINKS_PER_REQUEST,
+  maxPartsFor,
   UPLOAD_PURPOSES,
   purposeAllowsType,
   type UploadPurpose,
@@ -112,6 +114,59 @@ export async function createDirectUpload({
   };
 }
 
+export interface SignPartsInput {
+  userId: string;
+  key: string;
+  fileType: string;
+  uploadId: string;
+  partNumbers: number[];
+  /** Content uploads (paid media) are for artists only. */
+  isArtist: boolean;
+}
+
+/**
+ * Fresh signed links for parts of a multipart upload that is still open.
+ *
+ * Part links live for S3_UPLOAD_URL_TTL_SECONDS (15 minutes by default), and a
+ * link signed with the task role's temporary credentials can die sooner. A
+ * documentary or film can take longer than that to send, so the browser asks
+ * for new links as it goes instead of using ones signed at the start. The same
+ * checks as confirmation apply: the key must be the caller's own, of an
+ * allowed type for its area, and the part numbers within the type's limit.
+ */
+export async function signUploadParts(input: SignPartsInput): Promise<{ partNumber: number; url: string }[]> {
+  const storage = requireStorage();
+  if (!isKeyOwnedBy(input.key, input.userId)) {
+    throw new UploadRejectedError('Upload does not belong to this account', 403);
+  }
+  const info = fileInfo(input.fileType);
+  if (!info) throw new UploadRejectedError(`Unsupported file type: ${input.fileType}`);
+  const area = keyArea(input.key);
+  if (!area || !areaAllowsType(area, input.fileType) || !input.key.endsWith(`.${info.extension}`)) {
+    throw new UploadRejectedError('File type is not allowed for this upload');
+  }
+  if (area === 'content' && !input.isArtist) {
+    throw new UploadRejectedError('Artist account required', 403);
+  }
+  const maxParts = maxPartsFor(input.fileType);
+  const numbers = Array.from(new Set(input.partNumbers));
+  if (
+    numbers.length === 0 ||
+    numbers.length > MAX_PART_LINKS_PER_REQUEST ||
+    !numbers.every(n => Number.isInteger(n) && n >= 1 && n <= maxParts)
+  ) {
+    throw new UploadRejectedError('Invalid part numbers');
+  }
+
+  const expiresIn = signedUrlTtl.upload();
+  return Promise.all(
+    numbers.map(async partNumber => ({
+      partNumber,
+      url: await storage.presignUploadPart(input.key, input.uploadId, partNumber, expiresIn),
+    }))
+  );
+}
+
 export interface ConfirmUploadInput {
   userId: string;
   key: string;
@@ -153,7 +208,7 @@ export async function confirmDirectUpload(input: ConfirmUploadInput): Promise<Co
 
   if (input.multipart) {
     const { uploadId, parts } = input.multipart;
-    const maxParts = Math.ceil(FILE_SIZE_LIMITS[info.category] / MULTIPART_PART_BYTES);
+    const maxParts = maxPartsFor(input.fileType);
     const valid =
       parts.length > 0 &&
       parts.length <= maxParts &&

@@ -21,6 +21,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { shouldRecoverPlayback, withPlaybackAttempt } from '@/lib/playback-recovery';
 
 interface VideoPlayerProps {
   src: string;
@@ -49,6 +50,7 @@ export function VideoPlayer({
   const containerRef = useRef<HTMLDivElement>(null);
 
   const [isPlaying, setIsPlaying] = useState(false);
+  const isPlayingRef = useRef(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
@@ -62,6 +64,20 @@ export function VideoPlayer({
   // Auto-hide controls timer
   const hideControlsTimer = useRef<NodeJS.Timeout>();
 
+  // Long videos outlive one signed playback link: on a failure after the video
+  // has played, ask the stream route again and resume at the same spot.
+  const [attempt, setAttempt] = useState(0);
+  const [playbackError, setPlaybackError] = useState<string | null>(null);
+  const recovery = useRef({ hadLoaded: false, recoveries: 0, lastRecoveryAt: null as number | null });
+  const resumeAt = useRef<{ time: number; play: boolean } | null>(null);
+
+  useEffect(() => {
+    setAttempt(0);
+    setPlaybackError(null);
+    recovery.current = { hadLoaded: false, recoveries: 0, lastRecoveryAt: null };
+    resumeAt.current = null;
+  }, [src]);
+
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -69,6 +85,31 @@ export function VideoPlayer({
     const handleLoadedData = () => {
       setLoading(false);
       setDuration(video.duration);
+      recovery.current.hadLoaded = true;
+      const resume = resumeAt.current;
+      if (resume) {
+        resumeAt.current = null;
+        video.currentTime = resume.time;
+        if (resume.play) void video.play().catch(() => undefined);
+      }
+    };
+
+    const handleError = () => {
+      const now = Date.now();
+      if (shouldRecoverPlayback({ ...recovery.current, now })) {
+        recovery.current.recoveries += 1;
+        recovery.current.lastRecoveryAt = now;
+        resumeAt.current = { time: video.currentTime, play: !video.paused || isPlayingRef.current };
+        setLoading(true);
+        setAttempt(n => n + 1);
+        return;
+      }
+      setLoading(false);
+      setPlaybackError(
+        recovery.current.hadLoaded
+          ? 'Playback stopped. Refresh the page to keep watching.'
+          : "This video can't play in this browser. MP4 (H.264) plays everywhere."
+      );
     };
 
     const handleTimeUpdate = () => {
@@ -77,12 +118,14 @@ export function VideoPlayer({
     };
 
     const handlePlay = () => {
+      isPlayingRef.current = true;
       setIsPlaying(true);
       onPlay?.();
       trackView();
     };
 
     const handlePause = () => {
+      isPlayingRef.current = false;
       setIsPlaying(false);
       onPause?.();
     };
@@ -103,8 +146,10 @@ export function VideoPlayer({
     video.addEventListener('pause', handlePause);
     video.addEventListener('ended', handleEnded);
     video.addEventListener('volumechange', handleVolumeChange);
+    video.addEventListener('error', handleError);
 
     return () => {
+      video.removeEventListener('error', handleError);
       video.removeEventListener('loadeddata', handleLoadedData);
       video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('play', handlePlay);
@@ -228,18 +273,28 @@ export function VideoPlayer({
         onMouseEnter={resetControlsTimer}
       >
         {/* Video Element */}
+        {/* src on the element (not a <source>) so network errors reach its error event.
+            No hard-coded type: the gated stream route sets the real Content-Type. */}
         <video
           ref={videoRef}
+          src={withPlaybackAttempt(src, attempt)}
           className='w-full h-full object-contain'
           poster={poster}
           preload='metadata'
           playsInline
           onClick={togglePlay}
         >
-          {/* No hard-coded type: the gated stream route sets the real Content-Type. */}
-          <source src={src} />
           Your browser does not support the video tag.
         </video>
+
+        {playbackError && (
+          <div
+            role='alert'
+            className='absolute inset-0 flex items-center justify-center bg-black/80 p-6 text-center text-sm text-white'
+          >
+            {playbackError}
+          </div>
+        )}
 
         {/* Loading Overlay */}
         {loading && (
