@@ -28,13 +28,17 @@ const apiRateLimiter = new AdaptiveRateLimiter({
   maxViolations: 3,
 });
 
+// Coarse per-instance flood guard for every /api/auth/ route, including the
+// session reads NextAuth makes on each page. Wrong-password limits and account
+// lockout are enforced with Redis where the password is checked
+// (src/lib/login-guard.ts), because this edge middleware can't reach Redis.
 const authRateLimiter = new AdaptiveRateLimiter({
   windowMs: 60 * 1000, // 1 minute
-  maxRequests: 100, // 100 requests per minute (increased for testing)
-  adaptiveRateLimiting: false, // Disabled for testing
-  burstProtection: false, // Disabled for testing
-  blockDuration: 60000, // 1 minute
-  maxViolations: 10, // Higher threshold for testing
+  maxRequests: 60, // 60 requests per minute per IP
+  adaptiveRateLimiting: false, // Session polling would read as suspicious
+  burstProtection: false,
+  blockDuration: 5 * 60 * 1000, // 5 minutes
+  maxViolations: 5,
   skipIpRanges: ['127.0.0.1', '::1'], // Skip localhost
 });
 
