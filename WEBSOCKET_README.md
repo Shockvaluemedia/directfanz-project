@@ -53,7 +53,7 @@ src/
 Add to your `.env.local`:
 
 ```env
-NEXT_PUBLIC_WS_URL=http://localhost:3000  # WebSocket server URL
+NEXT_PUBLIC_WEBSOCKET_URL=http://localhost:3000  # socket.io URL; unset = same origin
 NEXTAUTH_SECRET=your-secret-here          # Required for JWT token verification
 ```
 
@@ -319,7 +319,7 @@ features:
 
 **WebSocket connection fails**
 
-- Check `NEXT_PUBLIC_WS_URL` environment variable
+- Check the `NEXT_PUBLIC_WEBSOCKET_URL` environment variable (unset means same origin)
 - Ensure custom server is running (`npm run dev`)
 - Verify JWT token is valid
 

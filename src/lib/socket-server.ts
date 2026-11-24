@@ -1,7 +1,6 @@
 import { Server } from 'socket.io';
 import { createServer } from 'http';
-import { parse } from 'cookie';
-import { setupStreamingSignaling } from './streaming/webrtc-signaling-server';
+import { authenticateSocket } from './socket-auth';
 import { initializeStreamingWebSocket } from './streaming-websocket';
 
 let io: Server | null = null;
@@ -13,7 +12,7 @@ import type { Socket } from 'socket.io';
 const userSessions = new Map<string, {
   userId: string;
   username: string;
-  role: 'ARTIST' | 'FAN';
+  role: 'ARTIST' | 'FAN' | 'ADMIN';
   socketId: string;
   lastSeen: Date;
   isOnline: boolean;
@@ -37,7 +36,7 @@ const activeConversations = new Map<string, {
 interface AuthenticatedSocket extends Socket {
   userId?: string;
   username?: string;
-  role?: 'ARTIST' | 'FAN';
+  role?: 'ARTIST' | 'FAN' | 'ADMIN';
 }
 
 export function initializeSocket(server: any) {
@@ -53,28 +52,15 @@ export function initializeSocket(server: any) {
     transports: ['websocket', 'polling'],
   });
 
-  // Authentication middleware
+  // Authentication: the real NextAuth session from the handshake cookie.
   io.use(async (socket: any, next) => {
     try {
-      const cookies = parse(socket.handshake.headers.cookie || '');
-      const token = cookies['next-auth.session-token'] || cookies['__Secure-next-auth.session-token'];
-      
-      if (!token) {
-        return next(new Error('Authentication required'));
-      }
+      const user = await authenticateSocket(socket.handshake);
+      if (!user) return next(new Error('Authentication required'));
 
-      // In a real implementation, you would verify the JWT token
-      // For now, we'll use a simple demo authentication
-      const mockUser = {
-        id: `user_${Math.random().toString(36).substr(2, 9)}`,
-        username: `User${Math.floor(Math.random() * 1000)}`,
-        role: Math.random() > 0.5 ? 'ARTIST' : 'FAN' as 'ARTIST' | 'FAN',
-      };
-
-      socket.userId = mockUser.id;
-      socket.username = mockUser.username;
-      socket.role = mockUser.role;
-      
+      socket.userId = user.id;
+      socket.username = user.name;
+      socket.role = user.role;
       next();
     } catch (error) {
       next(new Error('Authentication failed'));
@@ -316,7 +302,6 @@ export function initializeSocket(server: any) {
   });
 
   // Initialize streaming signaling
-  setupStreamingSignaling(io);
 
   // Initialize streaming WebSocket with authentication
   initializeStreamingWebSocket(io);

@@ -419,6 +419,12 @@ model live_streams {
   isPublic             Boolean                @default(false)
   requiresPayment      Boolean                @default(false)
   paymentAmount        Decimal?
+  /// Amazon IVS channel for a listening party (see src/lib/ivs.ts). The stream
+  /// key value is never stored; it is read from IVS by its ARN for the artist.
+  ivsChannelArn        String?                @unique
+  ivsIngestEndpoint    String?
+  ivsPlaybackUrl       String?
+  ivsStreamKeyArn      String?
   createdAt            DateTime               @default(now())
   updatedAt            DateTime
   users                users                  @relation(fields: [artistId], references: [id], onDelete: Cascade)

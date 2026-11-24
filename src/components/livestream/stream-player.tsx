@@ -16,8 +16,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'react-hot-toast';
-import WebRTCViewer from './webrtc-viewer';
-import WebRTCBroadcaster from './webrtc-broadcaster';
+import Link from 'next/link';
+import IvsPlayer from './ivs-player';
 
 interface StreamMessage {
   id: string;
@@ -291,34 +291,18 @@ export default function StreamPlayer({
       <div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
         {/* Video Player */}
         <div className='lg:col-span-2'>
-          {/* Check if user owns this stream to show broadcaster controls */}
-          {stream.artist.id === session?.user?.id ? (
-            <div className='space-y-4'>
-              <WebRTCBroadcaster
-                streamId={streamId}
-                streamKey={stream.streamKey || ''}
-                onStreamStart={onStreamStart}
-                onStreamEnd={onStreamEnd}
-                onViewerCountChange={count => {
-                  // Update local state with viewer count
-                  stream.currentViewers = new Array(count).fill({});
-                }}
-              />
-            </div>
-          ) : (
-            <div className='space-y-4'>
-              <WebRTCViewer
-                streamId={streamId}
-                onViewerCountChange={count => {
-                  // Update local state with viewer count
-                  stream.currentViewers = new Array(count).fill({});
-                }}
-                onStreamStatusChange={status => {
-                  console.log('Stream status changed:', status);
-                }}
-              />
-            </div>
-          )}
+          {/* The party plays from Amazon IVS; the artist broadcasts from the broadcast page. */}
+          <div className='space-y-4'>
+            <IvsPlayer streamId={streamId} />
+            {stream.artist.id === session?.user?.id && (
+              <Link
+                href={`/dashboard/artist/livestreams/${streamId}/broadcast`}
+                className='inline-block text-sm text-blue-600 hover:underline'
+              >
+                Open the broadcast page
+              </Link>
+            )}
+          </div>
 
           {/* Artist Info */}
           <Card className='mt-4'>
