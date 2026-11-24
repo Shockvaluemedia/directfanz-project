@@ -793,6 +793,12 @@ model drops {
   /// Units held by checkouts still in progress (see src/lib/drops.ts reserveDropUnit).
   reservedCount         Int            @default(0)
   status                String         @default("DRAFT")
+  /// What the release cost to make and promote, entered by the artist for the
+  /// release report (src/lib/release-report.ts). In the drop's currency.
+  costRecording         Decimal        @default(0)
+  costVideo             Decimal        @default(0)
+  costMarketing         Decimal        @default(0)
+  costOther             Decimal        @default(0)
   createdAt             DateTime       @default(now())
   updatedAt             DateTime       @updatedAt
   users                 users          @relation(fields: [artistId], references: [id], onDelete: Cascade)
