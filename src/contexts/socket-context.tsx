@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useSession } from 'next-auth/react';
+import { getSocketUrl } from '@/lib/socket-url';
 
 // Types for messaging
 export interface Message {
@@ -100,9 +101,7 @@ export function SocketProvider({ children }: SocketProviderProps) {
     console.log('Initializing socket connection...');
     
     // WebSocket URL configuration
-    const websocketUrl = process.env.NODE_ENV === 'production'
-      ? process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'wss://your-websocket-server.railway.app' 
-      : 'http://localhost:3001';
+    const websocketUrl = getSocketUrl();
     
     console.log('Connecting to WebSocket:', websocketUrl);
     

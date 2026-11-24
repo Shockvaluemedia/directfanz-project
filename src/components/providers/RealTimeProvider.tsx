@@ -13,6 +13,7 @@ import React, {
 import { io, Socket } from 'socket.io-client';
 import { useSession } from 'next-auth/react';
 import { toast } from 'sonner';
+import { getSocketUrl } from '@/lib/socket-url';
 // Simple console logger fallback
 const logger = {
   info: (message: string, data?: any) => console.log(`[RealTime] ${message}`, data),
@@ -230,7 +231,7 @@ export function RealTimeProvider({ children }: RealTimeProviderProps) {
   // Initialize socket connection with proper cleanup
   useEffect(() => {
     if (status === 'authenticated' && session?.user) {
-      const newSocket = io(process.env.NEXT_PUBLIC_WEBSOCKET_URL || '', {
+      const newSocket = io(getSocketUrl(), {
         auth: {
           token: session.accessToken,
           userId: session.user.id,

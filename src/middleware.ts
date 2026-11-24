@@ -120,8 +120,9 @@ export async function middleware(request: NextRequest) {
     }
 
     const response = NextResponse.next();
-    // Apply browser-specific security headers
-    applySecurityHeaders(response);
+    // Apply browser-specific security headers (camera and mic only on the
+    // listening party broadcast page)
+    applySecurityHeaders(response, request.nextUrl.pathname);
     return response;
   }
 

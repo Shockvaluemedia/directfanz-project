@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { getSocketUrl } from '@/lib/socket-url';
 
 interface UseSocketOptions {
   url?: string;
@@ -21,7 +22,7 @@ interface SocketState {
 }
 
 export function useSocket({
-  url = process.env.NEXT_PUBLIC_SOCKET_URL || 'ws://localhost:3001',
+  url = getSocketUrl(),
   userId,
   autoConnect = true,
   reconnectAttempts = 5,

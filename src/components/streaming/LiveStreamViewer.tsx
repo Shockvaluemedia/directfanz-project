@@ -46,6 +46,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import HLSPlayer from './HLSPlayer';
 import EmojiPicker from 'emoji-picker-react';
+import { getSocketUrl } from '@/lib/socket-url';
 
 // Types
 interface Stream {
@@ -182,7 +183,7 @@ export default function LiveStreamViewer({
     fetchStream();
 
     // Initialize WebSocket for real-time features
-    const newSocket = io(process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3001', {
+    const newSocket = io(getSocketUrl(), {
       auth: {
         token: session?.accessToken,
       },

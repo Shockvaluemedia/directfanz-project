@@ -9,6 +9,7 @@ import {
   type Message,
   type User,
 } from '@/types/websocket';
+import { getSocketUrl } from '@/lib/socket-url';
 
 interface UseWebSocketOptions {
   autoConnect?: boolean;
@@ -96,7 +97,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
     setConnectionStatus(ConnectionStatus.CONNECTING);
     setError(null);
 
-    const socket = io(process.env.NEXT_PUBLIC_WS_URL || window.location.origin, {
+    const socket = io(getSocketUrl(), {
       auth: {
         token: session.accessToken,
       },
