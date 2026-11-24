@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { withoutStreamSecrets } from '@/lib/stream-access';
 import { v4 as uuidv4 } from 'uuid';
 
 export async function POST(request: NextRequest) {
@@ -83,7 +84,8 @@ export async function GET(request: NextRequest) {
       take: 20
     });
 
-    return NextResponse.json({ streams });
+    // Open to anyone, so strip what only the artist may hold.
+    return NextResponse.json({ streams: streams.map(stream => withoutStreamSecrets(stream, null)) });
 
   } catch (error) {
     console.error('Stream fetch error:', error);

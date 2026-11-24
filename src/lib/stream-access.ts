@@ -102,3 +102,32 @@ export function ticketPriceError(
   }
   return null;
 }
+
+/**
+ * The recording link a viewer may be given. The stored recordingUrl is a
+ * permanent storage URL, so only the artist sees it; everyone else gets the
+ * app route, which checks access on every request.
+ */
+export function clientRecordingUrl(
+  stream: { id: string; artistId: string; recordingUrl: string | null },
+  viewerId: string | null | undefined
+): string | null {
+  if (!stream.recordingUrl) return null;
+  if (viewerId && stream.artistId === viewerId) return stream.recordingUrl;
+  return `/api/livestream/${stream.id}/recording`;
+}
+
+/**
+ * A stream row as any viewer but its artist may receive it: no stream key
+ * (it lets the holder broadcast as the artist) and no raw recording URL.
+ */
+export function withoutStreamSecrets<
+  T extends { id: string; artistId: string; streamKey?: string | null; recordingUrl: string | null },
+>(stream: T, viewerId: string | null | undefined) {
+  const isOwner = Boolean(viewerId) && stream.artistId === viewerId;
+  return {
+    ...stream,
+    streamKey: isOwner ? stream.streamKey : undefined,
+    recordingUrl: clientRecordingUrl(stream, viewerId),
+  };
+}

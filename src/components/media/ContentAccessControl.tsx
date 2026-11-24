@@ -28,9 +28,10 @@ interface ContentData {
   title: string;
   description?: string;
   type: string;
-  fileUrl: string;
+  fileUrl?: string;
+  streamUrl?: string;
   thumbnailUrl?: string;
-  visibility: 'PUBLIC' | 'TIER_LOCKED' | 'PRIVATE';
+  visibility: string;
   tags: string[];
   createdAt: string;
   totalViews: number;
@@ -43,6 +44,8 @@ interface ContentData {
   likes?: number;
   hasLiked?: boolean;
   commentsCount?: number;
+  /** When the server has already decided access, that decision wins. */
+  hasAccess?: boolean;
 }
 
 interface UserSubscription {
@@ -70,12 +73,17 @@ export function ContentAccessControl({
   const [likeCount, setLikeCount] = useState(content.likes || 0);
 
   useEffect(() => {
+    // A server-side decision needs no client-side subscription lookup.
+    if (content.hasAccess !== undefined) {
+      setLoading(false);
+      return;
+    }
     if (session?.user) {
       fetchUserSubscriptions();
     } else {
       setLoading(false);
     }
-  }, [session?.user?.id]);
+  }, [session?.user?.id, content.hasAccess]);
 
   const fetchUserSubscriptions = async () => {
     try {
@@ -93,6 +101,11 @@ export function ContentAccessControl({
 
   // Check if user has access to this content
   const hasAccess = () => {
+    // The API decides access with the same rule the media routes enforce.
+    if (content.hasAccess !== undefined) {
+      return content.hasAccess;
+    }
+
     // Public content is always accessible
     if (content.visibility === 'PUBLIC') {
       return true;
@@ -207,7 +220,7 @@ export function ContentAccessControl({
               {content.visibility !== 'PUBLIC' && (
                 <Badge variant='secondary'>
                   <Lock className='h-3 w-3 mr-1' />
-                  {content.visibility === 'TIER_LOCKED' ? 'Subscribers Only' : 'Private'}
+                  {content.visibility === 'PRIVATE' ? 'Private' : 'Subscribers Only'}
                 </Badge>
               )}
               {content.tags.map((tag, index) => (
@@ -320,8 +333,8 @@ export function ContentAccessControl({
         </div>
       </Card>
 
-      {/* Subscription Options */}
-      {content.visibility === 'TIER_LOCKED' && content.tiers.length > 0 && (
+      {/* Subscription Options: any gated, non-private item (TIER_LOCKED or SUBSCRIBERS_ONLY) */}
+      {content.visibility !== 'PUBLIC' && content.visibility !== 'PRIVATE' && content.tiers.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className='flex items-center'>
@@ -377,8 +390,8 @@ export function ContentAccessControl({
         </Card>
       )}
 
-      {/* Login Prompt for Non-authenticated Users */}
-      {!session?.user && content.visibility === 'TIER_LOCKED' && (
+      {/* Login Prompt for Non-authenticated Users: any gated, non-private item */}
+      {!session?.user && content.visibility !== 'PUBLIC' && content.visibility !== 'PRIVATE' && (
         <Card>
           <CardContent className='p-6 text-center'>
             <Lock className='h-12 w-12 mx-auto mb-4 text-muted-foreground' />
