@@ -193,6 +193,14 @@ export default function ArtistDashboard() {
         stats: `${stats.engagementRate}% engagement`,
       },
       {
+        title: 'Release Report',
+        description: 'Sales, costs and profit per drop',
+        href: '/dashboard/artist/reports',
+        icon: CurrencyDollarIcon,
+        color: 'bg-emerald-500',
+        stats: 'Per release',
+      },
+      {
         title: 'Profile Settings',
         description: 'Update your profile',
         href: '/profile/settings',

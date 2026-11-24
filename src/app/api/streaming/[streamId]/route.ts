@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { canViewStream, withoutStreamSecrets } from '@/lib/stream-access';
 
 export async function POST(request: NextRequest, props: { params: Promise<{ streamId: string }> }) {
   const params = await props.params;
@@ -133,8 +134,19 @@ export async function GET(request: NextRequest, props: { params: Promise<{ strea
       return NextResponse.json({ error: 'Stream not found' }, { status: 404 });
     }
 
+    // Same rule as /api/livestream/[streamId]: a ticketed party needs a ticket,
+    // a members-only stream a tier, before its details, chat or recording.
+    const session = await getServerSession(authOptions);
+    const viewerId = (session?.user?.id as string | undefined) ?? null;
+    if (!(await canViewStream(viewerId, stream))) {
+      return NextResponse.json(
+        { error: viewerId ? 'Access denied' : 'Authentication required' },
+        { status: viewerId ? 403 : 401 }
+      );
+    }
+
     return NextResponse.json({
-      ...stream,
+      ...withoutStreamSecrets(stream, viewerId),
       signalingUrl: stream.status === 'LIVE'
         ? (process.env.NEXT_PUBLIC_WEBSOCKET_URL || '/api/socket')
         : null,
