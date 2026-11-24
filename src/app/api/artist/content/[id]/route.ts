@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { deleteFile, extractKeyFromUrl } from '@/lib/s3';
+import { deleteFile } from '@/lib/s3';
+import { asMediaPath, storageRefOwnershipError } from '@/lib/storage/refs';
 import { z } from 'zod';
+import { fileUrlField } from '@/lib/storage/validation';
 
 const updateContentSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title too long').optional(),
@@ -11,7 +13,7 @@ const updateContentSchema = z.object({
   tags: z.array(z.string()).optional(),
   tierIds: z.array(z.string()).optional(),
   isPublic: z.boolean().optional(),
-  thumbnailUrl: z.string().url().optional(),
+  thumbnailUrl: fileUrlField().optional(),
 });
 
 export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
@@ -120,8 +122,16 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
     if (validatedData.description !== undefined) updateData.description = validatedData.description;
     if (validatedData.tags !== undefined) updateData.tags = validatedData.tags;
     if (validatedData.isPublic !== undefined) updateData.isPublic = validatedData.isPublic;
-    if (validatedData.thumbnailUrl !== undefined)
-      updateData.thumbnailUrl = validatedData.thumbnailUrl;
+    if (validatedData.thumbnailUrl !== undefined) {
+      const refError = storageRefOwnershipError(validatedData.thumbnailUrl, session.user.id);
+      if (refError) {
+        return NextResponse.json(
+          { error: { code: 'VALIDATION_ERROR', message: refError } },
+          { status: 400 }
+        );
+      }
+      updateData.thumbnailUrl = asMediaPath(validatedData.thumbnailUrl);
+    }
 
     // Handle tier updates
     if (validatedData.tierIds !== undefined) {
@@ -199,13 +209,11 @@ export async function DELETE(request: NextRequest, props: { params: Promise<{ id
 
     // Delete file from S3
     try {
-      const fileKey = extractKeyFromUrl(existingContent.fileUrl);
-      await deleteFile(fileKey);
+      await deleteFile(existingContent.fileUrl, session.user.id);
 
       // Delete thumbnail if exists
       if (existingContent.thumbnailUrl) {
-        const thumbnailKey = extractKeyFromUrl(existingContent.thumbnailUrl);
-        await deleteFile(thumbnailKey);
+        await deleteFile(existingContent.thumbnailUrl, session.user.id);
       }
     } catch (s3Error) {
       console.error('S3 deletion error:', s3Error);

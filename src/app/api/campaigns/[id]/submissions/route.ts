@@ -4,14 +4,15 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
+import { fileUrlField } from '@/lib/storage/validation';
 const createSubmissionSchema = z.object({
   challengeId: z.string().cuid(),
   title: z.string().min(1).max(200),
   description: z.string().optional(),
   contentType: z.string(),
   content: z.string().min(1), // For text content or description
-  contentUrl: z.string().url().optional(), // For file uploads
-  thumbnailUrl: z.string().url().optional(),
+  contentUrl: fileUrlField().optional(), // For file uploads
+  thumbnailUrl: fileUrlField().optional(),
   metadata: z.record(z.any()).optional(),
 });
 

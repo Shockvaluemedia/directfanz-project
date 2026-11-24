@@ -1,3 +1,4 @@
+import { isStorageRef } from '@/lib/storage/refs';
 import { prisma } from './prisma';
 import { UserRole, SubscriptionStatus } from '@/types/database';
 // @ts-ignore - no type declarations available
@@ -160,16 +161,25 @@ export function verifyAccessToken(token: string): AccessToken | null {
  * Shapes a content row for a client. The raw storage URL is permanent and
  * public, so it is only exposed for public content or to the owner; everyone
  * else gets the gated app URLs, which check access on every request.
+ *
+ * A private S3 reference (s3://...) is never a browser URL, so where the raw
+ * value would have been exposed the client gets the app route instead, and a
+ * stored S3 thumbnail becomes the thumbnail route.
  */
 export function withClientMediaUrls<
   T extends { id: string; fileUrl: string; visibility: string; artistId: string },
 >(row: T, viewerId: string | null) {
   const { fileUrl, ...rest } = row;
   const exposeRaw = row.visibility === 'PUBLIC' || row.artistId === viewerId;
+  const streamUrl = `/api/content/${row.id}/stream`;
+  const thumbnail = (row as { thumbnailUrl?: unknown }).thumbnailUrl;
   return {
     ...rest,
-    ...(exposeRaw ? { fileUrl } : {}),
-    streamUrl: `/api/content/${row.id}/stream`,
+    ...(typeof thumbnail === 'string' && isStorageRef(thumbnail)
+      ? { thumbnailUrl: `/api/content/${row.id}/thumbnail` }
+      : {}),
+    ...(exposeRaw ? { fileUrl: isStorageRef(fileUrl) ? streamUrl : fileUrl } : {}),
+    streamUrl,
     downloadUrl: `/api/content/${row.id}/download`,
   };
 }

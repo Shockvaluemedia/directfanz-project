@@ -8,8 +8,10 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 /**
- * Downloads gated media as an attachment, streamed through the app. Like the
- * stream route, this never exposes the underlying storage URL.
+ * Downloads gated media as an attachment after an access check. A private S3
+ * file is answered with a redirect to a signed link that lives for minutes and
+ * forces the attachment filename; an older public Blob URL is streamed through
+ * the app, so its permanent URL is never exposed.
  */
 export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
   const { id } = await props.params;

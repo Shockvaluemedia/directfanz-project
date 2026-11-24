@@ -1,5 +1,5 @@
 import Stripe from 'stripe';
-import { put } from '@vercel/blob';
+import { getObjectStorage, toStorageRef } from '@/lib/storage';
 import sgMail from '@sendgrid/mail';
 
 interface ServiceHealthStatus {
@@ -121,17 +121,20 @@ export class ProductionServiceManager {
     }
   }
 
-  // Blob storage methods
+  // Object storage (private S3 bucket). The health key stays 'blob' so
+  // existing health consumers keep working.
   async uploadFile(key: string, body: Buffer | Uint8Array | string, contentType?: string): Promise<string> {
+    const storage = getObjectStorage();
+    if (!storage) throw new Error('Object storage is not configured');
     try {
       const start = Date.now();
-      const blob = await put(key, body as any, {
-        access: 'public',
-        contentType,
-        addRandomSuffix: false,
+      const data = typeof body === 'string' ? Buffer.from(body) : Buffer.from(body);
+      await storage.putObject(key, data, {
+        contentType: contentType ?? 'application/octet-stream',
+        contentLength: data.length,
       });
       this.updateHealthStatus('blob', true, Date.now() - start);
-      return blob.url;
+      return toStorageRef(key, storage.bucket);
     } catch (error) {
       this.updateHealthStatus('blob', false, undefined, error as Error);
       throw error;
@@ -139,18 +142,16 @@ export class ProductionServiceManager {
   }
 
   async checkBlobHealth(): Promise<ServiceHealthStatus> {
-    if (!process.env.BLOB_READ_WRITE_TOKEN) {
-      this.updateHealthStatus('blob', false, undefined, new Error('BLOB_READ_WRITE_TOKEN not configured'));
+    const storage = getObjectStorage();
+    if (!storage) {
+      this.updateHealthStatus('blob', false, undefined, new Error('AWS_S3_BUCKET_NAME not configured'));
       return this.healthStatus.blob;
     }
 
     try {
       const start = Date.now();
-      // Simple health check — upload a tiny test blob
-      await put('_health-check', 'ok', {
-        access: 'public',
-        addRandomSuffix: false,
-      });
+      // Read-only check: the bucket answers to the task role.
+      await storage.ping();
       this.updateHealthStatus('blob', true, Date.now() - start);
       return this.healthStatus.blob;
     } catch (error) {

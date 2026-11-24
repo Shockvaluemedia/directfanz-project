@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
 import { CampaignType, CampaignStatus, CampaignMetric } from '@/lib/types/enums';
+import { fileUrlField } from '@/lib/storage/validation';
 
 const updateCampaignSchema = z.object({
   title: z.string().min(1).max(200).optional(),
@@ -21,7 +22,7 @@ const updateCampaignSchema = z.object({
   totalPrizePool: z.number().positive().optional(),
   hasDigitalPrizes: z.boolean().optional(),
   hasPhysicalPrizes: z.boolean().optional(),
-  bannerImage: z.string().url().optional(),
+  bannerImage: fileUrlField().optional(),
   brandColor: z
     .string()
     .regex(/^#[0-9A-Fa-f]{6}$/)

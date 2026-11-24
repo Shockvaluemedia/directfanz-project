@@ -15,7 +15,8 @@ import {
   CogIcon,
   SparklesIcon,
 } from '@heroicons/react/24/outline';
-import { SUPPORTED_FILE_TYPES, FILE_SIZE_LIMITS } from '@/lib/s3';
+import { SUPPORTED_FILE_TYPES, FILE_SIZE_LIMITS } from '@/lib/upload-policy';
+import { uploadDirect } from '@/lib/direct-upload';
 
 interface FileUpload {
   id: string;
@@ -222,19 +223,13 @@ export default function OptimizedContentUploader() {
         u.id === upload.id ? { ...u, progress: 30 } : u
       ));
 
-      // Step 2: Upload to S3
-      const s3Response = await fetch(presignedData.uploadUrl, {
-        method: 'PUT',
-        body: upload.file,
-        headers: { 'Content-Type': upload.file.type },
-      });
-
-      if (!s3Response.ok) {
-        throw new Error('S3 upload failed');
-      }
+      // Step 2: Upload straight to storage (in parts for large files) and
+      // have the server confirm it; fileUrl is the storage reference.
+      const confirmed = await uploadDirect(upload.file, presignedData);
+      presignedData.fileUrl = confirmed.fileUrl;
 
       setUploads(prev => prev.map(u => 
-        u.id === upload.id ? { ...u, progress: 60, fileUrl: presignedData.fileUrl } : u
+        u.id === upload.id ? { ...u, progress: 60, fileUrl: confirmed.fileUrl } : u
       ));
 
       // Step 3: Apply optimization if enabled

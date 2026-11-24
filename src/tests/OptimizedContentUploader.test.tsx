@@ -25,7 +25,7 @@ jest.mock('next/navigation', () => ({
 }));
 
 // Mock S3 lib
-jest.mock('@/lib/s3', () => ({
+jest.mock('@/lib/upload-policy', () => ({
   SUPPORTED_FILE_TYPES: {
     'image/jpeg': { category: 'IMAGE', extension: 'jpg' },
     'image/png': { category: 'IMAGE', extension: 'png' },
@@ -37,6 +37,18 @@ jest.mock('@/lib/s3', () => ({
     VIDEO: 500 * 1024 * 1024, // 500MB
     AUDIO: 100 * 1024 * 1024, // 100MB
   },
+}));
+
+// The browser-to-S3 transfer (XHR) is covered by its own module; here it just succeeds.
+jest.mock('@/lib/direct-upload', () => ({
+  uploadDirect: jest.fn(async (file: File, info: { key?: string }) => ({
+    key: info.key ?? 'content/user-1/image/file.jpg',
+    fileName: file.name,
+    fileType: file.type,
+    fileSize: file.size,
+    uploadedAt: new Date().toISOString(),
+    fileUrl: 's3://mock-bucket/content/user-1/image/file.jpg',
+  })),
 }));
 
 // Mock fetch globally

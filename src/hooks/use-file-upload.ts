@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'react-hot-toast';
+import { uploadDirect } from '@/lib/direct-upload';
 
 export interface UploadedFile {
   key: string;
@@ -64,38 +65,11 @@ export function useFileUpload() {
       const { data: uploadInfo } = await presignedResponse.json();
       updateUploadProgress(fileName, { progress: 20 });
 
-      // Step 2: Upload to S3
-      const uploadResponse = await fetch(uploadInfo.uploadUrl, {
-        method: 'PUT',
-        body: file,
-        headers: {
-          'Content-Type': file.type,
-        },
+      // Step 2: Upload straight to storage (in parts for large files), then
+      // Step 3: have the server confirm it and return the storage reference.
+      const confirmedFile = await uploadDirect(file, uploadInfo, progress => {
+        updateUploadProgress(fileName, { progress: 20 + Math.round(progress * 0.75) });
       });
-
-      if (!uploadResponse.ok) {
-        throw new Error('Failed to upload file to storage');
-      }
-
-      updateUploadProgress(fileName, { progress: 80 });
-
-      // Step 3: Confirm upload
-      const confirmResponse = await fetch('/api/upload/confirm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          key: uploadInfo.key,
-          fileName: file.name,
-          fileType: file.type,
-        }),
-      });
-
-      if (!confirmResponse.ok) {
-        const error = await confirmResponse.json();
-        throw new Error(error.error?.message || 'Failed to confirm upload');
-      }
-
-      const { data: confirmedFile } = await confirmResponse.json();
 
       updateUploadProgress(fileName, {
         progress: 100,

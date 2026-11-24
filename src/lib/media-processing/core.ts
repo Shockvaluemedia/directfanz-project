@@ -14,7 +14,7 @@ import ffmpeg from 'fluent-ffmpeg';
 import ffmpegStatic from 'ffmpeg-static';
 // @ts-ignore - no type declarations available
 import ffprobeStatic from 'ffprobe-static';
-import { put } from '@vercel/blob';
+import { storeServerFile } from '@/lib/storage/uploads';
 import sharp from 'sharp';
 import path from 'path';
 import fs from 'fs/promises';
@@ -622,18 +622,13 @@ export class MediaProcessor {
   }
 
   /**
-   * Upload buffer to Vercel Blob
+   * Store a processed file in the private bucket; returns its storage reference.
    */
   private async uploadToS3(buffer: Buffer, key: string, contentType: string): Promise<string> {
     try {
-      const blob = await put(key, buffer, {
-        access: 'public',
-        contentType,
-        addRandomSuffix: false,
-      });
-      return blob.url;
+      return await storeServerFile(key, buffer, contentType);
     } catch (error) {
-      logger.error('Blob upload failed', { key }, error as Error);
+      logger.error('Storage upload failed', { key }, error as Error);
       throw new Error(`Failed to upload ${key} to storage`);
     }
   }

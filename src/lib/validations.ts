@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { UserRole, ContentType, SubscriptionStatus } from '@/lib/types/enums';
+import { fileUrlField } from '@/lib/storage/validation';
 
 // Authentication validation schemas
 export const registerSchema = z.object({
@@ -34,7 +35,7 @@ export const changePasswordSchema = z
 export const userProfileSchema = z.object({
   displayName: z.string().min(1, 'Display name is required').max(100, 'Display name too long'),
   bio: z.string().max(500, 'Bio too long').optional(),
-  avatar: z.string().url('Invalid avatar URL').optional(),
+  avatar: fileUrlField('Invalid avatar URL').optional(),
   socialLinks: z.record(z.string().url('Invalid social link URL')).optional(),
 });
 
@@ -44,7 +45,7 @@ export const createUserSchema = z.object({
   role: z.nativeEnum(UserRole),
   displayName: z.string().min(1, 'Display name is required').max(100, 'Display name too long'),
   bio: z.string().max(500, 'Bio too long').optional(),
-  avatar: z.string().url('Invalid avatar URL').optional(),
+  avatar: fileUrlField('Invalid avatar URL').optional(),
   socialLinks: z.record(z.string().url('Invalid social link URL')).optional(),
 });
 
@@ -67,8 +68,8 @@ export const createContentSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title too long'),
   description: z.string().max(1000, 'Description too long').optional(),
   type: z.nativeEnum(ContentType),
-  fileUrl: z.string().url('Invalid file URL'),
-  thumbnailUrl: z.string().url('Invalid thumbnail URL').optional(),
+  fileUrl: fileUrlField(),
+  thumbnailUrl: fileUrlField('Invalid thumbnail URL').optional(),
   isPublic: z.boolean().default(false),
   fileSize: z.number().min(1, 'File size must be greater than 0'),
   duration: z.number().min(0, 'Duration cannot be negative').optional(),

@@ -1,3 +1,4 @@
+import { isStorageRef } from '@/lib/storage/refs';
 import { prisma } from '@/lib/prisma';
 
 /**
@@ -106,14 +107,17 @@ export function ticketPriceError(
 /**
  * The recording link a viewer may be given. The stored recordingUrl is a
  * permanent storage URL, so only the artist sees it; everyone else gets the
- * app route, which checks access on every request.
+ * app route, which checks access on every request. A private S3 reference is
+ * not playable as-is, so the artist gets the app route for those too.
  */
 export function clientRecordingUrl(
   stream: { id: string; artistId: string; recordingUrl: string | null },
   viewerId: string | null | undefined
 ): string | null {
   if (!stream.recordingUrl) return null;
-  if (viewerId && stream.artistId === viewerId) return stream.recordingUrl;
+  if (viewerId && stream.artistId === viewerId && !isStorageRef(stream.recordingUrl)) {
+    return stream.recordingUrl;
+  }
   return `/api/livestream/${stream.id}/recording`;
 }
 

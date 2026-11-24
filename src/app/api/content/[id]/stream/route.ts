@@ -10,9 +10,10 @@ export const runtime = 'nodejs';
 const select = { fileUrl: true, format: true, type: true, title: true } as const;
 
 /**
- * Streams gated media through the app. The stored fileUrl is a permanent public
- * storage URL, so it must never be redirected or handed to the client: anyone
- * holding it could share it around the paywall.
+ * Plays gated media after an access check on every request. A private S3 file
+ * is answered with a redirect to a short-lived signed link; an older public
+ * Blob URL is proxied, never redirected or handed out, because anyone holding
+ * it could share it around the paywall.
  */
 async function serve(request: NextRequest, id: string, head: boolean): Promise<Response> {
   return withStreamingAccess(request, id, async () => {

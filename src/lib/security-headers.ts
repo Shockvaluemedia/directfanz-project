@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { storageOrigin } from '@/lib/storage/refs';
 
 /**
  * The one page where the browser may use the camera and microphone: the
@@ -16,6 +17,10 @@ export function permissionsPolicyFor(pathname?: string): string {
 
 export class SecurityHeadersManager {
   private static getCSPHeader(): string {
+    // The private media bucket: browsers upload to it directly with signed
+    // links and play media from signed links the app redirects to.
+    const storage = storageOrigin();
+    const withStorage = (directive: string) => (storage ? `${directive} ${storage}` : directive);
     const csp = [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://www.google.com",
@@ -23,8 +28,8 @@ export class SecurityHeadersManager {
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: https: blob:",
       // Amazon IVS: party playback (HLS) and the browser broadcaster's ingest.
-      "connect-src 'self' https://api.stripe.com wss: https://*.live-video.net",
-      "media-src 'self' blob: https://*.live-video.net",
+      withStorage("connect-src 'self' https://api.stripe.com wss: https://*.live-video.net"),
+      withStorage("media-src 'self' blob: https://*.live-video.net"),
       "worker-src 'self' blob:",
       "frame-src https://js.stripe.com",
       "object-src 'none'",

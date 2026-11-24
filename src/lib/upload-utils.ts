@@ -1,7 +1,12 @@
+import { uploadDirect, type DirectUploadInfo } from '@/lib/direct-upload';
+import type { UploadPurpose } from '@/lib/upload-policy';
+
 export interface UploadConfig {
   fileName: string;
   fileType: string;
   fileSize: number;
+  /** content (default, artists), image (avatars, covers), submission or attachment. */
+  purpose?: UploadPurpose;
 }
 
 export interface PresignedUrlResponse {
@@ -11,7 +16,8 @@ export interface PresignedUrlResponse {
     fileUrl: string;
     key: string;
     useLocalStorage: boolean;
-    fields?: Record<string, string>;
+    contentType?: string;
+    multipart?: DirectUploadInfo['multipart'];
   };
 }
 
@@ -45,7 +51,7 @@ export async function uploadFileWithProgress(
   return uploadToS3(file, uploadInfo, onProgress);
 }
 
-// When object storage (S3 / Vercel Blob) is not configured, persist the file
+// When object storage (the S3 bucket) is not configured, persist the file
 // through the hardened /api/upload endpoint, which validates the type/size and
 // writes it to local content storage, returning a servable /api/files URL.
 // Previously this "local" path only animated a progress bar and returned a URL
@@ -87,47 +93,15 @@ async function uploadToContentApi(
   });
 }
 
+// Direct to the private bucket with signed link(s), then confirmed by the
+// server. Resolves to the storage reference to save on the content row.
 async function uploadToS3(
   file: File,
   uploadInfo: PresignedUrlResponse['data'],
   onProgress?: UploadProgressCallback
 ): Promise<string> {
-  const xhr = new XMLHttpRequest();
-  
-  return new Promise((resolve, reject) => {
-    xhr.upload.addEventListener('progress', (event) => {
-      if (event.lengthComputable) {
-        const progress = (event.loaded / event.total) * 100;
-        onProgress?.(progress);
-      }
-    });
-
-    xhr.addEventListener('load', () => {
-      if (xhr.status === 200 || xhr.status === 204) {
-        resolve(uploadInfo.fileUrl);
-      } else {
-        reject(new Error(`Upload failed with status ${xhr.status}`));
-      }
-    });
-
-    xhr.addEventListener('error', () => {
-      reject(new Error('Network error during upload'));
-    });
-
-    if (uploadInfo.fields) {
-      const formData = new FormData();
-      Object.entries(uploadInfo.fields).forEach(([key, value]) => {
-        formData.append(key, value);
-      });
-      formData.append('file', file);
-      xhr.open('POST', uploadInfo.uploadUrl);
-      xhr.send(formData);
-    } else {
-      xhr.open('PUT', uploadInfo.uploadUrl);
-      xhr.setRequestHeader('Content-Type', file.type);
-      xhr.send(file);
-    }
-  });
+  const confirmed = await uploadDirect(file, uploadInfo, onProgress);
+  return confirmed.fileUrl;
 }
 
 export function validateFile(file: File): string[] {

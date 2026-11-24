@@ -8,13 +8,18 @@ import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { nanoid } from 'nanoid';
 import crypto from 'crypto';
+import { asMediaPath, isStorageRef, storageRefOwnershipError } from '@/lib/storage/refs';
 
-// Accept either an absolute http(s) URL (e.g. Vercel Blob) or an app-relative
-// path (e.g. /api/files/content/... served by local storage).
+// Accept a storage reference (s3://<bucket>/<key>, from /api/upload/confirm),
+// an absolute http(s) URL (older Blob files), or an app-relative path
+// (/api/files/content/... served by local storage).
 const urlOrPath = z
   .string()
   .min(1)
-  .refine(v => v.startsWith('/') || /^https?:\/\//i.test(v), 'Invalid file URL or path');
+  .refine(
+    v => v.startsWith('/') || /^https?:\/\//i.test(v) || isStorageRef(v),
+    'Invalid file URL or path'
+  );
 
 const createContentSchema = z.object({
   title: z.string().min(1, 'Title is required').max(255, 'Title too long'),
@@ -48,6 +53,14 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const validatedData = createContentSchema.parse(body);
+
+    // A storage reference must be one of this artist's own uploads.
+    const refError =
+      storageRefOwnershipError(validatedData.fileUrl, session.user.id) ??
+      storageRefOwnershipError(validatedData.thumbnailUrl, session.user.id);
+    if (refError) {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, refError, 400);
+    }
 
     const contentType = determineContentType(validatedData.format, validatedData.type);
     const contentId = nanoid();
@@ -89,7 +102,7 @@ export async function POST(request: NextRequest) {
         description: validatedData.description || null,
         type: contentType,
         fileUrl: validatedData.fileUrl,
-        thumbnailUrl: validatedData.thumbnailUrl || null,
+        thumbnailUrl: asMediaPath(validatedData.thumbnailUrl) || null,
         visibility: validatedData.visibility,
         fileSize: validatedData.fileSize,
         duration: validatedData.duration || null,

@@ -5,14 +5,15 @@ import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
 import { SubmissionContentType, SubmissionStatus } from '@/lib/types/enums';
+import { fileUrlField } from '@/lib/storage/validation';
 
 // Validation schema for creating submissions
 const createSubmissionSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().optional(),
   contentType: z.nativeEnum(SubmissionContentType),
-  contentUrl: z.string().url(),
-  thumbnailUrl: z.string().url().optional(),
+  contentUrl: fileUrlField(),
+  thumbnailUrl: fileUrlField().optional(),
   metadata: z.record(z.any()).optional(),
 });
 
