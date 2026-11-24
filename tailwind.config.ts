@@ -8,6 +8,37 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      // Stage design tokens (see DESIGN.md and docs/design/stage-design-direction.md).
+      colors: {
+        stage: {
+          ink: '#07070A',
+          base: '#0C0C11',
+          surface: '#13131A',
+          raised: '#1B1B24',
+          line: '#262631',
+          'line-strong': '#383845',
+          text: '#F4F4F6',
+          muted: '#A6A6B3',
+          subtle: '#8A8A97',
+          pulse: '#A594FF',
+          'pulse-strong': '#BCB0FF',
+          ember: '#FFB547',
+          live: '#FF4D6A',
+          violet: '#8E7DFF',
+        },
+      },
+      fontFamily: {
+        sans: ['var(--font-geist-sans)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        display: ['var(--font-geist-sans)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        mono: ['var(--font-geist-mono)', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+      },
+      borderRadius: {
+        media: '10px',
+        control: '6px',
+      },
+      transitionTimingFunction: {
+        stage: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
+      },
       screens: {
         'xs': '475px',
         'tall': { 'raw': '(min-height: 800px)' },

@@ -52,3 +52,14 @@ Design a creator-to-fan membership platform with media-forward profiles, premium
 ## Shared Guide
 
 The shared arsenal design system lives in `Shockvaluemedia/svm-operator-core/docs/arsenal-design-bible.md`.
+
+## Stage System (fan-facing pages)
+
+The home page, community, drops (music and video), presales, membership,
+listening parties and premieres use the
+stage tokens and components described in
+[`docs/design/stage-design-direction.md`](docs/design/stage-design-direction.md):
+Geist type, near-black stepped surfaces, one electric violet accent
+(`stage-pulse`), ember only for time and scarcity, red only for live.
+Components live in `src/components/stage/`; `/design-preview` renders every
+page with sample data (off in production unless `DESIGN_PREVIEW=on`).
