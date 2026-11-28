@@ -1,0 +1,143 @@
+name: Deploy to AWS (manual)
+
+# Manual only: nothing deploys on push or merge. Runs from main, inside the
+# GitHub "production" environment, which must have required reviewers so a
+# person approves every run. The AWS role trusts only that environment
+# (infra/aws/deploy-role.tf).
+#
+# Steps: build the ARM image -> push to ECR -> run `prisma migrate deploy` as a
+# one-off ECS task -> roll the ECS service to the new image -> wait until healthy.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "deploy" to deploy main to AWS'
+        required: true
+        type: string
+      run_migrations:
+        description: 'Run database migrations before rolling the service'
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-aws-production
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: directfanz-prod
+  ECS_CLUSTER: directfanz-prod-cluster
+  ECS_SERVICE: directfanz-prod-app
+  CONTAINER_NAME: app
+
+jobs:
+  deploy:
+    name: Build, migrate, deploy
+    if: github.ref == 'refs/heads/main' && inputs.confirm == 'deploy'
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC, no stored keys)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: directfanz-deploy-${{ github.run_id }}
+
+      - name: Log in to ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up QEMU (ARM64 build on an x86 runner)
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/arm64
+          push: true
+          provenance: false
+          tags: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          # Public, browser-visible values only. Never put a secret here.
+          build-args: |
+            NEXT_PUBLIC_APP_URL=${{ vars.NEXT_PUBLIC_APP_URL || 'https://directfanz.io' }}
+            NEXT_PUBLIC_APP_VERSION=${{ github.sha }}
+            NEXT_PUBLIC_SENTRY_DSN=${{ vars.NEXT_PUBLIC_SENTRY_DSN }}
+
+      - name: Register task definition with the new image
+        id: taskdef
+        env:
+          IMAGE: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+        run: |
+          set -euo pipefail
+          current_arn=$(aws ecs describe-services --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" \
+            --query 'services[0].taskDefinition' --output text)
+          aws ecs describe-task-definition --task-definition "$current_arn" --query 'taskDefinition' > current.json
+          jq --arg img "$IMAGE" --arg name "$CONTAINER_NAME" '
+            .containerDefinitions |= map(if .name == $name then .image = $img else . end)
+            | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities,
+                  .registeredAt, .registeredBy, .deregisteredAt)
+          ' current.json > next.json
+          new_arn=$(aws ecs register-task-definition --cli-input-json file://next.json \
+            --query 'taskDefinition.taskDefinitionArn' --output text)
+          echo "arn=$new_arn" >> "$GITHUB_OUTPUT"
+          echo "Registered $new_arn"
+
+      - name: Run database migrations (one-off task)
+        if: inputs.run_migrations
+        env:
+          TASK_DEF: ${{ steps.taskdef.outputs.arn }}
+        run: |
+          set -euo pipefail
+          netcfg=$(aws ecs describe-services --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" \
+            --query 'services[0].networkConfiguration' --output json)
+          overrides=$(jq -nc --arg name "$CONTAINER_NAME" \
+            '{containerOverrides: [{name: $name, command: ["prisma", "migrate", "deploy"]}]}')
+          task_arn=$(aws ecs run-task --cluster "$ECS_CLUSTER" --task-definition "$TASK_DEF" \
+            --launch-type FARGATE --count 1 \
+            --network-configuration "$netcfg" \
+            --overrides "$overrides" \
+            --started-by "gh-${GITHUB_RUN_ID}" \
+            --query 'tasks[0].taskArn' --output text)
+          echo "Migration task: $task_arn"
+          aws ecs wait tasks-stopped --cluster "$ECS_CLUSTER" --tasks "$task_arn"
+          exit_code=$(aws ecs describe-tasks --cluster "$ECS_CLUSTER" --tasks "$task_arn" \
+            --query "tasks[0].containers[?name=='$CONTAINER_NAME'].exitCode | [0]" --output text)
+          reason=$(aws ecs describe-tasks --cluster "$ECS_CLUSTER" --tasks "$task_arn" \
+            --query 'tasks[0].stoppedReason' --output text)
+          echo "Migration exit code: $exit_code ($reason)"
+          echo "Logs: CloudWatch log group /ecs/directfanz-prod, stream app/$CONTAINER_NAME/${task_arn##*/}"
+          if [ "$exit_code" != "0" ]; then
+            echo "::error::Migrations failed; the service was not changed."
+            exit 1
+          fi
+
+      - name: Roll the service to the new image
+        env:
+          TASK_DEF: ${{ steps.taskdef.outputs.arn }}
+        run: |
+          set -euo pipefail
+          aws ecs update-service --cluster "$ECS_CLUSTER" --service "$ECS_SERVICE" \
+            --task-definition "$TASK_DEF" --query 'service.serviceName' --output text
+          echo "Waiting for the new task to pass health checks..."
+          aws ecs wait services-stable --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE"
+          echo "Deployed ${GITHUB_SHA} to $ECS_SERVICE"
